@@ -89,6 +89,8 @@ export interface ParcelFacts {
     point_of_sale_inspection?: "Y" | "N" | "unknown" | string; pos_details?: string | null;
     source_url?: string | null; confidence?: string | null;
   } | null;
+  property_tax?: { year: number; general_mills: number | null; split_rate: boolean;
+                   parts: { jurisdiction_type: string; name: string; rate_type: string; mills: number }[] } | null;
   transfer_tax?: { total_pct: number; parts: { jurisdiction: string; jurisdiction_type: string; rate_pct: number; confidence: string }[] } | null;
   street_frontage?: "street" | "steps" | "paper" | "none";
   context?: { municipality: string | null; neighborhood: string | null; street_trees_15m: number | null;

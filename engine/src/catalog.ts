@@ -599,7 +599,13 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "tax_jump", item: "Property tax jump after construction", category: "Hidden cost", phase: "closeout",
     issuer: "Allegheny County Office of Property Assessments", trigger: "New construction or major improvement", data: ["Assessment", "Millage"], citation: null,
-    rule: (f, p) => (buildsNew(p) || p.type === "rehab" ? [{ status: "REQUIRED", reason: `Taxes are reassessed on completion; today's bill ($${Math.round(f.assessment?.fmv_total ?? 0).toLocaleString()} assessed value) will rise. Model post-construction taxes (millage table loading).`, source: SRC.assessment }] : [notNeeded("No reassessment trigger.")]),
+    rule: (f, p) => {
+      if (!(buildsNew(p) || p.type === "rehab")) return [notNeeded("No reassessment trigger.")];
+      const tx = f.property_tax, value = f.assessment?.fmv_total ?? 0;
+      const rate = tx?.split_rate ? null : tx?.general_mills;
+      const today = rate != null ? ` Today: ${rate} mills × $${Math.round(value).toLocaleString()} assessed = about $${Math.round((rate * value) / 1000).toLocaleString()}/yr.` : "";
+      return [{ status: "REQUIRED", reason: `New construction is reassessed the year after completion (a prorated interim bill is possible).${today} Every $100,000 of added assessed value adds about $${rate != null ? Math.round(rate * 100).toLocaleString() : "?"}/yr.`, source: tx ? "Allegheny County Treasurer 2026 millage" : SRC.assessment }];
+    },
   },
   {
     id: "historic_delay", item: "Historic review delays", category: "Hidden cost", phase: "zoning",

@@ -113,6 +113,43 @@ begin
       select jsonb_build_object('total_pct', sum(rate_pct), 'parts', jsonb_agg(to_jsonb(parts)),
                                 'source', 'PA Dept. of Revenue; Allegheny County local realty transfer tax rates')
       from parts),
+    -- 2026 millage: county + municipality (city wards roll up) + school district. Mills per $1,000 of assessed value.
+    'property_tax', (
+      with muni as (
+        select case when exists (select 1 from public.millage m where m.jurisdiction_type = 'municipality' and m.code = a.municode) then a.municode
+                    when a.municode ~ '^1[0-9]{2}$' then 'CITY_PGH'
+                    when a.municode ~ '^2[0-9]{2}$' then 'CITY_CLAIRTON'
+                    when a.municode ~ '^3[0-9]{2}$' then 'CITY_DUQUESNE'
+                    when a.municode ~ '^4[0-9]{2}$' then 'CITY_MCKEESPORT' end as code),
+      sd as (select district from public.parcel_schools s where s.parid = p.parid),
+      parts as (
+        select jurisdiction_type, name, rate_type, mills from public.millage where jurisdiction_type = 'county'
+        union all
+        select m.jurisdiction_type, m.name, m.rate_type, m.mills from public.millage m, muni
+        where m.jurisdiction_type = 'municipality' and m.code = muni.code
+        union all
+        (select m.jurisdiction_type, m.name, m.rate_type, m.mills from public.millage m, sd
+         where m.jurisdiction_type = 'school_district'
+           and public.norm_district(sd.district) like public.norm_district(m.name) || '%'
+         order by (public.norm_district(sd.district) = public.norm_district(m.name)) desc, length(m.name) desc
+         limit 2))
+      select jsonb_build_object(
+        'year', 2026,
+        'general_mills', sum(mills) filter (where rate_type = 'general'),
+        'parts', jsonb_agg(to_jsonb(parts)),
+        'split_rate', bool_or(rate_type in ('land', 'building')),
+        'source', 'Allegheny County Treasurer 2026 millage listings')
+      from parts),
+    'tract_designations', (
+      select to_jsonb(d) - 'geoid' from public.parcel_tract pt join public.tract_designations d using (geoid)
+      where pt.parid = p.parid),
+    'hud_fmr', (
+      select jsonb_build_object('year', f.year, 'zip', f.zip, 'br0', f.br0, 'br1', f.br1, 'br2', f.br2,
+                                'br3', f.br3, 'br4', f.br4,
+                                'level', case when f.zip is null then 'metro' else 'small area (ZIP)' end,
+                                'source', 'HUD Fair Market Rents')
+      from public.hud_fmr f where f.zip = left(a.zip, 5) or f.zip is null
+      order by (f.zip is null) limit 1),
     'condemned', exists (select 1 from public.condemned c where c.parid = p.parid and c.status = 'Active'),
     -- Mine subsidence (040_parcel_mines). Mine maps are incomplete: no mapped mine is not proof of no mine.
     'mines', (

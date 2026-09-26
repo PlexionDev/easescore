@@ -37,27 +37,19 @@
   "tax_delinquent": false
  },
  "flood_1pct_share": 0,
- "lot_area_sqft_gis": 14685,
- "mines": {
-  "caveat": "Mine maps are incomplete; absence of a mapped mine is not proof that no mine exists.",
-  "dist_mined_out_ft": null,
-  "in_city_undermined": false,
-  "in_coal_bearing": false,
-  "in_mined_out": true,
-  "mine_map_pdf": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R260-3762-1.pdf",
-  "mine_map_sheet": "PASC_R260-3762-1",
-  "mine_map_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R260-3762-1",
-  "mined_out_share": 1,
-  "mines_within_500ft": null,
-  "msi_risk": null,
-  "seams_within_500ft": null,
-  "sources": {
-   "city_undermined": "City of Pittsburgh Undermined Areas (UM-O)",
-   "coal_bearing": "PA DEP Mine Subsidence Insurance risk map (MSI Risk Confirmed / Possible)",
-   "mine_map": "PA Mine Map Atlas (PASDA / PA DEP)",
-   "mined_out": "PA DEP Digitized Mined Out Areas, Coal Underground (DMO MOA)"
-  }
+ "hud_fmr": {
+  "br0": 1230,
+  "br1": 1320,
+  "br2": 1590,
+  "br3": 2030,
+  "br4": 2190,
+  "level": "small area (ZIP)",
+  "source": "HUD Fair Market Rents",
+  "year": 2026,
+  "zip": "15211"
  },
+ "lot_area_sqft_gis": 14685,
+ "mines": null,
  "muni_rules": {
   "confidence": "confirmed",
   "municipality": "Pittsburgh City",
@@ -82,21 +74,6 @@
     "creep": "",
     "debris": "",
     "man_made_fill": "",
-    "prehistoric": "Y",
-    "red_beds": "Y",
-    "rills": "",
-    "rockfall": "",
-    "very_steep_slope": ""
-   },
-   "label": null,
-   "layer": "landslide_recorded",
-   "share": 0.635
-  },
-  {
-   "attrs": {
-    "creep": "",
-    "debris": "",
-    "man_made_fill": "",
     "prehistoric": "",
     "red_beds": "Y",
     "rills": "",
@@ -109,6 +86,47 @@
   },
   {
    "attrs": {
+    "creep": "",
+    "debris": "",
+    "man_made_fill": "",
+    "prehistoric": "Y",
+    "red_beds": "Y",
+    "rills": "",
+    "rockfall": "",
+    "very_steep_slope": ""
+   },
+   "label": null,
+   "layer": "landslide_recorded",
+   "share": 0.635
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=RPCC_UMM_4000_9453-37_26771",
+    "collection": "RochesterPgh",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/SID_Images/geor_RPCC_UMM_4000_9453-37_26771.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/PDF_Images/RPCC_UMM_4000_9453-37_26771.pdf",
+    "sheet_id": "RPCC_UMM_4000_9453-37_26771",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "RPCC_UMM_4000_9453-37_26771",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_4000_2624-001",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_4000_2624-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_4000_2624-001.pdf",
+    "sheet_id": "BMSB_UMM_4000_2624-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_4000_2624-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
     "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_4000_2624-003",
     "collection": "DEP New Stanton",
     "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_4000_2624-003.zip",
@@ -117,6 +135,32 @@
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
    "label": "BMSB_UMM_4000_2624-003",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0004_UMM_800_002",
+    "collection": "DEP California",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0004_Becks_Run_Walton/SID_Images/geor_0004_UMM_800_002.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0004_Becks_Run_Walton/PDF_Images/0004_UMM_800_002.pdf",
+    "sheet_id": "0004_UMM_800_002",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "0004_UMM_800_002",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R291-5076-3",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R291-5076-3.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R291-5076-3.pdf",
+    "sheet_id": "PASC_R291-5076-3",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R291-5076-3",
    "layer": "mine_map_sheets",
    "share": 1
   },
@@ -486,68 +530,42 @@
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0004_UMM_800_002",
-    "collection": "DEP California",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0004_Becks_Run_Walton/SID_Images/geor_0004_UMM_800_002.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0004_Becks_Run_Walton/PDF_Images/0004_UMM_800_002.pdf",
-    "sheet_id": "0004_UMM_800_002",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "0004_UMM_800_002",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R291-5076-3",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R307A-5052-1",
     "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R291-5076-3.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R291-5076-3.pdf",
-    "sheet_id": "PASC_R291-5076-3",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R307A-5052-1_A.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R307A-5052-1_A.pdf",
+    "sheet_id": "PASC_R307A-5052-1",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "PASC_R291-5076-3",
+   "label": "PASC_R307A-5052-1",
    "layer": "mine_map_sheets",
    "share": 1
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=KSHT_UMM_2000_K5922",
-    "collection": "K-Sheet",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/K_Sheet_Collection/SID_Images/geor_KSHT_UMM_2000_K5922.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/K_Sheet_Collection/PDF_Images/KSHT_UMM_2000_K5922.pdf",
-    "sheet_id": "KSHT_UMM_2000_K5922",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R260-3762-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R260-3762-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R260-3762-1.pdf",
+    "sheet_id": "PASC_R260-3762-1",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "KSHT_UMM_2000_K5922",
+   "label": "PASC_R260-3762-1",
    "layer": "mine_map_sheets",
-   "share": 1
+   "share": 0.795
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Carnegie_Sht_3_PGH",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Carnegie_Sht_3_PGH.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Carnegie_Sht_3_PGH.pdf",
-    "sheet_id": "WPA_Carnegie_Sht_3_PGH",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R260-3725-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R260-3725-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R260-3725-1.pdf",
+    "sheet_id": "PASC_R260-3725-1",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "WPA_Carnegie_Sht_3_PGH",
+   "label": "PASC_R260-3725-1",
    "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Carnegie_Sht_3_BaseMap",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Carnegie_Sht_3_BaseMap.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Carnegie_Sht_3_BaseMap.pdf",
-    "sheet_id": "WPA_Carnegie_Sht_3_BaseMap",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "WPA_Carnegie_Sht_3_BaseMap",
-   "layer": "mine_map_sheets",
-   "share": 1
+   "share": 0.944
   },
   {
    "attrs": {
@@ -785,14 +803,14 @@
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=DER_COUNTY_Allegheny_PGH",
-    "collection": "DER County",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/DER_Legacy_County_Maps/SID_Images/geor_DER_COUNTY_Allegheny_PGH.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/DER_Legacy_County_Maps/PDF_Images/DER_COUNTY_Allegheny_PGH.pdf",
-    "sheet_id": "DER_COUNTY_Allegheny_PGH",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=KSHT_UMM_2000_K5922",
+    "collection": "K-Sheet",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/K_Sheet_Collection/SID_Images/geor_KSHT_UMM_2000_K5922.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/K_Sheet_Collection/PDF_Images/KSHT_UMM_2000_K5922.pdf",
+    "sheet_id": "KSHT_UMM_2000_K5922",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "DER_COUNTY_Allegheny_PGH",
+   "label": "KSHT_UMM_2000_K5922",
    "layer": "mine_map_sheets",
    "share": 1
   },
@@ -876,66 +894,40 @@
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R260-3762-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R260-3762-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R260-3762-1.pdf",
-    "sheet_id": "PASC_R260-3762-1",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=DER_COUNTY_Allegheny_PGH",
+    "collection": "DER County",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/DER_Legacy_County_Maps/SID_Images/geor_DER_COUNTY_Allegheny_PGH.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/DER_Legacy_County_Maps/PDF_Images/DER_COUNTY_Allegheny_PGH.pdf",
+    "sheet_id": "DER_COUNTY_Allegheny_PGH",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "PASC_R260-3762-1",
-   "layer": "mine_map_sheets",
-   "share": 0.795
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R260-3725-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R260-3725-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R260-3725-1.pdf",
-    "sheet_id": "PASC_R260-3725-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R260-3725-1",
-   "layer": "mine_map_sheets",
-   "share": 0.944
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R307A-5052-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R307A-5052-1_A.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R307A-5052-1_A.pdf",
-    "sheet_id": "PASC_R307A-5052-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R307A-5052-1",
+   "label": "DER_COUNTY_Allegheny_PGH",
    "layer": "mine_map_sheets",
    "share": 1
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=RPCC_UMM_4000_9453-37_26771",
-    "collection": "RochesterPgh",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/SID_Images/geor_RPCC_UMM_4000_9453-37_26771.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/PDF_Images/RPCC_UMM_4000_9453-37_26771.pdf",
-    "sheet_id": "RPCC_UMM_4000_9453-37_26771",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Carnegie_Sht_3_PGH",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Carnegie_Sht_3_PGH.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Carnegie_Sht_3_PGH.pdf",
+    "sheet_id": "WPA_Carnegie_Sht_3_PGH",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "RPCC_UMM_4000_9453-37_26771",
+   "label": "WPA_Carnegie_Sht_3_PGH",
    "layer": "mine_map_sheets",
    "share": 1
   },
   {
    "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_4000_2624-001",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_4000_2624-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_4000_2624-001.pdf",
-    "sheet_id": "BMSB_UMM_4000_2624-001",
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Carnegie_Sht_3_BaseMap",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Carnegie_Sht_3_BaseMap.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Carnegie_Sht_3_BaseMap.pdf",
+    "sheet_id": "WPA_Carnegie_Sht_3_BaseMap",
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
-   "label": "BMSB_UMM_4000_2624-001",
+   "label": "WPA_Carnegie_Sht_3_BaseMap",
    "layer": "mine_map_sheets",
    "share": 1
   },
@@ -953,6 +945,32 @@
  "permits": {
   "count_5y": 0,
   "recent": []
+ },
+ "property_tax": {
+  "general_mills": 26.35,
+  "parts": [
+   {
+    "jurisdiction_type": "county",
+    "mills": 6.43,
+    "name": "Allegheny County",
+    "rate_type": "general"
+   },
+   {
+    "jurisdiction_type": "municipality",
+    "mills": 9.67,
+    "name": "City Of Pittsburgh",
+    "rate_type": "general"
+   },
+   {
+    "jurisdiction_type": "school_district",
+    "mills": 10.25,
+    "name": "PITTSBURGH",
+    "rate_type": "general"
+   }
+  ],
+  "source": "Allegheny County Treasurer 2026 millage listings",
+  "split_rate": false,
+  "year": 2026
  },
  "schools": {
   "district": "City of Pittsburgh",
@@ -980,6 +998,14 @@
   "rent_burden_30_pct": 25.11,
   "rent_burden_50_pct": 6.28,
   "vacancy_rate": 17.15
+ },
+ "tract_designations": {
+  "dda": false,
+  "dda_source_url": "https://www.huduser.gov/portal/datasets/qct.html",
+  "opportunity_zone": false,
+  "oz_source_url": "https://www.cdfifund.gov/opportunity-zones",
+  "qct": false,
+  "qct_source_url": "https://www.huduser.gov/portal/datasets/qct.html"
  },
  "transfer_tax": {
   "parts": [

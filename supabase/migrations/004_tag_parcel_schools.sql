@@ -7,7 +7,7 @@ create or replace function public.norm_district(n text) returns text
 language sql immutable as $$
   select trim(regexp_replace(regexp_replace(
     regexp_replace(upper(coalesce(n,'')), '[^A-Z ]', ' ', 'g'),
-    '\m(CITY OF|BOROUGH|BORO|TOWNSHIP|TWP|AREA|SCHOOL DISTRICT|SD)\M', '', 'g'),
+    '\m(CITY OF|CITY|BOROUGH|BORO|TOWNSHIP|TWP|AREA|SCHOOL DISTRICT|SD)\M', '', 'g'),
     '\s+', ' ', 'g'))
 $$;
 

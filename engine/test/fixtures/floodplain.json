@@ -37,31 +37,19 @@
   "tax_delinquent": false
  },
  "flood_1pct_share": 1,
- "lot_area_sqft_gis": 5582,
- "mines": {
-  "caveat": "Mine maps are incomplete; absence of a mapped mine is not proof that no mine exists.",
-  "dist_mined_out_ft": 349,
-  "in_city_undermined": false,
-  "in_coal_bearing": true,
-  "in_mined_out": true,
-  "mine_map_pdf": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/H_Sheet_Collection/PDF_Images/HSHT_UMM_100_H5406_E.pdf",
-  "mine_map_sheet": "HSHT_UMM_100_H5406_E",
-  "mine_map_url": "https://www.minemaps.psu.edu/?LocalSheetID=HSHT_UMM_100_H5406_E",
-  "mined_out_share": 1,
-  "mines_within_500ft": [
-   "ForestHills"
-  ],
-  "msi_risk": "confirmed",
-  "seams_within_500ft": [
-   "Pittsburgh"
-  ],
-  "sources": {
-   "city_undermined": "City of Pittsburgh Undermined Areas (UM-O)",
-   "coal_bearing": "PA DEP Mine Subsidence Insurance risk map (MSI Risk Confirmed / Possible)",
-   "mine_map": "PA Mine Map Atlas (PASDA / PA DEP)",
-   "mined_out": "PA DEP Digitized Mined Out Areas, Coal Underground (DMO MOA)"
-  }
+ "hud_fmr": {
+  "br0": 870,
+  "br1": 940,
+  "br2": 1130,
+  "br3": 1440,
+  "br4": 1560,
+  "level": "small area (ZIP)",
+  "source": "HUD Fair Market Rents",
+  "year": 2026,
+  "zip": "15037"
  },
+ "lot_area_sqft_gis": 5582,
+ "mines": null,
  "muni_rules": {
   "confidence": "confirmed",
   "municipality": "Elizabeth Township",
@@ -91,760 +79,6 @@
    },
    "label": "AE",
    "layer": "flood_fema_nfhl",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_LOCAT_5280_T4-037",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_LOCAT_5280_T4-037.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_LOCAT_5280_T4-037.pdf",
-    "sheet_id": "BMSB_LOCAT_5280_T4-037",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_LOCAT_5280_T4-037",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_LOCAT_5280_T4-038",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_LOCAT_5280_T4-038.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_LOCAT_5280_T4-038.pdf",
-    "sheet_id": "BMSB_LOCAT_5280_T4-038",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_LOCAT_5280_T4-038",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_4973-006",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_4973-006.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_4973-006.pdf",
-    "sheet_id": "BMSB_UMM_5280_4973-006",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_5280_4973-006",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-243_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-243_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-243_001.pdf",
-    "sheet_id": "PAGS_ALL-243_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-243_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-202_002",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-202_002.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-202_002.pdf",
-    "sheet_id": "PAGS_ALL-202_002",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-202_002",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-202_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-202_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-202_001.pdf",
-    "sheet_id": "PAGS_ALL-202_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-202_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_2148-001",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_2148-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_2148-001.pdf",
-    "sheet_id": "BMSB_UMM_5280_2148-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_5280_2148-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R267-3572-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R267-3572-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R267-3572-1.pdf",
-    "sheet_id": "PASC_R267-3572-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R267-3572-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R262-4235-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R262-4235-1_B.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R262-4235-1_B.pdf",
-    "sheet_id": "PASC_R262-4235-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R262-4235-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_001.pdf",
-    "sheet_id": "PAGS_FAY-306_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PENN_UMM_7920_3337_25433",
-    "collection": "DCNR Penfield",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Penfield/SID_Images/geor_PENN_UMM_7920_3337_25433.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Penfield/PDF_Images/PENN_UMM_7920_3337_25433.pdf",
-    "sheet_id": "PENN_UMM_7920_3337_25433",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PENN_UMM_7920_3337_25433",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_002",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_002.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_002.pdf",
-    "sheet_id": "PAGS_FAY-306_002",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_002",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_3218-001",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_3218-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_3218-001.pdf",
-    "sheet_id": "BMSB_UMM_5280_3218-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_5280_3218-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_003",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_003.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_003.pdf",
-    "sheet_id": "PAGS_FAY-306_003",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_003",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_005",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_005.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_005.pdf",
-    "sheet_id": "PAGS_FAY-306_005",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_005",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-3677-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-3677-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-3677-1.pdf",
-    "sheet_id": "PASC_R309-3677-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R309-3677-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_007",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_007.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_007.pdf",
-    "sheet_id": "PAGS_FAY-306_007",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_007",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R267-3466-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R267-3466-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R267-3466-1.pdf",
-    "sheet_id": "PASC_R267-3466-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R267-3466-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_004",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_004.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_004.pdf",
-    "sheet_id": "PAGS_FAY-306_004",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_004",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_006",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_006.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_006.pdf",
-    "sheet_id": "PAGS_FAY-306_006",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_FAY-306_006",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R291-3679-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R291-3679-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R291-3679-1.pdf",
-    "sheet_id": "PASC_R291-3679-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R291-3679-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0007-001",
-    "collection": "Prushnok Neil",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0007-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0007-001.pdf",
-    "sheet_id": "PNR_0007-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PNR_0007-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CAMB_UMM_8350_21343",
-    "collection": "DEP Cambria",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_Cambria/SID_Images/geor_CAMB_UMM_8350_21343.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_Cambria/PDF_Images/CAMB_UMM_8350_21343.pdf",
-    "sheet_id": "CAMB_UMM_8350_21343",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "CAMB_UMM_8350_21343",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R297-4151-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R297-4151-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R297-4151-1.pdf",
-    "sheet_id": "PASC_R297-4151-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R297-4151-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0032-001",
-    "collection": "Prushnok Neil",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0032-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0032-001.pdf",
-    "sheet_id": "PNR_0032-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PNR_0032-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-3860-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-3860-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-3860-1.pdf",
-    "sheet_id": "PASC_R309-3860-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R309-3860-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_2109-001",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_2109-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_2109-001.pdf",
-    "sheet_id": "BMSB_UMM_5280_2109-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_5280_2109-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-4027-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-4027-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-4027-1.pdf",
-    "sheet_id": "PASC_R309-4027-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R309-4027-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R265-3396-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R265-3396-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R265-3396-1.pdf",
-    "sheet_id": "PASC_R265-3396-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R265-3396-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R280-3608-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R280-3608-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R280-3608-1.pdf",
-    "sheet_id": "PASC_R280-3608-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R280-3608-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-326_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-326_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-326_001.pdf",
-    "sheet_id": "PAGS_ALL-326_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-326_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-326_002",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-326_002.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-326_002.pdf",
-    "sheet_id": "PAGS_ALL-326_002",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-326_002",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=RPCC_UMM_125000_8058-36C_26796",
-    "collection": "RochesterPgh",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/SID_Images/geor_RPCC_UMM_125000_8058-36C_26796.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/PDF_Images/RPCC_UMM_125000_8058-36C_26796.pdf",
-    "sheet_id": "RPCC_UMM_125000_8058-36C_26796",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "RPCC_UMM_125000_8058-36C_26796",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_2000_4984-040",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_2000_4984-040.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_2000_4984-040.pdf",
-    "sheet_id": "BMSB_UMM_2000_4984-040",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_2000_4984-040",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-254_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-254_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-254_001.pdf",
-    "sheet_id": "PAGS_ALL-254_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_ALL-254_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_CEN-308_001",
-    "collection": "DCNR Middletown",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_CEN-308_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_CEN-308_001.pdf",
-    "sheet_id": "PAGS_CEN-308_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PAGS_CEN-308_001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_1038-001",
-    "collection": "Prushnok Neil",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_1038-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_1038-001.pdf",
-    "sheet_id": "PNR_1038-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PNR_1038-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_1039-001",
-    "collection": "Prushnok Neil",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_1039-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_1039-001.pdf",
-    "sheet_id": "PNR_1039-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PNR_1039-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0331-001",
-    "collection": "Prushnok Neil",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0331-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0331-001.pdf",
-    "sheet_id": "PNR_0331-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PNR_0331-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R283-3438-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R283-3438-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R283-3438-1.pdf",
-    "sheet_id": "PASC_R283-3438-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R283-3438-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R284-3525-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R284-3525-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R284-3525-1.pdf",
-    "sheet_id": "PASC_R284-3525-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R284-3525-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-3611-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-3611-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-3611-1.pdf",
-    "sheet_id": "PASC_R282-3611-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R282-3611-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_1200_1377-001",
-    "collection": "DEP New Stanton",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_1200_1377-001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_1200_1377-001.pdf",
-    "sheet_id": "BMSB_UMM_1200_1377-001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "BMSB_UMM_1200_1377-001",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R283-3671-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R283-3671-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R283-3671-1.pdf",
-    "sheet_id": "PASC_R283-3671-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R283-3671-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-8751-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-8751-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-8751-1.pdf",
-    "sheet_id": "PASC_R282-8751-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R282-8751-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-8750-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-8750-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-8750-1.pdf",
-    "sheet_id": "PASC_R282-8750-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R282-8750-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CLHB_UMM_100_xsl572",
-    "collection": "CONSOL Hardback",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/SID_Images/geor_CLHB_UMM_100_xsl572.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/PDF_Images/CLHB_UMM_100_xsl572.pdf",
-    "sheet_id": "CLHB_UMM_100_xsl572",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "CLHB_UMM_100_xsl572",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CLHB_UMM_1200_xsl389",
-    "collection": "CONSOL Hardback",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/SID_Images/geor_CLHB_UMM_1200_xsl389.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/PDF_Images/CLHB_UMM_1200_xsl389.pdf",
-    "sheet_id": "CLHB_UMM_1200_xsl389",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "CLHB_UMM_1200_xsl389",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R285-3558-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R285-3558-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R285-3558-1.pdf",
-    "sheet_id": "PASC_R285-3558-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R285-3558-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R241-3528-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R241-3528-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R241-3528-1.pdf",
-    "sheet_id": "PASC_R241-3528-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R241-3528-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R298-3818-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R298-3818-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R298-3818-1.pdf",
-    "sheet_id": "PASC_R298-3818-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R298-3818-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R241-3414-2",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R241-3414-2.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R241-3414-2.pdf",
-    "sheet_id": "PASC_R241-3414-2",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R241-3414-2",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_PGH",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_PGH.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_PGH.pdf",
-    "sheet_id": "WPA_Brownsville_Sht_3_PGH",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "WPA_Brownsville_Sht_3_PGH",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_BaseMap",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_BaseMap.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_BaseMap.pdf",
-    "sheet_id": "WPA_Brownsville_Sht_3_BaseMap",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "WPA_Brownsville_Sht_3_BaseMap",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_WEG",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_WEG.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_WEG.pdf",
-    "sheet_id": "WPA_Brownsville_Sht_3_WEG",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "WPA_Brownsville_Sht_3_WEG",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_RS",
-    "collection": "WPA",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_RS.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_RS.pdf",
-    "sheet_id": "WPA_Brownsville_Sht_3_RS",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "WPA_Brownsville_Sht_3_RS",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=HSHT_UMM_100_H5406_E",
-    "collection": "H-Sheet",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/H_Sheet_Collection/SID_Images/geor_HSHT_UMM_100_H5406_E.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/H_Sheet_Collection/PDF_Images/HSHT_UMM_100_H5406_E.pdf",
-    "sheet_id": "HSHT_UMM_100_H5406_E",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "HSHT_UMM_100_H5406_E",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0784_UMM_200_003",
-    "collection": "DEP California",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0784_Ella/SID_Images/geor_0784_UMM_200_003.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0784_Ella/PDF_Images/0784_UMM_200_003.pdf",
-    "sheet_id": "0784_UMM_200_003",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "0784_UMM_200_003",
-   "layer": "mine_map_sheets",
    "share": 1
   },
   {
@@ -909,32 +143,6 @@
     "source": "PA Mine Map Atlas (PASDA / PA DEP)"
    },
    "label": "PASC_R221-2891-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R253-5085-1",
-    "collection": "PITT Archives",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R253-5085-1.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R253-5085-1.pdf",
-    "sheet_id": "PASC_R253-5085-1",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "PASC_R253-5085-1",
-   "layer": "mine_map_sheets",
-   "share": 1
-  },
-  {
-   "attrs": {
-    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0196_UMM_1000_001",
-    "collection": "DEP California",
-    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0196_K_H_indexs/SID_Images/geor_0196_UMM_1000_001.zip",
-    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0196_K_H_indexs/PDF_Images/0196_UMM_1000_001.pdf",
-    "sheet_id": "0196_UMM_1000_001",
-    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
-   },
-   "label": "0196_UMM_1000_001",
    "layer": "mine_map_sheets",
    "share": 1
   },
@@ -1551,6 +759,32 @@
   },
   {
    "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R253-5085-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R253-5085-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R253-5085-1.pdf",
+    "sheet_id": "PASC_R253-5085-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R253-5085-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0196_UMM_1000_001",
+    "collection": "DEP California",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0196_K_H_indexs/SID_Images/geor_0196_UMM_1000_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0196_K_H_indexs/PDF_Images/0196_UMM_1000_001.pdf",
+    "sheet_id": "0196_UMM_1000_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "0196_UMM_1000_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
     "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_LOCAT_5280_T4-039",
     "collection": "DEP New Stanton",
     "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_LOCAT_5280_T4-039.zip",
@@ -1561,12 +795,792 @@
    "label": "BMSB_LOCAT_5280_T4-039",
    "layer": "mine_map_sheets",
    "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_LOCAT_5280_T4-037",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_LOCAT_5280_T4-037.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_LOCAT_5280_T4-037.pdf",
+    "sheet_id": "BMSB_LOCAT_5280_T4-037",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_LOCAT_5280_T4-037",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_LOCAT_5280_T4-038",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_LOCAT_5280_T4-038.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_LOCAT_5280_T4-038.pdf",
+    "sheet_id": "BMSB_LOCAT_5280_T4-038",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_LOCAT_5280_T4-038",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_4973-006",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_4973-006.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_4973-006.pdf",
+    "sheet_id": "BMSB_UMM_5280_4973-006",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_5280_4973-006",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-243_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-243_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-243_001.pdf",
+    "sheet_id": "PAGS_ALL-243_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-243_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-202_002",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-202_002.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-202_002.pdf",
+    "sheet_id": "PAGS_ALL-202_002",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-202_002",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-202_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-202_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-202_001.pdf",
+    "sheet_id": "PAGS_ALL-202_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-202_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_2148-001",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_2148-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_2148-001.pdf",
+    "sheet_id": "BMSB_UMM_5280_2148-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_5280_2148-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R267-3572-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R267-3572-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R267-3572-1.pdf",
+    "sheet_id": "PASC_R267-3572-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R267-3572-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R262-4235-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R262-4235-1_B.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R262-4235-1_B.pdf",
+    "sheet_id": "PASC_R262-4235-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R262-4235-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_001.pdf",
+    "sheet_id": "PAGS_FAY-306_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PENN_UMM_7920_3337_25433",
+    "collection": "DCNR Penfield",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Penfield/SID_Images/geor_PENN_UMM_7920_3337_25433.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Penfield/PDF_Images/PENN_UMM_7920_3337_25433.pdf",
+    "sheet_id": "PENN_UMM_7920_3337_25433",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PENN_UMM_7920_3337_25433",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_002",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_002.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_002.pdf",
+    "sheet_id": "PAGS_FAY-306_002",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_002",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_3218-001",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_3218-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_3218-001.pdf",
+    "sheet_id": "BMSB_UMM_5280_3218-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_5280_3218-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_003",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_003.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_003.pdf",
+    "sheet_id": "PAGS_FAY-306_003",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_003",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_005",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_005.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_005.pdf",
+    "sheet_id": "PAGS_FAY-306_005",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_005",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-3677-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-3677-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-3677-1.pdf",
+    "sheet_id": "PASC_R309-3677-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R309-3677-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_007",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_007.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_007.pdf",
+    "sheet_id": "PAGS_FAY-306_007",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_007",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R267-3466-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R267-3466-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R267-3466-1.pdf",
+    "sheet_id": "PASC_R267-3466-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R267-3466-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_004",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_004.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_004.pdf",
+    "sheet_id": "PAGS_FAY-306_004",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_004",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_FAY-306_006",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_FAY-306_006.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_FAY-306_006.pdf",
+    "sheet_id": "PAGS_FAY-306_006",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_FAY-306_006",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R291-3679-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R291-3679-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R291-3679-1.pdf",
+    "sheet_id": "PASC_R291-3679-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R291-3679-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0007-001",
+    "collection": "Prushnok Neil",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0007-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0007-001.pdf",
+    "sheet_id": "PNR_0007-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PNR_0007-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CAMB_UMM_8350_21343",
+    "collection": "DEP Cambria",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_Cambria/SID_Images/geor_CAMB_UMM_8350_21343.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_Cambria/PDF_Images/CAMB_UMM_8350_21343.pdf",
+    "sheet_id": "CAMB_UMM_8350_21343",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "CAMB_UMM_8350_21343",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R297-4151-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R297-4151-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R297-4151-1.pdf",
+    "sheet_id": "PASC_R297-4151-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R297-4151-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0032-001",
+    "collection": "Prushnok Neil",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0032-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0032-001.pdf",
+    "sheet_id": "PNR_0032-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PNR_0032-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-3860-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-3860-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-3860-1.pdf",
+    "sheet_id": "PASC_R309-3860-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R309-3860-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_5280_2109-001",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_5280_2109-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_5280_2109-001.pdf",
+    "sheet_id": "BMSB_UMM_5280_2109-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_5280_2109-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R309-4027-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R309-4027-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R309-4027-1.pdf",
+    "sheet_id": "PASC_R309-4027-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R309-4027-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R265-3396-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R265-3396-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R265-3396-1.pdf",
+    "sheet_id": "PASC_R265-3396-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R265-3396-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R280-3608-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R280-3608-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R280-3608-1.pdf",
+    "sheet_id": "PASC_R280-3608-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R280-3608-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-326_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-326_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-326_001.pdf",
+    "sheet_id": "PAGS_ALL-326_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-326_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-326_002",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-326_002.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-326_002.pdf",
+    "sheet_id": "PAGS_ALL-326_002",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-326_002",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=RPCC_UMM_125000_8058-36C_26796",
+    "collection": "RochesterPgh",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/SID_Images/geor_RPCC_UMM_125000_8058-36C_26796.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Rochester_Pittsburgh_Coal_Co_Collection/PDF_Images/RPCC_UMM_125000_8058-36C_26796.pdf",
+    "sheet_id": "RPCC_UMM_125000_8058-36C_26796",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "RPCC_UMM_125000_8058-36C_26796",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_2000_4984-040",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_2000_4984-040.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_2000_4984-040.pdf",
+    "sheet_id": "BMSB_UMM_2000_4984-040",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_2000_4984-040",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_ALL-254_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_ALL-254_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_ALL-254_001.pdf",
+    "sheet_id": "PAGS_ALL-254_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_ALL-254_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PAGS_CEN-308_001",
+    "collection": "DCNR Middletown",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/SID_Images/geor_PAGS_CEN-308_001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DCNR_Middletown/PDF_Images/PAGS_CEN-308_001.pdf",
+    "sheet_id": "PAGS_CEN-308_001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PAGS_CEN-308_001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_1038-001",
+    "collection": "Prushnok Neil",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_1038-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_1038-001.pdf",
+    "sheet_id": "PNR_1038-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PNR_1038-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_1039-001",
+    "collection": "Prushnok Neil",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_1039-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_1039-001.pdf",
+    "sheet_id": "PNR_1039-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PNR_1039-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PNR_0331-001",
+    "collection": "Prushnok Neil",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/SID_Images/geor_PNR_0331-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/Prushnok_Neil_Resources/PDF_Images/PNR_0331-001.pdf",
+    "sheet_id": "PNR_0331-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PNR_0331-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-3611-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-3611-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-3611-1.pdf",
+    "sheet_id": "PASC_R282-3611-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R282-3611-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=BMSB_UMM_1200_1377-001",
+    "collection": "DEP New Stanton",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/SID_Images/geor_BMSB_UMM_1200_1377-001.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_NewStanton/PDF_Images/BMSB_UMM_1200_1377-001.pdf",
+    "sheet_id": "BMSB_UMM_1200_1377-001",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "BMSB_UMM_1200_1377-001",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R283-3671-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R283-3671-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R283-3671-1.pdf",
+    "sheet_id": "PASC_R283-3671-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R283-3671-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-8751-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-8751-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-8751-1.pdf",
+    "sheet_id": "PASC_R282-8751-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R282-8751-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R282-8750-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R282-8750-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R282-8750-1.pdf",
+    "sheet_id": "PASC_R282-8750-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R282-8750-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CLHB_UMM_100_xsl572",
+    "collection": "CONSOL Hardback",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/SID_Images/geor_CLHB_UMM_100_xsl572.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/PDF_Images/CLHB_UMM_100_xsl572.pdf",
+    "sheet_id": "CLHB_UMM_100_xsl572",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "CLHB_UMM_100_xsl572",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=CLHB_UMM_1200_xsl389",
+    "collection": "CONSOL Hardback",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/SID_Images/geor_CLHB_UMM_1200_xsl389.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/CONSOL_Hardbacks/PDF_Images/CLHB_UMM_1200_xsl389.pdf",
+    "sheet_id": "CLHB_UMM_1200_xsl389",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "CLHB_UMM_1200_xsl389",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R285-3558-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R285-3558-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R285-3558-1.pdf",
+    "sheet_id": "PASC_R285-3558-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R285-3558-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R241-3528-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R241-3528-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R241-3528-1.pdf",
+    "sheet_id": "PASC_R241-3528-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R241-3528-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R298-3818-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R298-3818-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R298-3818-1.pdf",
+    "sheet_id": "PASC_R298-3818-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R298-3818-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R241-3414-2",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R241-3414-2.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R241-3414-2.pdf",
+    "sheet_id": "PASC_R241-3414-2",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R241-3414-2",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_PGH",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_PGH.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_PGH.pdf",
+    "sheet_id": "WPA_Brownsville_Sht_3_PGH",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "WPA_Brownsville_Sht_3_PGH",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_BaseMap",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_BaseMap.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_BaseMap.pdf",
+    "sheet_id": "WPA_Brownsville_Sht_3_BaseMap",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "WPA_Brownsville_Sht_3_BaseMap",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_WEG",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_WEG.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_WEG.pdf",
+    "sheet_id": "WPA_Brownsville_Sht_3_WEG",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "WPA_Brownsville_Sht_3_WEG",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Brownsville_Sht_3_RS",
+    "collection": "WPA",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/WPA_Brownsville_Sht_3_RS.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Brownsville_Sht_3_RS.pdf",
+    "sheet_id": "WPA_Brownsville_Sht_3_RS",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "WPA_Brownsville_Sht_3_RS",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R283-3438-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R283-3438-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R283-3438-1.pdf",
+    "sheet_id": "PASC_R283-3438-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R283-3438-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=HSHT_UMM_100_H5406_E",
+    "collection": "H-Sheet",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/H_Sheet_Collection/SID_Images/geor_HSHT_UMM_100_H5406_E.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/H_Sheet_Collection/PDF_Images/HSHT_UMM_100_H5406_E.pdf",
+    "sheet_id": "HSHT_UMM_100_H5406_E",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "HSHT_UMM_100_H5406_E",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=PASC_R284-3525-1",
+    "collection": "PITT Archives",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/SID_Images/geor_PASC_R284-3525-1.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/PITT_Archive_Services_Center_Collection/PDF_Images/PASC_R284-3525-1.pdf",
+    "sheet_id": "PASC_R284-3525-1",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "PASC_R284-3525-1",
+   "layer": "mine_map_sheets",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "atlas_url": "https://www.minemaps.psu.edu/?LocalSheetID=0784_UMM_200_003",
+    "collection": "DEP California",
+    "georef_zip_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0784_Ella/SID_Images/geor_0784_UMM_200_003.zip",
+    "pdf_url": "https://www.pasda.psu.edu/minemaps/Map_Repository/DEP_California/Abandoned_Mines/0784_Ella/PDF_Images/0784_UMM_200_003.pdf",
+    "sheet_id": "0784_UMM_200_003",
+    "source": "PA Mine Map Atlas (PASDA / PA DEP)"
+   },
+   "label": "0784_UMM_200_003",
+   "layer": "mine_map_sheets",
+   "share": 1
   }
  ],
  "parid": "1904E00063000000",
  "permits": {
   "count_5y": 0,
   "recent": []
+ },
+ "property_tax": {
+  "general_mills": 38.8104,
+  "parts": [
+   {
+    "jurisdiction_type": "county",
+    "mills": 6.43,
+    "name": "Allegheny County",
+    "rate_type": "general"
+   },
+   {
+    "jurisdiction_type": "municipality",
+    "mills": 4.026,
+    "name": "Elizabeth Twp",
+    "rate_type": "general"
+   },
+   {
+    "jurisdiction_type": "school_district",
+    "mills": 28.3544,
+    "name": "ELIZABETH-FORWARD",
+    "rate_type": "general"
+   }
+  ],
+  "source": "Allegheny County Treasurer 2026 millage listings",
+  "split_rate": false,
+  "year": 2026
  },
  "schools": {
   "district": "Elizabeth Forward",
@@ -1594,6 +1608,14 @@
   "rent_burden_30_pct": 52.69,
   "rent_burden_50_pct": 29.34,
   "vacancy_rate": 5.32
+ },
+ "tract_designations": {
+  "dda": false,
+  "dda_source_url": "https://www.huduser.gov/portal/datasets/qct.html",
+  "opportunity_zone": false,
+  "oz_source_url": "https://www.cdfifund.gov/opportunity-zones",
+  "qct": false,
+  "qct_source_url": "https://www.huduser.gov/portal/datasets/qct.html"
  },
  "transfer_tax": {
   "parts": [
