@@ -82,6 +82,10 @@ export interface ParcelFacts {
   env_sites_within_500ft?: number;
   building_footprint_sqft?: number | null;
   shares_wall?: boolean;
+  mines?: { in_mined_out: boolean; dist_mined_out_ft: number | null; in_coal_bearing: boolean; mine_map_url?: string | null } | null;
+  tax_delinquent?: boolean;
+  muni_rules?: { sewer_lateral_at_sale?: "Y" | "N" | "unknown"; point_of_sale_inspection?: "Y" | "N" | "unknown" } | null;
+  street_frontage?: "street" | "steps" | "paper" | "none";
 }
 
 export type ProjectType = "new_build" | "addition" | "rehab" | "demolition" | "conversion";

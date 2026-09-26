@@ -106,3 +106,36 @@ describe("project answers and overrides", () => {
     expect(byId(evaluateRequirements(HILLSIDE, newHome), "accessibility").status).toBe("NOT_NEEDED");
   });
 });
+
+import floodway from "./fixtures/floodway.json";
+
+describe("flood rules", () => {
+  const FW = floodway as unknown as ParcelFacts;
+
+  it("flags the floodway as a likely deal-breaker", () => {
+    const r = byId(evaluateRequirements(FW, newHome), "flood_determination");
+    expect(r.status).toBe("REQUIRED");
+    expect(r.reasons[0]?.reason).toMatch(/floodway/);
+  });
+
+  it("requires flood insurance in the 100-year zone for a financed project", () => {
+    expect(byId(evaluateRequirements(FLOOD, newHome), "flood_insurance").status).toBe("REQUIRED");
+    expect(byId(evaluateRequirements(FLOOD, { ...newHome, financed: false }), "flood_insurance").status).toBe("LIKELY");
+  });
+
+  it("doesn't ask for flood insurance on the hilltop", () => {
+    expect(byId(evaluateRequirements(HILLSIDE, newHome), "flood_insurance").status).toBe("NOT_NEEDED");
+  });
+});
+
+describe("hidden costs", () => {
+  it("always flags transfer tax and says missing mine data is not proof of no mine", () => {
+    const rs = evaluateRequirements(HILLSIDE, newHome);
+    expect(byId(rs, "realty_transfer_tax").status).toBe("REQUIRED");
+    expect(byId(rs, "mine_subsidence_paths").reasons[0]?.reason).toMatch(/not proof of no mine/);
+  });
+
+  it("flags the post-construction tax jump for a new build", () => {
+    expect(byId(evaluateRequirements(HILLSIDE, newHome), "tax_jump").status).toBe("REQUIRED");
+  });
+});

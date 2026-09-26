@@ -71,13 +71,29 @@ export const CATALOG: CatalogItem[] = [
     rule: () => [{ status: "POSSIBLE", reason: "Only if the Phase I finds a recognized environmental condition." }],
   },
   {
-    id: "flood_determination", item: "Elevation certificate / flood determination", category: "Environmental", phase: "due_diligence",
-    issuer: "Surveyor; floodplain review", trigger: "Parcel touches FEMA flood zone", data: ["FEMA flood zones"], citation: "44 CFR 60.3; Pittsburgh Zoning Code Ch. 906 (floodplain overlay) — confirm",
+    id: "flood_determination", item: "Floodplain review & elevation certificate", category: "Environmental", phase: "due_diligence",
+    issuer: "Surveyor; floodplain administrator", trigger: "Parcel in FEMA floodway, 100-year (A/AE), or 500-year (shaded X) zone", data: ["FEMA flood zones"],
+    citation: "Pittsburgh Zoning Code §906.02 (floodplain overlay); 44 CFR 60.3",
     rule: (f) => {
-      if (f.flood_1pct_share > 0) return [{ status: "REQUIRED", reason: `${pct(f.flood_1pct_share)} of the lot is in FEMA's 1%-annual-chance (100-year) floodplain.`, source: SRC.flood }];
-      const x500 = f.overlays.some((o) => o.layer === "flood_fema_nfhl" && o.share > 0);
-      if (x500) return [{ status: "POSSIBLE", reason: "Lot touches FEMA's 0.2%-annual-chance (500-year) area.", source: SRC.flood }];
-      return [notNeeded("Lot is outside FEMA flood zones.", SRC.flood)];
+      const fema = f.overlays.filter((o) => o.layer === "flood_fema_nfhl" && o.share > 0);
+      const floodway = fema.filter((o) => String(o.attrs?.subtype ?? "").toUpperCase() === "FLOODWAY");
+      const x500 = fema.filter((o) => /0\.2 PCT/i.test(String(o.attrs?.subtype ?? "")));
+      const t: Trigger[] = [];
+      if (floodway.length) t.push({ status: "REQUIRED", reason: `${pct(floodway.reduce((a, o) => a + o.share, 0))} of the lot is in the FEMA floodway: new buildings and fill are heavily restricted. Likely a deal-breaker; talk to the floodplain administrator first.`, source: SRC.flood });
+      if (f.flood_1pct_share > 0) t.push({ status: "REQUIRED", reason: `${pct(f.flood_1pct_share)} of the lot is in the 100-year floodplain (A/AE): floodplain development review, an elevation certificate, and building above base flood elevation.`, source: SRC.flood });
+      if (x500.length) t.push({ status: "POSSIBLE", reason: `Lot touches FEMA's 500-year (0.2%-annual-chance) area: insurance recommended, review not usually required.`, source: SRC.flood });
+      return t.length ? t : [notNeeded("Lot is outside FEMA flood zones. Flash flooding and sewer backups aren't on FEMA maps.", SRC.flood)];
+    },
+  },
+  {
+    id: "flood_insurance", item: "Flood insurance", category: "Finance", phase: "due_diligence",
+    issuer: "NFIP / private insurer", trigger: "100-year zone with a federally backed loan; recommended in 500-year zone", data: ["FEMA flood zones", "NFIP policy & claims data"],
+    citation: "Flood Disaster Protection Act of 1973, 42 U.S.C. §4012a",
+    rule: (f, p) => {
+      const x500 = f.overlays.some((o) => o.layer === "flood_fema_nfhl" && o.share > 0 && /0\.2 PCT/i.test(String(o.attrs?.subtype ?? "")));
+      if (f.flood_1pct_share > 0) return [{ status: p.financed === false ? "LIKELY" : "REQUIRED", reason: `In the 100-year floodplain: flood insurance is required for federally backed mortgages${p.financed === false ? " (cash purchase: strongly recommended)" : ""}. Premium depends on the building's elevation.`, source: SRC.flood }];
+      if (x500) return [{ status: "POSSIBLE", reason: "In the 500-year area: insurance recommended, not usually required.", source: SRC.flood }];
+      return [notNeeded("Outside FEMA flood zones.", SRC.flood)];
     },
   },
 
@@ -430,4 +446,85 @@ export const CATALOG: CatalogItem[] = [
       if (f.streams_or_wetlands_within_100ft === undefined) return [{ status: "POSSIBLE", reason: "Stream and wetland maps aren't loaded yet." }];
       return [notNeeded("No stream or wetland mapped nearby.", "NHD / NWI")];
     } },
+
+  // ---------- Hidden / surprise costs (cost amounts: Paul fills) ----------
+  {
+    id: "mine_subsidence_paths", item: "Mine subsidence — insurance or grouting", category: "Hidden cost", phase: "due_diligence",
+    issuer: "PA DEP Mine Subsidence Insurance; mine-grouting contractor + engineer", trigger: "On or within 500 ft of a mapped mined-out area; coal-bearing ground", data: ["Mined-out areas", "Coal-bearing areas", "PA Mine Map Atlas"],
+    citation: "Pittsburgh Zoning Code §906.05 (undermined areas); PA DEP Mine Subsidence Insurance program",
+    rule: (f) => {
+      const m = f.mines;
+      const note = "Historic mine maps are incomplete: no mapped mine is not proof of no mine.";
+      if (m?.in_mined_out || overlays(f, "undermined_pgh").length) return [{ status: "REQUIRED", reason: `Parcel is over a mapped mined-out area. Two paths: A) Mine Subsidence Insurance (annual premium) or B) grouting the voids before building (engineer-scoped). ${note}`, source: m ? "PA DEP mined-out areas" : SRC.undermined }];
+      if (m?.dist_mined_out_ft != null && m.dist_mined_out_ft <= 500) return [{ status: "LIKELY", reason: `Mapped mined-out area ${Math.round(m.dist_mined_out_ft)} ft away: Mine Subsidence Insurance recommended; have an engineer assess. ${note}`, source: "PA DEP mined-out areas" }];
+      if (m?.in_coal_bearing) return [{ status: "POSSIBLE", reason: `Coal-bearing ground with no mapped mine. Check the PA Mine Map Atlas. ${note}`, source: "Coal-bearing areas" }];
+      if (!m) return [{ status: "POSSIBLE", reason: `County-wide mine maps are still loading. ${note}` }];
+      return [notNeeded(`No mapped mine within 500 ft and not coal-bearing. ${note}`, "PA DEP mined-out areas")];
+    },
+  },
+  {
+    id: "realty_transfer_tax", item: "Realty transfer tax", category: "Hidden cost", phase: "due_diligence",
+    issuer: "PA Dept. of Revenue; municipality; school district", trigger: "Every purchase and sale", data: ["Municipality"], citation: "72 P.S. §8101-C et seq. (state); local ordinances",
+    rule: (f) => [{ status: "REQUIRED", reason: `Due on the purchase (and the later sale). ${isPittsburgh(f) ? "Pittsburgh's combined rate is among the highest in the state; " : ""}rate table loading.`, source: SRC.assessment }],
+  },
+  {
+    id: "back_taxes_liens", item: "Back taxes, liens & municipal claims", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Title company; County / City treasurer", trigger: "Delinquent taxes or filed liens on the parcel", data: ["Tax delinquency", "Tax liens"], citation: null,
+    rule: (f) => (f.tax_delinquent === undefined ? [{ status: "POSSIBLE", reason: "Tax-delinquency data is loading; a title search will show liens either way." }] : f.tax_delinquent ? [{ status: "LIKELY", reason: "Parcel appears on the tax delinquency / lien list: liens follow the property.", source: "Tax delinquency data" }] : [notNeeded("Not on the delinquency list (title search still confirms).", "Tax delinquency data")]),
+  },
+  {
+    id: "sewer_lateral", item: "Sewer lateral inspection / replacement at sale", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Municipality / sewer authority", trigger: "Municipality requires lateral inspection at transfer", data: ["Municipal ordinance list"], citation: null,
+    rule: (f) => (f.muni_rules?.sewer_lateral_at_sale === "Y" ? [{ status: "REQUIRED", reason: `${f.assessment?.municipality} requires a sewer lateral inspection at sale; old clay laterals often need replacement.`, source: "Municipal ordinance list" }] : f.muni_rules?.sewer_lateral_at_sale === "N" ? [notNeeded("No lateral-at-sale ordinance found for this municipality.", "Municipal ordinance list")] : [{ status: "POSSIBLE", reason: "Many Allegheny County municipalities require it at transfer; this one isn't confirmed yet." }]),
+  },
+  {
+    id: "point_of_sale", item: "Point-of-sale / occupancy inspection", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Municipality", trigger: "Municipal resale inspection ordinance", data: ["Municipal ordinance list"], citation: null,
+    rule: (f) => (f.muni_rules?.point_of_sale_inspection === "Y" ? [{ status: "REQUIRED", reason: `${f.assessment?.municipality} requires a resale inspection; repairs may be required before transfer.`, source: "Municipal ordinance list" }] : f.muni_rules?.point_of_sale_inspection === "N" ? [notNeeded("No point-of-sale inspection found for this municipality.", "Municipal ordinance list")] : [{ status: "POSSIBLE", reason: "Not confirmed for this municipality yet." }]),
+  },
+  {
+    id: "tap_fees", item: "Sewer/water tap-in & connection fees", category: "Hidden cost", phase: "permits",
+    issuer: "Water / sewer authority", trigger: "New units or new connections", data: ["Units", "Authority tariffs"], citation: null,
+    rule: (f, p) => (buildsNew(p) || p.type === "conversion" ? [{ status: "LIKELY", reason: `New ${p.units ?? ""} unit(s) or connections: tap and capacity fees can run thousands per unit (authority tariff table loading).`.replace("  ", " "), source: SRC.project }] : p.type ? [notNeeded("No new units or connections.")] : [ask("What kind of project is this (new build, addition, rehab, demolition, conversion)?")]),
+  },
+  {
+    id: "lead_service_line", item: "Lead water service line", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Water authority (PWSA in the city)", trigger: "Lead or unknown service line on record", data: ["PWSA lead service line map"], citation: null,
+    rule: (f) => (hasStructure(f) && (f.assessment?.year_built ?? 9999) < 1960 ? [{ status: "POSSIBLE", reason: `Built in ${f.assessment?.year_built}; older homes often have lead service lines (PWSA map not loaded yet). Replacement programs may help.`, source: SRC.assessment }] : [{ status: "POSSIBLE", reason: "Service-line data isn't loaded yet." }]),
+  },
+  {
+    id: "radon", item: "Radon test & mitigation", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Certified radon tester / mitigator", trigger: "Existing building (test on purchase)", data: ["Radon zone"], citation: null,
+    rule: (f) => (hasStructure(f) ? [{ status: "LIKELY", reason: "Test on purchase; Western Pennsylvania has elevated radon (county zone data loading).", source: SRC.assessment }] : [{ status: "POSSIBLE", reason: "New construction can include passive radon-resistant features." }]),
+  },
+  {
+    id: "oil_tank", item: "Underground oil tank", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Environmental contractor", trigger: "Older home that may have used oil heat", data: ["Year built"], citation: null,
+    rule: (f) => (hasStructure(f) && (f.assessment?.year_built ?? 9999) < 1960 ? [{ status: "POSSIBLE", reason: `Built in ${f.assessment?.year_built}; homes this old sometimes had oil heat with a buried tank (removal + possible soil cleanup).`, source: SRC.assessment }] : [notNeeded(hasStructure(f) ? "Newer building." : "No building on the lot.", SRC.assessment)]),
+  },
+  {
+    id: "hillside_repair", item: "Retaining wall failure / hillside repair", category: "Hidden cost", phase: "due_diligence",
+    issuer: "Structural / geotechnical engineer", trigger: "Steep lot with existing walls or structures", data: ["Slope", "Existing structure"], citation: null,
+    rule: (f) => (f.slope && f.slope.steep_share >= 0.25 && hasStructure(f) ? [{ status: "POSSIBLE", reason: `${pct(f.slope.steep_share)} of the lot is over 25% with existing structures: inspect retaining walls and the hillside.`, source: SRC.slope }] : [notNeeded("No steep lot with existing structures.", SRC.slope)]),
+  },
+  {
+    id: "access", item: "Access problems (steps-only, paper street, landlocked)", category: "Hidden cost", phase: "due_diligence",
+    issuer: "DOMI / surveyor / attorney", trigger: "No drivable street frontage", data: ["Street centerlines", "City steps"], citation: null,
+    rule: (f) => (f.street_frontage === undefined ? [{ status: "POSSIBLE", reason: "Street and city-steps data are loading; confirm drivable access for construction." }] : f.street_frontage === "none" ? [{ status: "LIKELY", reason: "No street frontage found: may be landlocked or reached only by steps or an unopened street.", source: "Street centerlines" }] : [notNeeded("Parcel fronts a street.", "Street centerlines")]),
+  },
+  {
+    id: "utility_upgrade", item: "Utility upgrades (electric service, transformer)", category: "Hidden cost", phase: "design_engineering",
+    issuer: "Duquesne Light / utility", trigger: "New units or larger loads", data: ["Units"], citation: null,
+    rule: (_f, p) => ((p.units ?? 0) >= 3 ? [{ status: "LIKELY", reason: `${p.units} units: expect a service upgrade; utility timelines can be long.`, source: SRC.project }] : p.units === undefined ? [ask("How many units?")] : [{ status: "POSSIBLE", reason: "Depends on the electrical load." }]),
+  },
+  {
+    id: "tax_jump", item: "Property tax jump after construction", category: "Hidden cost", phase: "closeout",
+    issuer: "Allegheny County Office of Property Assessments", trigger: "New construction or major improvement", data: ["Assessment", "Millage"], citation: null,
+    rule: (f, p) => (buildsNew(p) || p.type === "rehab" ? [{ status: "REQUIRED", reason: `Taxes are reassessed on completion; today's bill ($${Math.round(f.assessment?.fmv_total ?? 0).toLocaleString()} assessed value) will rise. Model post-construction taxes (millage table loading).`, source: SRC.assessment }] : [notNeeded("No reassessment trigger.")]),
+  },
+  {
+    id: "historic_delay", item: "Historic review delays", category: "Hidden cost", phase: "zoning",
+    issuer: "Historic Review Commission", trigger: "Parcel in a City historic district", data: ["Historic districts"], citation: "Pittsburgh Code Ch. 1101 — confirm",
+    rule: (f) => (overlays(f, "historic_district_pgh").length ? [{ status: "LIKELY", reason: `In the ${overlays(f, "historic_district_pgh")[0]!.label} historic district: plan for review cycles of several weeks each.`, source: SRC.historic }] : [notNeeded("Not in a City historic district.", SRC.historic)]),
+  },
 ];
