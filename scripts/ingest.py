@@ -290,9 +290,24 @@ def overlays(con, only=None):
         upload("overlays", jsonable(rows(con, sql)), total, batch=100, on_conflict="layer,source_id")
 
 
+def clean_tsv(name):
+    """WPRDC datastore dumps trip DuckDB's CSV sniffer; re-write them as plain TSV."""
+    import csv
+    src, dest = RAW / f"{name}.csv", RAW / f"{name}.tsv"
+    if dest.exists():
+        return dest
+    csv.field_size_limit(10**9)
+    with open(src, newline="") as f, open(dest, "w") as o:
+        r = csv.reader(f)
+        for row in r:
+            o.write("\t".join(c.replace("\t", " ").replace("\n", " ").replace("\r", " ") for c in row) + "\n")
+    return dest
+
+
 def sales(con):
     con.execute(f"""
-      create table s as select * from read_csv('{RAW / 'sales.csv'}', all_varchar=true, header=true)
+      create table s as select * from read_csv('{clean_tsv("sales")}', all_varchar=true, header=true,
+                                               delim='\t', quote='', escape='')
     """)
     total = con.execute("select count(*) from s where trim(SALECODE) = '0'").fetchone()[0]
     sql = """
