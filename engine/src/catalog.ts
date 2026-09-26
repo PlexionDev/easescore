@@ -104,49 +104,55 @@ export const CATALOG: CatalogItem[] = [
   // ---------- Design & engineering ----------
   {
     id: "geotech", item: "Geotechnical report", category: "Engineering", phase: "design_engineering",
-    issuer: "Geotechnical engineer", trigger: "Code triggers only — see docs/GEOTECH-REQUIREMENTS.md",
-    data: ["Landslide-prone overlay", "Undermined areas", "Slope", "Zoning district", "Project"],
-    citation: "Pittsburgh Zoning Code §906.04, §906.05, §915.02.A.1.c, §911.04.A.69; IBC §1803.2 / IRC R401.4 (PA UCC, 34 Pa. Code §403.21)",
-    // Statuses follow the code text: REQUIRED only where a code section requires it;
-    // POSSIBLE where an official *may* require it; nothing is inferred from slope alone.
+    issuer: "Geotechnical professional (signed, sealed, insured; PE not required in the City); reviewed by City Planning at site plan review and by PLI at permit",
+    trigger: "City: Landslide-Prone and Undermined overlays per City Planning's Geotechnical Reports handout (Dec 2024); cut/fill > 25% citywide; IBC buildings statewide",
+    data: ["Landslide-prone overlay", "Undermined overlay", "Slope (1 m lidar)", "Recorded landslides", "Project"],
+    citation: "Pittsburgh Zoning Code §906.04.B.2, §906.05.B.2–3, §915.02.A.1.c; City Planning 'Geotechnical Reports' handout (Dec 2024); IBC §1803.2 / IRC R401.4 (PA UCC)",
+    // Statuses follow the code and the City's handout (docs/GEOTECH-HANDOUT-VERIFICATION.md). Nothing is inferred from slope alone.
     rule: (f, p) => {
       const t: Trigger[] = [];
       const pgh = isPittsburgh(f);
-      const moves = p.type === undefined || buildsNew(p) || p.type === "demolition";
       const muni = f.assessment?.municipality ?? "the municipality";
+      const newOrMulti = p.type === "new_build" || (p.type === "addition" && (p.stories ?? 1) > 1);
+      const smaller = !!p.minor_work || (p.type === "addition" && (p.stories ?? 1) <= 1);
+      const handout = "City Planning 'Geotechnical Reports' handout (Dec 2024)";
 
+      // Landslide-Prone overlay (§906.04)
       for (const o of overlays(f, "landslide_prone_pgh")) {
-        t.push(moves
-          ? { status: "REQUIRED", reason: `${pct(o.share)} of the lot is in the Landslide-Prone overlay: any excavation, fill, or vegetation removal needs a field investigation by a registered professional before zoning approval, and PLI approves construction plans based on it (§906.04).`, source: SRC.landslide }
-          : { status: "POSSIBLE", reason: "In the Landslide-Prone overlay: required if the work involves excavation, fill, or vegetation removal (§906.04).", source: SRC.landslide });
+        if (newOrMulti || p.type === undefined) t.push({ status: "REQUIRED", reason: `${pct(o.share)} of the lot is in the Landslide-Prone overlay: new construction or a multi-story addition must submit a full geotechnical report with borings (§906.04.B.2; ${handout}).`, source: SRC.landslide });
+        else if (smaller) t.push({ status: "REQUIRED", reason: `Landslide-Prone overlay: ${p.minor_work ? p.minor_work.replace("_", " ") : "a one-story addition"} needs evidence from a certified geotechnical professional that it won't increase landslide risk (${handout}). The handout's heading mentions a "memo"; confirm whether a letter is enough.`, source: SRC.landslide });
+        else t.push({ status: "POSSIBLE", reason: "Landslide-Prone overlay: fences ≤ 6 ft, interior work, deck repair without structural change, sheds < 120 sq ft, and exterior repair may not need a report, unless the work changes the slope or sits near the slope edge.", source: SRC.landslide });
       }
 
+      // Undermined overlay (§906.05)
       const cityUM = overlays(f, "undermined_pgh").length > 0 || f.mines?.in_city_undermined === true;
-      const undermined = cityUM || f.mines?.in_mined_out === true;
-      if (cityUM && pgh) {
-        if ((p.units ?? 0) >= 3) t.push({ status: "REQUIRED", reason: `Over mapped mine workings with a ${p.units}-unit building (larger than a typical house): site investigation required (§906.05).`, source: SRC.undermined });
-        else t.push({ status: "POSSIBLE", reason: "Over mapped mine workings: a site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05). A single house with more than 100 ft of cover needs only evidence of that.", source: SRC.undermined });
-      } else if (undermined && pgh) {
-        t.push({ status: "NOT_NEEDED", advisory: true, reason: "PA DEP maps old mine workings under this parcel (outside the City's Undermined overlay, so §906.05 doesn't apply). An engineer's opinion is still wise before building." });
-      } else if (undermined) {
-        t.push({ status: "POSSIBLE", reason: `Over mapped mine workings. State law doesn't require an investigation; ${muni}'s ordinance may (the county subdivision ordinance requires a PE subsidence certification at 100 ft of cover or less).`, source: "PA DEP mined-out areas" });
-        t.push({ status: "NOT_NEEDED", advisory: true, reason: "Even where no investigation is required, building over old mines carries subsidence risk; consider an engineer's opinion and Mine Subsidence Insurance." });
+      if (cityUM && pgh && (p.type === undefined || buildsNew(p))) {
+        t.push({ status: "REQUIRED", reason: `Undermined overlay: new construction or enlargement needs a Coal Status Report with maps from the State Bureau of Mines (§906.05.B.2; ${handout}).`, source: SRC.undermined });
+        const singleFamily = (p.units ?? 1) <= 1;
+        if (!singleFamily) t.push({ status: "REQUIRED", reason: `Undermined overlay: anything other than a single-family home needs a geotechnical report regardless of mine depth (§906.05.B.3; ${handout}).`, source: SRC.undermined });
+        else t.push({ status: "POSSIBLE", reason: "Undermined overlay: a single-family home needs a geotechnical report if cover over the mine is under 100 ft or there's nearby subsidence history (§906.05.B.3). The Coal Status Report will show the depth.", source: SRC.undermined });
+      } else if (f.mines?.in_mined_out) {
+        t.push({ status: "NOT_NEEDED", advisory: true, reason: `PA DEP maps old mine workings under this parcel${pgh ? " (outside the City's Undermined overlay, so §906.05 doesn't apply)" : `; ${muni}'s ordinance may require an investigation`}. An engineer's opinion is still wise before building.` });
       }
 
-      const steep = f.slope && (f.slope.steep_share > 0 || f.slope.mean_pct >= 25);
-      if (pgh && p.cut_fill_over_25 === true) t.push({ status: "REQUIRED", reason: "Your design has cut or fill slopes steeper than 25%: a geotechnical investigation report must certify them (§915.02.A.1.c).", source: SRC.project });
-      else if (pgh && steep && p.cut_fill_over_25 === undefined && moves) t.push({ status: "ASK", reason: `${pct(f.slope!.steep_share)} of the lot is steeper than 25%. Will your grading create cut or fill slopes steeper than 25%? If so, a geotechnical report is required (§915.02.A.1.c).`, source: SRC.slope });
+      // Cut / fill slopes > 25% (citywide) and existing steep ground
+      const s1 = f.slope_1m, steepShare = s1?.share_over_25 ?? f.slope?.steep_share ?? 0, res = s1 ? "1 m lidar" : "10 m elevation";
+      if (pgh && p.cut_fill_over_25 === true) t.push({ status: "REQUIRED", reason: "Your grading has cut or fill slopes over 25%: a geotechnical report must certify them, with walls or terraces at least every 10 ft (§915.02.A.1.c).", source: SRC.project });
+      else if (pgh && steepShare > 0 && p.cut_fill_over_25 === undefined && (p.type === undefined || buildsNew(p))) t.push({ status: "ASK", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}). Will your grading create cut or fill slopes over 25%? If so, a geotechnical report is required (§915.02.A.1.c).`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
+      const inOverlay = overlays(f, "landslide_prone_pgh").length > 0 || cityUM;
+      if (!inOverlay && steepShare > 0 && (p.type === undefined || buildsNew(p))) t.push({ status: "LIKELY", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}) outside the hazard overlays: not a code trigger by itself, but an engineer will likely want soil data.`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
 
-      if ((p.units ?? 0) >= 3 && !p.party_wall) t.push({ status: "REQUIRED", reason: `${p.units}-unit building falls under the IBC: a geotechnical investigation is required unless the building official waives it (IBC §1803.2).`, source: SRC.project });
-
+      // Recorded landslides and red beds (evidence, not code triggers)
       if ((f.landslides_within_300ft ?? 0) > 0) t.push({ status: "POSSIBLE", reason: `${f.landslides_within_300ft} recorded landslide(s) within 300 ft. Not a code trigger by itself, but officials may ask for a soils investigation (IRC R401.4; PLI guidance).`, source: "Allegheny County landslide inventory (Pomeroy)" });
       if ((f.red_bed_landslides_300ft ?? 0) > 0) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${f.red_bed_landslides_300ft} of the nearby recorded landslides involve red beds (landslide-prone claystone, USGS Professional Paper 1229). No code names red beds; an engineer's opinion is wise.` });
 
+      // Statewide building code
+      if ((p.units ?? 0) >= 3 && !p.party_wall) t.push({ status: "REQUIRED", reason: `${p.units}-unit building falls under the IBC: a geotechnical investigation is required unless the building official waives it (IBC §1803.2).`, source: SRC.project });
       if (pgh && f.zoning?.code === "H") t.push({ status: "POSSIBLE", reason: "Hillside (H) district: the Zoning Administrator may require a soils engineering report (§911.04.A.69).", source: SRC.zoning });
+      if (!pgh) t.push({ status: "POSSIBLE", reason: `Geotech triggers outside Pittsburgh are set by ${muni}'s grading and subdivision ordinances (e.g. some require one at 20%+ slopes). Landslide and mine overlays in our data are Pittsburgh's.` });
 
-      if (!pgh) t.push({ status: "POSSIBLE", reason: `Geotech triggers outside Pittsburgh are set by ${muni}'s grading and subdivision ordinances (e.g. some require one at 20%+ slopes). Landslide and mine maps in our data cover Pittsburgh only.` });
-
-      if (!t.length) t.push({ status: "NOT_NEEDED", reason: "No code trigger found. The building official may still require a soil test if problem soils are likely (IRC R401.4).", source: "PA UCC" });
+      if (!t.some((x) => !x.advisory)) t.push({ status: "NOT_NEEDED", reason: "No code trigger found. The building official may still require a soil test if problem soils are likely (IRC R401.4).", source: "PA UCC" });
+      if (t.some((x) => x.status === "REQUIRED")) t.push({ status: "NOT_NEEDED", advisory: true, reason: "Report must be signed and sealed by a credentialed soil, civil, or geotechnical engineer or professional geologist, with liability insurance; it includes borings, a site plan with overlays and steep-slope contours, a grading plan, and recommendations. City Planning checks it at site plan review; PLI reviews it again at permit." });
       return t;
     },
   },

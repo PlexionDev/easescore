@@ -38,10 +38,17 @@ describe("catalog", () => {
 describe("hillside R1D-H vacant lot (Mount Washington)", () => {
   const rs = evaluateRequirements(HILLSIDE, newHome);
 
-  it("requires a geotechnical investigation because of the Landslide-Prone overlay (§906.04)", () => {
+  it("requires a full geotechnical report for new construction in the Landslide-Prone overlay (§906.04, City handout)", () => {
     const g = byId(rs, "geotech");
     expect(g.status).toBe("REQUIRED");
-    expect(g.reasons[0]?.reason).toMatch(/Landslide-Prone overlay.*§906\.04/);
+    expect(g.reasons[0]?.reason).toMatch(/full geotechnical report.*§906\.04\.B\.2/);
+  });
+
+  it("uses the handout's smaller-work tier for a deck, and the exemption list otherwise", () => {
+    const deck = byId(evaluateRequirements(HILLSIDE, { type: "rehab", minor_work: "deck" }), "geotech");
+    expect(deck.reasons[0]?.reason).toMatch(/certified geotechnical professional/);
+    const interior = byId(evaluateRequirements(HILLSIDE, { type: "rehab" }), "geotech");
+    expect(interior.reasons.some((t) => /may not need a report/.test(t.reason))).toBe(true);
   });
 
   it("asks about steep cut/fill instead of assuming (§915.02.A.1.c)", () => {
@@ -90,7 +97,7 @@ describe("floodplain parcel outside Pittsburgh", () => {
   it("treats unmapped landslide risk as unknown, not absent", () => {
     const g = byId(rs, "geotech");
     expect(g.status).not.toBe("NOT_NEEDED");
-    expect(g.reasons.some((t) => /cover Pittsburgh only/.test(t.reason))).toBe(true);
+    expect(g.reasons.some((t) => /overlays in our data are Pittsburgh's/.test(t.reason))).toBe(true);
   });
 });
 

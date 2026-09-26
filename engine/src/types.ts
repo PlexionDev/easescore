@@ -75,6 +75,7 @@ export interface ParcelFacts {
   overlays: Overlay[];
   flood_1pct_share: number;
   slope: { mean_pct: number; steep_share: number; cells: number; resolution_m: number } | null;
+  slope_1m?: { mean_pct: number; max_pct: number; p95_pct: number | null; share_over_25: number; steep_25: boolean } | null;
   /** Filled when those layers are loaded; undefined = layer not available yet. */
   landslides_within_300ft?: number;
   red_bed_landslides_300ft?: number;
@@ -116,6 +117,8 @@ export interface ProjectAnswers {
   new_driveway?: boolean;
   lot_split_or_merge?: boolean;
   disturbed_area_sqft?: number;
+  /** Smaller work on a hillside lot: parking pad, deck, porch, stoop, balcony, retaining wall (City geotech handout tier 2). */
+  minor_work?: "parking_pad" | "deck" | "porch" | "stoop" | "balcony" | "retaining_wall";
   /** Will grading create cut or fill slopes steeper than 25%? (Pittsburgh §915.02.A.1.c) */
   cut_fill_over_25?: boolean;
 }
