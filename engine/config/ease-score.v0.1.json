@@ -1,0 +1,283 @@
+{
+  "version": "0.1",
+  "status": "Draft defaults. Every number here is editable and awaits owner / SME review.",
+  "strategies": [
+    "new_sf",
+    "duplex",
+    "three_four_unit",
+    "townhouse_row",
+    "adu",
+    "rehab_existing"
+  ],
+  "weights": {
+    "F1": 25,
+    "F2": 20,
+    "F3": 15,
+    "F4": 15,
+    "F5": 15,
+    "F6": 5,
+    "F7": 5
+  },
+  "bands": [
+    {
+      "band": "Easy",
+      "min": 75
+    },
+    {
+      "band": "Moderate",
+      "min": 55
+    },
+    {
+      "band": "Hard",
+      "min": 35
+    },
+    {
+      "band": "Very hard",
+      "min": 0
+    }
+  ],
+  "evidence": {
+    "minEvidenceShare": 0.6,
+    "credit": {
+      "complete": 1,
+      "partial": 1,
+      "missing": 0
+    },
+    "coverageThreshold": 0.9,
+    "sourceCoverage": {
+      "_note": "Share of target parcels each source covers (0-1). Fill from the data audit; a source below coverageThreshold marks its factor as partial coverage. Sources not listed are not flagged.",
+      "City of Pittsburgh Zoning Districts": null,
+      "City of Pittsburgh Landslide Prone Areas": null,
+      "City of Pittsburgh Undermined Areas": null,
+      "City of Pittsburgh PLI permits": null
+    }
+  },
+  "f1": {
+    "permission": {
+      "P": 100,
+      "A": 80,
+      "S": 60,
+      "C": 45,
+      "N": 15,
+      "nonconformingContinuation": 60
+    },
+    "dimensional": {
+      "byRight": 1.0,
+      "contextualSetback": 0.95,
+      "varianceBase": 0.5,
+      "varianceRateWeight": 0.5,
+      "noFit": 0
+    },
+    "zba": {
+      "defaultGrantRate": 0.6,
+      "minCases": 5,
+      "dimensionalReliefType": "dimensional_variance"
+    },
+    "contextualFrontSetbackFt": 5,
+    "contextualFrontSetbackNote": "Assumed front setback when the contextual rule applies. Neighbors' setbacks are not measured yet.",
+    "varianceProbeSetbacksFt": {
+      "front": 5,
+      "rear": 5,
+      "side": 0
+    },
+    "varianceProbeNote": "Setbacks tried to see whether a dimensional variance could make a building fit at all.",
+    "permissionNote": "P by right, A administrator exception, S special exception, C conditional use, N use variance needed. nonconformingContinuation applies to rehab of an existing residential building whose use the district no longer permits (continued as a legal nonconforming use); default pending review of the Chapter 921 text."
+  },
+  "f2": {
+    "steepSlopeCurve": [
+      [
+        0,
+        100
+      ],
+      [
+        25,
+        75
+      ],
+      [
+        50,
+        45
+      ],
+      [
+        75,
+        20
+      ],
+      [
+        90,
+        5
+      ],
+      [
+        100,
+        5
+      ]
+    ],
+    "envelopeFactor": {
+      "fits": 1.0,
+      "tooSmall": 0.5
+    },
+    "smallestFootprintSf": {
+      "new_sf": 384,
+      "duplex": 896,
+      "three_four_unit": 720,
+      "townhouse_row": 896,
+      "adu": 300,
+      "rehab_existing": 0
+    }
+  },
+  "f3": {
+    "multipliers": {
+      "landslideProne": 0.65,
+      "undermined": 0.7,
+      "slopeMovementOnLot": 0.85,
+      "floodplain100yr": 0.7,
+      "contaminationOnOrAdjacent": 0.75,
+      "combinedSewer": 0.95
+    },
+    "_note": "slopeMovementOnLot uses the 1982 county slope-movement inventory (mapped areas, not recent slides), counted only where a mapped area touches the lot."
+  },
+  "f4": {
+    "frontage": {
+      "street": 100,
+      "paper": 40,
+      "steps": 40,
+      "none": 0
+    },
+    "utilities": {
+      "inside": 1.0,
+      "unknown": 0.85,
+      "outside": 0.5
+    },
+    "transitBonus": 5,
+    "transitBonusMaxDistanceM": 400
+  },
+  "f5": {
+    "start": 100,
+    "perDiscretionaryApproval": 8,
+    "geotechRequired": 10,
+    "historicDistrict": 10,
+    "demolition": 5,
+    "permitTimeQueries": {
+      "_note": "Which permit_time_estimate(permit_type, work_type) row feeds each strategy's building-permit time. Pass the results as extras.permitTimes.",
+      "new_build": {
+        "permit_type": "BUILDING",
+        "work_type": "NEW CONSTRUCTION"
+      },
+      "rehab": {
+        "permit_type": "BUILDING",
+        "work_type": "ALTERATION"
+      }
+    },
+    "months": {
+      "_note": "Heuristic months, labeled as estimates. Hearing-based approvals use the ZBA record: hearing to decision median ~35 days (1.2 mo) and decision to permit median ~68 days (2.3 mo, added once). Other values are placeholders. 'base' stands in for the building permit only when permit-time records are not supplied.",
+      "base": 3,
+      "use_variance": 1.2,
+      "dimensional_variance": 1.2,
+      "special_exception": 1.2,
+      "afterHearingToPermit": 2.3,
+      "administrator_exception": 1,
+      "conditional_use": 5,
+      "historic_certificate": 2,
+      "subdivision": 2,
+      "geotech": 1,
+      "site_plan_review": 2
+    }
+  },
+  "f6": {
+    "vacantOrTeardown": 100,
+    "existingStructure": 70,
+    "teardownConditions": [
+      "POOR",
+      "VERY POOR",
+      "UNSOUND"
+    ],
+    "rehabCondition": {
+      "EXCELLENT": 100,
+      "VERY GOOD": 95,
+      "GOOD": 90,
+      "AVERAGE": 75,
+      "FAIR": 55,
+      "POOR": 35,
+      "VERY POOR": 20,
+      "UNSOUND": 10
+    },
+    "titlePath": {
+      "clear": 1.0,
+      "taxDelinquent": 0.85,
+      "publicOwner": 0.9
+    }
+  },
+  "f7": {
+    "_note": "Percentile rank (0-100) of nearby valid sales + completed permits is the sub-score."
+  },
+  "redFlags": {
+    "_note": "Red flags are only: FEMA floodway, no legal access, active contamination site on the parcel.",
+    "floodwayMinShare": 0.05
+  },
+  "reviewCallouts": {
+    "groutingCostUsd": {
+      "low": 30000,
+      "high": 50000,
+      "label": "Editable default for mine grouting, not a quote. Actual cost depends on mine depth and lot size."
+    },
+    "geotechReportCostUsd": null,
+    "geotechReportCostNote": "No default set: get quotes from a geotechnical engineer."
+  },
+  "planningBadge": {
+    "status": "default — awaiting planning input",
+    "criteria": [
+      {
+        "id": "public_owner",
+        "label": "Publicly owned (city, URA, land bank)",
+        "weight": 20
+      },
+      {
+        "id": "frequent_transit",
+        "label": "Within 400 m of frequent transit",
+        "weight": 15,
+        "maxDistanceM": 400
+      },
+      {
+        "id": "target_area",
+        "label": "In a planning-designated target area or corridor",
+        "weight": 20
+      },
+      {
+        "id": "missing_middle_by_right",
+        "label": "Missing-middle (2-4 units, townhouses) by right",
+        "weight": 15
+      },
+      {
+        "id": "affordable_units",
+        "label": "Affordable units proposed",
+        "weight": 15
+      },
+      {
+        "id": "qct",
+        "label": "In a HUD Qualified Census Tract",
+        "weight": 10
+      },
+      {
+        "id": "vacant_tax_delinquent",
+        "label": "Vacant or blighted and tax-delinquent",
+        "weight": 5
+      }
+    ],
+    "tiers": [
+      {
+        "tier": "Expedite candidate",
+        "min": 70,
+        "requiresNoRedFlags": true
+      },
+      {
+        "tier": "Priority watch",
+        "min": 50,
+        "requiresNoRedFlags": false
+      }
+    ]
+  },
+  "unlocks": [
+    "parking_minimum_removed",
+    "min_lot_size_removed",
+    "attached_by_right",
+    "contextual_setback_applied"
+  ]
+}

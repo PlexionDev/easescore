@@ -65,3 +65,36 @@ Score = Σ(weight × points) / Σ(weight of assessed factors) × 100.
 3. Is "vacant land scores higher" right, or does demolition cost need its own factor?
 4. What market signal do developers actually trust: sale $/sq ft, rents (HUD FMR), or days on market?
 5. How should the score treat parcels outside Pittsburgh where zoning is unknown: exclude zoning (current plan) or impute from land use?
+
+## Ease Score v0.1 (implemented in `engine/src/score/`)
+
+**Config:** `engine/config/ease-score.v0.1.json` holds every weight, curve breakpoint, multiplier, band cutoff, evidence threshold, default ZBA grant rate, callout cost default and planning-badge default. It lives inside the engine package so the web bundle can import it. Every result carries `configVersion`. Pass a different config object as the third argument to try new weights.
+
+**How to call it (web):** fetch the RPCs, then
+```ts
+import { score } from "@easescore/engine";
+const result = score.scoreParcel(parcelFacts, {
+  quickfitInput,        // parcel_quickfit_input(parid)
+  easeInputs,           // parcel_ease_inputs(parid)   (migration 080)
+  zba,                  // zba_grant_rates(district)    (migration 080)
+  permitTimes,          // optional: permit_time_estimate rows, keyed "new_build" / "rehab"
+  project,              // optional: { affordableUnitsProposed }
+  unlocks: true,        // policy what-ifs rerun the lot-fit test (about 1 s on a large lot); false skips them
+});
+```
+`score.toEaseInput` (facts adapter) and `score.computeEaseScore` (no solver; takes precomputed fits) are exported for callers that want the pieces.
+
+**What it returns:** one result per strategy (new single-family, duplex, 3-4 units, townhouse row, ADU, rehab of the existing building) and the best one. Each has a 0-100 score, a band (Easy 75+, Moderate 55-74, Hard 35-54, Very hard under 35), red flags, amber "Review required" callouts, seven factors, predicted months to permit, a planning badge and policy unlocks.
+
+**Rules in brief (our words):**
+- Seven factors: zoning permission (25), terrain (20), geohazards (15), access and utilities (15), approval burden (15), lot readiness (5), market activity (5). Zoning = use permission (by right, administrator exception, special exception, conditional use, use variance) times how the building fits the lot (QuickFit: by right, with a contextual setback, with a dimensional variance weighted by that district's ZBA grant rate, or not at all).
+- A factor without data is marked *missing* and left out of the average; the result then shows a range (missing factors at 0 and at 100). If factors with evidence carry under 60% of the weight, the result is labeled preliminary. Outside the City, zoning is missing and the note says to confirm with the municipality. City-only layers (landslide-prone, historic, combined sewer) are *unknown* outside the City, never "none".
+- Red flags are only: FEMA floodway, no street access, an active cleanup site on the lot. They label the score "Blocked unless resolved" and name the way out; they never change the number.
+- Landslide-prone and undermined ground lower the geohazard factor and always add a "Review required" callout with the code sections, a checklist, and cost notes (grouting uses the config's editable default; no geotech cost is invented).
+- Months to permit adds heuristic time per discretionary approval to the City's building-permit median when permit-time records are supplied; otherwise it is labeled an estimate. When the median is empty but the row carries `target_calendar_days` (the City's published review target), that target is used for the building-permit part and the result carries `targetOnly: true` and `label: "City target, not measured"`.
+- The planning badge is separate from the score and uses placeholder weights until planners set them.
+- Unlocks rerun the score with one policy change at a time (no parking minimum, no minimum lot size, attached housing by right, contextual setback) and report score and by-right unit gains.
+
+**Code sections encoded (checked against the official text):** §911.02 Use Table for the P and H districts; §905.01 P standards, contextual setbacks in P (§905.01.C.1) and Site Plan Review on P lots of 2,400 sf or more (§905.01.D.1, counted as an approval step in F5); Chapter 921 nonconformities: repair of a nonconforming building needs no relief (§921.03.A.1), compliant enlargement is allowed (§921.03.D.1), rebuilding after a disaster is a special exception (§921.03.C.2). Lots of record (§921.04.A): an undersized vacant lot is scored on the Administrator Exception path with partial evidence, because our data can't confirm the lot was vacant and separately owned on the date the Code became applicable (that date isn't in our data).
+
+**Known limits (v0.1):** ADU rules are not transcribed (ADU zoning = missing). Townhouse permissions exist only for residential districts and H. Water/sewer service areas are not loaded yet, so utilities score as unknown (x0.85). Steep ground is not yet cut from the QuickFit envelope, so steep lots can "fit" on paper. The slope-movement input is the 1982 county inventory (on-lot areas only), so the geohazard factor is marked partial.

@@ -70,6 +70,9 @@ export interface ParcelFacts {
     stories: number | null;
     fmv_building: number | null;
     fmv_total: number | null;
+    municode?: string | null;
+    condition?: string | null;
+    as_of?: string | null;
   } | null;
   zoning: { code: string; type: string; rules?: ZoningRules | null } | null;
   overlays: Overlay[];
