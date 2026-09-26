@@ -19,7 +19,7 @@ export type Insets = { left: number; bottom: number };
 
 const HEADING_DEG = 20; // a slightly rotated arrival reads better than dead north-up
 const PITCH_DEG = -45;
-const DESATURATE = 0.35; // share of luminance mixed into the surroundings; 0 turns it off
+const DESATURATE = 0; // share of luminance mixed into the surroundings; 0 turns it off
 const SHADES = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#ca8a04", "#4f46e5"];
 
 const LAYERS: { id: string; label: string; kinds: Record<string, string> }[] = [
@@ -145,7 +145,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       const scene = viewer.scene;
       setStatus({ phase: "tiles" });
 
-      // Look: real sun, soft shadows, sky.
+      // Look: fixed early-afternoon sun, soft shadows, sky.
       viewer.clock.shouldAnimate = false;
       viewer.clock.currentTime = sunTime(C);
       viewer.shadows = true;
@@ -291,7 +291,8 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       if (dead) return;
       tiles.current = ts;
       ts.maximumScreenSpaceError = 8;
-      ts.shadows = C.ShadowMode.ENABLED;
+      // Receive only: the mesh already has baked shadows; only our massing casts new ones onto it.
+      ts.shadows = C.ShadowMode.RECEIVE_ONLY;
       // Subtle desaturation away from the parcel so the lot pops.
       ts.customShader = new C.CustomShader({
         uniforms: {

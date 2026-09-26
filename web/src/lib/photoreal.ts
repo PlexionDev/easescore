@@ -190,13 +190,11 @@ export async function groundHeights(pts: [number, number][]): Promise<(number | 
   }));
 }
 
-/** Local noon-ish sun if it's dark in Pittsburgh right now, so shadows and massing stay readable. */
+/** Always light the scene with an early-afternoon sun (1 PM EDT on today's date). Google's photoreal imagery
+ *  already has daylight baked in; a low real-time sun (evening) makes the whole scene look like dusk. */
 export function sunTime(C: Cesium): CesiumNS.JulianDate {
   const now = new Date();
-  const localHour = (now.getUTCHours() + 24 - 4) % 24; // EDT; close enough for a lighting choice
-  if (localHour >= 8 && localHour <= 18) return C.JulianDate.fromDate(now);
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 18, 30)); // ~2:30 PM EDT
-  return C.JulianDate.fromDate(d);
+  return C.JulianDate.fromDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 17, 0)));
 }
 
 export const prefersReducedMotion = () =>
