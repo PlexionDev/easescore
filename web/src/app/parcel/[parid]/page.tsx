@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
+import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
 import { easeInputs, parcelFacts, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
+import { primeRate, readCostOverrides, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
 import EaseScorePanel from "./EaseScorePanel";
+import ProFormaPanel from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -79,9 +81,13 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const { parid } = await params;
   const sp = await searchParams;
   const factsP = parcelFacts(parid);
-  const [facts, sales, rent, mapData, qfInput, ease, zba, permits] = await Promise.all([
-    factsP, salesComps(parid), rentComps(parid), parcelMap(parid), quickfitInput(parid), easeInputs(parid),
+  const salesP = salesComps(parid);
+  const [facts, sales, rent, mapData, qfInput, ease, zba, permits, sfComps, prime, tapFees] = await Promise.all([
+    factsP, salesP, rentComps(parid), parcelMap(parid), quickfitInput(parid), easeInputs(parid),
     factsP.then((x) => zbaGrantRates((x as ParcelFacts | null)?.zoning?.code)).catch(() => null), permitTimes(),
+    salesP.then((x) => singleFamilyComps(parid, x as assumptions.SalesCompsLike | null)).catch(() => null),
+    primeRate(),
+    factsP.then((x) => tapFeesPerHome((x as { assessment?: { is_pittsburgh?: boolean } } | null)?.assessment?.is_pittsburgh === true)).catch(() => null),
   ]);
   if (!facts) notFound();
   const f = facts as unknown as ParcelFacts & Record<string, any>;
@@ -100,12 +106,38 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === wanted) ?? easeResult.strategies.find((x) => x.strategy === easeResult!.best) ?? easeResult.strategies[0] ?? null
     : null;
+  // Pro forma for the selected option: cost defaults from the versioned config, the user's pf_* edits,
+  // comps and rents from the database. A failure hides the section, never the page.
+  let pf: assumptions.ProFormaResult | null = null;
+  if (selected?.applicable) {
+    try {
+      const plan = assumptions.buildDevelopmentInputs({
+        strategy: selected.strategy,
+        facts: f as assumptions.ProFormaFacts,
+        scheme: easeResult?.schemes?.[selected.strategy] ?? null,
+        comps: sfComps,
+        rents: rent as assumptions.RentCompsLike | null,
+        primeRate: prime?.rate ?? null,
+        primeRateDate: prime?.date ?? null,
+        permitMonths: selected.predictedMonthsToPermit?.months ?? null,
+        tapFeesPerUnit: tapFees,
+        overrides: readCostOverrides(sp),
+      });
+      pf = assumptions.evaluateDevelopment(plan);
+    } catch {
+      pf = null;
+    }
+  }
+  const pencilsNote = pf && pf.plan.exclusions.length
+    ? `Partial estimate. Not included yet: ${pf.plan.exclusions.map((e) => e.label.charAt(0).toLowerCase() + e.label.slice(1)).join("; ")}.`
+    : null;
+
   let answers: narrative.NarrativeResult | null = null;
   if (selected?.applicable) {
     try {
       const reqs = evaluateRequirements(f, STRATEGY_PROJECT[selected.strategy]);
       answers = narrative.generateNarrative(narrative.fromStrategyResult({
-        parid, proForma: null, requirements: reqs,
+        parid, proForma: pf?.narrative ?? null, requirements: reqs,
         // Callout titles read "Review required: X"; the answers list X alone.
         result: { ...selected, reviewCallouts: selected.reviewCallouts.map((c) => ({ ...c, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()) })) },
         zoning: narrativeZoning(selected, score.isCityParcel(f) ? f.zoning?.code ?? null : null, f.context?.municipality ?? f.assessment?.municipality ?? null, zba),
@@ -134,7 +166,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         ].filter(Boolean).map((t) => <span key={String(t)} className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">{t}</span>)}
       </section>
       {easeResult && selected
-        ? <EaseScorePanel parid={parid} result={easeResult} selected={selected} answers={answers} sp={sp} />
+        ? <EaseScorePanel parid={parid} result={easeResult} selected={selected} answers={answers} sp={sp} pencilsNote={pencilsNote}
+            proForma={pf ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} /> : null} />
         : <section className="rounded-xl border border-dashed border-slate-300 p-3">
             <h2 className="text-base font-semibold text-slate-900">Ease Score</h2>
             <p className="text-sm text-zinc-600">We could not score this parcel right now. The facts, checklist and comps below still apply.</p>

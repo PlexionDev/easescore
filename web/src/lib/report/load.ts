@@ -5,6 +5,7 @@ import "server-only";
 // value that changes between runs (and it can be pinned with ?date=YYYY-MM-DD).
 
 import {
+  assumptions,
   evaluateRequirements,
   finance,
   quickfit,
@@ -13,6 +14,7 @@ import {
   type RequirementResult,
 } from "@easescore/engine";
 import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
+import { homeTapFees, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
 import { loadEaseScore, type EaseScoreView } from "./score";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -202,6 +204,13 @@ export function readImages(sp: SP): FigureImages {
   return { context: ok(str(sp, "img_context")), terrain: ok(str(sp, "img_terrain")), analysis: ok(str(sp, "img_analysis")) };
 }
 
+/** QuickFit typology (or the report's strategy) → the score engine's strategy id used by the cost builder. */
+const TYPOLOGY_STRATEGY: Record<string, "new_sf" | "duplex" | "townhouse_row"> = {
+  single_family: "new_sf",
+  duplex: "duplex",
+  townhouse_row: "townhouse_row",
+};
+
 export const STRATEGY_LABEL: Record<Strategy, string> = {
   best: "Best fit found by QuickFit",
   single_family: "Single-family house",
@@ -247,6 +256,12 @@ export interface ReportModel {
   score: EaseScoreView;
   forSale: finance.ForSaleProForma;
   rental: finance.RentalProForma;
+  /** Cost builder + finance run for the studied scheme (same code as the parcel page). */
+  proForma: assumptions.ProFormaResult;
+  sensitivity: assumptions.SensitivityResult;
+  /** Single-family comps used to price a finished home (null when unavailable). */
+  sfComps: assumptions.SalesCompsLike | null;
+  prime: { rate: number; date: string } | null;
   /** Sale price per unit used as a market reference (comps median $/sq ft × net sq ft per unit). */
   refSalePricePerUnit: number | null;
   /** Land reference from vacant-land comps (median $ per sq ft of lot × lot area), vacant lots only. */
@@ -376,7 +391,6 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
   const rent = (rentRaw as RentPayload | null) ?? null;
 
   // Market references (clearly labeled in the report). Never a price opinion.
-  const units = scheme?.units ?? null;
   const nsfPerUnit = scheme && scheme.units > 0 ? scheme.netFloorAreaSf / scheme.units : null;
   const refSalePricePerUnit =
     sales?.status === "ok" && sales.sufficient !== false && sales.comparable_use !== "vacant land" && sales.median_price_per_sqft && nsfPerUnit
@@ -390,17 +404,6 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
       : null;
   const refRentPerUnit = rent?.zori?.latest_rent ? Math.round(rent.zori.latest_rent) : null;
 
-  // Pro forma through the engine. Cost inputs are deliberately absent: there is no local cost table yet,
-  // so every cost-driven output comes back "insufficient evidence" with the list of what is missing.
-  const unitMixSale: finance.UnitRow[] | undefined = units ? [{ label: "Market-rate unit", count: units, salePrice: refSalePricePerUnit }] : undefined;
-  const unitMixRent: finance.UnitRow[] | undefined = units ? [{ label: "Market-rate unit", count: units, monthlyRent: refRentPerUnit }] : undefined;
-  const common = { units, grossSqFt: scheme?.grossFloorAreaSf ?? null };
-  const forSale = finance.forSaleProForma({ ...common, unitMix: unitMixSale });
-  const rental = finance.rentalProForma({
-    ...common,
-    unitMix: unitMixRent,
-    taxMills: facts.property_tax?.general_mills ?? null,
-  });
   const msiPer100k = finance.msiAnnualPremium(100_000);
 
   const score = loadEaseScore({
@@ -411,6 +414,27 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     typology: scheme?.typology ?? null,
     affordable: scenario.affordable,
   });
+
+  // Pro forma: the cost config defaults, the pf_* edits, single-family comps, rents, the prime rate and
+  // the published tap fees, through the same builder as the parcel page.
+  const [sfComps, prime] = await Promise.all([retry(() => singleFamilyComps(parid, sales as assumptions.SalesCompsLike | null)), primeRate()]);
+  const homeFees = homeTapFees(tapFees);
+  const overrides = readCostOverrides(sp);
+  const plan = assumptions.buildDevelopmentInputs({
+    strategy: TYPOLOGY_STRATEGY[(scheme ?? closest)?.typology ?? ""] ?? TYPOLOGY_STRATEGY[scenario.strategy] ?? "new_sf",
+    facts: facts as assumptions.ProFormaFacts,
+    // When nothing fits by right, price the closest layout (it needs approvals; Section 4 says which).
+    scheme: scheme ?? (closest ? { ...closest, typologyLabel: `${closest.typologyLabel}, closest layout, needs approvals` } : null),
+    comps: sfComps,
+    rents: rent as assumptions.RentCompsLike | null,
+    primeRate: prime?.rate ?? null,
+    primeRateDate: prime?.date ?? null,
+    permitMonths: score.status === "ready" ? score.permit?.months ?? null : null,
+    tapFeesPerUnit: homeFees.length ? homeFees.reduce((t, x) => t + x.amount, 0) : null,
+    overrides: { tenure: scenario.tenure, ...overrides },
+  });
+  const proForma = assumptions.evaluateDevelopment(plan);
+  const sensitivity = assumptions.sensitivity(plan);
 
   return {
     parid,
@@ -433,8 +457,12 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     requirements,
     scenario,
     score,
-    forSale,
-    rental,
+    forSale: proForma.forSale,
+    rental: proForma.rental,
+    proForma,
+    sensitivity,
+    sfComps,
+    prime,
     refSalePricePerUnit,
     refLandValue,
     refRentPerUnit,

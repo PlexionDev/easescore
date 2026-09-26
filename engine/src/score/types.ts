@@ -2,7 +2,7 @@
 // every factor reports its evidence level, inputs, sources and data dates.
 
 import type { UsePermission } from "../types";
-import type { QuickFitRules } from "../quickfit/types";
+import type { QuickFitRules, Scheme } from "../quickfit/types";
 import type config from "../../config/ease-score.v0.1.json";
 
 export type EaseScoreConfig = typeof config;
@@ -166,6 +166,8 @@ export interface EaseScoreResult {
   strategies: StrategyResult[];
   unlocks: UnlockResult[];
   notes: string[];
+  /** The QuickFit scheme behind each new-build strategy's fit (sizes the pro forma). */
+  schemes?: Partial<Record<StrategyId, Scheme>>;
 }
 
 // ---------------------------------------------------------------- inputs

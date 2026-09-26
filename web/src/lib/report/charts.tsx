@@ -246,3 +246,40 @@ export function TornadoPending({ variables }: { variables: string[] }) {
     </svg>
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Tornado: how far the result moves when each assumption is moved low and high.
+
+export function Tornado({ rows, base, money }: { rows: { label: string; lowLabel: string; highLabel: string; valueAtLow: number | null; valueAtHigh: number | null }[]; base: number; money: (n: number) => string }) {
+  const W = 640;
+  const rowH = 30;
+  const H = 48 + rows.length * rowH;
+  const x0 = 200;
+  const x1 = W - 20;
+  const vals = rows.flatMap((r) => [r.valueAtLow, r.valueAtHigh]).filter((v): v is number => v !== null);
+  const lo = Math.min(base, ...vals);
+  const hi = Math.max(base, ...vals);
+  const span = hi - lo || 1;
+  const X = (v: number) => x0 + ((v - lo) / span) * (x1 - x0);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Which assumption matters most">
+      <line x1={X(base)} x2={X(base)} y1="14" y2={H - 20} stroke={INK} />
+      <text x={X(base)} y="10" fontSize="10" textAnchor="middle" fill={MUTED}>base {money(base)}</text>
+      {rows.map((r, i) => {
+        const y = 22 + i * rowH;
+        const a = r.valueAtLow ?? base;
+        const b = r.valueAtHigh ?? base;
+        return (
+          <g key={r.label}>
+            <text x="8" y={y + 13} fontSize="11" fill={INK}>{r.label}</text>
+            {r.valueAtLow !== null && <rect x={Math.min(X(a), X(base))} y={y + 2} width={Math.max(1, Math.abs(X(a) - X(base)))} height="14" fill="#c4d3e0" />}
+            {r.valueAtHigh !== null && <rect x={Math.min(X(b), X(base))} y={y + 2} width={Math.max(1, Math.abs(X(b) - X(base)))} height="14" fill="#234e70" />}
+            <text x={x0 - 6} y={y + 26} fontSize="8.5" textAnchor="end" fill={MUTED}>{r.lowLabel} / {r.highLabel}</text>
+          </g>
+        );
+      })}
+      <text x={x0} y={H - 6} fontSize="9" fill={MUTED}>{money(lo)}</text>
+      <text x={x1} y={H - 6} fontSize="9" textAnchor="end" fill={MUTED}>{money(hi)}</text>
+    </svg>
+  );
+}

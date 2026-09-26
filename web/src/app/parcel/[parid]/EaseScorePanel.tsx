@@ -1,7 +1,8 @@
 // Ease Score v0.1 on the parcel page (server component). Order: red flags banner, score + band +
-// strategy switcher, the four answers, "Review required" callouts, factor bars, months to permit,
+// strategy switcher, the four answers, "Review required" callouts, factor bars, the pro forma, months to permit,
 // planning badge, "What would unlock it". Popovers use <details>, so no client JS is needed here.
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { narrative, score } from "@easescore/engine";
 import FourAnswers from "./FourAnswers";
@@ -82,12 +83,16 @@ function signed(n: number) {
   return `${n > 0 ? "+" : ""}${n}`;
 }
 
-export default function EaseScorePanel({ parid, result, selected, answers, sp }: {
+export default function EaseScorePanel({ parid, result, selected, answers, sp, proForma, pencilsNote }: {
   parid: string;
   result: Result;
   selected: Strategy;
   answers: narrative.NarrativeResult | null;
   sp: Record<string, string | string[] | undefined>;
+  /** "Does it pencil?" section, shown after the factor bars. */
+  proForma?: ReactNode;
+  /** Shown under the "Does it pencil?" answer, e.g. what the estimate leaves out. */
+  pencilsNote?: string | null;
 }) {
   const s = selected;
   const blocked = s.labels.includes(score.BLOCKED);
@@ -166,7 +171,7 @@ export default function EaseScorePanel({ parid, result, selected, answers, sp }:
 
       {/* The four answers */}
       {answers
-        ? <FourAnswers result={answers} />
+        ? <FourAnswers result={answers} pencilsNote={pencilsNote} />
         : <p className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">The plain-English summary is not available for this option.</p>}
 
       {/* Review required: amber, never hidden */}
@@ -203,6 +208,9 @@ export default function EaseScorePanel({ parid, result, selected, answers, sp }:
           </ul>
         </section>
       )}
+
+      {/* Pro forma: cost, value and "does it pencil" for this option */}
+      {s.applicable && proForma}
 
       {/* Months to permit + planning badge */}
       {s.applicable && (

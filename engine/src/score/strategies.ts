@@ -164,6 +164,32 @@ export function fitFromQuickFit(
     notes: ["No building of this type fits, even with reduced setbacks."] };
 }
 
+/**
+ * The scheme behind a strategy's fit (same selection as fitFromQuickFit): the most units among
+ * schemes that fit by right, else with the contextual setback, else the variance candidate with the
+ * fewest rules to relieve. Used to size the pro forma (floor area, units). Null when nothing was tried.
+ */
+export function schemeFromQuickFit(
+  strategy: StrategyId,
+  runs: { base: QuickFitResult; contextual?: QuickFitResult | null; probe?: QuickFitResult | null },
+): Scheme | null {
+  const typs = TYPOLOGIES_FOR[strategy];
+  if (!typs) return null;
+  const pick = (r?: QuickFitResult | null) => (r ? r.all.filter((s) => typs.includes(s.typology)) : []);
+  const most = (xs: Scheme[]) =>
+    [...xs].sort((a, b) => b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0] ?? null;
+  const base = pick(runs.base);
+  const okBase = base.filter(dimOk);
+  if (okBase.length) return most(okBase);
+  const okCtx = pick(runs.contextual).filter(dimOk);
+  if (okCtx.length) return most(okCtx);
+  const cands = [...base, ...pick(runs.probe)];
+  if (!cands.length) return null;
+  return [...cands].sort(
+    (a, b) => varRules(a).length - varRules(b).length || b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  )[0]!;
+}
+
 export interface FitRunOptions {
   /** Front setback when the contextual rule applies; undefined skips the contextual run. */
   contextualFrontFt?: number;
@@ -191,10 +217,10 @@ export function runStrategyFits(
   q: QuickFitParcelInput,
   rules: QuickFitRules,
   opts: FitRunOptions,
-): { fits: Partial<Record<StrategyId, StrategyFit>>; notes: string[] } {
+): { fits: Partial<Record<StrategyId, StrategyFit>>; notes: string[]; schemes: Partial<Record<StrategyId, Scheme>> } {
   const fe = frontEdgesFor(q);
   const notes = fe.note ? [fe.note] : [];
-  if (!fe.front.length || q.parcel.length < 3) return { fits: {}, notes: [...notes, "Lot outline or street frontage unavailable; the fit test did not run."] };
+  if (!fe.front.length || q.parcel.length < 3) return { fits: {}, schemes: {}, notes: [...notes, "Lot outline or street frontage unavailable; the fit test did not run."] };
   const common = {
     parcel: q.parcel,
     frontEdges: fe.front,
@@ -217,9 +243,12 @@ export function runStrategyFits(
   const probe = toggles.length ? solveQuickFit({ ...common, rules, variances: toggles }) : null;
 
   const fits: Partial<Record<StrategyId, StrategyFit>> = {};
+  const schemes: Partial<Record<StrategyId, Scheme>> = {};
   for (const s of NEW_BUILD) {
     const f = fitFromQuickFit(s, { base, contextual, probe });
     if (f) fits[s] = f;
+    const sc = schemeFromQuickFit(s, { base, contextual, probe });
+    if (sc) schemes[s] = sc;
   }
-  return { fits, notes };
+  return { fits, notes, schemes };
 }

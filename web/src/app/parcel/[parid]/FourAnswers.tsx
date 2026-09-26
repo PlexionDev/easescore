@@ -53,7 +53,7 @@ function Bullets({ items }: { items: narrative.NarrativeSentence[] }) {
 }
 
 /** The four plain-English answers. Pass the NarrativeResult from /api/narrative or narrative.generateNarrative(). */
-export default function FourAnswers({ result }: { result: narrative.NarrativeResult }) {
+export default function FourAnswers({ result, pencilsNote }: { result: narrative.NarrativeResult; pencilsNote?: string | null }) {
   return (
     <section aria-label="Four answers" className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4">
       <Answer q="Can you build here?">
@@ -66,6 +66,7 @@ export default function FourAnswers({ result }: { result: narrative.NarrativeRes
             <Line text={result.pencilsMath.text} />
           </p>
         ) : null}
+        {pencilsNote ? <p className="mt-0.5 text-xs text-amber-800">{pencilsNote}</p> : null}
       </Answer>
       <Answer q="What's in the way?">
         <Bullets items={result.barriers} />

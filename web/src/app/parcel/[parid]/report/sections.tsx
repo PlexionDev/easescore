@@ -3,11 +3,11 @@
 // in reading order, and the same inputs always give the same numbering.
 
 import type { ReactNode } from "react";
-import { finance, PHASE_ORDER, quickfit, type RequirementResult } from "@easescore/engine";
+import { assumptions, finance, PHASE_ORDER, quickfit, type RequirementResult } from "@easescore/engine";
 import type { CiteRegistry } from "@/lib/report/cite";
 import type { ReportModel } from "@/lib/report/load";
 import { STRATEGY_LABEL } from "@/lib/report/load";
-import { CompsScatter, LotPlan, PhaseSequence, SlopeBar, TornadoPending } from "@/lib/report/charts";
+import { CompsScatter, LotPlan, PhaseSequence, SlopeBar, Tornado, TornadoPending } from "@/lib/report/charts";
 import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
 
@@ -19,6 +19,7 @@ export interface Ctx {
 }
 
 export const REPORT_VERSION = "report v0.1";
+const PENCILS_TEXT: Record<string, string> = { yes: "Yes", thin: "Barely", no: "No" };
 export const DISCLAIMER = "Decision support — not legal, financial, or engineering advice.";
 
 // Small helpers -----------------------------------------------------------------------------------
@@ -26,7 +27,6 @@ export const DISCLAIMER = "Decision support — not legal, financial, or enginee
 /** Footnote marker. Called as a function so the number is assigned right here, in reading order. */
 const fn = (x: Ctx, ...keys: string[]) => <sup className="fn">[{keys.map((k) => x.c.ref(k)).join(", ")}]</sup>;
 
-const AWAIT = "Assumption — awaiting local cost data";
 
 /** A numbered section. `flow` sections continue on the same page when there is room. */
 function Sec({ id, no, title, flow, children }: { id: string; no: string; title: string; flow?: boolean; children: ReactNode }) {
@@ -89,7 +89,7 @@ function plainInput(name: string): string {
     monthlyRent: "monthly rent",
     ltc: "loan-to-cost",
   };
-  return name.replace(/[A-Za-z][A-Za-z0-9.]*(\[\d+\])?/g, (w) => {
+  return name.replace(/unitMix\[\d+\]\./g, "").replace(/[A-Za-z][A-Za-z0-9.]*(\[\d+\])?/g, (w) => {
     if (special[w]) return special[w]!;
     const last = w.split(".").at(-1)!.replace(/\[\d+\]/, "");
     if (special[last]) return special[last]!;
@@ -133,8 +133,6 @@ function receiptRows(rows: [finance.Receipt, Kind][]) {
 }
 
 const overlay = (m: ReportModel, layer: string) => m.facts.overlays?.find((o) => o.layer === layer && o.share > 0);
-const req = (m: ReportModel, id: string) => m.requirements.find((r) => r.id === id);
-const isReq = (m: ReportModel, id: string) => ["REQUIRED", "LIKELY"].includes(req(m, id)?.status ?? "");
 
 /** Plain list of what a scheme needs (use permission and dimensional relief). */
 function blockers(s: quickfit.Scheme): string {
@@ -216,8 +214,8 @@ export function Cover(x: Ctx) {
       </div>
       <p className="disclaimer">
         {DISCLAIMER} This study screens a parcel with public data and published rules. It is not an appraisal, a zoning determination, a survey or an
-        engineering report. Every number is footnoted to its source in Appendix A. Values marked “awaiting” are not yet known and are never filled
-        with guesses. Prepared by the EaseScore.AI engine · {REPORT_VERSION}.
+        engineering report. Every number is footnoted to its source in Appendix A. Costs are editable defaults with a source label on each; values
+        marked “not included” or “awaiting” are not yet known and are never filled with guesses. Prepared by the EaseScore.AI engine · {REPORT_VERSION}.
       </p>
     </section>
   );
@@ -315,7 +313,6 @@ export function S1(x: Ctx) {
       </p>
     );
 
-  const sales = m.sales;
   return (
     <Sec id="s1" no="1" title="Summary in plain English">
       <p className="lead">
@@ -356,23 +353,14 @@ export function S1(x: Ctx) {
         <div className="answer">
           <h3>Does it pencil?</h3>
           <p>
-            Not known yet. Local construction costs are not loaded, so total cost and profit cannot be computed.
-            {sales?.status === "ok" && sales.sufficient !== false && sales.comparable_use === "vacant land" && sales.median_price_per_sqft ? (
-              <>
-                {" "}
-                There are no new-home comps for a vacant lot; nearby vacant lots sold for a median of {money(sales.median_price_per_sqft, 2)} per sq ft of land
-                {fn(x, "sales")}.
-              </>
-            ) : sales?.status === "ok" && sales.sufficient !== false && sales.median_price_per_sqft ? (
-              <>
-                {" "}
-                For reference, {num(sales.count)} nearby {sales.comparable_use} homes sold for a median of {money(sales.median_price_per_sqft)} per sq ft
-                {fn(x, "sales")}.
-              </>
-            ) : (
-              " There are not enough comparable sales nearby to give a market reference."
-            )}
+            {m.proForma.headline}
+            {fn(x, "cost_config", "finance_engine")}
           </p>
+          {m.proForma.sentences.length > 0 && (
+            <ul className="small">
+              {m.proForma.sentences.map((t) => <li key={t}>{t}</li>)}
+            </ul>
+          )}
         </div>
         <div className="answer">
           <h3>What’s in the way?</h3>
@@ -422,8 +410,19 @@ export function S1(x: Ctx) {
         </div>
         <div className="stat">
           <div className="kicker">Pencils?</div>
-          <div className="v pending">Awaiting costs</div>
-          <div className="small muted">Needs a local construction cost table. Shown separately from the Ease Score.</div>
+          {m.proForma.verdict ? (
+            <div className="v">
+              {PENCILS_TEXT[m.proForma.verdict]}
+              {m.scenario.tenure === "sale" && m.proForma.sale.margin != null ? ` · ${m.proForma.sale.margin < 0 ? "−" : ""}${pct(Math.abs(m.proForma.sale.margin), 1)}` : ""}
+              {fn(x, "cost_config")}
+            </div>
+          ) : (
+            <div className="v pending">{m.proForma.plan.missing.length ? "Can’t tell yet" : "Depends on the loan"}</div>
+          )}
+          <div className="small muted">
+            {m.proForma.plan.evidence === "partial" ? `Partial: ${m.proForma.plan.exclusions.length} cost item${m.proForma.plan.exclusions.length === 1 ? "" : "s"} not included. ` : ""}
+            {m.scenario.tenure === "sale" ? "Profit ÷ total cost." : "Income after running costs ÷ total cost."} Shown separately from the Ease Score.
+          </div>
         </div>
         <div className="stat">
           <div className="kicker">Months to permit</div>
@@ -447,7 +446,10 @@ export function S1(x: Ctx) {
           The building shape comes from our site-fit solver using editable placeholder sizes (Appendix C), not an architect’s design{fn(x, "quickfit")}.
         </li>
         <li>Lot lines and street frontage come from county GIS, not a survey{fn(x, "parcels", "streets")}.</li>
-        <li>No construction, soft or financing costs are assumed. Where a cost is needed, the study says so instead of guessing{fn(x, "finance_engine")}.</li>
+        <li>
+          Construction is priced at {money(m.proForma.plan.costPerSf)} per finished sq ft ({m.proForma.plan.tier.label}), from published Pittsburgh builder ranges
+          {fn(x, "builder_ranges")}; site adders, soft costs, contingency and loan terms are editable defaults, each with a source label (Appendix C){fn(x, "cost_config")}. Items with no local cost yet are listed as not included, never counted as zero.
+        </li>
         <li>Market values are references from past sales and rent indexes, not a price opinion{fn(x, "sales", "zori")}.</li>
       </ul>
     </Sec>
@@ -1123,108 +1125,121 @@ export function S6(x: Ctx) {
 export function S7(x: Ctx) {
   const { m } = x;
   const f = m.facts;
-  const a = f.assessment;
-  const c = m.forSale.costs;
+  const pf = m.proForma;
+  const p = pf.plan;
   const tB = x.tab();
-  const hasBuilding = (f.site?.building_count ?? 0) > 0;
   const tt = f.transfer_tax;
-  const tapLines = m.tapFees.filter((t) => t.amount > 0 && /residential permit|connection fee tap 1 in \(normal|meter fee 5\/8/i.test(t.fee_type));
-  const tapSum = tapLines.reduce((s, t) => s + t.amount, 0);
-  const geo = isReq(m, "geotech");
-  const mine = !!(overlay(m, "undermined_pgh") || f.mines?.in_city_undermined || f.mines?.in_mined_out || f.mines?.msi_risk === "confirmed");
-  const steep = (f.slope_1m?.share_over_25 ?? 0) >= 0.25 || isReq(m, "retaining_wall");
+  const GROUP: Record<string, string> = { land: "Land", hard: "Hard costs", soft: "Soft costs", contingency: "Contingency", financing: "Financing and holding" };
 
-  type Line = { line: ReactNode; amount: ReactNode; basis: ReactNode; applies?: boolean };
-  const lines: Line[] = [
-    {
-      line: "Land (purchase price)",
-      amount: <span className="assume">Your price</span>,
-      basis: (
-        <>
-          Enter the agreed price. Public-record anchor: assessed land value {money(a?.fmv_land)}, total {money(a?.fmv_total)}
-          {fn(x, "assessment")}. Assessments are not market prices.
-          {m.refLandValue ? (
-            <>
-              {" "}
-              Vacant-lot sales nearby: median {money(m.sales?.median_price_per_sqft, 2)} per sq ft × {sqft(f.lot_area_sqft_gis ?? a?.lot_area_sqft)} = about {money(m.refLandValue)} (rounded; sales within {num(m.sales?.radius_mi, 2)} mi)
-              {fn(x, "sales")}.
-            </>
-          ) : null}
-        </>
-      ),
-    },
-    {
-      line: "Realty transfer tax",
-      amount: tt ? `${num(tt.total_pct, 1)}% of price` : "—",
-      basis: tt ? <>{tt.parts.map((p: { jurisdiction: string; rate_pct: number }) => `${p.jurisdiction} ${num(p.rate_pct, 2)}%`).join(" + ")}{fn(x, "transfer_tax")}. Usually split between buyer and seller by contract.</> : "Rate not loaded.",
-    },
-    { line: "Construction (hard cost of the building)", amount: <span className="assume">{AWAIT}</span>, basis: m.scheme ? `${sqft(m.scheme.grossFloorAreaSf)} gross × cost per sq ft (local cost table, not loaded)` : "No scheme" },
-    { line: "Demolition and asbestos survey", applies: hasBuilding, amount: <span className="assume">{AWAIT}</span>, basis: hasBuilding ? "Applies: a building stands on the lot" : "Not needed: no building on the lot" },
-    { line: "Dumpsters and hauling", amount: <span className="assume">{AWAIT}</span>, basis: "Local quote" },
-    { line: "Site work (grading, utilities to the house)", amount: <span className="assume">{AWAIT}</span>, basis: "Local quote" },
-    { line: "Geotechnical report", applies: geo, amount: <span className="assume">{AWAIT}</span>, basis: geo ? <>Applies: required or likely here (Section 5){fn(x, "requirements")}</> : "Not triggered by our data" },
-    {
-      line: "Grouting or mine subsidence insurance",
-      applies: mine,
-      amount: mine ? <span className="assume">{AWAIT}</span> : "—",
-      basis: mine ? (
-        <>
-          Applies: mapped mining. Insurance rate: {money(finance.MSI_CHART.baseFee, 2)} + {money(finance.MSI_CHART.perThousand, 2)} per $1,000 of coverage a year, so {money(m.msiPer100k.value, 2)} a year per $100,000 of coverage
-          {fn(x, "msi_rates")}. Grouting cost needs an engineer’s estimate.
-        </>
-      ) : (
-        "No mapped mining"
-      ),
-    },
-    { line: "Retaining walls", applies: steep, amount: <span className="assume">{AWAIT}</span>, basis: steep ? <>Likely: {pct(f.slope_1m?.share_over_25)} of the lot is over 25% slope{fn(x, "slope_1m")}</> : "Not indicated by slope data" },
-    {
-      line: "Water and sewer tap and permit fees",
-      amount: tapLines.length ? money(tapSum) : <span className="assume">Unknown</span>,
-      basis: tapLines.length ? (
-        <>
-          Published fee items for one home: {tapLines.map((t) => `${t.fee_type} ${money(t.amount)}`).join("; ")}; no tapping/capacity fee in the tariff{fn(x, "tap_fees")}. Excludes the plumber’s cost to run the lines.
-        </>
-      ) : (
-        "Fee schedule not loaded for this area"
-      ),
-    },
-    { line: "Soft costs (design, engineering, permits, legal)", amount: <span className="assume">{AWAIT}</span>, basis: "Share of hard cost (local data)" },
-    { line: "Contingency", amount: <span className="assume">{AWAIT}</span>, basis: "Share of hard cost; higher on hillsides" },
-    { line: "Financing and holding costs", amount: <span className="assume">{AWAIT}</span>, basis: "Loan terms and schedule not entered" },
-  ];
+  /** Footnotes for a budget line: where its number comes from. */
+  const notes = (id: string): string[] => {
+    switch (id) {
+      case "land": return has(p.assumptions, "land") ? ["assessment"] : [];
+      case "hard_base": return ["builder_ranges", "cost_config"];
+      case "slope_adder": return ["slope_1m", "cost_config"];
+      case "grouting": return ["undermined", "cost_config"];
+      case "permits": return p.shares.permitsBasis.includes("PLI") ? ["pli_fee"] : ["cost_config"];
+      case "tap_fees": return ["tap_fees"];
+      case "interest": return m.prime ? ["prime", "cost_config"] : ["cost_config"];
+      case "holding": return ["assessment", "millage"];
+      default: return ["cost_config"];
+    }
+  };
+  const groups = ["land", "hard", "soft", "contingency", "financing"] as const;
   return (
     <Sec id="s7" no="7" title="Development budget">
-      <Callout tone="pending" title="Cost lines are waiting for local cost data">
-        <p>
-          The local construction cost table is not loaded yet, and the finance engine has no built-in prices{fn(x, "finance_engine")}. Each cost line below says what it
-          is based on. Amounts appear only where a published fee or public record gives one.
-        </p>
-      </Callout>
+      {p.missing.length > 0 ? (
+        <Callout tone="pending" title="Some inputs are missing">
+          <ul>{p.missing.map((t) => <li key={t}>{t}</li>)}</ul>
+        </Callout>
+      ) : null}
+      {p.exclusions.length > 0 ? (
+        <Callout tone="amber" title={`Partial estimate: ${p.exclusions.length} cost item${p.exclusions.length === 1 ? " is" : "s are"} not included yet`}>
+          <p>These items apply to this project, but there is no local cost for them yet. They are left out of the total, never counted as zero, so the total is low by their cost.</p>
+          <ul>{p.exclusions.map((e) => <li key={e.id}>{e.text}. {e.reason}.</li>)}</ul>
+        </Callout>
+      ) : null}
+      <p>
+        Costs use the EaseScore.AI cost assumptions {p.configVersion}{fn(x, "cost_config")}: {p.tier.label} construction at {money(p.costPerSf)} per finished sq ft
+        {fn(x, "builder_ranges")}, on {p.finishedSf != null ? sqft(p.finishedSf) : "an unknown floor area"} ({p.sizeBasis.charAt(0).toLowerCase() + p.sizeBasis.slice(1)}
+        {p.strategy === "rehab_existing" ? "" : fn(x, "quickfit")}). Every line shows its source label; every value can be changed on the parcel page.
+      </p>
+      {p.adders.length > 0 && (
+        <>
+          <h2>Site adders that fired</h2>
+          <ul>
+            {p.adders.map((ad) => (
+              <li key={ad.id}>
+                {ad.reason} ({ad.sourceLabel}{ad.range ? `; range ${ad.range}` : ""}){fn(x, ...(ad.id === "mine_insurance" ? ["msi_rates"] : ad.id === "mine_grouting" ? ["cost_config"] : ["slope_1m", "cost_config"]))}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <div className="tcap">Table {tB}. Development budget (CAPEX)</div>
       <table>
-        <thead><tr><th style={{ width: "30%" }}>Line</th><th style={{ width: "22%" }}>Amount</th><th>Basis and source</th></tr></thead>
+        <thead><tr><th style={{ width: "34%" }}>Line</th><th style={{ width: "18%" }} className="num">Amount</th><th>Basis and source</th></tr></thead>
         <tbody>
-          {lines.map((l, i) => (
-            <tr key={i} style={l.applies === false ? { color: "#8795a1" } : undefined}>
-              <td>{l.line}</td>
-              <td>{l.applies === false ? "Not needed" : l.amount}</td>
-              <td className="small">{l.basis}</td>
+          {groups.flatMap((g) => {
+            const rows = pf.budget.filter((b) => b.group === g);
+            if (!rows.length) return [];
+            return [
+              <tr key={`g-${g}`}><td colSpan={3} className="small" style={{ fontWeight: 600, paddingTop: "6pt" }}>{GROUP[g]}</td></tr>,
+              ...rows.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.label}</td>
+                  <td className="num">{b.amount != null ? money(b.amount) : <span className="assume">Needs inputs</span>}</td>
+                  <td className="small">{b.basis}. <i>{b.sourceLabel}</i>{fn(x, ...notes(b.id))}</td>
+                </tr>
+              )),
+            ];
+          })}
+          {p.exclusions.map((e) => (
+            <tr key={`x-${e.id}`}>
+              <td>{e.label}</td>
+              <td className="num"><span className="assume">Not included</span></td>
+              <td className="small">{e.reason}; cost not set yet (Awaiting local cost data).</td>
             </tr>
           ))}
           <tr className="total">
             <td>Total development cost (TDC)</td>
-            <td colSpan={2}>{receiptValue(c.tdc, "money")}</td>
+            <td className="num">{pf.tdc != null ? money(pf.tdc) : <span className="assume">Needs inputs</span>}</td>
+            <td className="small">land + hard + soft + contingency + financing{fn(x, "finance_engine")}</td>
           </tr>
           <tr>
-            <td>Cost per home / per sq ft</td>
-            <td colSpan={2}>{c.costPerUnit.status === "ok" ? `${money(c.costPerUnit.value)} / ${money(c.costPerSqFt.value)}` : <span className="assume">Needs total development cost</span>}</td>
+            <td>Cost per home / per finished sq ft</td>
+            <td className="num">{pf.costPerUnit != null ? money(pf.costPerUnit) : "—"}</td>
+            <td className="small">{pf.costPerSf != null ? `${money(pf.costPerSf)} per finished sq ft` : "—"}</td>
           </tr>
         </tbody>
       </table>
-      <p className="small muted">Source key for amounts: published fee schedule or public record (footnoted) · local cost table (not loaded yet) · local quote · your input.</p>
+      {pf.sentences[0] ? <p className="small">{pf.sentences[0]}</p> : null}
+      {p.outliers.length > 0 && (
+        <Callout tone="red" title="Unusually high — verify">
+          <ul>{p.outliers.map((o) => <li key={o}>{o}</li>)}</ul>
+        </Callout>
+      )}
+      {p.minePath === "insurance" && p.msiPremium?.status === "ok" ? (
+        <p className="small">
+          Mine subsidence insurance path: {money(p.msiPremium.value, 2)} a year on {money(p.msiCoverage)} of coverage ({money(finance.MSI_CHART.baseFee, 2)} + {money(finance.MSI_CHART.perThousand, 2)} per $1,000)
+          {fn(x, "msi_rates")}. It is a yearly owner cost, so it is not in the budget{m.scenario.tenure === "rent" ? "; it is in the operating costs in Section 8" : ""}. The grouting path ({money(assumptions.COST_CONFIG.siteAdders.mineGrouting.value)} lump sum, Local project data (owner-provided)) can be chosen instead on the parcel page.
+        </p>
+      ) : null}
+      <p className="small">
+        <b>Sanity check.</b> {pf.benchmark.line}
+        {fn(x, "benchmarks")} National reference: {money(assumptions.COST_CONFIG.construction.nationalReference.value)} per sq ft for construction only (national reference, not a Pittsburgh default)
+        {fn(x, "nahb")}.
+      </p>
+      {tt ? (
+        <p className="small muted">
+          Realty transfer tax is {num(tt.total_pct, 1)}% of the price{fn(x, "transfer_tax")}; the seller’s customary half is counted in selling costs (Section 9). The buyer’s half at purchase is not in the total above.
+        </p>
+      ) : null}
     </Sec>
   );
 }
+
+const has = (rows: { key: string; edited: boolean }[], key: string) => rows.some((r) => r.key === key && !r.edited);
 
 // ---------------------------------------------------------------------------------------------
 // 8. Operations
@@ -1289,8 +1304,8 @@ export function S8(x: Ctx) {
         </tbody>
       </table>
       <p className="small">
-        Rent used as a reference: {m.refRentPerUnit ? <>{money(m.refRentPerUnit)} a month per home, the ZIP rent index{fn(x, "zori")}</> : "none available"}. Vacancy,
-        maintenance, management and reserves are not assumed.
+        Rent used: {m.proForma.plan.revenue.rent.perUnit != null ? <>{money(m.proForma.plan.revenue.rent.perUnit)} a month per home ({m.proForma.plan.revenue.rent.basis}){fn(x, m.proForma.plan.revenue.rent.sourceLabel.startsWith("HUD") ? "hud_fmr" : "zori")}</> : "none available"}. Vacancy,
+        maintenance, management, insurance and reserves are editable assumptions (Appendix C){fn(x, "cost_config")}; the tax uses the actual millage on an assumed new assessed value (county land value + construction cost){fn(x, "millage")}.
         {mine ? <> Mine subsidence insurance: {money(m.msiPer100k.value, 2)} a year per $100,000 of coverage{fn(x, "msi_rates")}.</> : null}
         {(f.flood_evidence?.sfha_share ?? 0) > 0 && f.flood_evidence?.tract_nfip_median_premium != null ? (
           <> Flood insurance reference: median premium in this tract {money(f.flood_evidence.tract_nfip_median_premium)} a year{fn(x, "nfip")}.</>
@@ -1312,22 +1327,24 @@ export function S9(x: Ctx) {
   return (
     <Sec flow id="s9" no="9" title="Financing and returns">
       <p>
-        Every measure below is computed by the finance engine the moment its inputs exist{fn(x, "finance_engine")}. Today most are waiting for costs and loan
-        terms, so each row says what it still needs. The formula column is the math in plain words.
+        Every measure below is computed by the finance engine{fn(x, "finance_engine")} from the budget in Section 7 and the assumptions in Appendix C. Rows that
+        still need an input (a market cap rate, a hold period, a discount rate) say what they need. The formula column is the math in plain words.
       </p>
       <h2>If built to sell</h2>
       <p>
-        {m.refSalePricePerUnit ? (
+        {m.proForma.plan.revenue.sale.pricePerSf != null && m.proForma.plan.finishedSf != null ? (
           <>
-            Market reference per home: median {money(m.sales?.median_price_per_sqft)} per sq ft{fn(x, "sales")} × {sqft(m.scheme ? m.scheme.netFloorAreaSf / m.scheme.units : null)} livable ={" "}
-            about <b>{money(m.refSalePricePerUnit)}</b> (rounded). Comparable homes are mostly older, so a new home may sell differently.
+            Sale value: {money(m.proForma.plan.revenue.sale.pricePerSf)} per sq ft ({m.proForma.plan.revenue.sale.basis.charAt(0).toLowerCase() + m.proForma.plan.revenue.sale.basis.slice(1)})
+            {fn(x, m.sfComps === m.sales ? "sales" : "sf_sales")} × {sqft(m.proForma.plan.finishedSf)} finished = <b>{money(m.proForma.sale.grossSales)}</b>. Comparable homes are mostly older, so a new home may sell for more.
+            Selling costs: broker and closing {pct(assumptions.COST_CONFIG.sale.brokerShare.value)} plus the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}.
           </>
         ) : (
-          m.sales?.comparable_use === "vacant land"
-            ? "No market reference sale price: the lot is vacant, so its comps are land sales, not finished homes."
-            : "No market reference sale price (not enough comps or no scheme)."
+          <>{m.proForma.plan.revenue.sale.basis}{m.sfComps ? fn(x, "sf_sales") : null}</>
         )}
       </p>
+      {m.scenario.tenure === "sale" && m.proForma.sentences.length > 1 && (
+        <ul className="small">{m.proForma.sentences.slice(1).map((t) => <li key={t}>{t}</li>)}</ul>
+      )}
       <div className="tcap">Table {t1}. For-sale results</div>
       <table>
         <thead><tr><th style={{ width: "34%" }}>Measure</th><th>How it is figured</th><th>Result</th></tr></thead>
@@ -1346,6 +1363,9 @@ export function S9(x: Ctx) {
         </tbody>
       </table>
       <h2>If built to rent</h2>
+      {m.scenario.tenure === "rent" && m.proForma.sentences.length > 1 && (
+        <ul className="small">{m.proForma.sentences.slice(1).map((t) => <li key={t}>{t}</li>)}</ul>
+      )}
       <div className="tcap">Table {t2}. Rental results</div>
       <table>
         <thead><tr><th style={{ width: "34%" }}>Measure</th><th>How it is figured</th><th>Result</th></tr></thead>
@@ -1407,8 +1427,21 @@ export function S10(x: Ctx) {
           </table>
         </>
       )}
-      <Callout tone="pending" title="Funding gap: awaiting cost data">
-        <p>The gap is the total development cost minus what the restricted rents can support in loans and equity. It needs the cost table.</p>
+      {m.proForma.sale.profit != null && m.proForma.sale.profit < 0 && m.proForma.plan.units ? (
+        <Callout tone="amber" title="For-sale gap at market prices">
+          <p>
+            At today’s nearby sale prices this {m.proForma.plan.units > 1 ? "project" : "home"} is {money(-m.proForma.sale.profit)} short
+            {m.proForma.plan.units > 1 ? ` (${money(-m.proForma.sale.profit / m.proForma.plan.units)} per home)` : ""}{fn(x, "cost_config", "sf_sales")}. That is roughly the subsidy or
+            land write-down it would take to break even. For comparison, {assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.label.replace(/\s*\(.*\)$/, "").toLowerCase()} is estimated at{" "}
+            {money(assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.range[0])} to {money(assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.range[1])}{fn(x, "subsidy_ref")}.
+          </p>
+        </Callout>
+      ) : null}
+      <Callout tone="pending" title="Rental funding gap: needs loan terms">
+        <p>
+          The rental gap is the total development cost{m.proForma.tdc != null ? ` (${money(m.proForma.tdc)}, Section 7)` : ""} minus what the restricted rents can support in a
+          permanent loan and equity. It needs the lender’s minimum debt coverage, the permanent loan rate and term, and the equity you commit; none of these has a default.
+        </p>
       </Callout>
       <h2>Possible sources to close a gap</h2>
       <ul>
@@ -1429,32 +1462,63 @@ export function S10(x: Ctx) {
 export function S11(x: Ctx) {
   const { m } = x;
   const f = m.facts;
+  const sv = m.sensitivity;
+  const sale = m.proForma.plan.tenure === "sale";
   const t = x.tab();
   const fig = x.fig();
   const monthlyTax = f.property_tax?.general_mills != null && f.assessment?.fmv_total ? (f.assessment.fmv_total * f.property_tax.general_mills) / 1000 / 12 : null;
+  const cfg = assumptions.COST_CONFIG.sensitivity;
+  const moveText = (id: string, v: number) =>
+    id.startsWith("constructionRate") ? `${v >= 0 ? "+" : "−"}${num(Math.abs(v) * 100, 0)} pt` : id.startsWith("approvalDelay") ? `+${num(v, 0)} mo` : `${v >= 0 ? "+" : "−"}${num(Math.abs(v) * 100, 0)}%`;
+  const rows = sv.tornado.map((r) => ({ label: r.label, lowLabel: moveText(r.id, r.low), highLabel: moveText(r.id, r.high), valueAtLow: r.valueAtLow, valueAtHigh: r.valueAtHigh }));
+  const delay = sv.tornado.find((r) => r.id.startsWith("approvalDelay"));
+  const be = sv.breakEvenCostIncrease;
+  const bp = sv.breakEvenPriceChange;
   return (
     <Sec flow id="s11" no="11" title="Sensitivity and scenarios">
       <p>
-        Sensitivity shows which assumption moves the result most. The finance engine can run base, conservative and optimistic cases and a “which assumption matters
-        most” chart{fn(x, "finance_engine")}, but each needs a base case with costs, and there is none yet.
+        Sensitivity shows which assumption moves the result most{fn(x, "finance_engine")}. {sv.moves.join(" ")}{fn(x, "cost_config")}
       </p>
-      <div className="tcap">Table {t}. Scenario comparison</div>
+      <div className="tcap">Table {t}. Scenario comparison ({sale ? "built to sell" : "built to rent"})</div>
       <table>
-        <thead><tr><th>Measure</th><th>Conservative</th><th>Base</th><th>Optimistic</th></tr></thead>
+        <thead><tr><th>Measure</th>{sv.scenarios.map((sc) => <th key={sc.id} className="num">{sc.label}</th>)}</tr></thead>
         <tbody>
-          {["Total development cost", "Profit or yield on cost", "Return per year (IRR)"].map((r) => (
-            <tr key={r}><td>{r}</td>{[0, 1, 2].map((i) => <td key={i}><span className="assume">Awaiting costs</span></td>)}</tr>
-          ))}
+          <tr><td>Total development cost</td>{sv.scenarios.map((sc) => <td key={sc.id} className="num">{sc.tdc != null ? money(sc.tdc) : <span className="assume">Needs inputs</span>}</td>)}</tr>
+          <tr><td>{sv.metricLabel}</td>{sv.scenarios.map((sc) => <td key={sc.id} className="num">{sc.result != null ? money(sc.result) : <span className="assume">Needs inputs</span>}</td>)}</tr>
+          <tr><td>{sv.ratioLabel}</td>{sv.scenarios.map((sc) => <td key={sc.id} className="num">{sc.ratio != null ? `${sc.ratio < 0 ? "−" : ""}${pct(Math.abs(sc.ratio), 1)}` : "—"}</td>)}</tr>
         </tbody>
       </table>
       <figure>
-        <TornadoPending variables={["Construction cost", "Sale price or rent", "Land price", "Interest rate", "Approval delay", "Construction delay"]} />
+        {sv.base != null && rows.some((r) => r.valueAtLow != null || r.valueAtHigh != null) ? (
+          <Tornado rows={rows} base={sv.base} money={(n) => money(n)} />
+        ) : (
+          <TornadoPending variables={rows.map((r) => r.label)} />
+        )}
         <figcaption>
-          <b>Figure {fig}.</b> Which assumption matters most. Bars will show how much the result moves when each input changes; none are drawn until costs exist.
+          <b>Figure {fig}.</b> Which assumption matters most: {sv.metricLabel.toLowerCase()} when each assumption is moved down (light) and up (dark), one at a time, largest swing first{fn(x, "cost_config")}.
         </figcaption>
       </figure>
       <h2>Break-even points</h2>
-      <p className="assume">Break-even rent and the largest cost increase the project can absorb need the cost table. They will read like “breaks even at $X a month.”</p>
+      {sale ? (
+        <ul>
+          <li>
+            {be?.status === "ok"
+              ? be.value >= 0
+                ? <>Profit stays above zero as long as construction costs rise less than <b>{pct(be.value, 1)}</b>.</>
+                : <>Construction costs would have to fall by <b>{pct(-be.value, 1)}</b> for the project to break even.</>
+              : <span className="assume">Break-even cost change: {be?.status === "not computable" ? be.reason : "needs a sale value"}.</span>}
+          </li>
+          <li>
+            {bp?.status === "ok"
+              ? bp.value >= 0
+                ? <>It breaks even if sale prices come in <b>{pct(bp.value, 1)}</b> above the comps{m.proForma.plan.revenue.sale.pricePerSf != null ? ` (about ${money(m.proForma.plan.revenue.sale.pricePerSf * (1 + bp.value))} per sq ft)` : ""}.</>
+                : <>Sale prices could fall <b>{pct(-bp.value, 1)}</b> below the comps before it breaks even.</>
+              : <span className="assume">Break-even sale price: {bp?.status === "not computable" ? bp.reason : "needs a sale value"}.</span>}
+          </li>
+        </ul>
+      ) : (
+        <p className="assume">Break-even rent needs a discount rate, hold period and exit cap rate, which have no defaults yet.</p>
+      )}
       <h2>Cost of approval delays</h2>
       <p>
         Every month of delay adds holding costs: taxes, insurance and loan interest. Taxes alone on today’s assessment are about{" "}
@@ -1465,7 +1529,7 @@ export function S11(x: Ctx) {
         ) : (
           "unknown"
         )}
-        . Insurance and interest depend on your loan and policy.
+        .{delay && delay.valueAtHigh != null && sv.base != null ? <> In this model a {num(cfg.delayMonths.value, 0)}-month approval delay changes {sv.metricLabel.toLowerCase()} by {money(delay.valueAtHigh - sv.base)}{fn(x, "finance_engine")}.</> : null}
       </p>
     </Sec>
   );
@@ -1559,7 +1623,11 @@ export function S13(x: Ctx) {
   const reviewTitles = [...(m.score.status === "ready" ? m.score.reviewCallouts.map((c) => c.title.replace(/^Review required:\s*/i, "")) : []), ...reviews.map((r) => r.title)];
   if (reviewTitles.length)
     must.push(`Professionals check the review items (${[...new Set(reviewTitles.map((t) => t.toLowerCase()))].join("; ")}) and find nothing that stops the project or pushes the cost too high.`);
-  must.push("A local cost estimate shows total cost below the expected sale value (or rents that cover costs and the loan).");
+  must.push(
+    m.proForma.verdict === "no"
+      ? "Costs come down, or the value goes up, enough to close the gap in Section 10 (for example through a lower land price, a simpler design, or a subsidy)."
+      : "A local contractor’s bid confirms the estimated cost in Section 7, including the items not included yet.",
+  );
   must.push("A survey confirms the lot lines, frontage and buildable area.");
   return (
     <Sec flow id="s13" no="13" title="Conclusion and next steps">
@@ -1667,20 +1735,23 @@ export function AppC(x: Ctx) {
   const t2 = x.tab();
   const a = quickfit.DEFAULT_ASSUMPTIONS;
   const presets = [quickfit.SINGLE_FAMILY, quickfit.DUPLEX, quickfit.TOWNHOUSE_ROW];
-  const fin: [string, string, string][] = [
-    ["Homes (units)", m.scheme ? String(m.scheme.units) : "not set", "Site-fit scheme"],
-    ["Gross floor area", m.scheme ? sqft(m.scheme.grossFloorAreaSf) : "not set", "Site-fit scheme"],
-    ["Sale price per home (reference)", m.refSalePricePerUnit ? money(m.refSalePricePerUnit) : "not set", "Median comps $/sq ft × livable sq ft"],
-    ["Monthly rent per home (reference)", m.refRentPerUnit ? money(m.refRentPerUnit) : "not set", "ZIP rent index"],
-    ["Property tax rate", m.facts.property_tax?.general_mills != null ? `${num(m.facts.property_tax.general_mills, 2)} mills` : "not set", "County Treasurer"],
-    ["Land price", "not set", "Your input"],
-    ["Hard cost per sq ft", "not set", "Local cost table (not loaded)"],
-    ["Soft cost share, contingency share", "not set", "Local cost table (not loaded)"],
-    ["Loan terms (rate, loan-to-cost, amortization)", "not set", "Your lender"],
-    ["Vacancy, maintenance, management, reserves", "not set", "Your input"],
-    ["Schedule (approval, construction, sales months)", "not set", "Your input / City review times"],
-    ["Cap rates and discount rate", "not set", "Your input"],
-  ];
+  const plan = m.proForma.plan;
+  const cc = assumptions.COST_CONFIG;
+  const t3 = x.tab();
+  const srcKey = (label: string): string[] =>
+    label.startsWith("Pittsburgh builder") ? ["builder_ranges"]
+      : label.startsWith("Pittsburgh PLI") ? ["pli_fee"]
+      : label.startsWith("PA DEP") ? ["msi_rates"]
+      : label.startsWith("Bank prime") ? ["prime"]
+      : label.startsWith("County assess") ? ["assessment"]
+      : label.startsWith("Allegheny County sales") ? [m.sfComps === m.sales ? "sales" : "sf_sales"]
+      : label.startsWith("Zillow") ? ["zori"]
+      : label.startsWith("HUD") ? ["hud_fmr"]
+      : label.startsWith("Transfer tax") ? ["transfer_tax"]
+      : label.startsWith("Allegheny County Treasurer") ? ["millage"]
+      : label.startsWith("Site-fit") ? ["quickfit"]
+      : label.startsWith("Ease Score") ? ["ease_score"]
+      : ["cost_config"];
   return (
     <Sec flow id="appC" no="C" title="Assumptions used">
       <p>Every value the study used, and every value it still needs. “Placeholder” means an editable starting point, not a standard.</p>
@@ -1704,15 +1775,44 @@ export function AppC(x: Ctx) {
         Other solver placeholders: livable share of floor area {pct(a.efficiency)}; garage bay {a.garageWidthFt} × {a.garageDepthFt} ft; surface stall with drive {a.surfaceStallAreaSf} sq ft; {a.spacesPerUnit} space
         per home when parking is chosen (never below the minimum).
       </p>
-      <div className="tcap">Table {t2}. Finance inputs</div>
+      <div className="tcap">Table {t2}. Pro forma inputs used ({plan.configVersion}, effective {cc.effectiveDate})</div>
       <table>
-        <thead><tr><th>Input</th><th>Value used</th><th>Source</th></tr></thead>
+        <thead><tr><th style={{ width: "36%" }}>Input</th><th style={{ width: "22%" }}>Value used</th><th style={{ width: "14%" }}>Range</th><th>Source</th></tr></thead>
         <tbody>
-          {fin.map(([k, v, s]) => (
-            <tr key={k}><td>{k}</td><td>{v === "not set" ? <span className="assume">Not set</span> : v}</td><td>{s}</td></tr>
+          {plan.assumptions.map((r) => (
+            <tr key={r.key}>
+              <td>{r.label}</td>
+              <td>{r.value === "not set" ? <span className="assume">Not set</span> : r.value}</td>
+              <td className="small">{r.range ?? "—"}</td>
+              <td className="small">{r.sourceLabel}{r.sourceNote ? ` — ${r.sourceNote}` : ""}{fn(x, ...(r.edited ? [] : srcKey(r.sourceLabel)))}</td>
+            </tr>
           ))}
         </tbody>
       </table>
+      <p className="small">
+        Not set yet (no default, so never counted): market cap rate, discount rate, hold period and exit cap rate (rental returns), permanent loan terms, minimum debt coverage. Items that apply but have
+        no local cost are listed in Section 7 as not included.
+      </p>
+      <div className="tcap">Table {t3}. Construction cost tiers (per finished sq ft, including builder overhead and profit){fn(x, "builder_ranges")}</div>
+      <table>
+        <thead><tr><th>Tier</th><th>What it means</th><th className="num">Range</th><th className="num">Default</th></tr></thead>
+        <tbody>
+          {cc.construction.tiers.map((t) => (
+            <tr key={t.id} style={t.id === plan.tier.id ? { fontWeight: 600 } : undefined}>
+              <td>{t.label}{t.id === plan.tier.id ? " (used)" : ""}</td>
+              <td>{t.meaning}</td>
+              <td className="num">{money(t.costPerSf.range[0])}–{money(t.costPerSf.range[1])}{t.id === "luxury" ? "+" : ""}</td>
+              <td className="num">{money(t.costPerSf.value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small">
+        Site adders on top of the tier: moderate slope (8–25%) +{money(cc.siteAdders.moderateSlope.value)}/SF (range {money(cc.siteAdders.moderateSlope.range[0])}–{money(cc.siteAdders.moderateSlope.range[1])}); steep slope or stepped
+        foundation +{money(cc.siteAdders.steepSlope.value)}/SF (range {money(cc.siteAdders.steepSlope.range[0])}–{money(cc.siteAdders.steepSlope.range[1])}), both “{cc.siteAdders.steepSlope.sourceLabel}”; mine grouting{" "}
+        {money(cc.siteAdders.mineGrouting.value)} (range {money(cc.siteAdders.mineGrouting.range[0])}–{money(cc.siteAdders.mineGrouting.range[1])}), “{cc.siteAdders.mineGrouting.sourceLabel}”; geotechnical report, demolition and
+        dumpsters: awaiting local cost data{fn(x, "cost_config")}.
+      </p>
     </Sec>
   );
 }

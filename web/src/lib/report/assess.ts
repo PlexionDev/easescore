@@ -197,7 +197,9 @@ export interface Gap {
 export function dataGaps(m: ReportModel): Gap[] {
   const g: Gap[] = [];
   const f = m.facts;
-  g.push({ what: "Local construction cost table", effect: "Hard costs, soft costs, contingency, total development cost and every return measure cannot be computed.", mitigation: "Get a contractor's estimate or enter local costs per square foot." });
+  g.push({ what: "Local bids", effect: "Construction costs are published builder ranges and editable estimates, not quotes for this lot.", mitigation: "Get a contractor's estimate and enter it in the pro forma." });
+  for (const e of m.proForma.plan.exclusions)
+    g.push({ what: `${e.label} cost`, effect: `${e.reason}, but no cost is set, so it is left out of the total development cost.`, mitigation: "Get a local quote and enter it in the pro forma." });
   if (m.score.status === "pending") g.push({ what: "Ease Score", effect: "The score, its band and predicted months to permit are not shown.", mitigation: "Pending the scoring engine; every input it uses appears in this report." });
   g.push({ what: "City review times", effect: "The timeline shows the order of steps but not their length.", mitigation: "Ask the City's zoning and permit offices for current review times." });
   if (!f.zoning?.code) g.push({ what: "Zoning outside the City of Pittsburgh", effect: "Allowed uses and dimensional rules are unknown here.", mitigation: `Confirm zoning with ${titleCase(f.assessment?.municipality) || "the municipality"}.` });

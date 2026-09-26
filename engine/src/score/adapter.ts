@@ -160,8 +160,8 @@ function unitsFromUse(use: string | null | undefined): number | undefined {
 
 // ---------------------------------------------------------------- scoring entry points
 
-function fitsFor(inp: EaseScoreInput, rules: QuickFitRules | null, extras: ScoreExtras, cfg: EaseScoreConfig) {
-  if (!rules || !extras.quickfitInput) return { fits: {}, notes: extras.quickfitInput ? [] : ["Lot outline not supplied; the fit test did not run."] };
+function fitsFor(inp: EaseScoreInput, rules: QuickFitRules | null, extras: ScoreExtras, cfg: EaseScoreConfig): ReturnType<typeof runStrategyFits> {
+  if (!rules || !extras.quickfitInput) return { fits: {}, schemes: {}, notes: extras.quickfitInput ? [] : ["Lot outline not supplied; the fit test did not run."] };
   return runStrategyFits(extras.quickfitInput, rules, {
     contextualFrontFt: extras.contextualFrontSetbackFt ?? cfg.f1.contextualFrontSetbackFt,
     probeSetbacksFt: cfg.f1.varianceProbeSetbacksFt,
@@ -198,9 +198,10 @@ function byRightUnits(fits: Partial<Record<StrategyId, StrategyFit>>): number {
 export function scoreParcel(facts: ParcelFacts, extras: ScoreExtras = {}, cfg: EaseScoreConfig = DEFAULT_CONFIG): EaseScoreResult {
   const inp = toEaseInput(facts, extras);
   const rules = inp.zoning?.rules ?? null;
-  const base = extras.fits ? { fits: extras.fits, notes: [] as string[] } : fitsFor(inp, rules, extras, cfg);
+  const base: { fits: Partial<Record<StrategyId, StrategyFit>>; notes: string[]; schemes?: EaseScoreResult["schemes"] } =
+    extras.fits ? { fits: extras.fits, notes: [] } : fitsFor(inp, rules, extras, cfg);
   const ctx: ScoreContext = { rules, fits: base.fits, fitNotes: base.notes };
-  const result = computeEaseScore(inp, ctx, cfg);
+  const result: EaseScoreResult = { ...computeEaseScore(inp, ctx, cfg), schemes: base.schemes ?? {} };
   if (extras.unlocks === false) return result;
 
   const bestScore = result.strategies.find((s) => s.strategy === result.best)?.score ?? null;

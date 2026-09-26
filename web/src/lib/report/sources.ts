@@ -1,7 +1,7 @@
 // Source definitions for Appendix A. Dates come from the data itself where the database records
 // them; otherwise the entry says the vintage is not recorded (and Appendix E lists that as a gap).
 
-import { finance } from "@easescore/engine";
+import { assumptions, finance } from "@easescore/engine";
 import { CiteRegistry } from "./cite";
 import type { ReportModel } from "./load";
 
@@ -57,6 +57,15 @@ export function buildSources(m: ReportModel): CiteRegistry {
   c.define("quickfit", { title: "QuickFit site-fit solver (EaseScore.AI engine)", publisher: "EaseScore.AI", date: "deterministic; same inputs give the same result", note: "Building sizes and story ranges are editable placeholders, not standards. See Appendix B." });
   c.define("requirements", { title: "Requirements catalog and rules (EaseScore.AI engine)", publisher: "EaseScore.AI, from the Pittsburgh Code and agency handouts", date: "catalog as of Sept. 2026", note: "Each item cites its code section in Section 5." });
   c.define("ease_score", { title: "Ease Score (EaseScore.AI engine)", publisher: "EaseScore.AI", date: m.score.status === "ready" ? `scoring config ${m.score.configVersion}` : "not run", note: "Deterministic; weights and curves live in one versioned config file. Factor sources are listed in Appendix D." });
-  c.define("finance_engine", { title: "Finance module (EaseScore.AI engine)", publisher: "EaseScore.AI", date: "deterministic", note: "No default prices, costs or rates; missing inputs stay missing." });
+  const cc = assumptions.COST_CONFIG;
+  c.define("cost_config", { title: `Cost assumptions ${cc.version} (EaseScore.AI)`, publisher: "EaseScore.AI", date: `effective ${cc.effectiveDate}`, note: "Every default is editable and carries a source label: “Pittsburgh builder published ranges”, “Estimate — confirm with bids”, “Local project data (owner-provided)”, “Assumption — editable”. Full list in Appendix C." });
+  c.define("builder_ranges", { title: "Pittsburgh builder published per-square-foot construction ranges", publisher: "Incline Homes (2026); Home Builder Digest survey of Pittsburgh builders; EcoCraft", date: "2026 publications", note: "Base cost above a standard foundation, including builder overhead and profit; excludes land, demolition, unusual site work and soft costs." });
+  c.define("pli_fee", { title: "Residential building permit base fee: $6.00 per $1,000 of construction value", publisher: "City of Pittsburgh Permits, Licenses and Inspections (reported)", date: `effective ${cc.softCosts.pittsburghBuildingPermitFee.effectiveDate}`, note: "Verify with the PLI fee schedule; other City fees are not included." });
+  c.define("prime", { title: "Bank Prime Loan Rate (DPRIME)", publisher: "Board of Governors of the Federal Reserve System, via FRED", date: m.prime ? `observation ${m.prime.date}` : NOT_RECORDED, url: "https://fred.stlouisfed.org/series/DPRIME", note: "Construction loan rate = prime + an editable spread." });
+  c.define("benchmarks", { title: "Recent Allegheny County housing project costs (total development cost per home)", publisher: "WESA; NEXTpittsburgh; PublicSource (news reports)", date: "as reported, 2025–2026", note: "Sanity check only, never a default." });
+  c.define("subsidy_ref", { title: "Subsidy needed per affordable for-sale home", publisher: cc.benchmarks.homeownershipSubsidy.sourceLabel, date: NOT_RECORDED });
+  c.define("nahb", { title: "Cost of Constructing a Home 2024", publisher: "National Association of Home Builders", date: "2024", note: "National reference, not a Pittsburgh default." });
+  c.define("sf_sales", { title: "Valid single-family sales used to price a finished home", publisher: "Allegheny County Department of Real Estate", date: m.sfComps?.date_range?.to ? `sales through ${m.sfComps.date_range.to}` : NOT_RECORDED, url: "https://data.wprdc.org/dataset/real-estate-sales", note: "Same rules as the sales comps: valid arm's-length sales, at least 5, search widens from ¼ mile." });
+  c.define("finance_engine", { title: "Finance module (EaseScore.AI engine)", publisher: "EaseScore.AI", date: "deterministic", note: "Holds no prices, costs or rates of its own: every input comes from the cost assumptions, the database or the user; missing inputs stay missing." });
   return c;
 }
