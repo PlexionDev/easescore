@@ -62,7 +62,13 @@
   "pps_high": "Brashear",
   "pps_middle": "SOUTH HILLS 6-8"
  },
- "slope": null,
+ "slope": {
+  "cells": 13,
+  "mean_pct": 36.7,
+  "resolution_m": 10,
+  "source": "USGS 3DEP elevation",
+  "steep_share": 0.923
+ },
  "tract": {
   "acs_year": 2024,
   "geoid": "42003191500",
