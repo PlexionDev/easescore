@@ -118,7 +118,6 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
         paint: { "fill-extrusion-color": "#f59e0b", "fill-extrusion-height": ["coalesce", ["get", "height_m"], 8], "fill-extrusion-opacity": 0.95, "fill-extrusion-vertical-gradient": true } });
       // The parcel: glowing outline + translucent lift
       m.addLayer({ id: "parcel-glow", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#facc15", "line-width": 12, "line-blur": 8, "line-opacity": 0.7 } });
-      m.addLayer({ id: "parcel-fill", type: "fill", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "fill-color": "#facc15", "fill-opacity": 0.07 } });
       m.addLayer({ id: "parcel-line", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#ca8a04", "line-width": 3 } });
       // QuickFit scheme massing
       m.addSource("scheme", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -132,7 +131,11 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
         m.fitBounds(bboxOf(parcel.geometry), { pitch: 58, bearing: 160, maxZoom: 19.2, duration: 2600, essential: true,
           padding: { top: vert, bottom: vert, left, right: side } });
       }
-      m.once("moveend", () => { home.current = { center: m.getCenter(), zoom: m.getZoom(), pitch: m.getPitch(), bearing: m.getBearing() }; });
+      m.once("moveend", () => {
+        home.current = { center: m.getCenter(), zoom: m.getZoom(), pitch: m.getPitch(), bearing: m.getBearing() };
+        // Auto-orbit on load; any drag, touch or wheel stops it.
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setOrbit(true);
+      });
       // Any direct user drag or touch stops the auto-orbit.
       for (const ev of ["mousedown", "touchstart", "wheel"] as const) m.getCanvas().addEventListener(ev, () => setOrbit(false), { passive: true });
       setLoaded(true);

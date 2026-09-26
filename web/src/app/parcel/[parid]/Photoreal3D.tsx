@@ -225,9 +225,8 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         }));
       });
 
-      // The parcel: light fill, soft glow, crisp bright edge.
+      // The parcel: no fill; soft glow and a crisp bright edge.
       for (const r of parcelRings) {
-        src.entities.add({ polygon: { hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(r.flat())), material: col("#facc15", 0.07), classificationType: CT } });
         src.entities.add({ polyline: { positions: line(r), width: 12, material: col("#facc15", 0.22), clampToGround: true, classificationType: CT } });
         src.entities.add({ polyline: { positions: line(r), width: 3, material: col("#fde047", 1), clampToGround: true, classificationType: CT } });
       }
@@ -333,8 +332,8 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       setReady(true);
       if (!remembered && !reduced) {
         viewer.camera.flyTo({ ...home.current, duration: 4, easingFunction: C.EasingFunction.QUADRATIC_IN_OUT,
-          complete: () => { arrived = true; }, cancel: () => { arrived = true; } });
-      }
+          complete: () => { arrived = true; if (!dead) setOrbit(true); }, cancel: () => { arrived = true; } });
+      } else if (!reduced) setOrbit(true); // auto-orbit on load; any user input stops it
     })();
     return () => {
       dead = true;
