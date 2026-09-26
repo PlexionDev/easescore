@@ -1,0 +1,1879 @@
+// Sections of the Feasibility Study. Each section is a plain function (not a component) so that it
+// runs eagerly, in document order: footnote numbers, figure numbers and table numbers are assigned
+// in reading order, and the same inputs always give the same numbering.
+
+import type { ReactNode } from "react";
+import { finance, PHASE_ORDER, quickfit, type RequirementResult } from "@easescore/engine";
+import type { CiteRegistry } from "@/lib/report/cite";
+import type { ReportModel } from "@/lib/report/load";
+import { STRATEGY_LABEL } from "@/lib/report/load";
+import { CompsScatter, LotPlan, PhaseSequence, SlopeBar, TornadoPending } from "@/lib/report/charts";
+import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
+import { NOT_RECORDED } from "@/lib/report/sources";
+
+export interface Ctx {
+  m: ReportModel;
+  c: CiteRegistry;
+  fig: () => number;
+  tab: () => number;
+}
+
+export const REPORT_VERSION = "report v0.1";
+export const DISCLAIMER = "Decision support — not legal, financial, or engineering advice.";
+
+// Small helpers -----------------------------------------------------------------------------------
+
+/** Footnote marker. Called as a function so the number is assigned right here, in reading order. */
+const fn = (x: Ctx, ...keys: string[]) => <sup className="fn">[{keys.map((k) => x.c.ref(k)).join(", ")}]</sup>;
+
+const AWAIT = "Assumption — awaiting local cost data";
+
+/** A numbered section. `flow` sections continue on the same page when there is room. */
+function Sec({ id, no, title, flow, children }: { id: string; no: string; title: string; flow?: boolean; children: ReactNode }) {
+  return (
+    <section className={`sec ${flow ? "flow" : "page-break"}`} id={id}>
+      <h1>
+        <span className="secno">{no}</span>
+        {title}
+      </h1>
+      {children}
+    </section>
+  );
+}
+
+function Callout({ tone, title, children }: { tone: "red" | "amber" | "pending" | "plain"; title: string; children?: ReactNode }) {
+  return (
+    <div className={`callout ${tone === "plain" ? "" : tone}`}>
+      <div className="callout-title">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+const PHASE_LABEL: Record<string, string> = {
+  due_diligence: "Due diligence",
+  design_engineering: "Design & engineering",
+  zoning: "Zoning",
+  permits: "Permits",
+  construction: "Construction",
+  closeout: "Closeout",
+};
+const STATUS_TEXT: Record<string, string> = { REQUIRED: "Required", LIKELY: "Likely", POSSIBLE: "Possible", ASK: "Ask", NOT_NEEDED: "Not needed" };
+const PERMISSION_TEXT: Record<string, string> = {
+  P: "Allowed by right",
+  S: "Special exception (Zoning Board hearing)",
+  C: "Conditional use (Planning Commission and City Council)",
+  A: "Administrator exception (zoning staff)",
+  N: "Not permitted",
+};
+const RELIEF_TEXT: Record<string, string> = {
+  dimensional_variance: "Dimensional variance",
+  use_variance: "Use variance",
+  variance: "Variance",
+  special_exception: "Special exception",
+  conditional_use: "Conditional use",
+  dimensional: "Dimensional relief",
+  other: "Other relief",
+};
+
+/** Turn engine input names ("hardCostPerSqFt") into plain words ("hard cost per sq ft"). */
+function plainInput(name: string): string {
+  const special: Record<string, string> = {
+    land: "land price",
+    grossSqFt: "gross sq ft",
+    hardCostPerSqFt: "hard cost per sq ft",
+    tdc: "total development cost",
+    egi: "effective gross income",
+    noi: "net operating income",
+    salePrice: "sale price",
+    monthlyRent: "monthly rent",
+    ltc: "loan-to-cost",
+  };
+  return name.replace(/[A-Za-z][A-Za-z0-9.]*(\[\d+\])?/g, (w) => {
+    if (special[w]) return special[w]!;
+    const last = w.split(".").at(-1)!.replace(/\[\d+\]/, "");
+    if (special[last]) return special[last]!;
+    return last
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/Sq Ft/i, "sq ft")
+      .toLowerCase()
+      .replace(/\bltv\b/, "loan-to-value")
+      .replace(/\bltc\b/, "loan-to-cost")
+      .replace(/\begi\b/, "effective gross income")
+      .replace(/\bnoi\b/, "net operating income");
+  });
+}
+
+type Kind = "money" | "share" | "ratio" | "months" | "years" | "count";
+function receiptValue(r: finance.Receipt, kind: Kind): ReactNode {
+  if (r.status === "ok") {
+    const v = r.value;
+    const s =
+      kind === "money" ? money(v) : kind === "share" ? pct(v, 1) : kind === "ratio" ? `${num(v, 2)}×` : kind === "months" ? `${num(v)} months` : kind === "years" ? `${num(v, 1)} years` : num(v);
+    return <b>{s}</b>;
+  }
+  if (r.status === "not computable") return <span className="muted">Not computable: {r.reason}</span>;
+  const miss = r.missing.map(plainInput);
+  return (
+    <span className="assume">
+      Needs {miss.slice(0, 3).join("; ")}
+      {miss.length > 3 ? ` (+${miss.length - 3} more)` : ""}
+    </span>
+  );
+}
+
+function receiptRows(rows: [finance.Receipt, Kind][]) {
+  return rows.map(([r, k], i) => (
+    <tr key={`${r.label}-${i}`}>
+      <td>{r.label}</td>
+      <td className="small muted">{r.formula}</td>
+      <td style={{ width: "34%" }}>{receiptValue(r, k)}</td>
+    </tr>
+  ));
+}
+
+const overlay = (m: ReportModel, layer: string) => m.facts.overlays?.find((o) => o.layer === layer && o.share > 0);
+const req = (m: ReportModel, id: string) => m.requirements.find((r) => r.id === id);
+const isReq = (m: ReportModel, id: string) => ["REQUIRED", "LIKELY"].includes(req(m, id)?.status ?? "");
+
+/** Plain list of what a scheme needs (use permission and dimensional relief). */
+function blockers(s: quickfit.Scheme): string {
+  const items = s.approvals.map((a) => a.label.replace(/\.$/, "").toLowerCase());
+  if (s.permission.code === "N") items.unshift(`a use that is not permitted here (${s.permission.use})`);
+  return items.length ? items.join("; ") : `relief it could not identify (${s.binding.label.toLowerCase()})`;
+}
+
+function schemeLabel(m: ReportModel): string {
+  const s = m.scheme;
+  if (!s) return "No scheme found";
+  return `${s.typologyLabel}, ${s.units} unit${s.units > 1 ? "s" : ""}, ${s.stories} stories, new construction`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cover and contents
+
+export function Cover(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const a = f.assessment;
+  const hero = m.images.context ?? m.images.analysis;
+  return (
+    <section className="cover" id="cover">
+      <div className="brand">EaseScore.AI</div>
+      <div className="doctype">Development Feasibility Study</div>
+      <h1>{titleCase(a?.address) || m.parid}</h1>
+      <div className="sub">
+        {f.context?.neighborhood ? `${f.context.neighborhood}, ` : ""}
+        {titleCase(f.context?.municipality ?? a?.municipality)}, Pennsylvania
+      </div>
+      <div className="meta">
+        <div>
+          <div className="k">Parcel ID</div>
+          {m.parid}
+        </div>
+        <div>
+          <div className="k">Zoning</div>
+          {f.zoning?.code ? `${f.zoning.code} — ${titleCase(f.zoning.type)}` : "Not loaded for this municipality"}
+        </div>
+        <div>
+          <div className="k">Date</div>
+          {longDate(m.generatedDate)}
+        </div>
+        <div style={{ gridColumn: "span 2" }}>
+          <div className="k">Scenario studied</div>
+          {m.scheme ? schemeLabel(m) : "No building placed by the site-fit solver"}
+          {m.scheme ? (m.scenario.tenure === "rent" ? ", to rent" : ", for sale") : ""}
+          {m.scenario.affordable ? ", affordable mode" : ""}
+        </div>
+        <div>
+          <div className="k">Lot</div>
+          {sqft(f.lot_area_sqft_gis ?? a?.lot_area_sqft)}
+        </div>
+      </div>
+      <div className="hero">
+        {hero ? (
+          <figure>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={hero} alt="Captured map view of the parcel" className="frame" />
+            <figcaption>Captured map view.</figcaption>
+          </figure>
+        ) : m.qfInput?.parcel?.length ? (
+          <figure>
+            <div className="frame">
+              <LotPlan
+                parcel={m.qfInput.parcel}
+                envelope={(m.qf?.envelope.polygons ?? []) as [number, number][][][]}
+                footprints={(m.scheme?.footprints ?? []) as [number, number][][]}
+                masks={m.qfInput.masks}
+                frontEdges={m.qfInput.frontEdges}
+              />
+            </div>
+            <figcaption>Lot plan with the buildable area and the studied footprint (see Figure 2).</figcaption>
+          </figure>
+        ) : (
+          <div className="slot">Map figure: use “Capture view” in the app to add one.</div>
+        )}
+      </div>
+      <p className="disclaimer">
+        {DISCLAIMER} This study screens a parcel with public data and published rules. It is not an appraisal, a zoning determination, a survey or an
+        engineering report. Every number is footnoted to its source in Appendix A. Values marked “awaiting” are not yet known and are never filled
+        with guesses. Prepared by the EaseScore.AI engine · {REPORT_VERSION}.
+      </p>
+    </section>
+  );
+}
+
+export const TOC_ENTRIES: { id: string; no: string; title: string; app?: boolean }[] = [
+  { id: "s1", no: "1", title: "Summary in plain English" },
+  { id: "s2", no: "2", title: "Project scenario" },
+  { id: "s3", no: "3", title: "Site analysis" },
+  { id: "s4", no: "4", title: "Zoning and approvals" },
+  { id: "s5", no: "5", title: "Process and timeline" },
+  { id: "s6", no: "6", title: "Market analysis" },
+  { id: "s7", no: "7", title: "Development budget" },
+  { id: "s8", no: "8", title: "Operations (if rented)" },
+  { id: "s9", no: "9", title: "Financing and returns" },
+  { id: "s10", no: "10", title: "Affordable scenario" },
+  { id: "s11", no: "11", title: "Sensitivity and scenarios" },
+  { id: "s12", no: "12", title: "Risks and mitigations" },
+  { id: "s13", no: "13", title: "Conclusion and next steps" },
+  { id: "appA", no: "A", title: "Sources and data dates", app: true },
+  { id: "appB", no: "B", title: "Methods and formulas", app: true },
+  { id: "appC", no: "C", title: "Assumptions used", app: true },
+  { id: "appD", no: "D", title: "Ease Score breakdown", app: true },
+  { id: "appE", no: "E", title: "Limitations", app: true },
+  { id: "appF", no: "F", title: "Glossary", app: true },
+];
+
+export function Contents() {
+  const row = (e: (typeof TOC_ENTRIES)[number]) => (
+    <li key={e.id} className={e.app ? "app" : ""}>
+      <span className="no">{e.no}</span>
+      <a href={`#${e.id}`}>{e.title}</a>
+      <span className="dots" />
+      <span className="pg" data-toc={e.id} />
+    </li>
+  );
+  return (
+    <section className="toc page-break" id="toc">
+      <h2 style={{ fontSize: "16pt", marginTop: 0 }}>Contents</h2>
+      <ol>{TOC_ENTRIES.filter((e) => !e.app).map(row)}</ol>
+      <div className="group">Appendices</div>
+      <ol>{TOC_ENTRIES.filter((e) => e.app).map(row)}</ol>
+      <h3 style={{ marginTop: "0.4in" }}>How to read this study</h3>
+      <p className="small">
+        Numbers in brackets, like <sup className="fn">[3]</sup>, point to the numbered source list in Appendix A, which gives each source’s publisher and
+        data date. Amber boxes are items that need review; red boxes are red flags (only three things count: floodway, no legal access, or a
+        contamination site on the lot). Dashed gray boxes mark results that cannot be computed yet, with the reason. Words in the glossary (Appendix F) are
+        explained in plain English.
+      </p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 1. Summary
+
+export function S1(x: Ctx) {
+  const { m } = x;
+  const s = m.scheme;
+  const flags = redFlags(m);
+  const reviews = reviewItems(m);
+  const approvals = approvalItems(m);
+  const barriers: Finding[] = [...flags, ...reviews, ...(s && !s.byRight ? approvals : [])].slice(0, 3);
+  const steps = nextSteps(m);
+  const zone = m.facts.zoning?.code;
+
+  let canBuild: ReactNode;
+  if (!s)
+    canBuild = (
+      <p>
+        {m.closest ? (
+          <>
+            Not by right. The closest new building our site-fit check found, a {m.closest.typologyLabel.toLowerCase()}, would need{" "}
+            {blockers(m.closest)}
+            {fn(x, "quickfit", "zoning_rules")}.
+          </>
+        ) : (
+          <>Not shown yet. {m.qfError ?? "No building type fit inside the setbacks and rules for this district."}{fn(x, "quickfit")}</>
+        )}
+        {m.score.status === "ready" ? ` The Ease Score looks at other paths too; its best is ${m.score.strategyLabel.toLowerCase()} (Appendix D).` : ""}
+      </p>
+    );
+  else if (s.byRight)
+    canBuild = (
+      <p>
+        Yes, on paper. A {s.typologyLabel.toLowerCase()} with {s.units} unit{s.units > 1 ? "s" : ""} fits by right under {zone} zoning{fn(x, "zoning", "zoning_rules")}, based on our site-fit
+        check{fn(x, "quickfit")}.{s.needsSubdivision ? " It would need the lot split into one lot per home." : ""}{reviews.length ? ` ${reviews.length} item${reviews.length > 1 ? "s" : ""} still need${reviews.length > 1 ? "" : "s"} review (see below).` : ""}
+      </p>
+    );
+  else
+    canBuild = (
+      <p>
+        Possibly. A {s.typologyLabel.toLowerCase()} with {s.units} unit{s.units > 1 ? "s" : ""} fits the lot{fn(x, "quickfit")}, but it needs{" "}
+        {s.approvals.map((a) => a.label.toLowerCase()).join(", ") || "an approval"} under {zone} zoning{fn(x, "zoning_rules")}.
+      </p>
+    );
+
+  const sales = m.sales;
+  return (
+    <Sec id="s1" no="1" title="Summary in plain English">
+      <p className="lead">
+        {s ? (
+          <>
+            This study looks at building <b>{schemeLabel(m).toLowerCase()}</b> on the {sqft(m.facts.lot_area_sqft_gis)}
+            {fn(x, "parcels")} lot at {titleCase(m.facts.assessment?.address)}
+            {m.facts.context?.neighborhood ? ` in ${m.facts.context.neighborhood}` : ""}.
+          </>
+        ) : (
+          <>
+            This study looks at the {sqft(m.facts.lot_area_sqft_gis)}
+            {fn(x, "parcels")} lot at {titleCase(m.facts.assessment?.address)}
+            {m.facts.context?.neighborhood ? ` in ${m.facts.context.neighborhood}` : ""}. Our site-fit solver could not place a building here, so
+            sections that depend on a building say so.
+          </>
+        )}
+      </p>
+
+      {flags.length > 0 && (
+        <Callout tone="red" title={`Red flag${flags.length > 1 ? "s" : ""}: blocked unless resolved`}>
+          <ul>
+            {flags.map((f) => (
+              <li key={f.title}>
+                <b>{f.title}.</b> {f.reason}
+                {fn(x, ...f.sources)}
+              </li>
+            ))}
+          </ul>
+        </Callout>
+      )}
+
+      <div className="answers">
+        <div className="answer">
+          <h3>Can you build here?</h3>
+          {canBuild}
+        </div>
+        <div className="answer">
+          <h3>Does it pencil?</h3>
+          <p>
+            Not known yet. Local construction costs are not loaded, so total cost and profit cannot be computed.
+            {sales?.status === "ok" && sales.sufficient !== false && sales.comparable_use === "vacant land" && sales.median_price_per_sqft ? (
+              <>
+                {" "}
+                There are no new-home comps for a vacant lot; nearby vacant lots sold for a median of {money(sales.median_price_per_sqft, 2)} per sq ft of land
+                {fn(x, "sales")}.
+              </>
+            ) : sales?.status === "ok" && sales.sufficient !== false && sales.median_price_per_sqft ? (
+              <>
+                {" "}
+                For reference, {num(sales.count)} nearby {sales.comparable_use} homes sold for a median of {money(sales.median_price_per_sqft)} per sq ft
+                {fn(x, "sales")}.
+              </>
+            ) : (
+              " There are not enough comparable sales nearby to give a market reference."
+            )}
+          </p>
+        </div>
+        <div className="answer">
+          <h3>What’s in the way?</h3>
+          {barriers.length ? (
+            <ol>
+              {barriers.map((b) => (
+                <li key={b.title}>
+                  <b>{b.title}.</b> {b.reason.split(". ")[0]!.replace(/\.$/, "")}.{fn(x, ...b.sources)}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No red flags or review items were found in our data. Data gaps are listed in Section 12.</p>
+          )}
+        </div>
+        <div className="answer">
+          <h3>What next?</h3>
+          <ol>
+            {steps.map((r) => (
+              <li key={r.id}>
+                <b>{r.item}</b> ({r.issuer}). {r.reasons[0]?.reason ?? ""}
+                {fn(x, "requirements")}
+              </li>
+            ))}
+          </ol>
+          <p className="small muted">Time and cost for each step are not estimated yet.</p>
+        </div>
+      </div>
+
+      <div className="stats">
+        <div className="stat">
+          <div className="kicker">Ease Score{m.score.status === "ready" ? ` · ${m.score.strategyLabel}` : ""}</div>
+          {m.score.status === "ready" ? (
+            <div className="v">
+              {m.score.range ? `${m.score.range.min}–${m.score.range.max}` : m.score.score}
+              {m.score.band ? ` · ${m.score.band}` : ""}
+              {fn(x, "ease_score")}
+            </div>
+          ) : (
+            <div className="v pending">Pending</div>
+          )}
+          <div className="small muted">
+            {m.score.status === "ready"
+              ? [m.score.labels.join("; "), `How easy it is to get housing built here, 0–100 · config ${m.score.configVersion}`].filter(Boolean).join(" · ")
+              : m.score.reason}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="kicker">Pencils?</div>
+          <div className="v pending">Awaiting costs</div>
+          <div className="small muted">Needs a local construction cost table. Shown separately from the Ease Score.</div>
+        </div>
+        <div className="stat">
+          <div className="kicker">Months to permit</div>
+          {m.score.status === "ready" && m.score.permit ? (
+            <div className="v">
+              {m.score.permit.upperMonths ? `${num(m.score.permit.months, 0)}–${num(m.score.permit.upperMonths, 0)}` : `about ${num(m.score.permit.months, 0)}`}
+              {fn(x, "ease_score")}
+            </div>
+          ) : (
+            <div className="v pending">Pending</div>
+          )}
+          <div className="small muted">
+            {m.score.status === "ready" && m.score.permit ? (m.score.permit.method === "heuristic" ? "Estimate from typical approval steps, not permit records" : m.score.permit.dateRangeLabel ?? "From City permit records") : "Comes from the Ease Score engine"}
+          </div>
+        </div>
+      </div>
+
+      <h2>Assumptions that matter most</h2>
+      <ul>
+        <li>
+          The building shape comes from our site-fit solver using editable placeholder sizes (Appendix C), not an architect’s design{fn(x, "quickfit")}.
+        </li>
+        <li>Lot lines and street frontage come from county GIS, not a survey{fn(x, "parcels", "streets")}.</li>
+        <li>No construction, soft or financing costs are assumed. Where a cost is needed, the study says so instead of guessing{fn(x, "finance_engine")}.</li>
+        <li>Market values are references from past sales and rent indexes, not a price opinion{fn(x, "sales", "zori")}.</li>
+      </ul>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 2. Scenario
+
+export function S2(x: Ctx) {
+  const { m } = x;
+  const s = m.scheme;
+  const t = x.tab();
+  const t2 = m.perType.length ? x.tab() : 0;
+  return (
+    <Sec flow id="s2" no="2" title="Project scenario">
+      <p>
+        The scenario is the building this study tests. Unless you chose one, it is the scheme our site-fit solver ranked first for the goal “
+        {m.scenario.goal === "by_right_only" ? "allowed by right only" : "most homes"}”{fn(x, "quickfit")}.
+      </p>
+      <div className="tcap">Table {t}. The studied scenario</div>
+      <table className="kv">
+        <tbody>
+          <tr><td>Strategy</td><td>{STRATEGY_LABEL[m.scenario.strategy]}</td></tr>
+          <tr><td>Building type</td><td>{s ? s.typologyLabel : m.closest ? `None allowed. Closest tried: ${m.closest.typologyLabel.toLowerCase()}, ${m.closest.units} unit${m.closest.units > 1 ? "s" : ""}, which needs ${blockers(m.closest)}` : "None found"}</td></tr>
+          <tr><td>Homes (units)</td><td>{s ? s.units : "—"}</td></tr>
+          <tr><td>Unit size on the ground</td><td>{s ? `${num(s.unitWidthFt)} ft wide × ${num(s.unitDepthFt)} ft deep` : "—"}</td></tr>
+          <tr><td>Stories / height</td><td>{s ? `${s.stories} stories, about ${num(s.heightFt)} ft` : "—"}</td></tr>
+          <tr><td>Floor area</td><td>{s ? `${sqft(s.grossFloorAreaSf)} gross; ${sqft(s.netFloorAreaSf)} livable (net)` : "—"}</td></tr>
+          <tr><td>Parking</td><td>{s ? `${s.parking === "none" ? "No parking" : s.parking === "garage" ? "Tuck-under garage" : "Surface parking"}: ${s.parkingSpaces} space${s.parkingSpaces === 1 ? "" : "s"}${s.parkingRequired != null ? ` (${s.parkingRequired} required)` : ""}` : "—"}</td></tr>
+          <tr><td>Lot split</td><td>{s ? (s.needsSubdivision ? `Needed: each townhouse sits on its own new lot${s.subLots ? ` (${s.subLots.count} lots, ${num(s.subLots.minWidthFt)}–${num(s.subLots.maxWidthFt)} ft wide)` : ""}` : "Not needed") : "—"}</td></tr>
+          <tr><td>Lot coverage</td><td>{s ? pct(s.lotCoveragePct / 100) : "—"}</td></tr>
+          <tr><td>Zoning status</td><td>{s ? (s.byRight ? "Allowed by right" : s.badge === "needs_approval" ? `Needs approval: ${s.approvals.map((a) => a.label).join("; ")}` : "Not permitted") : "—"}</td></tr>
+          <tr><td>What limits it</td><td>{s ? `${s.binding.label}. ${s.binding.detail}` : "—"}</td></tr>
+          <tr><td>Sale or rent</td><td>{m.scenario.tenure === "rent" ? "Built to rent" : "Built to sell"}</td></tr>
+          <tr><td>Affordable mode</td><td>{m.scenario.affordable ? "On" : "Off"}</td></tr>
+          <tr><td>Changed from defaults</td><td>{m.scenario.changes.length ? m.scenario.changes.join("; ") : "Nothing: all defaults"}</td></tr>
+        </tbody>
+      </table>
+      {s?.warnings.length ? (
+        <Callout tone="amber" title="Solver warnings for this scheme">
+          <ul>{s.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+        </Callout>
+      ) : null}
+      {m.perType.length > 0 && (
+        <>
+          <h2>Other building types that fit</h2>
+          <div className="tcap">Table {t2}. Best scheme for each building type{fn(x, "quickfit")}</div>
+          <table>
+            <thead>
+              <tr><th>Building type</th><th className="num">Homes</th><th className="num">Gross sq ft</th><th className="num">Stories</th><th>Parking</th><th>Zoning</th><th>Limited by</th></tr>
+            </thead>
+            <tbody>
+              {m.perType.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.typologyLabel}</td>
+                  <td className="num">{p.units}</td>
+                  <td className="num">{num(p.grossFloorAreaSf)}</td>
+                  <td className="num">{p.stories}</td>
+                  <td>{p.parking === "none" ? "None" : `${p.parkingSpaces} ${p.parking}`}</td>
+                  <td>{p.byRight ? "By right" : p.badge === "needs_approval" ? "Needs approval" : "Not permitted"}</td>
+                  <td>{p.binding.label}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 3. Site analysis
+
+export function S3(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const a = f.assessment;
+  const s1 = f.slope_1m;
+  const tr = f.tract;
+  const fe = f.flood_evidence;
+  const mines = f.mines;
+  const fronts = (m.qfInput?.frontEdges ?? []).map((i) => m.qfInput?.edges?.find((e) => e.i === i)?.len).filter((v): v is number => typeof v === "number");
+  const slide = overlay(m, "landslide_prone_pgh");
+  const under = overlay(m, "undermined_pgh");
+  const rco = f.overlays?.filter((o) => o.layer === "zoning_overlay_pgh" && /^RCO/i.test(o.label ?? "")) ?? [];
+  const planFig = m.qfInput?.parcel?.length ? x.fig() : 0;
+  const slopeFig = s1 ? x.fig() : 0;
+  const tHaz = x.tab();
+  const env = m.ease?.env_sites;
+  const tInfo = x.tab();
+
+  return (
+    <Sec id="s3" no="3" title="Site analysis">
+      <h2>3.1 Location and neighborhood</h2>
+      <p>
+        {titleCase(a?.address)} is in {f.context?.neighborhood ?? "an unnamed neighborhood"}, {titleCase(a?.municipality)}{fn(x, "assessment", "context")}.
+        {tr ? (
+          <>
+            {" "}
+            In its census tract ({tr.name}), the median household income is {money(tr.median_income)}, the median rent is {money(tr.median_rent)} a
+            month, and {num(tr.vacancy_rate, 1)}% of homes are vacant; {num(tr.rent_burden_30_pct, 1)}% of renters spend more than 30% of income on rent
+            {fn(x, "acs")}.
+          </>
+        ) : null}
+        {rco.length ? ` The Registered Community Organization here is ${rco.map((o) => (o.label ?? "").replace(/^RCO - /, "")).join(", ")}` : ""}
+        {rco.length ? <>{fn(x, "overlays")}.</> : null}
+      </p>
+      {m.images.context && (
+        <figure>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={m.images.context} alt="Captured 3D context view" className="frame" />
+          <figcaption><b>Figure {x.fig()}.</b> Context view captured in the app.</figcaption>
+        </figure>
+      )}
+
+      <h2>3.2 Lot size and shape</h2>
+      <p>
+        The county lists the lot at {sqft(a?.lot_area_sqft)}{fn(x, "assessment")}; the GIS outline measures {sqft(f.lot_area_sqft_gis)}{fn(x, "parcels")}. It has{" "}
+        {m.qfInput?.parcel?.length ?? "an unknown number of"} sides
+        {fronts.length ? `, with ${fronts.map((l) => `${num(l)} ft`).join(" and ")} of street frontage` : ""}.
+        {m.frontInferred
+          ? ` The street centerline is about ${num(m.frontInferred.distFt)} ft from the nearest lot edge, farther than our site-fit solver’s 45 ft frontage test, so this study treats that ${num(m.frontInferred.lenFt)} ft edge as the front. Confirm access and frontage on a survey.`
+          : ""}
+        {f.site?.building_count ? (
+          <>
+            {" "}
+            There {f.site.building_count > 1 ? `are ${f.site.building_count} buildings` : "is 1 building"} on the lot now
+            {f.building_footprint_sqft ? ` covering about ${sqft(f.building_footprint_sqft)}` : ""}
+            {fn(x, "buildings")}
+            {a?.year_built ? `, built in ${a.year_built}, condition “${titleCase(a.condition)}”` : ""}
+            {a?.year_built ? fn(x, "assessment") : null}
+            {f.shares_wall ? "; it shares a wall with a neighbor" : ""}. A new building means demolition first.
+          </>
+        ) : (
+          " No building stands on the lot in the county footprint data."
+        )}
+      </p>
+      {planFig > 0 && (
+        <figure>
+          <div className="frame">
+            <LotPlan
+              parcel={m.qfInput!.parcel}
+              envelope={(m.qf?.envelope.polygons ?? []) as [number, number][][][]}
+              footprints={(m.scheme?.footprints ?? []) as [number, number][][]}
+              masks={m.qfInput!.masks}
+              frontEdges={m.qfInput!.frontEdges}
+            />
+          </div>
+          <figcaption>
+            <b>Figure {planFig}.</b> Lot plan: lot line, street frontage, buildable area after setbacks ({sqft(m.qf?.envelope.areaSf)}), review overlays and the studied
+            footprint{fn(x, "parcels", "quickfit")}. Front edges are inferred from the nearest opened street; confirm on a survey.
+          </figcaption>
+        </figure>
+      )}
+
+      <h2>3.3 Terrain</h2>
+      {s1 ? (
+        <>
+          <p>
+            From 1-meter lidar, the lot’s average slope is {num(s1.mean_pct, 1)}%, and the steepest 5% of it is over {num(s1.p95_pct, 0)}%
+            {fn(x, "slope_1m")}. {pct(s1.share_over_25)} of the lot is steeper than 25%, the line where Pittsburgh’s grading rules and most builders start to treat
+            ground as steep; {pct(s1.share_over_40)} is steeper than 40%.
+          </p>
+          <figure>
+            <SlopeBar over15={s1.share_over_15 ?? s1.share_over_25} over25={s1.share_over_25} over40={s1.share_over_40 ?? 0} />
+            <figcaption>
+              <b>Figure {slopeFig}.</b> Share of the lot in each slope class ({num(s1.cells)} one-meter cells){fn(x, "slope_1m")}.
+            </figcaption>
+          </figure>
+        </>
+      ) : (
+        <Callout tone="pending" title="No 1 m slope data for this lot">
+          <p>Lidar slope has not been computed here yet.</p>
+        </Callout>
+      )}
+      {m.images.terrain ? (
+        <figure>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={m.images.terrain} alt="Captured terrain and contour view" className="frame" />
+          <figcaption><b>Figure {x.fig()}.</b> Terrain and contours captured in the app.</figcaption>
+        </figure>
+      ) : (
+        <p className="small muted">A contour map can be added with the app’s “Capture view” (terrain mode).</p>
+      )}
+
+      <h2>3.4 Hazards</h2>
+      <div className="tcap">Table {tHaz}. Hazards checked</div>
+      <table>
+        <thead>
+          <tr><th style={{ width: "28%" }}>Hazard</th><th>What our data shows</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Landslide-prone (City overlay)</td>
+            <td>{slide ? `${pct(slide.share)} of the lot` : "Not in the overlay"}{fn(x, "landslide_prone")}{typeof f.landslides_within_300ft === "number" ? `. Mapped slope-movement areas (1982 inventory) within 300 ft: ${f.landslides_within_300ft}` : ""}{typeof f.landslides_within_300ft === "number" ? fn(x, "landslide_inventory") : null}</td>
+          </tr>
+          <tr>
+            <td>Undermined / mines</td>
+            <td>
+              {under ? "In the City’s undermined overlay" : "Not in the City’s undermined overlay"}
+              {fn(x, "undermined")}. Mine subsidence insurance risk: {mines?.msi_risk ?? "not mapped"}; nearest mapped mined-out area{" "}
+              {mines?.dist_mined_out_ft != null ? `${num(mines.dist_mined_out_ft)} ft away` : "not found"}
+              {mines?.mine_map_sheet ? `; mine map sheet ${mines.mine_map_sheet}` : ""}
+              {fn(x, "mines")}. {mines?.caveat ?? ""}
+            </td>
+          </tr>
+          <tr>
+            <td>Flooding</td>
+            <td>
+              {fe ? (
+                <>
+                  Floodway {pct(fe.floodway_share)}, 100-year zone {pct(fe.sfha_share)}, 500-year zone {pct(fe.x500_share)} of the lot{fn(x, "fema")}. In this
+                  census tract: {num(fe.tract_nfip_policies)} flood insurance policies and {num(fe.tract_nfip_claims_10y)} claims in 10 years
+                  {fe.tract_nfip_median_premium != null ? `, median premium ${money(fe.tract_nfip_median_premium)}` : ""}
+                  {fn(x, "nfip")}; {num(fe.flooding_311_5y_tract)} flooding complaints to 311 in 5 years{fn(x, "flood311")}.
+                </>
+              ) : (
+                <>{pct(f.flood_1pct_share)} of the lot in the 100-year zone{fn(x, "fema")}.</>
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>Sewer backup</td>
+            <td>{fe?.in_combined_sewer ? "In a combined sewer area (storm and sewage share pipes), where basement backups are more common in heavy rain" : "Not mapped in a combined sewer area"}{fn(x, "sewer")}.</td>
+          </tr>
+          <tr>
+            <td>Contamination</td>
+            <td>
+              {env ? `${env.on_parcel} cleanup record${env.on_parcel === 1 ? "" : "s"} on the lot and ${env.adjacent_50ft} within 50 ft` : "On-lot check not available"}
+              {env ? fn(x, "env") : null}; {num(f.env_sites_within_500ft)} within 500 ft{fn(x, "env")}.
+            </td>
+          </tr>
+          <tr>
+            <td>Streams and wetlands</td>
+            <td>{f.streams_or_wetlands_within_100ft ? "A stream or wetland is within 100 ft" : "None within 100 ft"}{fn(x, "hydro")}.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3.5 Access, utilities, transit and schools</h2>
+      <div className="tcap">Table {tInfo}. Access and services</div>
+      <table className="kv">
+        <tbody>
+          <tr>
+            <td>Street access</td>
+            <td>
+              {f.street_frontage === "street" ? "Fronts an opened street" : f.street_frontage === "paper" ? "Only an unopened (paper) street" : f.street_frontage === "steps" ? "Reached by City steps" : "No street found within 20 m"}
+              {fn(x, "streets")}
+            </td>
+          </tr>
+          <tr>
+            <td>Water and sewer</td>
+            <td>
+              {a?.is_pittsburgh ? "Assumed Pittsburgh Water (PWSA); confirm with an availability letter." : "Water and sewer provider not mapped yet."}
+              {fe?.in_combined_sewer ? " Combined sewer area." : ""}
+              {f.muni_rules?.sewer_lateral_details ? ` At sale: ${f.muni_rules.sewer_lateral_details}.` : ""}
+              {f.muni_rules ? fn(x, "muni_rules") : null}
+            </td>
+          </tr>
+          <tr>
+            <td>Transit</td>
+            <td>
+              {f.transit ? (
+                <>
+                  Nearest stop {num(f.transit.nearest_any_stop_m)} m; nearest frequent stop {f.transit.nearest_frequent_stop_m != null ? `${num(f.transit.nearest_frequent_stop_m)} m` : "none nearby"}; {num(f.transit.frequent_stops_800m)} frequent stops within 800 m (about half a mile)
+                  {fn(x, "transit")}
+                </>
+              ) : "Not available"}
+            </td>
+          </tr>
+          <tr>
+            <td>Schools</td>
+            <td>
+              {f.schools ? (
+                <>
+                  {f.schools.district} school district{f.schools.pps_elementary ? `; Pittsburgh Public Schools feeder: ${titleCase(f.schools.pps_elementary)} (elementary), ${titleCase(f.schools.pps_middle)} (middle), ${titleCase(f.schools.pps_high)} (high)` : ""}
+                  {fn(x, "schools")}
+                </>
+              ) : "Not available"}
+            </td>
+          </tr>
+          <tr>
+            <td>Street trees within 15 m</td>
+            <td>{num(f.context?.street_trees_15m)}{fn(x, "context")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 4. Zoning
+
+export function S4(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const r = m.rules;
+  const s = m.scheme;
+  const lot = f.lot_area_sqft_gis ?? f.assessment?.lot_area_sqft ?? null;
+  if (!f.zoning?.code || !r) {
+    return (
+      <Sec id="s4" no="4" title="Zoning and approvals">
+        <Callout tone="pending" title="Zoning not loaded here">
+          <p>
+            Zoning rules are loaded for the City of Pittsburgh only. Confirm zoning with {titleCase(f.assessment?.municipality) || "the municipality"}.
+          </p>
+        </Callout>
+      </Sec>
+    );
+  }
+  const tUse = x.tab();
+  const uses: [string, string | null | undefined][] = [
+    ["One house (single-unit detached)", r.single_unit_detached],
+    ["Townhouse on its own lot (single-unit attached)", r.single_unit_attached],
+    ["Two homes (two-unit)", r.two_unit],
+    ["Three homes (three-unit)", r.three_unit],
+    ["Four or more (multi-unit)", r.multi_unit],
+  ];
+  const tDim = x.tab();
+  const dims: { rule: string; req: string; prop: string; ok: boolean | null }[] = [];
+  const add = (rule: string, reqv: number | null | undefined, unit: string, prop: number | null | undefined, ok: boolean | null, propText?: string) => {
+    if (reqv == null) return;
+    dims.push({ rule, req: `${num(reqv)} ${unit}`.trim(), prop: propText ?? (prop != null ? `${num(prop)} ${unit}`.trim() : "—"), ok });
+  };
+  add("Minimum lot size", r.min_lot_area_sqft, "sq ft", lot, lot != null ? lot >= r.min_lot_area_sqft! : null);
+  if (s && r.min_lot_area_per_unit_sqft) add("Lot area per home", r.min_lot_area_per_unit_sqft, "sq ft", lot != null ? lot / s.units : null, lot != null ? lot / s.units >= r.min_lot_area_per_unit_sqft : null);
+  add("Front setback", r.min_front_setback_ft, "ft", null, s ? true : null, s ? `Kept (inside buildable area)${r.contextual_front_setback ? "; contextual setback may apply" : ""}` : "—");
+  add("Rear setback", r.min_rear_setback_ft, "ft", null, s ? true : null, s ? "Kept (inside buildable area)" : "—");
+  add("Side setback", r.min_side_setback_ft, "ft", null, s ? true : null, s ? "Kept (inside buildable area)" : "—");
+  add("Maximum height", r.max_height_ft, "ft", s?.heightFt, s ? s.heightFt <= r.max_height_ft! : null);
+  add("Maximum stories", r.max_height_stories, "", s?.stories, s ? s.stories <= r.max_height_stories! : null);
+  if (r.parking_per_unit != null && s) dims.push({ rule: "Parking", req: `${num(r.parking_per_unit, 1)} per home (${s.parkingRequired ?? "—"} total)`, prop: `${s.parkingSpaces}`, ok: s.parkingRequired == null ? null : s.parkingSpaces >= s.parkingRequired });
+  if (r.max_far && s && lot) dims.push({ rule: "Floor area ratio (FAR)", req: `${num(r.max_far, 2)} max`, prop: num(s.grossFloorAreaSf / lot, 2), ok: s.grossFloorAreaSf / lot <= r.max_far });
+  if (r.max_lot_coverage_pct && s) dims.push({ rule: "Lot coverage", req: `${num(r.max_lot_coverage_pct)}% max`, prop: `${num(s.lotCoveragePct)}%`, ok: s.lotCoveragePct <= r.max_lot_coverage_pct });
+
+  const zbaRows = Object.entries(m.zba?.by_relief ?? {}).sort((a, b) => b[1].decided - a[1].decided);
+  const tZba = zbaRows.length ? x.tab() : 0;
+  const tUnl = m.unlocks.length ? x.tab() : 0;
+  const zr = f.zoning.rules as { notes?: string | null; confidence?: string | null } | null | undefined;
+
+  return (
+    <Sec id="s4" no="4" title="Zoning and approvals">
+      <p>
+        The lot is zoned <b>{f.zoning.code}</b> ({titleCase(r.district_name ?? f.zoning.type)}){fn(x, "zoning")}. The rules below are transcribed from the Pittsburgh
+        Zoning Code{fn(x, "zoning_rules")}; transcription confidence: {zr?.confidence ?? "not recorded"}.
+        {zr?.notes ? ` Note: ${zr.notes}` : ""}
+      </p>
+      <div className="tcap">Table {tUse}. Allowed uses in {f.zoning.code}</div>
+      <table>
+        <thead><tr><th>Use</th><th>Code</th><th>What it means</th></tr></thead>
+        <tbody>
+          {uses.map(([u, p]) => (
+            <tr key={u}><td>{u}</td><td>{p ?? "—"}</td><td>{p ? PERMISSION_TEXT[p] ?? p : "Not in our rules table"}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="tcap">Table {tDim}. Dimensional rules: required vs. the studied scheme{fn(x, "zoning_rules", "quickfit")}</div>
+      <table>
+        <thead><tr><th>Rule</th><th>Required</th><th>Scheme</th><th>Meets?</th></tr></thead>
+        <tbody>
+          {dims.map((d) => (
+            <tr key={d.rule}>
+              <td>{d.rule}</td>
+              <td>{d.req}</td>
+              <td>{d.prop}</td>
+              <td>{d.ok === null ? <span className="pill wait">Unknown</span> : d.ok ? <span className="pill ok">Yes</span> : <span className="pill no">No</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2>Approvals needed</h2>
+      {s ? (
+        s.approvals.length ? (
+          <ul>
+            {s.approvals.map((a) => (
+              <li key={a.label}>
+                <b>{a.label}.</b>{" "}
+                {a.odds?.status === "rate"
+                  ? `Similar past requests: ${a.odds.granted} of ${a.odds.n} granted (${pct(a.odds.rate)}).`
+                  : a.odds
+                    ? `Only ${a.odds.n} similar decided case${a.odds.n === 1 ? "" : "s"} on record (fewer than 5), so no rate is given.`
+                    : ""}
+                {a.odds ? fn(x, "zba") : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>None for zoning: the studied scheme is allowed by right{fn(x, "quickfit")}. Building, grading and other permits are in Section 5.</p>
+        )
+      ) : (
+        <p>
+          {m.closest ? `No scheme is allowed as of right. The closest one tried (${m.closest.typologyLabel.toLowerCase()}) needs ${blockers(m.closest)}.` : m.qfError ?? "No scheme fit, so approvals were not checked."}
+          {fn(x, "quickfit")}
+        </p>
+      )}
+
+      {zbaRows.length > 0 && (
+        <>
+          <h2>Past zoning decisions in {f.zoning.code} districts</h2>
+          <div className="tcap">Table {tZba}. Decided requests in {f.zoning.code} (granted or denied only){fn(x, "zba")}</div>
+          <table>
+            <thead><tr><th>Kind of request</th><th className="num">Decided</th><th className="num">Granted</th><th className="num">Denied</th><th className="num">Grant rate</th><th>Years</th></tr></thead>
+            <tbody>
+              {zbaRows.map(([k, v]) => (
+                <tr key={k}>
+                  <td>{RELIEF_TEXT[k] ?? titleCase(k.replace(/_/g, " "))}</td>
+                  <td className="num">{v.decided}</td>
+                  <td className="num">{v.granted}</td>
+                  <td className="num">{v.denied}</td>
+                  <td className="num">{v.decided >= 5 ? pct(v.granted / v.decided) : "Too few (<5)"}</td>
+                  <td>{v.from && v.to ? `${v.from.slice(0, 4)}–${v.to.slice(0, 4)}` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="small muted">A rate is shown only when at least 5 requests were decided. Past results do not predict a single case.</p>
+        </>
+      )}
+
+      <h2>What would unlock more homes</h2>
+      {m.unlocks.length ? (
+        <>
+          <p>We re-ran the site-fit solver with one rule relaxed at a time. These are policy what-ifs, not requests you can make{fn(x, "quickfit")}.</p>
+          <div className="tcap">Table {tUnl}. One rule relaxed at a time</div>
+          <table>
+            <thead><tr><th>What if</th><th>Rule now</th><th className="num">Extra homes</th><th className="num">Extra floor area</th></tr></thead>
+            <tbody>
+              {m.unlocks.map((u) => (
+                <tr key={u.rule}>
+                  <td>{u.label}</td>
+                  <td>{u.from != null ? num(u.from) : "—"}</td>
+                  <td className="num">{u.deltaUnits > 0 ? `+${u.deltaUnits}` : u.deltaUnits}</td>
+                  <td className="num">{u.deltaGrossFloorAreaSf > 0 ? `+${num(u.deltaGrossFloorAreaSf)} sq ft` : num(u.deltaGrossFloorAreaSf)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : (
+        <p className="muted">Not computed: the site-fit solver did not run for this lot.</p>
+      )}
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 5. Process & timeline
+
+export function S5(x: Ctx) {
+  const { m } = x;
+  const byPhase = PHASE_ORDER.map((ph) => [ph, m.requirements.filter((r) => r.phase === ph)] as const);
+  const figN = x.fig();
+  const pgh = m.requirements.filter((r) => ["geotech", "mine_subsidence", "mine_subsidence_paths", "retaining_wall", "grading_permit", "contextual_setback", "rco_meeting", "access", "sewer_lateral", "tap_fees"].includes(r.id) && r.status !== "NOT_NEEDED");
+  const counts = m.requirements.reduce<Record<string, number>>((a, r) => ((a[r.status] = (a[r.status] ?? 0) + 1), a), {});
+  const tabs = byPhase.filter(([, items]) => items.some((i) => i.status !== "NOT_NEEDED")).map(([ph]) => [ph, x.tab()] as const);
+  const tabOf = (ph: string) => tabs.find((t) => t[0] === ph)?.[1];
+
+  return (
+    <Sec id="s5" no="5" title="Process and timeline">
+      <p>
+        Our requirements engine checks {m.requirements.length} possible steps against this lot and project{fn(x, "requirements")}:{" "}
+        {["REQUIRED", "LIKELY", "POSSIBLE", "ASK", "NOT_NEEDED"].filter((k) => counts[k]).map((k) => `${counts[k]} ${STATUS_TEXT[k]!.toLowerCase()}`).join(", ")}. “Required” means a cited law or rule
+        requires it here; “Likely” and “Possible” are strong or weaker signals; “Ask” means we need an answer from you.
+      </p>
+      <figure>
+        <PhaseSequence
+          phases={PHASE_ORDER.map((ph) => {
+            const it = m.requirements.filter((r) => r.phase === ph);
+            return {
+              label: ph === "design_engineering" ? "Design &\nengineering" : ph === "due_diligence" ? "Due\ndiligence" : PHASE_LABEL[ph]!,
+              required: it.filter((r) => r.status === "REQUIRED").length,
+              likely: it.filter((r) => r.status === "LIKELY").length,
+              other: it.filter((r) => ["POSSIBLE", "ASK"].includes(r.status)).length,
+            };
+          })}
+        />
+        <figcaption>
+          <b>Figure {figN}.</b> Phases in order with the number of items in each{fn(x, "requirements")}. Review times are not loaded yet, so no durations are drawn.
+        </figcaption>
+      </figure>
+      {m.score.status === "ready" && m.score.permit ? (
+        <Callout tone="plain" title={`Predicted time to a permit: ${m.score.permit.upperMonths ? `${num(m.score.permit.months, 0)} to ${num(m.score.permit.upperMonths, 0)}` : `about ${num(m.score.permit.months, 1)}`} months`}>
+          <p>
+            {m.score.permit.method === "heuristic"
+              ? "This is an estimate built from the approval steps this project needs, not from permit records for similar projects."
+              : `Building-permit time comes from City permit records${m.score.permit.dateRangeLabel ? ` (${m.score.permit.dateRangeLabel})` : ""}.`}
+            {fn(x, "ease_score")} How it adds up:
+          </p>
+          <ul>{m.score.permit.basis.map((b) => <li key={b}>{b}</li>)}</ul>
+          <p className="small muted">Construction time is not estimated. Ask the City’s zoning and permit offices for current review times.</p>
+        </Callout>
+      ) : (
+        <Callout tone="pending" title="Predicted timeline: pending">
+          <p>
+            City review times are not in our data yet, and the Ease Score engine did not return a permit-time estimate for this parcel. Ask the City’s zoning and
+            permit offices for current review times.
+          </p>
+        </Callout>
+      )}
+      {pgh.length > 0 && (
+        <>
+          <h2>Pittsburgh-specific items for this lot</h2>
+          <ul>
+            {pgh.map((r) => (
+              <li key={r.id}>
+                <span className={`pill ${r.status}`}>{STATUS_TEXT[r.status]}</span> <b>{r.item}.</b> {r.reasons[0]?.reason}
+                {fn(x, "requirements")}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h2>Checklist by phase</h2>
+      {byPhase.map(([ph, items]) => {
+        const shown = items.filter((i) => i.status !== "NOT_NEEDED");
+        const skipped = items.filter((i) => i.status === "NOT_NEEDED");
+        if (!items.length) return null;
+        return (
+          <div key={ph}>
+            <h3>{PHASE_LABEL[ph]}</h3>
+            {shown.length > 0 && (
+              <>
+                <div className="tcap">Table {tabOf(ph)}. {PHASE_LABEL[ph]} items{fn(x, "requirements")}</div>
+                <table>
+                  <thead><tr><th style={{ width: "13%" }}>Status</th><th style={{ width: "27%" }}>Item</th><th>Why</th><th style={{ width: "17%" }}>Rule</th></tr></thead>
+                  <tbody>
+                    {shown.map((r: RequirementResult) => (
+                      <tr key={r.id}>
+                        <td><span className={`pill ${r.status}`}>{STATUS_TEXT[r.status]}</span></td>
+                        <td><b>{r.item}</b><div className="small muted">{r.issuer}</div></td>
+                        <td>
+                          {r.reasons.slice(0, 2).map((t, i) => <div key={i}>{t.reason}</div>)}
+                          {r.advisories.slice(0, 1).map((adv, i) => <div key={`a${i}`} className="small muted">Note: {adv}</div>)}
+                        </td>
+                        <td className="small">{r.citation ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            {skipped.length > 0 && <p className="small muted">Not needed here: {skipped.map((r) => r.item).join("; ")}.</p>}
+          </div>
+        );
+      })}
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 6. Market
+
+export function S6(x: Ctx) {
+  const { m } = x;
+  const s = m.sales;
+  const r = m.rent;
+  const ok = s?.status === "ok" && s.sufficient !== false;
+  const land = s?.comparable_use === "vacant land";
+  const figN = ok && s!.comps.length ? x.fig() : 0;
+  const tC = ok && s!.comps.length ? x.tab() : 0;
+  const tR = r?.hud_fmr ? x.tab() : 0;
+  const mk = m.ease?.market;
+  const zChange = r?.zori?.rent_12m_ago ? r.zori.latest_rent / r.zori.rent_12m_ago - 1 : null;
+  return (
+    <Sec id="s6" no="6" title="Market analysis">
+      <h2>Sales comparables</h2>
+      {s ? (
+        <>
+          <p>
+            We use only valid arm’s-length sales of the same kind of property, nearest first. At least 5 are needed; if there are fewer, the search widens
+            step by step{fn(x, "sales")}.{" "}
+            {ok ? (
+              <>
+                We found <b>{num(s.count)}</b> {s.comparable_use} sales within {num(s.radius_mi, 2)} mile{s.radius_mi === 1 ? "" : "s"} from {s.date_range?.from} to {s.date_range?.to}. Median sale price{" "}
+                <b>{money(s.median_price)}</b>; median <b>{money(s.median_price_per_sqft, land ? 2 : 0)}</b> per sq ft of {land ? "lot" : "living area"}{fn(x, "sales")}.
+                {land ? " Because this lot is vacant, the comps are vacant-land sales: they price the land, not a finished home." : ""}
+              </>
+            ) : (
+              <b>Insufficient comps: {s.count} valid sales found{s.note ? ` (${s.note})` : ""}. No market reference value is given.</b>
+            )}
+          </p>
+          {s.search_steps?.length ? <p className="small muted">Search steps: {s.search_steps.join(" → ")}.</p> : null}
+          {s.fallback_note && <Callout tone="amber" title="Comps search widened"><p>{s.fallback_note}</p></Callout>}
+          {figN > 0 && (
+            <figure>
+              <CompsScatter comps={s.comps.filter((c) => c.price_per_sqft).map((c) => ({ date: c.sale_date, ppsf: c.price_per_sqft! }))} median={s.median_price_per_sqft} />
+              <figcaption>
+                <b>Figure {figN}.</b> Price per sq ft of the {s.comps.length} nearest comparable sales by sale date; dashed line = median of all {s.count}
+                {fn(x, "sales")}.
+              </figcaption>
+            </figure>
+          )}
+          {tC > 0 && (
+            <>
+              <div className="tcap">Table {tC}. Nearest comparable sales (up to 15 shown){fn(x, "sales")}</div>
+              <table>
+                <thead><tr><th>Address</th><th>Sale date</th><th className="num">Price</th><th className="num">{land ? "Lot area" : "Living area"}</th><th className="num">$ / sq ft</th><th className="num">Distance</th></tr></thead>
+                <tbody>
+                  {s.comps.slice(0, 15).map((c) => (
+                    <tr key={`${c.parid}-${c.sale_date}`}>
+                      <td>{titleCase(c.address)}</td>
+                      <td>{c.sale_date}</td>
+                      <td className="num">{money(c.price)}</td>
+                      <td className="num">{num(land ? c.lot_area_sqft : c.living_area_sqft)}</td>
+                      <td className="num">{money(c.price_per_sqft, land ? 2 : 0)}</td>
+                      <td className="num">{num(c.distance_mi, 2)} mi</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </>
+      ) : (
+        <Callout tone="pending" title="Sales comps unavailable"><p>The comps search did not return data for this parcel.</p></Callout>
+      )}
+
+      <h2>Rents</h2>
+      {r?.zori ? (
+        <p>
+          The Zillow rent index for ZIP {r.zori.zip} was <b>{money(r.zori.latest_rent)}</b> a month in {r.zori.latest_month.slice(0, 7)}
+          {zChange != null ? `, ${zChange >= 0 ? "up" : "down"} ${pct(Math.abs(zChange), 1)} from a year earlier (${money(r.zori.rent_12m_ago)})` : ""}
+          {fn(x, "zori")}. This covers all home types in the ZIP, not new construction.
+        </p>
+      ) : (
+        <p>No ZIP-level rent index is available here.</p>
+      )}
+      {r?.hud_fmr && (
+        <>
+          <div className="tcap">Table {tR}. HUD Fair Market Rents, FY {r.hud_fmr.year} ({r.hud_fmr.level}){fn(x, "hud_fmr")}</div>
+          <table>
+            <thead><tr><th className="num">Studio</th><th className="num">1 bedroom</th><th className="num">2 bedrooms</th><th className="num">3 bedrooms</th><th className="num">4 bedrooms</th></tr></thead>
+            <tbody>
+              <tr>
+                <td className="num">{money(r.hud_fmr.br0)}</td>
+                <td className="num">{money(r.hud_fmr.br1)}</td>
+                <td className="num">{money(r.hud_fmr.br2)}</td>
+                <td className="num">{money(r.hud_fmr.br3)}</td>
+                <td className="num">{money(r.hud_fmr.br4)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
+      <p>
+        Listing-level rent comps are not loaded ({r?.rentease?.note ?? "no licensed listing data"}). {r?.rules ? `${r.rules}.` : ""}
+      </p>
+
+      <h2>Market activity</h2>
+      {mk ? (
+        <p>
+          In the last 3 years within half a mile: {num(mk.sales_3y_half_mile)} valid sales
+          {mk.completed_permits_3y_half_mile != null ? ` and ${num(mk.completed_permits_3y_half_mile)} completed building permits` : ""}. That is more activity than
+          about {num(mk.percentile, 0)}% of {mk.scope === "city" ? "City" : "county"} parcels in our fixed sample of {num(mk.sample_n)}
+          {fn(x, "market_activity")}.
+        </p>
+      ) : (
+        <p className="muted">Market activity is not available.</p>
+      )}
+      <h2>Absorption and lease-up</h2>
+      <p className="assume">No absorption data is loaded. How fast units would sell or lease is an input you must supply; this study does not assume one.</p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 7. Budget
+
+export function S7(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const a = f.assessment;
+  const c = m.forSale.costs;
+  const tB = x.tab();
+  const hasBuilding = (f.site?.building_count ?? 0) > 0;
+  const tt = f.transfer_tax;
+  const tapLines = m.tapFees.filter((t) => t.amount > 0 && /residential permit|connection fee tap 1 in \(normal|meter fee 5\/8/i.test(t.fee_type));
+  const tapSum = tapLines.reduce((s, t) => s + t.amount, 0);
+  const geo = isReq(m, "geotech");
+  const mine = !!(overlay(m, "undermined_pgh") || f.mines?.in_city_undermined || f.mines?.in_mined_out || f.mines?.msi_risk === "confirmed");
+  const steep = (f.slope_1m?.share_over_25 ?? 0) >= 0.25 || isReq(m, "retaining_wall");
+
+  type Line = { line: ReactNode; amount: ReactNode; basis: ReactNode; applies?: boolean };
+  const lines: Line[] = [
+    {
+      line: "Land (purchase price)",
+      amount: <span className="assume">Your price</span>,
+      basis: (
+        <>
+          Enter the agreed price. Public-record anchor: assessed land value {money(a?.fmv_land)}, total {money(a?.fmv_total)}
+          {fn(x, "assessment")}. Assessments are not market prices.
+          {m.refLandValue ? (
+            <>
+              {" "}
+              Vacant-lot sales nearby: median {money(m.sales?.median_price_per_sqft, 2)} per sq ft × {sqft(f.lot_area_sqft_gis ?? a?.lot_area_sqft)} = about {money(m.refLandValue)} (rounded; sales within {num(m.sales?.radius_mi, 2)} mi)
+              {fn(x, "sales")}.
+            </>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      line: "Realty transfer tax",
+      amount: tt ? `${num(tt.total_pct, 1)}% of price` : "—",
+      basis: tt ? <>{tt.parts.map((p: { jurisdiction: string; rate_pct: number }) => `${p.jurisdiction} ${num(p.rate_pct, 2)}%`).join(" + ")}{fn(x, "transfer_tax")}. Usually split between buyer and seller by contract.</> : "Rate not loaded.",
+    },
+    { line: "Construction (hard cost of the building)", amount: <span className="assume">{AWAIT}</span>, basis: m.scheme ? `${sqft(m.scheme.grossFloorAreaSf)} gross × cost per sq ft (local cost table, not loaded)` : "No scheme" },
+    { line: "Demolition and asbestos survey", applies: hasBuilding, amount: <span className="assume">{AWAIT}</span>, basis: hasBuilding ? "Applies: a building stands on the lot" : "Not needed: no building on the lot" },
+    { line: "Dumpsters and hauling", amount: <span className="assume">{AWAIT}</span>, basis: "Local quote" },
+    { line: "Site work (grading, utilities to the house)", amount: <span className="assume">{AWAIT}</span>, basis: "Local quote" },
+    { line: "Geotechnical report", applies: geo, amount: <span className="assume">{AWAIT}</span>, basis: geo ? <>Applies: required or likely here (Section 5){fn(x, "requirements")}</> : "Not triggered by our data" },
+    {
+      line: "Grouting or mine subsidence insurance",
+      applies: mine,
+      amount: mine ? <span className="assume">{AWAIT}</span> : "—",
+      basis: mine ? (
+        <>
+          Applies: mapped mining. Insurance rate: {money(finance.MSI_CHART.baseFee, 2)} + {money(finance.MSI_CHART.perThousand, 2)} per $1,000 of coverage a year, so {money(m.msiPer100k.value, 2)} a year per $100,000 of coverage
+          {fn(x, "msi_rates")}. Grouting cost needs an engineer’s estimate.
+        </>
+      ) : (
+        "No mapped mining"
+      ),
+    },
+    { line: "Retaining walls", applies: steep, amount: <span className="assume">{AWAIT}</span>, basis: steep ? <>Likely: {pct(f.slope_1m?.share_over_25)} of the lot is over 25% slope{fn(x, "slope_1m")}</> : "Not indicated by slope data" },
+    {
+      line: "Water and sewer tap and permit fees",
+      amount: tapLines.length ? money(tapSum) : <span className="assume">Unknown</span>,
+      basis: tapLines.length ? (
+        <>
+          Published fee items for one home: {tapLines.map((t) => `${t.fee_type} ${money(t.amount)}`).join("; ")}; no tapping/capacity fee in the tariff{fn(x, "tap_fees")}. Excludes the plumber’s cost to run the lines.
+        </>
+      ) : (
+        "Fee schedule not loaded for this area"
+      ),
+    },
+    { line: "Soft costs (design, engineering, permits, legal)", amount: <span className="assume">{AWAIT}</span>, basis: "Share of hard cost (local data)" },
+    { line: "Contingency", amount: <span className="assume">{AWAIT}</span>, basis: "Share of hard cost; higher on hillsides" },
+    { line: "Financing and holding costs", amount: <span className="assume">{AWAIT}</span>, basis: "Loan terms and schedule not entered" },
+  ];
+  return (
+    <Sec id="s7" no="7" title="Development budget">
+      <Callout tone="pending" title="Cost lines are waiting for local cost data">
+        <p>
+          The local construction cost table is not loaded yet, and the finance engine has no built-in prices{fn(x, "finance_engine")}. Each cost line below says what it
+          is based on. Amounts appear only where a published fee or public record gives one.
+        </p>
+      </Callout>
+      <div className="tcap">Table {tB}. Development budget (CAPEX)</div>
+      <table>
+        <thead><tr><th style={{ width: "30%" }}>Line</th><th style={{ width: "22%" }}>Amount</th><th>Basis and source</th></tr></thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} style={l.applies === false ? { color: "#8795a1" } : undefined}>
+              <td>{l.line}</td>
+              <td>{l.applies === false ? "Not needed" : l.amount}</td>
+              <td className="small">{l.basis}</td>
+            </tr>
+          ))}
+          <tr className="total">
+            <td>Total development cost (TDC)</td>
+            <td colSpan={2}>{receiptValue(c.tdc, "money")}</td>
+          </tr>
+          <tr>
+            <td>Cost per home / per sq ft</td>
+            <td colSpan={2}>{c.costPerUnit.status === "ok" ? `${money(c.costPerUnit.value)} / ${money(c.costPerSqFt.value)}` : <span className="assume">Needs total development cost</span>}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="small muted">Source key for amounts: published fee schedule or public record (footnoted) · local cost table (not loaded yet) · local quote · your input.</p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 8. Operations
+
+export function S8(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const pt = f.property_tax;
+  const rp = m.rental;
+  const a = f.assessment;
+  const currentTax = pt?.general_mills != null && a?.fmv_total ? (a.fmv_total * pt.general_mills) / 1000 : null;
+  const tTax = pt ? x.tab() : 0;
+  const tOps = x.tab();
+  const mine = !!(overlay(m, "undermined_pgh") || f.mines?.msi_risk === "confirmed" || f.mines?.in_mined_out);
+  return (
+    <Sec flow id="s8" no="8" title="Operations (if rented)">
+      <p>
+        This section applies if the homes are rented. {m.scenario.tenure === "rent" ? "This study’s scenario is to rent." : "This study’s scenario is to sell; the rental view is shown for comparison."}
+      </p>
+      <h2>Property taxes</h2>
+      {pt ? (
+        <>
+          <p>
+            Total tax rate: <b>{num(pt.general_mills, 2)} mills</b>, meaning {money(pt.general_mills, 2)} of tax per $1,000 of assessed value each year
+            {fn(x, "millage")}.{" "}
+            {currentTax != null && (
+              <>
+                On today’s assessment of {money(a?.fmv_total)}{fn(x, "assessment")}, that is {money(a?.fmv_total)} ÷ 1,000 × {num(pt.general_mills, 2)} = <b>{money(currentTax)}</b> a year. A new
+                building will be reassessed higher; the new assessed value is not estimated.
+              </>
+            )}
+          </p>
+          <div className="tcap">Table {tTax}. Tax rate by taxing body, tax year {pt.year}{fn(x, "millage")}</div>
+          <table>
+            <thead><tr><th>Taxing body</th><th>Type</th><th className="num">Mills</th></tr></thead>
+            <tbody>
+              {pt.parts.map((p: { name: string; jurisdiction_type: string; mills: number }) => (
+                <tr key={p.name + p.jurisdiction_type}><td>{titleCase(p.name)}</td><td>{p.jurisdiction_type.replace("_", " ")}</td><td className="num">{num(p.mills, 2)}</td></tr>
+              ))}
+              <tr className="total"><td>Total</td><td /><td className="num">{num(pt.general_mills, 2)}</td></tr>
+            </tbody>
+          </table>
+        </>
+      ) : (
+        <p className="muted">Millage is not loaded for this municipality.</p>
+      )}
+      <h2>Rent roll and operating costs</h2>
+      <div className="tcap">Table {tOps}. Operating statement, from the finance engine{fn(x, "finance_engine")}</div>
+      <table>
+        <thead><tr><th style={{ width: "34%" }}>Measure</th><th>How it is figured</th><th>Result</th></tr></thead>
+        <tbody>
+          {receiptRows([
+            [rp.income.gpr, "money"],
+            [rp.income.vacancyLoss, "money"],
+            [rp.income.egi, "money"],
+            [rp.opex.taxes, "money"],
+            [rp.opex.insurance, "money"],
+            [rp.opex.management, "money"],
+            [rp.opex.total, "money"],
+            [rp.noi, "money"],
+          ])}
+        </tbody>
+      </table>
+      <p className="small">
+        Rent used as a reference: {m.refRentPerUnit ? <>{money(m.refRentPerUnit)} a month per home, the ZIP rent index{fn(x, "zori")}</> : "none available"}. Vacancy,
+        maintenance, management and reserves are not assumed.
+        {mine ? <> Mine subsidence insurance: {money(m.msiPer100k.value, 2)} a year per $100,000 of coverage{fn(x, "msi_rates")}.</> : null}
+        {(f.flood_evidence?.sfha_share ?? 0) > 0 && f.flood_evidence?.tract_nfip_median_premium != null ? (
+          <> Flood insurance reference: median premium in this tract {money(f.flood_evidence.tract_nfip_median_premium)} a year{fn(x, "nfip")}.</>
+        ) : null}
+      </p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 9. Financing & returns
+
+export function S9(x: Ctx) {
+  const { m } = x;
+  const fs = m.forSale;
+  const rp = m.rental;
+  const t1 = x.tab();
+  const t2 = x.tab();
+  return (
+    <Sec flow id="s9" no="9" title="Financing and returns">
+      <p>
+        Every measure below is computed by the finance engine the moment its inputs exist{fn(x, "finance_engine")}. Today most are waiting for costs and loan
+        terms, so each row says what it still needs. The formula column is the math in plain words.
+      </p>
+      <h2>If built to sell</h2>
+      <p>
+        {m.refSalePricePerUnit ? (
+          <>
+            Market reference per home: median {money(m.sales?.median_price_per_sqft)} per sq ft{fn(x, "sales")} × {sqft(m.scheme ? m.scheme.netFloorAreaSf / m.scheme.units : null)} livable ={" "}
+            about <b>{money(m.refSalePricePerUnit)}</b> (rounded). Comparable homes are mostly older, so a new home may sell differently.
+          </>
+        ) : (
+          m.sales?.comparable_use === "vacant land"
+            ? "No market reference sale price: the lot is vacant, so its comps are land sales, not finished homes."
+            : "No market reference sale price (not enough comps or no scheme)."
+        )}
+      </p>
+      <div className="tcap">Table {t1}. For-sale results</div>
+      <table>
+        <thead><tr><th style={{ width: "34%" }}>Measure</th><th>How it is figured</th><th>Result</th></tr></thead>
+        <tbody>
+          {receiptRows([
+            [fs.sales.grossSales, "money"],
+            [fs.sales.sellingCosts, "money"],
+            [fs.costs.tdc, "money"],
+            [fs.sales.profit, "money"],
+            [fs.sales.profitMargin, "share"],
+            [fs.financing.ltc, "share"],
+            [fs.financing.equityRequired, "money"],
+            [fs.returns.leveredIrr, "share"],
+            [fs.returns.equityMultiple, "ratio"],
+          ])}
+        </tbody>
+      </table>
+      <h2>If built to rent</h2>
+      <div className="tcap">Table {t2}. Rental results</div>
+      <table>
+        <thead><tr><th style={{ width: "34%" }}>Measure</th><th>How it is figured</th><th>Result</th></tr></thead>
+        <tbody>
+          {receiptRows([
+            [rp.yieldOnCost, "share"],
+            [rp.developmentSpread, "share"],
+            [rp.stabilizedValue, "money"],
+            [rp.financing.permanentLoan, "money"],
+            [rp.financing.dscr, "ratio"],
+            [rp.returns.cashOnCash, "share"],
+            [rp.returns.unleveredIrr, "share"],
+            [rp.returns.leveredIrr, "share"],
+            [rp.returns.leveredNpv, "money"],
+            [rp.returns.payback, "months"],
+            [rp.returns.equityMultiple, "ratio"],
+          ])}
+        </tbody>
+      </table>
+      <p className="small muted">Lenders commonly look for income of at least about 1.2 times the loan payments (DSCR). That is a rule of thumb, not a quote.</p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 10. Affordable
+
+export function S10(x: Ctx) {
+  const { m } = x;
+  const td = m.facts.tract_designations;
+  const lim = m.rentLimits;
+  const amis = [...new Set(lim.map((l) => l.ami_pct))].filter((a) => a >= 30 && a <= 80);
+  const t = lim.length ? x.tab() : 0;
+  const cell = (ami: number, br: number) => lim.find((l) => l.ami_pct === ami && l.bedrooms === br)?.max_rent;
+  return (
+    <Sec flow id="s10" no="10" title="Affordable scenario">
+      {m.scenario.affordable ? (
+        <p>Affordable mode is on. Rents below are the most a household at each income level can be charged under the tax credit program.</p>
+      ) : (
+        <p>Affordable mode is off for this study. The limits and designations below are shown for reference.</p>
+      )}
+      <p>
+        Census tract status: {td ? `${td.qct ? "a" : "not a"} HUD Qualified Census Tract; ${td.dda ? "in" : "not in"} a Difficult Development Area; ${td.opportunity_zone ? "in" : "not in"} an Opportunity Zone` : "not available"}
+        {td ? fn(x, "tract_designations") : null}. Qualified tracts can raise tax-credit funding for a project.
+      </p>
+      {lim.length > 0 && (
+        <>
+          <div className="tcap">Table {t}. Maximum monthly rent by income level (percent of area median income, AMI), Allegheny County{fn(x, "phfa")}</div>
+          <table>
+            <thead><tr><th>Income level</th><th className="num">Studio</th><th className="num">1 BR</th><th className="num">2 BR</th><th className="num">3 BR</th><th className="num">4 BR</th></tr></thead>
+            <tbody>
+              {amis.map((a) => (
+                <tr key={a}>
+                  <td>{a}% AMI</td>
+                  {[0, 1, 2, 3, 4].map((b) => <td key={b} className="num">{money(cell(a, b))}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      <Callout tone="pending" title="Funding gap: awaiting cost data">
+        <p>The gap is the total development cost minus what the restricted rents can support in loans and equity. It needs the cost table.</p>
+      </Callout>
+      <h2>Possible sources to close a gap</h2>
+      <ul>
+        <li><b>Low-Income Housing Tax Credits (LIHTC)</b>: federal credits sold to investors for equity; awarded by PHFA through a competitive round.</li>
+        <li><b>HOME and CDBG</b>: federal block grants passed through the City or County, often as soft loans.</li>
+        <li><b>PHARE</b>: the state’s housing trust fund, administered by PHFA.</li>
+        <li><b>Housing Opportunity Fund</b>: the City of Pittsburgh’s housing trust fund, administered by the Urban Redevelopment Authority.</li>
+        <li><b>Tax abatements</b>: local programs that phase in the new assessed value; eligibility varies.</li>
+      </ul>
+      <p className="small muted">Program names are listed for awareness; no award amounts are assumed.</p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 11. Sensitivity
+
+export function S11(x: Ctx) {
+  const { m } = x;
+  const f = m.facts;
+  const t = x.tab();
+  const fig = x.fig();
+  const monthlyTax = f.property_tax?.general_mills != null && f.assessment?.fmv_total ? (f.assessment.fmv_total * f.property_tax.general_mills) / 1000 / 12 : null;
+  return (
+    <Sec flow id="s11" no="11" title="Sensitivity and scenarios">
+      <p>
+        Sensitivity shows which assumption moves the result most. The finance engine can run base, conservative and optimistic cases and a “which assumption matters
+        most” chart{fn(x, "finance_engine")}, but each needs a base case with costs, and there is none yet.
+      </p>
+      <div className="tcap">Table {t}. Scenario comparison</div>
+      <table>
+        <thead><tr><th>Measure</th><th>Conservative</th><th>Base</th><th>Optimistic</th></tr></thead>
+        <tbody>
+          {["Total development cost", "Profit or yield on cost", "Return per year (IRR)"].map((r) => (
+            <tr key={r}><td>{r}</td>{[0, 1, 2].map((i) => <td key={i}><span className="assume">Awaiting costs</span></td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+      <figure>
+        <TornadoPending variables={["Construction cost", "Sale price or rent", "Land price", "Interest rate", "Approval delay", "Construction delay"]} />
+        <figcaption>
+          <b>Figure {fig}.</b> Which assumption matters most. Bars will show how much the result moves when each input changes; none are drawn until costs exist.
+        </figcaption>
+      </figure>
+      <h2>Break-even points</h2>
+      <p className="assume">Break-even rent and the largest cost increase the project can absorb need the cost table. They will read like “breaks even at $X a month.”</p>
+      <h2>Cost of approval delays</h2>
+      <p>
+        Every month of delay adds holding costs: taxes, insurance and loan interest. Taxes alone on today’s assessment are about{" "}
+        {monthlyTax != null ? (
+          <>
+            <b>{money(monthlyTax)}</b> a month ({money(f.assessment?.fmv_total)} × {num(f.property_tax?.general_mills, 2)} ÷ 1,000 ÷ 12){fn(x, "assessment", "millage")}
+          </>
+        ) : (
+          "unknown"
+        )}
+        . Insurance and interest depend on your loan and policy.
+      </p>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 12. Risks
+
+export function S12(x: Ctx) {
+  const { m } = x;
+  const flags = redFlags(m);
+  const reviews = reviewItems(m, m.score.status === "ready" ? m.score.reviewCallouts.map((c) => c.title) : []);
+  const approvals = m.scheme?.byRight ? [] : approvalItems(m);
+  const gaps = dataGaps(m);
+  const tG = x.tab();
+  const permission = m.scheme?.permission;
+  return (
+    <Sec id="s12" no="12" title="Risks and mitigations">
+      <h2>Red flags</h2>
+      <p className="small muted">Only three things are red flags: the FEMA floodway, no legal access, or an active contamination site on the parcel.</p>
+      {flags.length ? (
+        flags.map((f) => (
+          <Callout key={f.title} tone="red" title={f.title}>
+            <p>{f.reason}{fn(x, ...f.sources)}</p>
+            <p><b>Mitigation:</b> {f.mitigation}</p>
+          </Callout>
+        ))
+      ) : (
+        <p>None found in our data.</p>
+      )}
+      <h2>Review required</h2>
+      {m.score.status === "ready" &&
+        m.score.reviewCallouts.map((c) => (
+          <Callout key={`e-${c.title}`} tone="amber" title={c.title.replace(/^Review required:\s*/i, "").replace(/^./, (ch) => ch.toUpperCase())}>
+            <p>{c.reason}{fn(x, "ease_score")}</p>
+            {c.next.length > 0 && <p><b>What to do:</b> {c.next.join(" ")}</p>}
+            {c.costNotes.length > 0 && <p className="small"><b>Cost notes (editable defaults, not quotes):</b> {c.costNotes.join(" ")}</p>}
+          </Callout>
+        ))}
+      {reviews.length ? (
+        reviews.map((f) => (
+          <Callout key={f.title} tone="amber" title={f.title}>
+            <p>{f.reason}{fn(x, ...f.sources)}</p>
+            <p><b>Mitigation:</b> {f.mitigation}</p>
+          </Callout>
+        ))
+      ) : m.score.status === "ready" && m.score.reviewCallouts.length ? null : (
+        <p>No review items found in our data.</p>
+      )}
+      <h2>Zoning permission</h2>
+      {permission && permission.code !== "P" ? (
+        <Callout tone="amber" title={`${titleCase(permission.use)}: ${PERMISSION_TEXT[permission.code ?? ""] ?? permission.code}`}>
+          <p>Permission for this use is part of the zoning analysis (Section 4) and is weighed in the Ease Score, not treated as a red flag{fn(x, "zoning_rules")}.</p>
+        </Callout>
+      ) : null}
+      {approvals.length ? (
+        approvals.map((f) => (
+          <Callout key={f.title} tone="plain" title={f.title}>
+            <p>{f.reason}{fn(x, ...f.sources)}</p>
+            <p><b>Mitigation:</b> {f.mitigation}</p>
+          </Callout>
+        ))
+      ) : (
+        <p>No discretionary zoning approval is needed for the studied scheme.</p>
+      )}
+      <h2>Data gaps</h2>
+      <div className="tcap">Table {tG}. Missing inputs and what they affect</div>
+      <table>
+        <thead><tr><th style={{ width: "26%" }}>Missing</th><th>Effect on this study</th><th style={{ width: "32%" }}>How to close it</th></tr></thead>
+        <tbody>
+          {gaps.map((g) => (
+            <tr key={g.what}><td>{g.what}</td><td>{g.effect}</td><td>{g.mitigation}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 13. Conclusion
+
+export function S13(x: Ctx) {
+  const { m } = x;
+  const steps = nextSteps(m);
+  const reviews = reviewItems(m);
+  const flags = redFlags(m);
+  const must: string[] = [];
+  flags.forEach((f) => must.push(`The red flag “${f.title.toLowerCase()}” is resolved.`));
+  if (m.scheme && !m.scheme.byRight) must.push(`The needed approval${m.scheme.approvals.length > 1 ? "s are" : " is"} granted: ${m.scheme.approvals.map((a) => a.label.toLowerCase()).join("; ")}.`);
+  const reviewTitles = [...(m.score.status === "ready" ? m.score.reviewCallouts.map((c) => c.title.replace(/^Review required:\s*/i, "")) : []), ...reviews.map((r) => r.title)];
+  if (reviewTitles.length)
+    must.push(`Professionals check the review items (${[...new Set(reviewTitles.map((t) => t.toLowerCase()))].join("; ")}) and find nothing that stops the project or pushes the cost too high.`);
+  must.push("A local cost estimate shows total cost below the expected sale value (or rents that cover costs and the loan).");
+  must.push("A survey confirms the lot lines, frontage and buildable area.");
+  return (
+    <Sec flow id="s13" no="13" title="Conclusion and next steps">
+      <p>
+        This study is decision support, not a recommendation to buy or build. It shows what public data and published rules say about this lot, and what is
+        still unknown.
+      </p>
+      <h2>What must be true for this to work</h2>
+      <ol>{must.map((t) => <li key={t}>{t}</li>)}</ol>
+      <h2>First three actions</h2>
+      <ol>
+        {steps.map((r) => (
+          <li key={r.id}>
+            <b>{r.item}</b> ({r.issuer}). {r.reasons[0]?.reason}
+            {fn(x, "requirements")}
+          </li>
+        ))}
+        {steps.length < 3 && <li>Get a local construction cost estimate for the studied scheme.</li>}
+      </ol>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Appendices
+
+export function AppA(x: Ctx) {
+  const list = x.c.list();
+  return (
+    <Sec id="appA" no="A" title="Sources and data dates">
+      <p className="small">Numbered in the order first cited. “Vintage not recorded” means our database does not store the publisher’s data date yet.</p>
+      <ol className="sources" style={{ listStyle: "none", paddingLeft: 0 }}>
+        {list.map((s) => (
+          <li key={s.key}>
+            <b>[{s.n}]</b> {s.title}. {s.publisher ? `${s.publisher}. ` : ""}
+            <i>{s.date ?? NOT_RECORDED}.</i>
+            {s.note ? ` ${s.note}` : ""}
+            {s.url ? (
+              <>
+                {" "}
+                <a className="ext" href={s.url}>{s.url}</a>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </Sec>
+  );
+}
+
+export function AppB(x: Ctx) {
+  const { m } = x;
+  const formulas = new Map<string, string>();
+  const collect = (o: unknown, depth = 0) => {
+    if (!o || typeof o !== "object" || depth > 4) return;
+    if ("formula" in o && "label" in o && typeof (o as finance.Receipt).formula === "string") {
+      const r = o as finance.Receipt;
+      if (!formulas.has(r.label)) formulas.set(r.label, r.formula);
+      return;
+    }
+    for (const v of Object.values(o)) collect(v, depth + 1);
+  };
+  collect(m.forSale);
+  collect(m.rental);
+  const t = x.tab();
+  return (
+    <Sec id="appB" no="B" title="Methods and formulas">
+      <h2>Site and data methods</h2>
+      <ul>
+        <li><b>Slope.</b> Slope is computed for each 1 m lidar cell inside the lot; shares are the fraction of cells above 15%, 25% and 40%{fn(x, "slope_1m")}.</li>
+        <li><b>Overlays.</b> A hazard or zoning overlay’s share is the part of the lot’s area inside it.</li>
+        <li><b>Street frontage.</b> A lot fronts a street when an opened street centerline is within 20 m; front edges are the lot edges nearest that street{fn(x, "streets")}.</li>
+        <li><b>Sales comps.</b> {(m.sales?.rules ?? "Valid arm’s-length sales, same use, nearest first").replace(/\.?$/, ".")} The search widens by distance and years until at least 5 are found{fn(x, "sales")}.</li>
+        <li><b>Zoning decision rates.</b> Granted ÷ (granted + denied), shown only when at least 5 requests were decided; partial grants, withdrawals and pending items are left out{fn(x, "zba")}.</li>
+        <li><b>Requirements.</b> Each item is REQUIRED only when a cited law or rule requires it for this lot and project; otherwise it is Likely, Possible, Ask, or Not needed, with the reason shown{fn(x, "requirements")}.</li>
+      </ul>
+      <h2>Site-fit solver (QuickFit)</h2>
+      <p>
+        The buildable area is the lot minus a setback strip along each edge, minus any area that must be removed (only the FEMA floodway today). Unit rectangles are
+        packed along the frontage and made as deep as allowed. Each scheme is checked for use permission, height and stories, lot size and lot area per unit,
+        parking, and floor area ratio and coverage when the district has them. The limiting rule is found by relaxing each rule in turn. Footprints are
+        rectangles; one building per lot{fn(x, "quickfit")}.
+      </p>
+      <h2>Finance formulas</h2>
+      <div className="tcap">Table {t}. Formulas used by the finance engine{fn(x, "finance_engine")}</div>
+      <table>
+        <thead><tr><th style={{ width: "40%" }}>Measure</th><th>Formula</th></tr></thead>
+        <tbody>
+          {[...formulas.entries()].map(([k, v]) => (
+            <tr key={k}><td>{k}</td><td className="small">{v}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small">
+        Returns are computed from monthly cash flows; a yearly rate = (1 + monthly rate)^12 − 1. Property tax = assessed value × mills ÷ 1,000. Mine subsidence
+        insurance = $3.75 + $0.25 per $1,000 of coverage{fn(x, "msi_rates")}.
+      </p>
+    </Sec>
+  );
+}
+
+export function AppC(x: Ctx) {
+  const { m } = x;
+  const t1 = x.tab();
+  const t2 = x.tab();
+  const a = quickfit.DEFAULT_ASSUMPTIONS;
+  const presets = [quickfit.SINGLE_FAMILY, quickfit.DUPLEX, quickfit.TOWNHOUSE_ROW];
+  const fin: [string, string, string][] = [
+    ["Homes (units)", m.scheme ? String(m.scheme.units) : "not set", "Site-fit scheme"],
+    ["Gross floor area", m.scheme ? sqft(m.scheme.grossFloorAreaSf) : "not set", "Site-fit scheme"],
+    ["Sale price per home (reference)", m.refSalePricePerUnit ? money(m.refSalePricePerUnit) : "not set", "Median comps $/sq ft × livable sq ft"],
+    ["Monthly rent per home (reference)", m.refRentPerUnit ? money(m.refRentPerUnit) : "not set", "ZIP rent index"],
+    ["Property tax rate", m.facts.property_tax?.general_mills != null ? `${num(m.facts.property_tax.general_mills, 2)} mills` : "not set", "County Treasurer"],
+    ["Land price", "not set", "Your input"],
+    ["Hard cost per sq ft", "not set", "Local cost table (not loaded)"],
+    ["Soft cost share, contingency share", "not set", "Local cost table (not loaded)"],
+    ["Loan terms (rate, loan-to-cost, amortization)", "not set", "Your lender"],
+    ["Vacancy, maintenance, management, reserves", "not set", "Your input"],
+    ["Schedule (approval, construction, sales months)", "not set", "Your input / City review times"],
+    ["Cap rates and discount rate", "not set", "Your input"],
+  ];
+  return (
+    <Sec flow id="appC" no="C" title="Assumptions used">
+      <p>Every value the study used, and every value it still needs. “Placeholder” means an editable starting point, not a standard.</p>
+      <div className="tcap">Table {t1}. Site-fit building sizes (placeholders){fn(x, "quickfit")}</div>
+      <table>
+        <thead><tr><th>Building type</th><th>Unit width</th><th>Unit depth</th><th>Stories</th><th>Floor to floor</th><th>Garage tried</th></tr></thead>
+        <tbody>
+          {presets.map((p) => (
+            <tr key={p.id}>
+              <td>{p.label}</td>
+              <td>{p.unitWidthFt.min}–{p.unitWidthFt.max} ft</td>
+              <td>{p.unitDepthFt.min}–{p.unitDepthFt.max} ft</td>
+              <td>{p.stories.min}–{p.stories.max}</td>
+              <td>{p.floorToFloorFt} ft</td>
+              <td>{p.garage ? "Yes" : "No"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small">
+        Other solver placeholders: livable share of floor area {pct(a.efficiency)}; garage bay {a.garageWidthFt} × {a.garageDepthFt} ft; surface stall with drive {a.surfaceStallAreaSf} sq ft; {a.spacesPerUnit} space
+        per home when parking is chosen (never below the minimum).
+      </p>
+      <div className="tcap">Table {t2}. Finance inputs</div>
+      <table>
+        <thead><tr><th>Input</th><th>Value used</th><th>Source</th></tr></thead>
+        <tbody>
+          {fin.map(([k, v, s]) => (
+            <tr key={k}><td>{k}</td><td>{v === "not set" ? <span className="assume">Not set</span> : v}</td><td>{s}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </Sec>
+  );
+}
+
+export function AppD(x: Ctx) {
+  const { m } = x;
+  const s = m.score;
+  if (s.status !== "ready") {
+    return (
+      <Sec flow id="appD" no="D" title="Ease Score breakdown">
+        <Callout tone="pending" title="Ease Score pending">
+          <p>{s.reason}</p>
+        </Callout>
+      </Sec>
+    );
+  }
+  const t = x.tab();
+  const t2 = x.tab();
+  const t3 = s.unlocks.length ? x.tab() : 0;
+  return (
+    <Sec flow id="appD" no="D" title="Ease Score breakdown">
+      <p>
+        The Ease Score (0–100) measures how hard it is to get housing built on this lot: rules, ground, hazards, access and process. Money is not in it; that is the
+        separate “Pencils?” result. Score for <b>{s.strategyLabel.toLowerCase()}</b>:{" "}
+        <b>{s.range ? `${s.range.min}–${s.range.max}` : s.score}{s.band ? ` (${s.band})` : ""}</b>
+        {fn(x, "ease_score")}. Factors with evidence carry {pct(s.evidenceShare)} of the weight.
+        {s.labels.length ? ` Labels: ${s.labels.join("; ")}.` : ""} Scoring config {s.configVersion}.
+      </p>
+      <div className="tcap">Table {t}. Factors (score = weighted average of factors with evidence)</div>
+      <table>
+        <thead><tr><th style={{ width: "24%" }}>Factor</th><th className="num" style={{ width: "8%" }}>Weight</th><th className="num" style={{ width: "10%" }}>Sub-score</th><th style={{ width: "12%" }}>Evidence</th><th>In plain words</th></tr></thead>
+        <tbody>
+          {s.factors.map((f) => (
+            <tr key={f.id}>
+              <td>{f.id} · {f.label}</td>
+              <td className="num">{f.weight}</td>
+              <td className="num">{f.subscore == null ? "—" : num(f.subscore, 0)}</td>
+              <td>{f.evidence}{f.partialCoverage ? " (partial coverage)" : ""}</td>
+              <td className="small">{f.line}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="tcap">Table {t2}. Score by building strategy</div>
+      <table>
+        <thead><tr><th>Strategy</th><th className="num">Score</th><th>Band</th></tr></thead>
+        <tbody>
+          {s.others.map((o) => (
+            <tr key={o.label}><td>{o.label}</td><td className="num">{o.applicable ? (o.score ?? "—") : "n/a"}</td><td>{o.applicable ? (o.band ?? "—") : "Not applicable"}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      {t3 > 0 && (
+        <>
+          <div className="tcap">Table {t3}. Policy what-ifs: change in the best score and in homes allowed by right</div>
+          <table>
+            <thead><tr><th>Policy change</th><th className="num">Score change</th><th className="num">Homes change</th><th>Note</th></tr></thead>
+            <tbody>
+              {s.unlocks.map((u) => (
+                <tr key={u.label}>
+                  <td>{u.label}</td>
+                  <td className="num">{u.scoreDelta == null ? "—" : `${u.scoreDelta > 0 ? "+" : ""}${num(u.scoreDelta, 0)}`}</td>
+                  <td className="num">{u.unitsDelta == null ? "—" : `${u.unitsDelta > 0 ? "+" : ""}${u.unitsDelta}`}</td>
+                  <td className="small">{u.evaluated ? "" : u.reason ?? "Not evaluated"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {s.notes.length > 0 && (
+        <>
+          <h3>Engine notes</h3>
+          <ul className="small">{[...new Set(s.notes)].map((n) => <li key={n}>{n}</li>)}</ul>
+        </>
+      )}
+    </Sec>
+  );
+}
+
+export function AppE(x: Ctx) {
+  const { m } = x;
+  const gaps = dataGaps(m);
+  const noDate = x.c.list().filter((s) => (s.date ?? NOT_RECORDED) === NOT_RECORDED).length;
+  return (
+    <Sec id="appE" no="E" title="Limitations">
+      <h2>What this study is and is not</h2>
+      <p>
+        It is a screening study built from public data and published rules, computed the same way every time. It is not an appraisal, a zoning determination, a
+        survey, an environmental assessment, or engineering, legal or financial advice. Verify every item with the permitting office, a surveyor, an engineer,
+        your lender and your accountant.
+      </p>
+      <h2>Who benefits and who might be harmed</h2>
+      <p>
+        It helps small builders, nonprofits, residents and planners see the rules, hazards and costs of a lot early and for free. It could harm people if a
+        reader treats a screening result as final: for example, buying a lot because it “fits” when a survey or engineer later finds it does not, or passing on
+        a good lot because of an overlay that turns out to be manageable. It could also steer attention toward or away from neighborhoods based on data
+        quality rather than need.
+      </p>
+      <h2>What the tool can get wrong</h2>
+      <ul>
+        <li>GIS lot lines, street frontage and building footprints can be off by several feet, which matters on small lots.</li>
+        <li>The site-fit solver uses rectangular footprints and placeholder sizes, and does not yet remove steep ground from the buildable area.</li>
+        <li>Zoning rules were transcribed by hand; overlays, compatibility standards and some exceptions are not modeled.</li>
+        <li>Mine maps are incomplete; the absence of a mapped mine does not prove there is none.</li>
+        <li>Sales comps are mostly older homes, so they are a reference for new construction, not a price.</li>
+        <li>Past zoning decisions describe history, not the outcome of any future case.</li>
+      </ul>
+      <h2>Data gaps for this parcel</h2>
+      <ul>{gaps.map((g) => <li key={g.what}><b>{g.what}:</b> {g.effect}</li>)}</ul>
+      {noDate > 0 && <p className="small">{noDate} of the cited sources do not yet have a data date recorded in our database (see Appendix A).</p>}
+      <h2>Use of AI</h2>
+      <p>
+        No number in this study comes from an AI model. All numbers are computed by deterministic code from the cited data. The plain-English sentences in this
+        version are written from fixed templates. The EaseScore.AI product was built with the help of AI coding tools, disclosed in the project README.
+      </p>
+      <p className="small muted">No personal information (owner names or contact details) is used or shown.</p>
+    </Sec>
+  );
+}
+
+export function AppF() {
+  const terms: [string, string][] = [
+    ["AMI (area median income)", "The middle household income for the region. Affordable rents are set as a percent of it."],
+    ["By right", "Allowed without a public hearing, as long as the project meets the written rules."],
+    ["CAPEX", "The one-time money to buy the land and build."],
+    ["Cap rate", "A property’s yearly net income divided by its value. Buyers use it to price rentals."],
+    ["Combined sewer", "Old pipes that carry both rainwater and sewage. In heavy rain they can back up."],
+    ["Comps (comparable sales)", "Recent sales of similar nearby homes, used as a price reference."],
+    ["Conditional use", "A use that needs Planning Commission review and City Council approval."],
+    ["Contingency", "Money set aside for surprises during construction."],
+    ["DSCR (debt service coverage ratio)", "Yearly net income divided by yearly loan payments. Lenders want it above about 1.2."],
+    ["Equity", "The cash the owner puts in, as opposed to the loan."],
+    ["FAR (floor area ratio)", "Total floor area divided by lot area."],
+    ["Floodway", "The channel of a river or stream and the land next to it that must stay open to carry floodwater."],
+    ["Geotechnical report", "An engineer’s study of the soil and rock, used to design foundations and walls."],
+    ["Hard costs", "The cost of physical construction: labor and materials."],
+    ["IRR (internal rate of return)", "The yearly return a project earns over its life, counting when money goes in and comes out."],
+    ["LIHTC", "Low-Income Housing Tax Credits: federal credits that raise equity for affordable housing."],
+    ["Mill (millage)", "Property tax rate: one mill is $1 of tax per $1,000 of assessed value."],
+    ["NOI (net operating income)", "Rent collected minus the costs of running the building, before loan payments."],
+    ["NPV (net present value)", "Today’s value of all future cash flows minus what you put in."],
+    ["Pro forma", "A projection of a project’s costs, income and returns."],
+    ["Setback", "The required distance between a building and a lot line."],
+    ["Soft costs", "Costs that are not physical construction: design, engineering, permits, legal, insurance."],
+    ["Special exception", "A use the Zoning Board can allow after a hearing if set conditions are met."],
+    ["TDC (total development cost)", "Everything it costs to buy, build and finance the project."],
+    ["Undermined", "Land above old underground mines, which can settle (subsidence)."],
+    ["Variance", "Permission from the Zoning Board to break a written rule, usually for a hardship."],
+    ["Yield on cost", "Yearly net income divided by total development cost."],
+  ];
+  return (
+    <Sec flow id="appF" no="F" title="Glossary">
+      <dl className="gloss">
+        {terms.map(([t, d]) => (
+          <div key={t} className="avoid-break">
+            <dt>{t}</dt>
+            <dd>{d}</dd>
+          </div>
+        ))}
+      </dl>
+    </Sec>
+  );
+}
