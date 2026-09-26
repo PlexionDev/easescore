@@ -1,0 +1,263 @@
+jurisdiction,jurisdiction_type,rate_pct,effective_date,source_url,confidence
+Commonwealth of Pennsylvania,state,1.0,,https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/realty-transfer-tax,confirmed
+Aleppo Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Aleppo Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Aspinwall Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in Aspinwall Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avalon Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Northgate School District (in Avalon Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Baldwin Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Baldwin-Whitehall School District (in Baldwin Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Baldwin Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Baldwin-Whitehall School District (in Baldwin Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bellevue Borough,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Northgate School District (in Bellevue Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bell Acres Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Bell Acres Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Ben Avon Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avonworth School District (in Ben Avon Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Ben Avon Heights Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avonworth School District (in Ben Avon Heights Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bethel Park Municipality,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bethel Park School District (in Bethel Park Municipality),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Blawnox Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in Blawnox Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Brackenridge Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Highland School District (in Brackenridge Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bradford Woods Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Allegheny School District (in Bradford Woods Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Braddock Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Braddock Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Braddock Hills Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Braddock Hills Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Brentwood Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Brentwood School District (in Brentwood Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Bridgeville Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Chartiers Valley School District (in Bridgeville Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Carnegie Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Carlynton School District (in Carnegie Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Castle Shannon Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Keystone Oaks School District (in Castle Shannon Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Chalfant Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Chalfant Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Cheswick Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Allegheny Valley School District (in Cheswick Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Churchill Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Churchill Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Clairton City,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Clairton School District (in Clairton City),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Collier Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Chartiers Valley School District (in Collier Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Coraopolis Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Cornell School District (in Coraopolis Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Crafton Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Carlynton School District (in Crafton Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Crescent Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Moon Area School District (in Crescent Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Dormont Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Keystone Oaks School District (in Dormont Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Dravosburg Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport Area School District (in Dravosburg Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Duquesne City,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Duquesne School District (in Duquesne City),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Deer Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Deer Lakes School District (in East Deer Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Pittsburgh Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in East Pittsburgh Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East McKeesport Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Allegheny School District (in East McKeesport Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Edgeworth Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Edgeworth Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Edgewood Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Edgewood Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Elizabeth Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Elizabeth Forward School District (in Elizabeth Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Elizabeth Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Elizabeth Forward School District (in Elizabeth Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Emsworth Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avonworth School District (in Emsworth Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Etna Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Shaler Area School District (in Etna Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fawn Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Highland School District (in Fawn Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Findlay Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Allegheny School District (in Findlay Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Forward Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Elizabeth Forward School District (in Forward Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Forest Hills Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Forest Hills Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in Fox Chapel Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Franklin Park Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Allegheny School District (in Franklin Park Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Frazer Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Deer Lakes School District (in Frazer Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Glassport Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Allegheny School District (in Glassport Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Glen Osborne Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Glen Osborne Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Glenfield Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Glenfield Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Green Tree Borough,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Keystone Oaks School District (in Green Tree Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Hampton Township,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Hampton Township School District (in Hampton Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Harmar Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Allegheny Valley School District (in Harmar Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Harrison Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Highland School District (in Harrison Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Haysville Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Haysville Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Heidelberg Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Chartiers Valley School District (in Heidelberg Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Homestead Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Steel Valley School District (in Homestead Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Indiana Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in Indiana Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Ingram Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Montour School District (in Ingram Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Jefferson Hills Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Jefferson Hills School District (in Jefferson Hills Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Kennedy Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Montour School District (in Kennedy Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Kilbuck Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avonworth School District (in Kilbuck Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Leet Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Leet Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Leetsdale Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Leetsdale Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Liberty Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Allegheny School District (in Liberty Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Lincoln Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Allegheny School District (in Lincoln Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Marshall Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Allegheny School District (in Marshall Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McCandless Town,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Allegheny School District (in McCandless Town),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McDonald Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fort Cherry School District (in McDonald Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport City,municipality,1.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport Area School District (in McKeesport City),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKees Rocks Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sto-Rox School District (in McKees Rocks Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Millvale Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Shaler Area School District (in Millvale Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Monroeville Municipality,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Gateway School District (in Monroeville Municipality),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Moon Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Moon Area School District (in Moon Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Mount Lebanon Municipality,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Mt. Lebanon School District (in Mount Lebanon Municipality),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Mount Oliver Borough,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pittsburgh School District (in Mount Oliver Borough),school_district,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Munhall Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Steel Valley School District (in Munhall Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Neville Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Cornell School District (in Neville Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Braddock Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in North Braddock Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Fayette Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Allegheny School District (in North Fayette Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Versailles Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Allegheny School District (in North Versailles Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Oakdale Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Allegheny School District (in Oakdale Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Oakmont Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Riverview School District (in Oakmont Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+O'Hara Township,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in O'Hara Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Ohio Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Avonworth School District (in Ohio Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pennsbury Village,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Montour School District (in Pennsbury Village),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Penn Hills Municipality,municipality,1.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Penn Hills School District (in Penn Hills Municipality),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pine Township,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pine-Richland School District (in Pine Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pitcairn Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Gateway School District (in Pitcairn Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pittsburgh City,municipality,3,2020-01-01,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates https://point-bridge.com/what-to-watch/higher-taxes-in-2020/,confirmed
+Pittsburgh School District (in Pittsburgh City),school_district,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Baldwin-Whitehall School District (in Pittsburgh City),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pleasant Hills Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Jefferson Hills School District (in Pleasant Hills Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Plum Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Plum Borough School District (in Plum Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Port Vue Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Allegheny School District (in Port Vue Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Rankin Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Rankin Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Reserve Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Shaler Area School District (in Reserve Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Richland Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Pine-Richland School District (in Richland Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Robinson Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Montour School District (in Robinson Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Ross Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Hills School District (in Ross Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Rosslyn Farms Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Carlynton School District (in Rosslyn Farms Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Scott Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Chartiers Valley School District (in Scott Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sewickley Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Sewickley Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sewickley Heights Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Sewickley Heights Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sewickley Hills Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Quaker Valley School District (in Sewickley Hills Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Shaler Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Shaler Area School District (in Shaler Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sharpsburg Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Fox Chapel Area School District (in Sharpsburg Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Fayette Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Fayette Township School District (in South Fayette Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Park Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Park School District (in South Park Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+South Versailles Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport Area School District (in South Versailles Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Springdale Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Allegheny Valley School District (in Springdale Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Springdale Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Allegheny Valley School District (in Springdale Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Stowe Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Sto-Rox School District (in Stowe Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Swissvale Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Swissvale Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Tarentum Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Highland School District (in Tarentum Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Thornburg Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Montour School District (in Thornburg Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Trafford Borough,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+No school district realty transfer tax (in Trafford Borough),school_district,0,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Turtle Creek Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Turtle Creek Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Upper Saint Clair Township,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Upper St. Clair School District (in Upper Saint Clair Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Versailles Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport Area School District (in Versailles Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Verona Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Riverview School District (in Verona Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Wall Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Allegheny School District (in Wall Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Deer Township,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Deer Lakes School District (in West Deer Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Elizabeth Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Jefferson Hills School District (in West Elizabeth Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Homestead Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Steel Valley School District (in West Homestead Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Mifflin Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Mifflin Area School District (in West Mifflin Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West View Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+North Hills School District (in West View Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Whitaker Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+West Mifflin Area School District (in Whitaker Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Whitehall Borough,municipality,1,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,conflict
+Baldwin-Whitehall School District (in Whitehall Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+White Oak Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+McKeesport Area School District (in White Oak Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Wilkins Township,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Woodland Hills School District (in Wilkins Township),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Wilkinsburg Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Wilkinsburg School District (in Wilkinsburg Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+Wilmerding Borough,municipality,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed
+East Allegheny School District (in Wilmerding Borough),school_district,0.5,,https://www.alleghenycounty.us/Services/Property-Assessments-and-Real-Estate/Realty-Transfer-Taxes/Local-Tax-Rates,confirmed

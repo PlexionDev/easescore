@@ -82,9 +82,14 @@ export interface ParcelFacts {
   env_sites_within_500ft?: number;
   building_footprint_sqft?: number | null;
   shares_wall?: boolean;
-  mines?: { in_mined_out: boolean; dist_mined_out_ft: number | null; in_coal_bearing: boolean; mine_map_url?: string | null } | null;
+  mines?: { in_mined_out: boolean; in_city_undermined?: boolean; dist_mined_out_ft: number | null; in_coal_bearing: boolean; mine_map_url?: string | null } | null;
   tax_delinquent?: boolean;
-  muni_rules?: { sewer_lateral_at_sale?: "Y" | "N" | "unknown"; point_of_sale_inspection?: "Y" | "N" | "unknown" } | null;
+  muni_rules?: {
+    municipality?: string; sewer_lateral_at_sale?: "Y" | "N" | "unknown" | string; sewer_lateral_details?: string | null;
+    point_of_sale_inspection?: "Y" | "N" | "unknown" | string; pos_details?: string | null;
+    source_url?: string | null; confidence?: string | null;
+  } | null;
+  transfer_tax?: { total_pct: number; parts: { jurisdiction: string; jurisdiction_type: string; rate_pct: number; confidence: string }[] } | null;
   street_frontage?: "street" | "steps" | "paper" | "none";
   context?: { municipality: string | null; neighborhood: string | null; street_trees_15m: number | null;
               public_owner: string | null; tax_delinquent: boolean | null; delinquency_band: string | null } | null;

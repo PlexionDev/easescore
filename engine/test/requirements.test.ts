@@ -138,12 +138,14 @@ describe("hidden costs", () => {
     const rs = evaluateRequirements(HILLSIDE, newHome);
     expect(byId(rs, "realty_transfer_tax").status).toBe("REQUIRED");
     const m = byId(rs, "mine_subsidence_paths");
+    // DEP maps mine workings under this lot, but it's outside the City's Undermined overlay: advisory only.
     expect(m.status).toBe("NOT_NEEDED");
-    expect(m.advisories.join(" ")).toMatch(/not proof of no mine/);
+    expect(m.advisories.join(" ")).toMatch(/over a mapped underground mine/);
+    expect(m.advisories.join(" ")).toMatch(/minemaps\.psu\.edu/);
   });
 
   it("marks mines REQUIRED only where the City code requires it", () => {
-    const over = { ...HILLSIDE, overlays: [...HILLSIDE.overlays, { layer: "undermined_pgh", label: "undermined", attrs: null, share: 1 }] };
+    const over = { ...HILLSIDE, mines: { ...(HILLSIDE.mines ?? { in_mined_out: true, dist_mined_out_ft: null, in_coal_bearing: false }), in_city_undermined: true } };
     const single = byId(evaluateRequirements(over, newHome), "mine_subsidence_paths");
     expect(single.status).toBe("REQUIRED"); // DEP mine records, §906.05
     expect(single.reasons.some((t) => /§906\.05/.test(t.reason))).toBe(true);
@@ -156,5 +158,15 @@ describe("hidden costs", () => {
 
   it("flags the post-construction tax jump for a new build", () => {
     expect(byId(evaluateRequirements(HILLSIDE, newHome), "tax_jump").status).toBe("REQUIRED");
+  });
+});
+
+describe("municipal sale rules", () => {
+  it("treats Pittsburgh's area-dependent lateral test as possible, not required", () => {
+    const r = byId(evaluateRequirements(HILLSIDE, newHome), "sewer_lateral");
+    expect(r.status).toBe("POSSIBLE");
+  });
+  it("uses the combined transfer tax rate", () => {
+    expect(byId(evaluateRequirements(HILLSIDE, newHome), "realty_transfer_tax").reasons[0]?.reason).toMatch(/^5% of the price/);
   });
 });

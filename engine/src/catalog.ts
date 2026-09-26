@@ -117,10 +117,13 @@ export const CATALOG: CatalogItem[] = [
           : { status: "POSSIBLE", reason: "In the Landslide-Prone overlay: required if the work involves excavation, fill, or vegetation removal (§906.04).", source: SRC.landslide });
       }
 
-      const undermined = overlays(f, "undermined_pgh").length > 0 || f.mines?.in_mined_out === true;
-      if (undermined && pgh) {
+      const cityUM = overlays(f, "undermined_pgh").length > 0 || f.mines?.in_city_undermined === true;
+      const undermined = cityUM || f.mines?.in_mined_out === true;
+      if (cityUM && pgh) {
         if ((p.units ?? 0) >= 3) t.push({ status: "REQUIRED", reason: `Over mapped mine workings with a ${p.units}-unit building (larger than a typical house): site investigation required (§906.05).`, source: SRC.undermined });
         else t.push({ status: "POSSIBLE", reason: "Over mapped mine workings: a site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05). A single house with more than 100 ft of cover needs only evidence of that.", source: SRC.undermined });
+      } else if (undermined && pgh) {
+        t.push({ status: "NOT_NEEDED", advisory: true, reason: "PA DEP maps old mine workings under this parcel (outside the City's Undermined overlay, so §906.05 doesn't apply). An engineer's opinion is still wise before building." });
       } else if (undermined) {
         t.push({ status: "POSSIBLE", reason: `Over mapped mine workings. State law doesn't require an investigation; ${muni}'s ordinance may (the county subdivision ordinance requires a PE subsidence certification at 100 ft of cover or less).`, source: "PA DEP mined-out areas" });
         t.push({ status: "NOT_NEEDED", advisory: true, reason: "Even where no investigation is required, building over old mines carries subsidence risk; consider an engineer's opinion and Mine Subsidence Insurance." });
@@ -481,7 +484,7 @@ export const CATALOG: CatalogItem[] = [
     citation: "Pittsburgh Zoning Code §906.05; PA Bituminous Mine Subsidence and Land Conservation Act (no builder investigation duty found); PA DEP Mine Subsidence Insurance (voluntary)",
     rule: (f, p) => {
       const m = f.mines;
-      const cityUndermined = overlays(f, "undermined_pgh").length > 0;
+      const cityUndermined = overlays(f, "undermined_pgh").length > 0 || m?.in_city_undermined === true;
       const mapped = cityUndermined || m?.in_mined_out === true;
       const near = !mapped && m?.dist_mined_out_ft != null && m.dist_mined_out_ft <= 500;
       const t: Trigger[] = [];
@@ -489,13 +492,16 @@ export const CATALOG: CatalogItem[] = [
       const caveat = "Historic mine maps are incomplete: no mapped mine is not proof of no mine. Check the PA Mine Map Atlas.";
 
       // Legal status: only the City of Pittsburgh code requires anything here.
-      if (mapped && isPittsburgh(f) && (buildsNew(p) || p.type === undefined)) {
+      if (cityUndermined && isPittsburgh(f) && (buildsNew(p) || p.type === undefined)) {
         t.push({ status: "REQUIRED", reason: "Over mapped mine workings in the City: new buildings and enlargements must submit PA DEP mine records (§906.05).", source: SRC.undermined });
         if ((p.units ?? 0) >= 3) t.push({ status: "REQUIRED", reason: `A ${p.units}-unit building is larger than a typical house: site investigation required (§906.05).`, source: SRC.undermined });
         else t.push({ status: "POSSIBLE", reason: "A site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05); a single house with more than 100 ft of cover only needs evidence of that.", source: SRC.undermined });
+      } else if (mapped && isPittsburgh(f)) {
+        t.push({ status: "NOT_NEEDED", reason: "PA DEP maps mine workings under this parcel, but it's outside the City's Undermined overlay, so §906.05 doesn't apply. No state law requires an investigation or insurance; check your lender's conditions.", source: "PA DEP mined-out areas" });
       } else if (mapped) {
         t.push({ status: "NOT_NEEDED", reason: `No state law requires an investigation or insurance; check ${f.assessment?.municipality ?? "the municipality"}'s ordinance and your lender's conditions.`, source: "PA DEP mined-out areas" });
       }
+      if (m?.mine_map_url) t.push({ status: "NOT_NEEDED", advisory: true, reason: `Historic mine map for this location: ${m.mine_map_url}` });
 
       // Awareness advisories: always shown when there's any sign of mining, even if nothing is required.
       if (mapped) t.push({ status: "NOT_NEEDED", advisory: true, reason: `This parcel is over a mapped underground mine. ${paths}` });
@@ -507,8 +513,15 @@ export const CATALOG: CatalogItem[] = [
   },
   {
     id: "realty_transfer_tax", item: "Realty transfer tax", category: "Hidden cost", phase: "due_diligence",
-    issuer: "PA Dept. of Revenue; municipality; school district", trigger: "Every purchase and sale", data: ["Municipality"], citation: "72 P.S. §8101-C et seq. (state); local ordinances",
-    rule: (f) => [{ status: "REQUIRED", reason: `Due on the purchase (and the later sale). ${isPittsburgh(f) ? "Pittsburgh's combined rate is among the highest in the state; " : ""}rate table loading.`, source: SRC.assessment }],
+    issuer: "PA Dept. of Revenue; municipality; school district", trigger: "Every purchase and sale", data: ["Transfer tax rates"],
+    citation: "72 P.S. §8101-C et seq. (state 1%); local rates per Allegheny County",
+    rule: (f) => {
+      const tt = f.transfer_tax;
+      if (!tt) return [{ status: "REQUIRED", reason: "Due on every purchase and sale; local rate not found for this parcel.", source: SRC.assessment }];
+      const parts = tt.parts.map((x) => `${x.jurisdiction} ${x.rate_pct}%`).join(" + ");
+      const flag = tt.parts.some((x) => x.confidence !== "confirmed") ? " One component's rate is not fully confirmed." : "";
+      return [{ status: "REQUIRED", reason: `${tt.total_pct}% of the price, due at purchase and again at sale (${parts}).${flag}`, source: "PA Dept. of Revenue; Allegheny County local rates" }];
+    },
   },
   {
     id: "back_taxes_liens", item: "Back taxes, liens & municipal claims", category: "Hidden cost", phase: "due_diligence",
@@ -518,12 +531,32 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "sewer_lateral", item: "Sewer lateral inspection / replacement at sale", category: "Hidden cost", phase: "due_diligence",
     issuer: "Municipality / sewer authority", trigger: "Municipality requires lateral inspection at transfer", data: ["Municipal ordinance list"], citation: null,
-    rule: (f) => (f.muni_rules?.sewer_lateral_at_sale === "Y" ? [{ status: "REQUIRED", reason: `${f.assessment?.municipality} requires a sewer lateral inspection at sale; old clay laterals often need replacement.`, source: "Municipal ordinance list" }] : f.muni_rules?.sewer_lateral_at_sale === "N" ? [notNeeded("No lateral-at-sale ordinance found for this municipality.", "Municipal ordinance list")] : [{ status: "POSSIBLE", reason: "Many Allegheny County municipalities require it at transfer; this one isn't confirmed yet." }]),
+    rule: (f) => {
+      const m = f.muni_rules;
+      if (!m) return [{ status: "POSSIBLE", reason: "No municipal rule found for this parcel." }];
+      const v = m.sewer_lateral_at_sale, conf = (m.confidence ?? "").toLowerCase();
+      const confirmed = conf.startsWith("confirmed") || conf.startsWith("partial");
+      const src = `${m.municipality} ordinance / official page`;
+      const conditional = /^conditional/i.test(m.sewer_lateral_details ?? "");
+      if (v === "Y") return [{ status: conditional ? "POSSIBLE" : confirmed ? "REQUIRED" : "LIKELY", reason: `${m.municipality}: sewer lateral test required at sale. ${m.sewer_lateral_details ?? ""}${confirmed ? "" : " (from a title-company guide, not yet confirmed with the municipality)"}`.trim(), source: src }];
+      if (v === "N") return [notNeeded(`${m.municipality}: no sewer lateral requirement found${confirmed ? "" : " (title-guide only)"}.`, src)];
+      return [{ status: "POSSIBLE", reason: `${m.municipality}: sewer lateral requirement unknown; ask the municipality.` }];
+    },
   },
   {
     id: "point_of_sale", item: "Point-of-sale / occupancy inspection", category: "Hidden cost", phase: "due_diligence",
     issuer: "Municipality", trigger: "Municipal resale inspection ordinance", data: ["Municipal ordinance list"], citation: null,
-    rule: (f) => (f.muni_rules?.point_of_sale_inspection === "Y" ? [{ status: "REQUIRED", reason: `${f.assessment?.municipality} requires a resale inspection; repairs may be required before transfer.`, source: "Municipal ordinance list" }] : f.muni_rules?.point_of_sale_inspection === "N" ? [notNeeded("No point-of-sale inspection found for this municipality.", "Municipal ordinance list")] : [{ status: "POSSIBLE", reason: "Not confirmed for this municipality yet." }]),
+    rule: (f) => {
+      const m = f.muni_rules;
+      if (!m) return [{ status: "POSSIBLE", reason: "No municipal rule found for this parcel." }];
+      const v = m.point_of_sale_inspection, conf = (m.confidence ?? "").toLowerCase();
+      const confirmed = conf.startsWith("confirmed") || conf.startsWith("partial");
+      const src = `${m.municipality} ordinance / official page`;
+      const conditional = /^conditional/i.test(m.pos_details ?? "");
+      if (v === "Y") return [{ status: conditional ? "POSSIBLE" : confirmed ? "REQUIRED" : "LIKELY", reason: `${m.municipality}: inspection required before a sale can close. ${m.pos_details ?? ""}${confirmed ? "" : " (from a title-company guide, not yet confirmed with the municipality)"}`.trim(), source: src }];
+      if (v === "N") return [notNeeded(`${m.municipality}: no point-of-sale inspection requirement found${confirmed ? "" : " (title-guide only)"}.`, src)];
+      return [{ status: "POSSIBLE", reason: `${m.municipality}: point-of-sale inspection requirement unknown; ask the municipality.` }];
+    },
   },
   {
     id: "tap_fees", item: "Sewer/water tap-in & connection fees", category: "Hidden cost", phase: "permits",
@@ -537,8 +570,11 @@ export const CATALOG: CatalogItem[] = [
   },
   {
     id: "radon", item: "Radon test & mitigation", category: "Hidden cost", phase: "due_diligence",
-    issuer: "Certified radon tester / mitigator", trigger: "Existing building (test on purchase)", data: ["Radon zone"], citation: null,
-    rule: (f) => (hasStructure(f) ? [{ status: "LIKELY", reason: "Test on purchase; Western Pennsylvania has elevated radon (county zone data loading).", source: SRC.assessment }] : [{ status: "POSSIBLE", reason: "New construction can include passive radon-resistant features." }]),
+    issuer: "Certified radon tester / mitigator", trigger: "Awareness: EPA Radon Zone 1 county", data: ["EPA radon zones"], citation: "EPA Map of Radon Zones (Allegheny County: Zone 1)",
+    rule: (f) => [
+      { status: "NOT_NEEDED", reason: "No law requires radon testing for a purchase or new build here." },
+      { status: "NOT_NEEDED", advisory: true, reason: hasStructure(f) ? "Allegheny County is EPA Radon Zone 1 (highest potential): test on purchase; mitigation systems are common." : "Allegheny County is EPA Radon Zone 1 (highest potential): consider radon-resistant construction." },
+    ],
   },
   {
     id: "oil_tank", item: "Underground oil tank", category: "Hidden cost", phase: "due_diligence",

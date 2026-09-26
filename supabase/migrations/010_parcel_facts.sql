@@ -1,6 +1,13 @@
 -- parcel_facts(parid): every fact the score and requirements engines use, as one JSON object.
 -- Deterministic and read-only. Each block carries its source so the UI can cite it.
 -- Layers added later (buildings, streets, geology, soils, ...) extend this function.
+-- County municipal code for a parcel: city wards (e.g. Pittsburgh 101-132) roll up to the city code.
+create or replace function public.parcel_muni_code(m text) returns text
+language sql stable set search_path = public as $$
+  select case when exists (select 1 from public.municipalities where muni_code = m) then m
+              when m ~ '^[0-9]+$' then ((m::int / 100) * 100)::text end
+$$;
+
 create or replace function public.parcel_facts(p_parid text)
 returns jsonb
 language plpgsql stable security definer
@@ -86,6 +93,26 @@ begin
                                 'tax_delinquent', c.tax_delinquent, 'delinquency_band', c.delinquency_band,
                                 'sources', 'County municipal boundaries; City neighborhoods & street trees; City-owned properties; County tax liens')
       from public.parcel_context c where c.parid = p.parid),
+    -- Municipal sale requirements and combined realty transfer tax (state + municipality + school district).
+    'muni_rules', (
+      select to_jsonb(m) - 'muni_code' from public.muni_transfer_requirements m
+      where m.muni_code = public.parcel_muni_code(a.municode)),
+    'transfer_tax', (
+      with parts as (
+        select jurisdiction, jurisdiction_type, rate_pct, confidence from public.realty_transfer_tax
+        where jurisdiction_type = 'state'
+        union all
+        select jurisdiction, jurisdiction_type, rate_pct, confidence from public.realty_transfer_tax
+        where jurisdiction_type = 'municipality' and muni_code = public.parcel_muni_code(a.municode)
+        union all
+        (select jurisdiction, jurisdiction_type, rate_pct, confidence from public.realty_transfer_tax r
+         where r.jurisdiction_type = 'school_district' and r.muni_code = public.parcel_muni_code(a.municode)
+         order by (public.norm_district(split_part(r.jurisdiction, ' School District', 1))
+                   = public.norm_district((select district from public.parcel_schools s where s.parid = p.parid))) desc
+         limit 1))
+      select jsonb_build_object('total_pct', sum(rate_pct), 'parts', jsonb_agg(to_jsonb(parts)),
+                                'source', 'PA Dept. of Revenue; Allegheny County local realty transfer tax rates')
+      from parts),
     'condemned', exists (select 1 from public.condemned c where c.parid = p.parid and c.status = 'Active'),
     -- Mine subsidence (040_parcel_mines). Mine maps are incomplete: no mapped mine is not proof of no mine.
     'mines', (

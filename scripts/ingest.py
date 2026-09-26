@@ -420,6 +420,81 @@ def schools(con):
         """)), total, batch=10, on_conflict="level,school_id")
 
 
+def _muni_crosswalk():
+    """Map a municipality name as written in research ("Aleppo Township", "Pittsburgh City",
+    "City of Clairton") to the county municipal code, matching on base name + type."""
+    import re
+    key = os.environ["SUPABASE_SECRET_KEY"]
+    r = httpx.get(f"{os.environ['NEXT_PUBLIC_SUPABASE_URL']}/rest/v1/municipalities?select=muni_code,name,type",
+                  headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=60)
+    r.raise_for_status()
+    kinds = {"TOWNSHIP": "TOWNSHIP", "TWP": "TOWNSHIP", "BOROUGH": "BOROUGH", "BORO": "BOROUGH",
+             "CITY": "CITY", "TOWN": "MUNICIPALI", "MUNICIPALITY": "MUNICIPALI"}
+    norm = lambda s: " ".join(re.sub(r"[^A-Z ]", " ", s.upper().replace("MT.", "MOUNT").replace("MT ", "MOUNT ")
+                                     .replace("SAINT ", "ST ").replace("ST.", "ST ")).split())
+    table = {(norm(m["name"]), m["type"]): m["muni_code"] for m in r.json()}
+    by_name = {}
+    for (n, _t), code in table.items():
+        by_name.setdefault(n, []).append(code)
+
+    def lookup(name):
+        n = norm(re.sub(r"\(.*?\)", "", name))
+        kind = None
+        m = re.match(r"^(CITY|TOWN|BOROUGH|TOWNSHIP) OF (.*)$", n)
+        if m:
+            kind, n = kinds[m.group(1)], m.group(2)
+        else:
+            parts = n.rsplit(" ", 1)
+            if len(parts) == 2 and parts[1] in kinds:
+                n, kind = parts[0], kinds[parts[1]]
+        if kind and (n, kind) in table:
+            return table[(n, kind)]
+        codes = by_name.get(n, [])
+        return codes[0] if len(codes) == 1 else None
+    return lookup
+
+
+def hidden_costs(con):
+    import csv
+    import re
+    lookup = _muni_crosswalk()
+    seed = ROOT / "data" / "seed"
+    num = lambda v: float(v) if v not in (None, "", "n/a") and re.fullmatch(r"-?[\d.]+", v.strip()) else None
+    date = lambda v: v if v and re.fullmatch(r"\d{4}-\d{2}-\d{2}", v.strip()) else None
+
+    rows_m, missing = [], []
+    for r in csv.DictReader(open(seed / "muni_transfer_requirements.csv")):
+        code = lookup(r["municipality"])
+        if not code:
+            missing.append(r["municipality"])
+            continue
+        rows_m.append({"muni_code": code, **{k: (r[k] or None) for k in r}})
+    upload("muni_transfer_requirements", iter(rows_m), len(rows_m), batch=200, on_conflict="muni_code")
+    print(f"  municipalities unmatched: {missing}")
+
+    rows_t, missing_t = [], []
+    for r in csv.DictReader(open(seed / "realty_transfer_tax.csv")):
+        inside = re.search(r"\(in (.*?)\)", r["jurisdiction"])
+        code = None
+        if r["jurisdiction_type"] == "municipality":
+            code = lookup(r["jurisdiction"])
+        elif inside:
+            code = lookup(inside.group(1))
+        if r["jurisdiction_type"] != "state" and not code:
+            missing_t.append(r["jurisdiction"])
+        rows_t.append({"jurisdiction": r["jurisdiction"], "jurisdiction_type": r["jurisdiction_type"],
+                       "muni_code": code, "rate_pct": num(r["rate_pct"]), "effective_date": date(r["effective_date"]),
+                       "source_url": r["source_url"] or None, "confidence": r["confidence"] or None})
+    upload("realty_transfer_tax", iter(rows_t), len(rows_t), batch=300, on_conflict="jurisdiction,jurisdiction_type")
+    print(f"  transfer-tax rows unmatched: {missing_t}")
+
+    rows_f = [{"id": i, "authority": r["authority"], "service": r["service"], "fee_type": r["fee_type"],
+               "amount": num(r["amount"]), "unit": r["unit"] or None, "effective_date": date(r["effective_date"]),
+               "source_url": r["source_url"] or None, "confidence": r["confidence"] or None}
+              for i, r in enumerate(csv.DictReader(open(seed / "utility_tap_fees.csv")), start=1)]
+    upload("utility_tap_fees", iter(rows_f), len(rows_f), batch=200, on_conflict="id")
+
+
 def zoning_rules(con):
     src = ROOT / "data" / "seed" / "pgh_zoning_rules.csv"
     con.execute(f"create table zr as select * from read_csv('{src}', all_varchar=true, header=true)")
@@ -438,7 +513,7 @@ def zoning_rules(con):
     upload("zoning_rules", jsonable(rows(con, sql)), total, batch=100, on_conflict="zone_code")
 
 
-DATASETS = {"zoning_rules": zoning_rules, "permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
+DATASETS = {"hidden_costs": hidden_costs, "zoning_rules": zoning_rules, "permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":
