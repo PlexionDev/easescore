@@ -334,7 +334,26 @@ def assessment_dates(con):
     upload("assessments", jsonable(rows(con, sql)), total, batch=5000)
 
 
-DATASETS = {"assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
+def schools(con):
+    src = RAW / "school_districts.geojson"   # WPRDC, already WGS84
+    con.execute(f"create table sd as select * from ST_Read('{src}')")
+    total = con.execute("select count(*) from sd").fetchone()[0]
+    upload("school_districts", jsonable(rows(con, f"""
+      select OBJECTID as id, trim(SCHOOLD) as "name", {_geom_sql()} geom from sd where geom is not null
+    """)), total, batch=10, on_conflict="id")
+    # PPS feeder shapefiles are PA State Plane South feet (EPSG:2272).
+    for level in ("elementary", "middle", "high"):
+        shp = RAW / f"pps_{level}" / f"{level.capitalize()}.shp"
+        con.execute(f"create or replace table z as select * from ST_Read('{shp}')")
+        total = con.execute("select count(*) from z").fetchone()[0]
+        g = "ST_Transform(geom, 'EPSG:2272', 'EPSG:4326', always_xy := true)"
+        upload("pps_attendance_zones", jsonable(rows(con, f"""
+          select '{level}' as "level", cast(School_ID as varchar) as school_id, SchoolName as school, {_geom_sql(g)} geom
+          from z where geom is not null
+        """)), total, batch=10, on_conflict="level,school_id")
+
+
+DATASETS = {"schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":
