@@ -143,8 +143,8 @@ export const CATALOG: CatalogItem[] = [
       if (!inOverlay && steepShare > 0 && (p.type === undefined || buildsNew(p))) t.push({ status: "LIKELY", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}) outside the hazard overlays: not a code trigger by itself, but an engineer will likely want soil data.`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
 
       // Recorded landslides and red beds (evidence, not code triggers)
-      if ((f.landslides_within_300ft ?? 0) > 0) t.push({ status: "POSSIBLE", reason: `${f.landslides_within_300ft} recorded landslide(s) within 300 ft. Not a code trigger by itself, but officials may ask for a soils investigation (IRC R401.4; PLI guidance).`, source: "Allegheny County landslide inventory (Pomeroy)" });
-      if ((f.red_bed_landslides_300ft ?? 0) > 0) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${f.red_bed_landslides_300ft} of the nearby recorded landslides involve red beds (landslide-prone claystone, USGS Professional Paper 1229). No code names red beds; an engineer's opinion is wise.` });
+      if ((f.landslides_within_300ft ?? 0) > 0) t.push({ status: "POSSIBLE", reason: `${f.landslides_within_300ft} mapped slope-movement area(s) within 300 ft (1982 inventory: old slides, creep, fill). Not a code trigger by itself, but officials may ask for a soils investigation (IRC R401.4; PLI guidance).`, source: "Allegheny County slope-movement inventory (Pomeroy, 1982)" });
+      if ((f.red_bed_landslides_300ft ?? 0) > 0) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${f.red_bed_landslides_300ft} of the nearby mapped slope-movement areas involve red beds (landslide-prone claystone, USGS Professional Paper 1229). No code names red beds; an engineer's opinion is wise.` });
 
       // Statewide building code
       if ((p.units ?? 0) >= 3 && !p.party_wall) t.push({ status: "REQUIRED", reason: `${p.units}-unit building falls under the IBC: a geotechnical investigation is required unless the building official waives it (IBC §1803.2).`, source: SRC.project });

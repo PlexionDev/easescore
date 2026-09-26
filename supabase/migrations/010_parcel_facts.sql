@@ -70,6 +70,12 @@ begin
       select jsonb_build_object('mean_pct', s.slope_mean_pct, 'steep_share', s.steep_share,
                                 'cells', s.cells, 'resolution_m', 10, 'source', 'USGS 3DEP elevation')
       from public.parcel_slope s where s.parid = p.parid),
+    'slope_1m', (
+      select jsonb_build_object('mean_pct', s.mean_pct, 'max_pct', s.max_pct, 'p95_pct', s.p95_pct,
+                                'share_over_15', s.share_over_15, 'share_over_25', s.share_over_25, 'share_over_40', s.share_over_40,
+                                'steep_25', s.steep_25, 'cells', s.cells_1m, 'resolution_m', 1,
+                                'source', 'USGS 3DEP 1 m lidar DEM (PA_WesternPA_2019)')
+      from public.parcel_slope_1m s where s.parid = p.parid),
     'schools', (
       select to_jsonb(ps) - 'parid' from public.parcel_schools ps where ps.parid = p.parid),
     'transit', (
