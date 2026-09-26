@@ -103,6 +103,8 @@ export interface ProjectAnswers {
   new_driveway?: boolean;
   lot_split_or_merge?: boolean;
   disturbed_area_sqft?: number;
+  /** Will grading create cut or fill slopes steeper than 25%? (Pittsburgh §915.02.A.1.c) */
+  cut_fill_over_25?: boolean;
 }
 
 export interface Trigger {
