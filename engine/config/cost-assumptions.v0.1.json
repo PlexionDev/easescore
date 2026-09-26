@@ -21,6 +21,7 @@
       "sourceLabel": "NAHB Cost of Constructing a Home 2024 (national reference, not a Pittsburgh default)",
       "sourceNote": "Production builders, construction cost only; excludes builder overhead and profit. Shown for comparison only."
     },
+    "garageLevelShareOfTier": { "label": "Tuck-under garage level cost (share of the tier rate per sq ft)", "value": 0.5, "sourceLabel": "Assumption — editable", "sourceNote": "Unfinished garage floor: structure, slab and door, no interior finishes." },
     "rehabNote": "Rehab uses the same tier as a stand-in on the existing living area. Gut-rehab bids can come in lower or higher; enter your own cost per sq ft."
   },
 
@@ -114,6 +115,30 @@
     "brokerShare": { "label": "Broker commission and closing costs (share of sale price)", "value": 0.05, "sourceLabel": "Assumption — editable" },
     "sellerTransferTaxShare": { "label": "Share of the realty transfer tax the seller pays", "value": 0.5, "sourceLabel": "Assumption — editable", "sourceNote": "Pennsylvania custom splits the transfer tax evenly; the rate comes from our transfer tax data." },
     "salesMonths": { "label": "Months to sell after completion", "value": 3, "sourceLabel": "Assumption — editable" }
+  },
+
+  "comps": {
+    "_note": "How finished homes are valued. New builds use new-construction sales only; rehab uses existing-home sales matched on size and age. Older-home sales are never the value of a new build: when new-construction sales are too few, they are shown only as a labeled floor.",
+    "newConstruction": {
+      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000; nearest first; at least 5, widening from ¼ mile to 3 miles.",
+      "years": 3,
+      "maxAgeAtSaleYears": 10,
+      "minLivingAreaSqft": 600,
+      "minPrice": 20000,
+      "minComps": 5,
+      "radiiMi": [0.25, 0.5, 1, 2, 3],
+      "singleFamilyUses": ["SINGLE FAMILY"],
+      "attachedUses": ["TOWNHOUSE", "ROWHOUSE"],
+      "sourceLabel": "Allegheny County sales (valid new-construction comps)"
+    },
+    "existingMatch": {
+      "rule": "Nearby valid sales of the same use (see the sales comps), kept when living area is within 35% and year built within 25 years of the building; at least 5, otherwise all nearby same-use sales with a note.",
+      "livingAreaTolerance": 0.35,
+      "yearBuiltTolerance": 25,
+      "minComps": 5,
+      "sourceLabel": "Allegheny County sales (existing homes matched on size and age)"
+    },
+    "smallLayoutRatio": { "label": "Layout size below which it is called small for new construction nearby (share of the comps' median size)", "value": 0.67, "sourceLabel": "Assumption — editable" }
   },
 
   "rent": {

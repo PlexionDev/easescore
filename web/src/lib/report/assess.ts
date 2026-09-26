@@ -1,7 +1,7 @@
 // Plain-language findings shared by several report sections: red flags, review items, approvals,
 // data gaps, and the next steps. Pure functions of the report model.
 
-import { PHASE_ORDER, type RequirementResult } from "@easescore/engine";
+import { narrative, PHASE_ORDER, type RequirementResult } from "@easescore/engine";
 import type { ReportModel } from "./load";
 
 export interface Finding {
@@ -215,12 +215,15 @@ export function dataGaps(m: ReportModel): Gap[] {
   return g;
 }
 
-/** The first steps to take, from the required checklist items in phase order. */
+/**
+ * The first steps to take: decisive checklist items only (routine transaction and permit items stay in
+ * the full checklist), ranked by decision impact — can it kill the project, how much can it cost.
+ */
 export function nextSteps(m: ReportModel, n = 3): RequirementResult[] {
   return m.requirements
-    .filter((r) => r.status === "REQUIRED" && r.category !== "Hidden cost")
+    .filter((r) => (r.status === "REQUIRED" || r.status === "LIKELY") && narrative.DECISION_IMPACT[r.id] !== undefined && !narrative.ROUTINE_REQUIREMENTS.has(r.id))
     .map((r, i) => ({ r, i }))
-    .sort((a, b) => PHASE_ORDER.indexOf(a.r.phase) - PHASE_ORDER.indexOf(b.r.phase) || a.i - b.i)
+    .sort((a, b) => narrative.DECISION_IMPACT[b.r.id]! - narrative.DECISION_IMPACT[a.r.id]! || PHASE_ORDER.indexOf(a.r.phase) - PHASE_ORDER.indexOf(b.r.phase) || a.i - b.i)
     .slice(0, n)
     .map((x) => x.r);
 }

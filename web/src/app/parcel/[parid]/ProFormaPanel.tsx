@@ -39,6 +39,41 @@ function Field({ name, label, sp, placeholder, suffix, prefix }: { name: string;
   );
 }
 
+type Comps = assumptions.DevelopmentPlan["valueComps"];
+
+function CompBlock({ comps, floor, newBuild }: { comps: Comps; floor: string | null; newBuild: boolean }) {
+  const c = comps as assumptions.CompSet | null;
+  const title = newBuild ? "New-construction comps" : "Comparable sales";
+  if (!c) return <p className="mt-1.5 text-[12px] text-slate-600"><b>{title}:</b> not available for this lot.{floor ? ` ${floor}` : ""}</p>;
+  const full = "median_living_area_sqft" in c;
+  return (
+    <div className="mt-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700">
+      <p>
+        <b>{title}:</b> {c.status === "ok" ? "" : "insufficient — "}{c.count} sale{c.count === 1 ? "" : "s"} within {c.radius_mi} mi
+        {c.median_price != null ? ` · median ${usd(c.median_price)}` : ""}
+        {c.median_price_per_sqft != null ? ` · ${usd(c.median_price_per_sqft)}/SF` : ""}
+        {full && c.median_living_area_sqft != null ? ` · ${Math.round(c.median_living_area_sqft).toLocaleString("en-US")} sq ft` : ""}
+        {full && c.year_built_range ? ` · built ${c.year_built_range.from}–${c.year_built_range.to}` : ""}
+        {c.date_range?.from ? ` · sold ${c.date_range.from} to ${c.date_range.to}` : ""}
+      </p>
+      {c.search_steps?.length ? <p className="text-[11px] text-slate-500">Search: {c.search_steps.join(" → ")}.</p> : null}
+      {c.note && <p className="text-[11px] text-slate-500">{c.note}</p>}
+      {floor && <p className="text-[11px] text-amber-800">{floor}</p>}
+      {full && c.comps.length > 0 && (
+        <details className="text-[11px]">
+          <summary className="cursor-pointer text-slate-500 underline decoration-dotted underline-offset-2">The sales</summary>
+          <ul className="mt-0.5 max-h-40 overflow-auto">
+            {c.comps.map((x) => (
+              <li key={`${x.parid}${x.saleDate}`}>{x.saleDate} · {usd(x.price)} · {x.livingAreaSqft.toLocaleString("en-US")} sq ft · {usd(x.pricePerSqft)}/SF{x.yearBuilt ? ` · built ${x.yearBuilt}` : ""} · {x.distanceMi} mi{x.address ? ` · ${x.address}` : ""}</li>
+            ))}
+          </ul>
+          <p className="text-slate-500">{c.rule}</p>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
   parid: string;
   result: assumptions.ProFormaResult;
@@ -56,6 +91,8 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
   const mineApplies = p.minePath != null;
   const excluded = new Set(p.exclusions.map((e) => e.id));
   const groups = ["land", "hard", "soft", "contingency", "financing"] as const;
+  const minor = r.budget.filter((b) => b.minor);
+  const minorSum = minor.reduce((t, b) => t + (b.amount ?? 0), 0);
 
   return (
     <section aria-label="Does it pencil?" className="rounded-xl border border-slate-200 bg-white/80 p-3">
@@ -70,6 +107,16 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{p.configVersion}</span>
       </div>
       <p className="mt-2 text-sm text-slate-900">{r.headline}</p>
+
+      {p.units != null && p.finishedSf != null && (
+        <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
+          <b>Size:</b> {p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
+          {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.</span>
+        </p>
+      )}
+      {p.sizeWarning && <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-950">{p.sizeWarning}</p>}
+      {p.priceCheck && <p className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[13px] text-sky-950">{p.priceCheck}</p>}
+      {sale && <CompBlock comps={p.valueComps} floor={p.floor?.text ?? null} newBuild={p.strategy !== "rehab_existing"} />}
 
       {r.sentences.length > 0 && (
         <ul className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-800">
@@ -122,7 +169,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         <table className="mt-1 w-full text-left text-[12px]">
           <tbody>
             {groups.map((g) => {
-              const rows = r.budget.filter((b) => b.group === g);
+              const rows = r.budget.filter((b) => b.group === g && !b.minor);
               if (!rows.length) return null;
               return [
                 <tr key={`h-${g}`}><td colSpan={2} className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{GROUP_TEXT[g]}</td></tr>,
@@ -137,6 +184,32 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
                 )),
               ];
             })}
+            <tr className="align-top">
+              <td colSpan={2} className="pt-2">
+                <details>
+                  <summary className="flex cursor-pointer justify-between text-slate-800">
+                    <span>Closing, selling &amp; carrying costs</span>
+                    <span className="tabular-nums">{usd(minorSum)}</span>
+                  </summary>
+                  <table className="mt-1 w-full">
+                    <tbody>
+                      {minor.map((b) => (
+                        <tr key={b.id} className="align-top">
+                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">{b.label}</span><span className="block text-[11px] text-slate-500">{b.basis} · {b.sourceLabel}</span></td>
+                          <td className="py-0.5 text-right tabular-nums text-slate-700">{usd(b.amount)}</td>
+                        </tr>
+                      ))}
+                      {sale && r.sale.sellingCosts != null && (
+                        <tr className="align-top">
+                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">Selling costs at sale (broker, closing, seller&apos;s transfer tax)</span><span className="block text-[11px] text-slate-500">Taken from the sale price, not part of the total below</span></td>
+                          <td className="py-0.5 text-right tabular-nums text-slate-700">{usd(r.sale.sellingCosts)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </details>
+              </td>
+            </tr>
             <tr className="border-t border-slate-300 font-semibold">
               <td className="py-1">Total development cost</td>
               <td className="py-1 text-right tabular-nums">{usd(r.tdc)}</td>
@@ -200,6 +273,29 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
           <Field name={PF.ltc} label="Loan-to-cost" suffix="%" sp={sp} placeholder={def("ltc")?.value.replace("%", "") ?? ""} />
           <Field name={PF.approvalMonths} label="Months to approval" sp={sp} placeholder={def("approvalMonths")?.value ?? ""} />
           <Field name={PF.constructionMonths} label="Months to build" sp={sp} placeholder={def("constructionMonths")?.value ?? ""} />
+          <p className="col-span-2 mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your program (optional)</p>
+          <Field name={PF.units} label="Homes" sp={sp} placeholder={p.units != null ? String(p.units) : ""} />
+          <Field name={PF.storiesAboveGarage} label="Living floors (above any garage)" sp={sp} placeholder={p.program ? String(p.program.storiesAboveGarage) : ""} />
+          <label className="flex flex-col text-xs text-slate-600">Parking
+            <select name={PF.parking} defaultValue={typeof sp[PF.parking] === "string" ? (sp[PF.parking] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+              <option value="">Site-fit default</option>
+              <option value="tuck_under">Tuck-under garage (ground floor)</option>
+              <option value="pad">Parking pad</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <Field name={PF.bedrooms} label="Bedrooms" sp={sp} placeholder="—" />
+            <Field name={PF.baths} label="Baths" sp={sp} placeholder="—" />
+          </div>
+          <Field name={PF.costPerUnit} label="Construction cost per home" prefix="$" sp={sp} placeholder="use tier × sq ft" />
+          <label className="flex flex-col text-xs text-slate-600">Per-home cost includes site work &amp; foundation?
+            <select name={PF.costIncludesSite} defaultValue={typeof sp[PF.costIncludesSite] === "string" ? (sp[PF.costIncludesSite] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+              <option value="">No (site adders added on top)</option>
+              <option value="yes">Yes (no site adders)</option>
+            </select>
+          </label>
+          {sale && <Field name={PF.salePricePerUnit} label="Sale price per home" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerUnit != null ? String(Math.round(p.revenue.sale.pricePerUnit)) : "enter"} />}
           {mineApplies && (
             <label className="flex flex-col text-xs text-slate-600">Mine subsidence path
               <select name={PF.minePath} defaultValue={typeof sp[PF.minePath] === "string" ? (sp[PF.minePath] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">

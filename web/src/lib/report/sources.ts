@@ -66,6 +66,8 @@ export function buildSources(m: ReportModel): CiteRegistry {
   c.define("subsidy_ref", { title: "Subsidy needed per affordable for-sale home", publisher: cc.benchmarks.homeownershipSubsidy.sourceLabel, date: NOT_RECORDED });
   c.define("nahb", { title: "Cost of Constructing a Home 2024", publisher: "National Association of Home Builders", date: "2024", note: "National reference, not a Pittsburgh default." });
   c.define("sf_sales", { title: "Valid single-family sales used to price a finished home", publisher: "Allegheny County Department of Real Estate", date: m.sfComps?.date_range?.to ? `sales through ${m.sfComps.date_range.to}` : NOT_RECORDED, url: "https://data.wprdc.org/dataset/real-estate-sales", note: "Same rules as the sales comps: valid arm's-length sales, at least 5, search widens from ¼ mile." });
+  const nc = m.proForma.plan.valueComps as { kind?: string; date_range?: { to?: string | null } | null } | null;
+  c.define("nc_sales", { title: "Valid sales of new construction (homes built no more than 10 years before the sale)", publisher: "Allegheny County Department of Real Estate sales; Office of Property Assessments (year built, living area)", date: nc?.kind === "new_construction" && nc.date_range?.to ? `sales through ${nc.date_range.to}` : NOT_RECORDED, url: "https://data.wprdc.org/dataset/real-estate-sales", note: assumptions.COST_CONFIG.comps.newConstruction.rule });
   c.define("finance_engine", { title: "Finance module (EaseScore.AI engine)", publisher: "EaseScore.AI", date: "deterministic", note: "Holds no prices, costs or rates of its own: every input comes from the cost assumptions, the database or the user; missing inputs stay missing." });
   return c;
 }

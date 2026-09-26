@@ -92,6 +92,21 @@ const RENTAL: NarrativeFacts = {
 };
 
 describe("templates", () => {
+  it("ranks steps by decision impact and keeps routine items out of the top three", () => {
+    const f: NarrativeFacts = {
+      ...EASY,
+      proForma: { ...EASY.proForma!, steps: ["Get a builder's bid for this layout."], risks: ["Too few new-home sales nearby to price a new house."] },
+      requirements: [
+        { id: "realty_transfer_tax", item: "Realty transfer tax", status: "REQUIRED", phase: "due_diligence", issuer: "PA Dept. of Revenue" },
+        { id: "title", item: "Title search & title insurance", status: "REQUIRED", phase: "due_diligence", issuer: "Title company" },
+        { id: "geotech", item: "Geotechnical report", status: "REQUIRED", phase: "design_engineering", issuer: "Geotechnical engineer" },
+      ],
+    };
+    const r = generateNarrative(f);
+    expect(r.nextSteps.map((s) => s.text)).toEqual(["Get the {{term:geotechnical report|geotechnical report}} from Geotechnical engineer.", "Get a builder's bid for this layout."]);
+    expect(r.barriers.map((b) => b.text)).toContain("Too few new-home sales nearby to price a new house.");
+  });
+
   it("easy case", () => {
     const r = generateNarrative(EASY);
     expect(stripTerms(r.canBuild.text)).toBe("Yes, a duplex is allowed by right and fits the lot's size and setback rules (about 4 months to a permit).");
@@ -99,11 +114,9 @@ describe("templates", () => {
       "Yes: it costs about $412,000 to build and would be worth about $455,000, a $43,000 {{term:margin|profit}} (11%).",
     );
     expect(r.pencilsMath?.text).toBe("$455,000 value minus $412,000 cost = $43,000 left over.");
-    expect(r.barriers).toEqual([{ text: "Required: building permit, $2,500 to $4,000.", source: "template" }]);
-    expect(r.nextSteps.map((s) => s.text)).toEqual([
-      "Get the zoning development review from City Planning: about 4 weeks.",
-      "Get the building permit from PLI: about 6 weeks, $2,500 to $4,000.",
-    ]);
+    // Routine permits stay in the checklist; they are not barriers or top steps.
+    expect(r.barriers).toEqual([{ text: "No major barriers found in our data.", source: "template" }]);
+    expect(r.nextSteps.map((s) => s.text)).toEqual(["See the checklist below for the permits this plan needs."]);
     expect(r.source).toBe("template");
     expect(validateResult(r, EASY)).toEqual({ ok: true, offending: [] });
   });

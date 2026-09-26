@@ -278,7 +278,9 @@ export function S1(x: Ctx) {
   const flags = redFlags(m);
   const reviews = reviewItems(m);
   const approvals = approvalItems(m);
-  const barriers: Finding[] = [...flags, ...reviews, ...(s && !s.byRight ? approvals : [])].slice(0, 3);
+  // Ranked by decision impact: blockers, then approvals that can fail, then hazard reviews, then money risks.
+  const moneyRisks: Finding[] = (m.proForma.narrative?.risks ?? []).map((t) => ({ title: t.split(",")[0]!.replace(/\.$/, ""), reason: t, mitigation: "", sources: ["cost_config"] }));
+  const barriers: Finding[] = [...flags, ...(s && !s.byRight ? approvals : []), ...reviews, ...moneyRisks].slice(0, 3);
   const steps = nextSteps(m);
   const zone = m.facts.zoning?.code;
 
@@ -385,8 +387,11 @@ export function S1(x: Ctx) {
                 {fn(x, "requirements")}
               </li>
             ))}
+            {(m.proForma.narrative?.steps ?? []).slice(0, Math.max(0, 3 - steps.length)).map((t) => (
+              <li key={t}>{t}{fn(x, "cost_config")}</li>
+            ))}
           </ol>
-          <p className="small muted">Time and cost for each step are not estimated yet.</p>
+          <p className="small muted">Routine transaction and permit items are in the full checklist (Section 5).</p>
         </div>
       </div>
 
@@ -1181,7 +1186,7 @@ export function S7(x: Ctx) {
         <thead><tr><th style={{ width: "34%" }}>Line</th><th style={{ width: "18%" }} className="num">Amount</th><th>Basis and source</th></tr></thead>
         <tbody>
           {groups.flatMap((g) => {
-            const rows = pf.budget.filter((b) => b.group === g);
+            const rows = pf.budget.filter((b) => b.group === g && !b.minor);
             if (!rows.length) return [];
             return [
               <tr key={`g-${g}`}><td colSpan={3} className="small" style={{ fontWeight: 600, paddingTop: "6pt" }}>{GROUP[g]}</td></tr>,
@@ -1194,6 +1199,16 @@ export function S7(x: Ctx) {
               )),
             ];
           })}
+          {pf.budget.some((b) => b.minor) && (
+            <tr>
+              <td>Closing, permit and carrying costs</td>
+              <td className="num">{money(pf.budget.filter((b) => b.minor).reduce((t, b) => t + (b.amount ?? 0), 0))}</td>
+              <td className="small">
+                {pf.budget.filter((b) => b.minor).map((b) => `${b.label.toLowerCase()} ${money(b.amount)}`).join("; ")}
+                {fn(x, "cost_config", ...(p.shares.permitsBasis.includes("PLI") ? ["pli_fee"] : []), "millage")}. Selling costs at sale are taken from the sale price (Section 9).
+              </td>
+            </tr>
+          )}
           {p.exclusions.map((e) => (
             <tr key={`x-${e.id}`}>
               <td>{e.label}</td>
@@ -1331,15 +1346,23 @@ export function S9(x: Ctx) {
         still need an input (a market cap rate, a hold period, a discount rate) say what they need. The formula column is the math in plain words.
       </p>
       <h2>If built to sell</h2>
+      {m.proForma.plan.units != null && m.proForma.plan.finishedSf != null && (
+        <p>
+          <b>Size:</b> {m.proForma.plan.units} home{m.proForma.plan.units === 1 ? "" : "s"} × {sqft(Math.round(m.proForma.plan.finishedSf / m.proForma.plan.units))} finished. {m.proForma.plan.sizeBasis}.
+        </p>
+      )}
+      {m.proForma.plan.sizeWarning && <Callout tone="amber" title="Small layout for new construction nearby"><p>{m.proForma.plan.sizeWarning}</p></Callout>}
+      {CompTable({ x })}
+      {m.proForma.plan.priceCheck && <p><b>Check:</b> {m.proForma.plan.priceCheck}{fn(x, "nc_sales")}</p>}
       <p>
-        {m.proForma.plan.revenue.sale.pricePerSf != null && m.proForma.plan.finishedSf != null ? (
+        {m.proForma.sale.grossSales != null ? (
           <>
-            Sale value: {money(m.proForma.plan.revenue.sale.pricePerSf)} per sq ft ({m.proForma.plan.revenue.sale.basis.charAt(0).toLowerCase() + m.proForma.plan.revenue.sale.basis.slice(1)})
-            {fn(x, m.sfComps === m.sales ? "sales" : "sf_sales")} × {sqft(m.proForma.plan.finishedSf)} finished = <b>{money(m.proForma.sale.grossSales)}</b>. Comparable homes are mostly older, so a new home may sell for more.
-            Selling costs: broker and closing {pct(assumptions.COST_CONFIG.sale.brokerShare.value)} plus the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}.
+            Sale value: {m.proForma.plan.revenue.sale.basis.charAt(0).toLowerCase() + m.proForma.plan.revenue.sale.basis.slice(1)}
+            {m.proForma.plan.revenue.sale.sourceLabel === "Your input" ? "" : fn(x, "nc_sales")} = <b>{money(m.proForma.sale.grossSales)}</b>. Selling costs: broker and closing{" "}
+            {pct(assumptions.COST_CONFIG.sale.brokerShare.value)} plus the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}.
           </>
         ) : (
-          <>{m.proForma.plan.revenue.sale.basis}{m.sfComps ? fn(x, "sf_sales") : null}</>
+          <>{m.proForma.plan.missing.find((t) => /sale value/i.test(t)) ?? m.proForma.plan.revenue.sale.basis}{fn(x, "nc_sales")}</>
         )}
       </p>
       {m.scenario.tenure === "sale" && m.proForma.sentences.length > 1 && (
@@ -1390,6 +1413,38 @@ export function S9(x: Ctx) {
   );
 }
 
+function CompTable({ x }: { x: Ctx }) {
+  const c = x.m.proForma.plan.valueComps as assumptions.CompSet | null;
+  const floor = x.m.proForma.plan.floor;
+  if (!c || !("median_living_area_sqft" in c)) return <p className="muted">New-construction comps could not be loaded for this lot.{floor ? ` ${floor.text}` : ""}</p>;
+  const t = x.tab();
+  return (
+    <>
+      <p>
+        <b>New-construction comps:</b> {c.status === "ok" ? "" : "insufficient — "}{c.count} sale{c.count === 1 ? "" : "s"} within {c.radius_mi} mi
+        {c.median_price != null ? `, median ${money(c.median_price)}` : ""}{c.median_price_per_sqft != null ? `, ${money(c.median_price_per_sqft)} per sq ft` : ""}
+        {c.median_living_area_sqft != null ? `, median size ${sqft(Math.round(c.median_living_area_sqft))}` : ""}{c.year_built_range ? `, built ${c.year_built_range.from}–${c.year_built_range.to}` : ""}
+        {c.date_range?.from ? `, sold ${c.date_range.from} to ${c.date_range.to}` : ""}{fn(x, "nc_sales")}. Search: {c.search_steps.join(" → ")}.
+        {c.note ? ` ${c.note}` : ""}
+      </p>
+      {floor && <p className="small">{floor.text}{fn(x, "sales")}</p>}
+      {c.comps.length > 0 && (
+        <>
+          <div className="tcap">Table {t}. New-construction sales used (nearest first)</div>
+          <table>
+            <thead><tr><th>Sold</th><th className="num">Price</th><th className="num">Sq ft</th><th className="num">$/sq ft</th><th className="num">Built</th><th className="num">Miles</th></tr></thead>
+            <tbody>
+              {c.comps.slice(0, 12).map((r) => (
+                <tr key={`${r.parid}${r.saleDate}`}><td>{r.saleDate}</td><td className="num">{money(r.price)}</td><td className="num">{num(r.livingAreaSqft)}</td><td className="num">{money(r.pricePerSqft)}</td><td className="num">{r.yearBuilt ?? "—"}</td><td className="num">{num(r.distanceMi, 2)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------------------------
 // 10. Affordable
 
@@ -1431,7 +1486,7 @@ export function S10(x: Ctx) {
         <Callout tone="amber" title="For-sale gap at market prices">
           <p>
             At today’s nearby sale prices this {m.proForma.plan.units > 1 ? "project" : "home"} is {money(-m.proForma.sale.profit)} short
-            {m.proForma.plan.units > 1 ? ` (${money(-m.proForma.sale.profit / m.proForma.plan.units)} per home)` : ""}{fn(x, "cost_config", "sf_sales")}. That is roughly the subsidy or
+            {m.proForma.plan.units > 1 ? ` (${money(-m.proForma.sale.profit / m.proForma.plan.units)} per home)` : ""}{fn(x, "cost_config", "nc_sales")}. That is roughly the subsidy or
             land write-down it would take to break even. For comparison, {assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.label.replace(/\s*\(.*\)$/, "").toLowerCase()} is estimated at{" "}
             {money(assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.range[0])} to {money(assumptions.COST_CONFIG.benchmarks.homeownershipSubsidy.range[1])}{fn(x, "subsidy_ref")}.
           </p>
@@ -1744,6 +1799,7 @@ export function AppC(x: Ctx) {
       : label.startsWith("PA DEP") ? ["msi_rates"]
       : label.startsWith("Bank prime") ? ["prime"]
       : label.startsWith("County assess") ? ["assessment"]
+      : label.startsWith("Allegheny County sales (valid new") ? ["nc_sales"]
       : label.startsWith("Allegheny County sales") ? [m.sfComps === m.sales ? "sales" : "sf_sales"]
       : label.startsWith("Zillow") ? ["zori"]
       : label.startsWith("HUD") ? ["hud_fmr"]

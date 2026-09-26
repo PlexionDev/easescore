@@ -8,6 +8,8 @@
 import { developmentCosts, MSI_CHART, msiAnnualPremium, type ForSaleInputs, type Receipt, type RentalInputs, type UnitRow } from "../finance";
 import { existingUseColumn } from "../score/strategies";
 import type { StrategyId } from "../score/types";
+import { DEFAULT_ASSUMPTIONS as QF_DEFAULTS } from "../quickfit/presets";
+import type { CompSet } from "./comps";
 import { COST_CONFIG, tierOf, type CostConfig } from "./config";
 
 export type Tenure = "sale" | "rent";
@@ -50,8 +52,13 @@ export interface SchemeSize {
   units: number;
   grossFloorAreaSf: number;
   netFloorAreaSf: number;
+  /** Building footprint, all units (needed to lay out a custom unit program). */
+  footprintSf?: number;
+  stories?: number;
   typologyLabel?: string;
 }
+
+export type ParkingProgram = "tuck_under" | "pad" | "none";
 
 /** User edits. Shares are decimals (0.08 = 8%); money is dollars. */
 export interface CostOverrides {
@@ -75,6 +82,19 @@ export interface CostOverrides {
   constructionMonths?: number;
   salePricePerSf?: number;
   rentPerUnit?: number;
+  /** Your program: number of homes (default: the site-fit count). */
+  units?: number;
+  /** Living floors above the garage (or total floors when there is no tuck-under garage). */
+  storiesAboveGarage?: number;
+  parking?: ParkingProgram;
+  bedrooms?: number;
+  baths?: number;
+  /** Your construction cost per home; replaces tier × sq ft for the hard base. */
+  costPerUnit?: number;
+  /** True when your per-home cost already covers site work and foundation (site adders are then not added). */
+  costIncludesSite?: boolean;
+  /** Your sale price per home; replaces the comps value. */
+  salePricePerUnit?: number;
 }
 
 export interface PlanArgs {
@@ -82,8 +102,13 @@ export interface PlanArgs {
   facts: ProFormaFacts;
   /** Site-fit scheme for new builds; ignored for the rehab option (existing living area is used). */
   scheme: SchemeSize | null;
-  /** Single-family sales comps (minimum 5, search widens; see parcel_sales_comps). */
+  /**
+   * Existing-home sales comps. Rehab is valued from these (pass matchedExistingComps for size/age
+   * matching); for new builds they are only a labeled floor, never the value.
+   */
   comps: SalesCompsLike | null;
+  /** New-construction comps (newConstructionComps). New builds are valued only from these. */
+  newComps?: CompSet | null;
   rents: RentCompsLike | null;
   /** Bank prime rate as a decimal (FRED DPRIME), and its date. */
   primeRate?: number | null;
@@ -149,6 +174,28 @@ export interface DevelopmentPlan {
   units: number | null;
   finishedSf: number | null;
   sizeBasis: string;
+  /** The unit program used, when the user set one (or a tuck-under garage). */
+  program: {
+    units: number;
+    storiesAboveGarage: number;
+    parking: ParkingProgram;
+    bedrooms: number | null;
+    baths: number | null;
+    footprintPerUnitSf: number;
+    finishedPerUnitSf: number;
+    garagePerUnitSf: number;
+    grossSf: number;
+  } | null;
+  /** Plain warning when the layout is small next to new homes that sold nearby. */
+  sizeWarning: string | null;
+  /** The comps the value came from (new-construction for new builds). */
+  valueComps: CompSet | SalesCompsLike | null;
+  /** New builds: older-home $/SF shown only as a floor. */
+  floor: { pricePerSf: number; text: string } | null;
+  /** "Your price $350,000 vs. recent new-build median $629,950 (...)". */
+  priceCheck: string | null;
+  /** Hard base comes from the user's per-home number. */
+  perUnitCost: { value: number; includesSite: boolean } | null;
   tier: { id: string; label: string };
   costPerSf: number;
   land: { value: number | null; sourceLabel: string };
@@ -161,7 +208,7 @@ export interface DevelopmentPlan {
   msiPremium: Receipt | null;
   msiCoverage: number | null;
   revenue: {
-    sale: { pricePerSf: number | null; grossSales: number | null; basis: string; sourceLabel: string };
+    sale: { pricePerSf: number | null; pricePerUnit: number | null; grossSales: number | null; basis: string; sourceLabel: string };
     rent: { perUnit: number | null; basis: string; sourceLabel: string };
   };
   forSale: ForSaleInputs;
@@ -223,7 +270,10 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   // ---- Size
   let units: number | null = null;
   let finishedSf: number | null = null;
+  let garageSf = 0;
   let sizeBasis: string;
+  let program: DevelopmentPlan["program"] = null;
+  const sch = a.scheme;
   if (rehab) {
     const la = f.assessment?.living_area_sqft;
     units = unitsForExisting(f.assessment?.use);
@@ -233,16 +283,42 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   } else if (a.strategy === "adu") {
     sizeBasis = "Accessory dwelling unit size is not modeled yet";
     missing.push("An accessory dwelling unit is not sized by the site-fit check yet, so its cost cannot be estimated.");
-  } else if (a.scheme && a.scheme.units > 0) {
-    units = a.scheme.units;
-    finishedSf = Math.round(a.scheme.netFloorAreaSf);
-    sizeBasis = `Site-fit layout${a.scheme.typologyLabel ? ` (${a.scheme.typologyLabel})` : ""}: ${Math.round(a.scheme.grossFloorAreaSf).toLocaleString("en-US")} sq ft gross, ${finishedSf.toLocaleString("en-US")} sq ft finished (livable)`;
+  } else if (sch && sch.units > 0) {
+    const nUnits = has(o.units) && o.units >= 1 ? Math.round(o.units) : sch.units;
+    const custom = has(o.storiesAboveGarage) || o.parking !== undefined || has(o.units) || has(o.bedrooms) || has(o.baths);
+    if (custom && has(sch.footprintSf) && sch.footprintSf > 0) {
+      // Your program on the site-fit footprint: floors above a tuck-under garage level. The garage level
+      // counts as gross area, never as finished (sellable) area.
+      const footprintPerUnit = sch.footprintSf / sch.units;
+      const parking: ParkingProgram = o.parking ?? "none";
+      const tuck = parking === "tuck_under";
+      const schemeStories = has(sch.stories) ? sch.stories : 1;
+      const above = has(o.storiesAboveGarage) && o.storiesAboveGarage >= 1 ? Math.round(o.storiesAboveGarage) : tuck ? Math.max(1, schemeStories - 1) : schemeStories;
+      const eff = QF_DEFAULTS.efficiency;
+      const finishedPerUnit = Math.round(footprintPerUnit * above * eff);
+      units = nUnits;
+      finishedSf = finishedPerUnit * nUnits;
+      garageSf = tuck ? Math.round(footprintPerUnit) * nUnits : 0;
+      const grossSf = Math.round(footprintPerUnit * (above + (tuck ? 1 : 0))) * nUnits;
+      program = { units: nUnits, storiesAboveGarage: above, parking, bedrooms: has(o.bedrooms) ? o.bedrooms : null, baths: has(o.baths) ? o.baths : null, footprintPerUnitSf: Math.round(footprintPerUnit), finishedPerUnitSf: finishedPerUnit, garagePerUnitSf: tuck ? Math.round(footprintPerUnit) : 0, grossSf };
+      const bb = program.bedrooms != null || program.baths != null ? `, ${program.bedrooms ?? "?"} bed / ${program.baths ?? "?"} bath` : "";
+      sizeBasis = `Your program: ${nUnits} home${nUnits === 1 ? "" : "s"} on the site-fit footprint (${program.footprintPerUnitSf.toLocaleString("en-US")} sq ft each), ${tuck ? `a tuck-under garage level + ${above} living floor${above === 1 ? "" : "s"}` : `${above} living floor${above === 1 ? "" : "s"}`}${bb}: ${finishedPerUnit.toLocaleString("en-US")} sq ft finished per home (floor area × ${Math.round(eff * 100)}% livable share)${tuck ? `; the ${program.garagePerUnitSf.toLocaleString("en-US")} sq ft garage level is not counted as finished` : ""}`;
+      if (nUnits > sch.units) notes.push(`${nUnits} homes is more than the ${sch.units} the site-fit check placed; the extra homes are not checked against zoning.`);
+    } else {
+      units = nUnits;
+      finishedSf = Math.round((sch.netFloorAreaSf / sch.units) * nUnits);
+      sizeBasis = `Site-fit layout${sch.typologyLabel ? ` (${sch.typologyLabel})` : ""}: ${Math.round((sch.grossFloorAreaSf / sch.units) * nUnits).toLocaleString("en-US")} sq ft gross, ${finishedSf.toLocaleString("en-US")} sq ft finished (livable)${nUnits > 1 ? `, ${Math.round(finishedSf / nUnits).toLocaleString("en-US")} sq ft per home` : ""}`;
+      if (nUnits !== sch.units) notes.push(`Home count set to ${nUnits} (the site-fit layout has ${sch.units}); each home keeps the layout's size.`);
+    }
   } else {
     sizeBasis = "No layout of this type fits the lot";
     missing.push("No building of this type fits the lot in the site-fit check, so there is nothing to price.");
   }
-  if (units != null) row("units", "Homes (units)", String(units), { sourceLabel: rehab ? "County assessment (existing use)" : "Site-fit scheme (QuickFit)" }, null, false);
-  if (finishedSf != null) row("finishedSf", "Finished (livable) floor area", `${finishedSf.toLocaleString("en-US")} sq ft`, { sourceLabel: rehab ? "County assessment" : "Site-fit scheme (QuickFit)", sourceNote: rehab ? null : "Gross floor area × the solver's livable share (placeholder)" }, null, false);
+  if (units != null) row("units", "Homes (units)", String(units), { sourceLabel: rehab ? "County assessment (existing use)" : "Site-fit scheme (QuickFit)" }, null, has(o.units));
+  if (finishedSf != null) row("finishedSf", "Finished (livable) floor area", `${finishedSf.toLocaleString("en-US")} sq ft${units != null && units > 1 ? ` (${Math.round(finishedSf / units).toLocaleString("en-US")} per home)` : ""}`, { sourceLabel: rehab ? "County assessment" : program ? "Your program on the site-fit footprint" : "Site-fit scheme (QuickFit)", sourceNote: rehab ? null : "Floor area × the solver's livable share (placeholder)" }, null, program != null);
+  if (program) {
+    row("program", "Unit program", `${program.parking === "tuck_under" ? "Tuck-under garage + " : ""}${program.storiesAboveGarage} living floor${program.storiesAboveGarage === 1 ? "" : "s"}${program.bedrooms != null ? `, ${program.bedrooms} bed` : ""}${program.baths != null ? ` / ${program.baths} bath` : ""}; parking: ${program.parking.replace("_", "-")}`, { sourceLabel: "Your input" }, null, true);
+  }
 
   // ---- Land
   const anchor = rehab ? f.assessment?.fmv_total : f.assessment?.fmv_land;
@@ -261,9 +337,26 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   row("tier", "Construction quality tier", `${tier.label} — ${tier.meaning}`, { sourceLabel: tier.costPerSf.sourceLabel }, null, o.tier !== undefined && o.tier !== cfg.construction.defaultTier);
   row("costPerSf", "Construction cost per finished sq ft (includes builder overhead and profit)", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
   if (rehab) notes.push(cfg.construction.rehabNote);
-  const hardBase = finishedSf != null ? costPerSf * finishedSf : null;
-  if (hardBase != null)
-    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf!.toLocaleString("en-US")} sq ft × ${usd(costPerSf)}/SF (${tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : tier.costPerSf.sourceLabel });
+  const garageShare = cfg.construction.garageLevelShareOfTier;
+  const perUnitCost = has(o.costPerUnit) && units != null ? { value: o.costPerUnit, includesSite: o.costIncludesSite === true } : null;
+  let hardBase: number | null = null;
+  if (perUnitCost) {
+    hardBase = perUnitCost.value * units!;
+    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction (your number per home)" : "Construction (your number per home)", short: "construction", amount: hardBase, basis: `${units} home${units === 1 ? "" : "s"} × ${usd(perUnitCost.value)}${perUnitCost.includesSite ? ", including site work and foundation" : ", building only (site adders added separately)"}${garageSf ? "; covers the garage level too" : ""}`, sourceLabel: "Your number" });
+    row("costPerUnit", "Construction cost per home", usd(perUnitCost.value), { sourceLabel: "Your number" }, null, true);
+    row("costIncludesSite", "Per-home cost includes site work and foundation", perUnitCost.includesSite ? "Yes: site adders not added" : "No: site adders added on top", { sourceLabel: "Your input" }, null, true);
+  } else if (finishedSf != null) {
+    hardBase = costPerSf * finishedSf;
+    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : tier.costPerSf.sourceLabel });
+    if (garageSf > 0) {
+      const g = garageSf * costPerSf * garageShare.value;
+      hardBase += g;
+      lines.push({ id: "garage_level", group: "hard", label: "Tuck-under garage level", short: "garage level", amount: g, basis: `${garageSf.toLocaleString("en-US")} sq ft × ${usd(costPerSf)}/SF × ${Math.round(garageShare.value * 100)}%`, sourceLabel: garageShare.sourceLabel });
+      row("garageShare", garageShare.label, `${Math.round(garageShare.value * 100)}% of the tier rate`, garageShare, null, false);
+    }
+  }
+  if (has(o.costPerUnit) && units == null) notes.push("Your per-home cost needs a home count; no layout was found.");
+  const siteSuppressed = perUnitCost?.includesSite === true;
 
   // ---- Site adders: slope
   const hardSite: { siteWork: number; grouting?: number; demolition?: number } = { siteWork: 0 };
@@ -288,8 +381,13 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
           ? `Steep slope under ${wholePct(sh25)} of the lot`
           : `Steep slope: the lot averages ${Math.round(mean!)}%`
         : `Moderate slope: the lot averages ${Math.round(mean!)}% (8–25%)`;
-    const amount = finishedSf != null ? perSf * finishedSf : null;
-    adders.push({ id: slopeKind === "steep" ? "steep_slope" : "moderate_slope", label: def.label, reason: `${why} → +${usd(perSf)}/SF`, perSf, amount, sourceLabel: has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel, range: rangeText(def.range, "usdSf") });
+    const amount = finishedSf != null && !siteSuppressed ? perSf * finishedSf : null;
+    adders.push({
+      id: slopeKind === "steep" ? "steep_slope" : "moderate_slope", label: def.label,
+      reason: siteSuppressed ? `${why} → included in your per-home cost` : `${why} → +${usd(perSf)}/SF`,
+      perSf: siteSuppressed ? null : perSf, amount, sourceLabel: siteSuppressed ? "Your number" : has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel, range: rangeText(def.range, "usdSf"),
+    });
+    if (siteSuppressed) notes.push(`${def.label}: included in your per-home cost, so it is not added again.`);
     row("slopeAdder", def.label, `${usd(perSf)}/SF`, def, rangeText(def.range, "usdSf"), has(o.slopeAdderPerSf));
     notes.push("Slope is measured across the whole lot (1 m lidar), not under the building footprint.");
     if (amount != null) {
@@ -361,7 +459,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
       row("geotech", g.label, "not set", g, null, false);
     }
   }
-  const dumpApplies = demoApplies || slopeKind === "steep";
+  const dumpApplies = demoApplies || (slopeKind === "steep" && !siteSuppressed);
   if (dumpApplies) {
     const dd = cfg.siteAdders.dumpstersAndStreetPermit;
     const reason = demoApplies ? "Debris from demolition has to be hauled away" : "A steep lot leaves no flat room to stage on site";
@@ -447,7 +545,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     units: units ?? undefined,
     grossSqFt: finishedSf ?? undefined,
     land: land ?? undefined,
-    hardCostPerSqFt: costPerSf,
+    hardCost: hardBase ?? undefined,
     hardSiteLines: { ...hardSite },
     softCostShareOfHard: ae + permits + other,
     softSiteLines: {
@@ -473,25 +571,45 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
 
   // ---- Revenue: sale
   const saleCfg = cfg.sale;
-  const c = a.comps;
-  const compsOk = !!c && c.status === "ok" && c.sufficient !== false && c.comparable_use === "single family" && has(c.median_price_per_sqft);
-  const pricePerSf = has(o.salePricePerSf) ? o.salePricePerSf : compsOk ? c!.median_price_per_sqft! : null;
-  const saleBasis = has(o.salePricePerSf)
-    ? "Your sale price per sq ft"
-    : compsOk
-      ? `Median of ${c!.count} valid single-family sales within ${c!.radius_mi} mi${c!.date_range?.from ? ` (${c!.date_range.from} to ${c!.date_range.to})` : ""}`
-      : !c
-        ? "No value: single-family sales near this lot could not be loaded (a vacant lot's own comps are land sales)."
-        : c.note
-          ? `No value: ${c.note.replace(/\s*No estimate is made\.?$/, "")}`
-          : "No value: there are not enough valid single-family sales nearby to price a finished home.";
-  const saleSource = has(o.salePricePerSf) ? "Your input" : compsOk ? "Allegheny County sales (valid single-family comps)" : "Insufficient comps";
-  if (pricePerSf == null && tenure === "sale") {
+  // New builds are valued only from new-construction comps; older-home sales are shown as a floor.
+  // Rehab is valued from existing-home comps (matched on size and age by the caller).
+  const c: CompSet | SalesCompsLike | null = rehab ? a.comps : a.newComps ?? null;
+  const compsOk = !!c && c.status === "ok" && c.sufficient !== false && has(c.median_price_per_sqft) && (!rehab || c.comparable_use !== "vacant land");
+  const old = a.comps;
+  const floor =
+    !rehab && old && old.status === "ok" && old.sufficient !== false && old.comparable_use === "single family" && has(old.median_price_per_sqft)
+      ? { pricePerSf: old.median_price_per_sqft, text: `Older homes nearby sold for a median ${usd(old.median_price_per_sqft)} per sq ft (${old.count} sales within ${old.radius_mi} mi). That is a floor, not the value of a new home.` }
+      : null;
+  const compSource = rehab ? ("sourceLabel" in (c ?? {}) ? (c as CompSet).sourceLabel : "Allegheny County sales (existing homes)") : cfg.comps.newConstruction.sourceLabel;
+  const compText = compsOk
+    ? `Median of ${c!.count} ${rehab ? "" : "new-construction "}sales within ${c!.radius_mi} mi${c!.date_range?.from ? ` (${c!.date_range.from} to ${c!.date_range.to})` : ""}`
+    : !c
+      ? rehab
+        ? "No value: nearby sales of this kind of home could not be loaded."
+        : "No value: new-construction sales near this lot could not be loaded."
+      : c.note
+        ? `No value: ${c.note.replace(/\s*No (new-home value|value|estimate) is (estimated|made)\.?$/, "")}`
+        : "No value: there are not enough comparable sales nearby to price a finished home.";
+  const perUnitPrice = has(o.salePricePerUnit) && units != null ? o.salePricePerUnit : null;
+  const pricePerSf = perUnitPrice != null ? (finishedSf ? (perUnitPrice * units!) / finishedSf : null) : has(o.salePricePerSf) ? o.salePricePerSf : compsOk ? c!.median_price_per_sqft! : null;
+  const saleBasis = perUnitPrice != null ? `Your sale price per home` : has(o.salePricePerSf) ? "Your sale price per sq ft" : compText;
+  const saleSource = perUnitPrice != null || has(o.salePricePerSf) ? "Your input" : compsOk ? compSource : "Insufficient comps";
+  if (pricePerSf == null && perUnitPrice == null && tenure === "sale") {
     const why = saleBasis.replace(/^No value: /, "").replace(/\.?$/, ".");
-    missing.push(`No sale value. ${why.charAt(0).toUpperCase()}${why.slice(1)} Enter a sale price per sq ft to test it.`);
+    missing.push(`No sale value. ${why.charAt(0).toUpperCase()}${why.slice(1)}${floor ? ` ${floor.text}` : ""} Enter a sale price to test it.`);
   }
-  const grossSales = pricePerSf != null && finishedSf != null ? pricePerSf * finishedSf : null;
-  row("salePricePerSf", "Sale price per finished sq ft", pricePerSf != null ? `${usd(pricePerSf)}/SF` : "not set", { sourceLabel: saleSource, sourceNote: saleBasis }, null, has(o.salePricePerSf));
+  const grossSales = perUnitPrice != null ? perUnitPrice * units! : pricePerSf != null && finishedSf != null ? pricePerSf * finishedSf : null;
+  if (perUnitPrice != null) row("salePricePerUnit", "Sale price per home", usd(perUnitPrice), { sourceLabel: "Your input" }, null, true);
+  else row("salePricePerSf", "Sale price per finished sq ft", pricePerSf != null ? `${usd(pricePerSf)}/SF` : "not set", { sourceLabel: saleSource, sourceNote: saleBasis }, null, has(o.salePricePerSf));
+  const nc = !rehab && c && c.status === "ok" && c.sufficient !== false ? (c as CompSet) : null;
+  const priceCheck =
+    (perUnitPrice != null || has(o.salePricePerSf)) && nc && has(nc.median_price)
+      ? `Your price ${usd(perUnitPrice ?? (pricePerSf! * (finishedSf ?? 0)) / (units ?? 1))} per home vs. recent new-build median ${usd(nc.median_price)} (${usd(nc.median_price_per_sqft ?? 0)}/SF, ${Math.round(nc.median_living_area_sqft ?? 0).toLocaleString("en-US")} sq ft; ${nc.count} sales within ${nc.radius_mi} mi).`
+      : null;
+  let sizeWarning: string | null = null;
+  const perHome = finishedSf != null && units ? finishedSf / units : null;
+  if (!rehab && nc && has(nc.median_living_area_sqft) && perHome != null && perHome < nc.median_living_area_sqft * cfg.comps.smallLayoutRatio.value)
+    sizeWarning = `This layout is small for new construction nearby: ${Math.round(perHome).toLocaleString("en-US")} vs ${Math.round(nc.median_living_area_sqft).toLocaleString("en-US")} sq ft typical per home.${perUnitPrice == null && !has(o.salePricePerSf) ? " The value assumes a home this size sells for the same price per sq ft." : ""}`;
   const tt = f.transfer_tax?.total_pct;
   const sellerTt = has(tt) ? (tt / 100) * saleCfg.sellerTransferTaxShare.value : null;
   if (sellerTt == null && tenure === "sale") exclude("transfer_tax", "Seller's realty transfer tax", "Pennsylvania and local transfer tax is due at sale", "rate not loaded");
@@ -506,7 +624,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
 
   // ---- Revenue: rent
   const r = a.rents;
-  const br = units != null && units > 1 ? cfg.rent.fmrBedroomsFallback.multi : cfg.rent.fmrBedroomsFallback.single;
+  const br = has(o.bedrooms) ? Math.min(4, Math.max(0, Math.round(o.bedrooms))) : units != null && units > 1 ? cfg.rent.fmrBedroomsFallback.multi : cfg.rent.fmrBedroomsFallback.single;
   const fmr = r?.hud_fmr ? (r.hud_fmr as Record<string, number | undefined>)[`br${br}`] : undefined;
   const zori = r?.zori?.latest_rent;
   const rentPerUnit = has(o.rentPerUnit) ? o.rentPerUnit : has(zori) ? Math.round(zori) : has(fmr) ? fmr : null;
@@ -569,6 +687,12 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     units,
     finishedSf,
     sizeBasis,
+    program,
+    sizeWarning,
+    valueComps: c,
+    floor,
+    priceCheck,
+    perUnitCost,
     tier: { id: tier.id, label: tier.label },
     costPerSf,
     land: { value: land, sourceLabel: landSource },
@@ -581,7 +705,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     msiPremium,
     msiCoverage,
     revenue: {
-      sale: { pricePerSf, grossSales, basis: saleBasis, sourceLabel: saleSource },
+      sale: { pricePerSf, pricePerUnit: grossSales != null && units ? grossSales / units : null, grossSales, basis: saleBasis, sourceLabel: saleSource },
       rent: { perUnit: rentPerUnit, basis: rentBasis, sourceLabel: rentSource },
     },
     forSale,

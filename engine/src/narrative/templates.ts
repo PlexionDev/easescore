@@ -2,7 +2,6 @@
 // 1. Can you build here?  2. Does it pencil?  3. What's in the way?  4. What next?
 // Same facts in → same sentences out. Jargon only inside {{term:…|…}} markers.
 
-import { PHASE_ORDER } from "../types";
 import { derive } from "./derive";
 import { capitalize, GLOSSARY, list, money, moneyRange, months, pct, roundMoney, term, weeks } from "./format";
 import type { CostRange, NarrativeFacts, NarrativeResult, NarrativeSentence } from "./types";
@@ -117,6 +116,33 @@ export function pencilsSentence(f: NarrativeFacts): string {
 // ---------------------------------------------------------------------------------------------
 // 3. What's in the way? Top 3, most costly first.
 
+/**
+ * Routine transaction and permit items: always part of a project, never decisive. They stay in the
+ * full checklist but are kept out of the top-3 barriers and next steps.
+ */
+export const ROUTINE_REQUIREMENTS = new Set([
+  "realty_transfer_tax", "title", "survey_boundary", "appraisal", "construction_loan", "builders_risk", "contractor_license",
+  "site_facilities", "dumpster", "dumpster_street", "row_closure", "electrical_permit", "mechanical_permit", "plumbing_permit",
+  "building_permit", "certificate_occupancy", "as_built", "energy_code", "accessibility", "tap_fees", "utility_letters",
+  "sewer_lateral", "point_of_sale", "tax_jump", "back_taxes_liens", "architectural", "zoning_approval", "rco_meeting", "lead_rrp",
+  "sidewalk", "street_tree", "curb_cut", "street_opening", "utility_disconnect", "sewage_planning", "erosion_sediment",
+  "stormwater", "fire_protection", "civil_site_plan", "parking", "radon", "lead_service_line", "tax_abatement",
+]);
+
+/**
+ * Decision impact of a checklist item (higher = more likely to kill the project or move the cost a lot).
+ * Items not listed here and not routine rank below every listed item.
+ */
+export const DECISION_IMPACT: Record<string, number> = {
+  access: 95, paper_street: 80, geotech: 90, hillside_repair: 85, mine_subsidence_paths: 85, mine_subsidence: 85,
+  phase2_esa: 82, phase1_esa: 78, flood_determination: 75, wetland_stream: 70, retaining_wall: 68, flood_insurance: 60,
+  variance: 88, special_exception: 86, conditional_use: 86, historic_coa: 70, subdivision: 62, inclusionary: 45,
+  grading_permit: 45, party_wall: 40, structural: 35, survey_topo: 30, demolition_permit: 30, asbestos: 30, oil_tank: 30,
+  utility_upgrade: 30, historic_delay: 40,
+};
+/** Where pro forma steps (bids, pricing) sit in that ranking. */
+const PRO_FORMA_STEP_IMPACT = 50;
+
 interface Barrier {
   key: string;
   /** Lower = earlier. 0 red flag, 1 known cost, 2 approval, 3 weak factor. */
@@ -174,9 +200,11 @@ export function barrierLines(f: NarrativeFacts): string[] {
   }
 
   for (const r of f.requirements) {
-    if (r.status !== "REQUIRED" || !r.cost || costedIds.has(r.id) || coveredItems.has(bare(r.item))) continue;
+    if (r.status !== "REQUIRED" || !r.cost || costedIds.has(r.id) || coveredItems.has(bare(r.item)) || ROUTINE_REQUIREMENTS.has(r.id)) continue;
     out.push({ key: `req:${r.id}`, tier: 1, weight: r.cost.high, text: `Required: ${maybeTerm(lc(trimDot(r.item)))}, ${costText(r.cost)}.` });
   }
+
+  (f.proForma?.risks ?? []).forEach((t, i) => out.push({ key: `money:${i}`, tier: 2, weight: 0, text: t }));
 
   const weak = s.factors
     .filter((x) => x.subscore != null && x.subscore < 50 && x.oneLiner)
@@ -217,18 +245,20 @@ export function nextStepLines(f: NarrativeFacts): string[] {
     }
   }
 
-  const phaseRank = (p: string | null | undefined) => {
-    const i = PHASE_ORDER.indexOf((p ?? "") as (typeof PHASE_ORDER)[number]);
-    return i < 0 ? PHASE_ORDER.length : i;
-  };
-  const required = f.requirements
-    .filter((r) => r.status === "REQUIRED")
-    .sort((a, b) => phaseRank(a.phase) - phaseRank(b.phase) || a.id.localeCompare(b.id));
-  for (const r of required) {
+  // Decisive items only, ranked by decision impact (can it kill the project, how much can it cost);
+  // routine transaction and permit items stay in the full checklist.
+  const ranked: { impact: number; cost: number; key: string; text: string }[] = [];
+  for (const r of f.requirements) {
+    if (r.status !== "REQUIRED" && r.status !== "LIKELY") continue;
+    const impact = DECISION_IMPACT[r.id];
+    if (impact === undefined || ROUTINE_REQUIREMENTS.has(r.id)) continue;
     const detail = [r.weeks != null ? weeks(r.weeks) : null, costText(r.cost)].filter(Boolean).join(", ");
     const from = r.issuer ? ` from ${r.issuer}` : "";
-    steps.push(`Get the ${maybeTerm(lc(trimDot(r.item)))}${from}${detail ? `: ${detail}` : ""}.`);
+    ranked.push({ impact, cost: r.cost?.high ?? 0, key: r.id, text: `Get the ${maybeTerm(lc(trimDot(r.item)))}${from}${detail ? `: ${detail}` : ""}.` });
   }
+  (f.proForma?.steps ?? []).forEach((t, i) => ranked.push({ impact: PRO_FORMA_STEP_IMPACT - i, cost: 0, key: `pf${i}`, text: t }));
+  ranked.sort((a, b) => b.impact - a.impact || b.cost - a.cost || a.key.localeCompare(b.key));
+  for (const r of ranked) if (!steps.includes(r.text)) steps.push(r.text);
 
   const out = steps.slice(0, 3);
   return out.length ? out : ["See the checklist below for the permits this plan needs."];

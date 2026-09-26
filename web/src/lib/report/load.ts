@@ -14,7 +14,7 @@ import {
   type RequirementResult,
 } from "@easescore/engine";
 import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
-import { homeTapFees, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
+import { homeTapFees, newCompsFor, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
 import { loadEaseScore, type EaseScoreView } from "./score";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -417,15 +417,22 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
 
   // Pro forma: the cost config defaults, the pf_* edits, single-family comps, rents, the prime rate and
   // the published tap fees, through the same builder as the parcel page.
-  const [sfComps, prime] = await Promise.all([retry(() => singleFamilyComps(parid, sales as assumptions.SalesCompsLike | null)), primeRate()]);
+  const pfStrategy = TYPOLOGY_STRATEGY[(scheme ?? closest)?.typology ?? ""] ?? TYPOLOGY_STRATEGY[scenario.strategy] ?? "new_sf";
+  const asOf = todayIso(sp);
+  const [sfComps, prime, newComps] = await Promise.all([
+    retry(() => singleFamilyComps(parid, sales as assumptions.SalesCompsLike | null)),
+    primeRate(),
+    newCompsFor(pfStrategy, parid, facts.centroid as { lat?: number; lon?: number } | null, asOf),
+  ]);
   const homeFees = homeTapFees(tapFees);
   const overrides = readCostOverrides(sp);
   const plan = assumptions.buildDevelopmentInputs({
-    strategy: TYPOLOGY_STRATEGY[(scheme ?? closest)?.typology ?? ""] ?? TYPOLOGY_STRATEGY[scenario.strategy] ?? "new_sf",
+    strategy: pfStrategy,
     facts: facts as assumptions.ProFormaFacts,
     // When nothing fits by right, price the closest layout (it needs approvals; Section 4 says which).
     scheme: scheme ?? (closest ? { ...closest, typologyLabel: `${closest.typologyLabel}, closest layout, needs approvals` } : null),
     comps: sfComps,
+    newComps,
     rents: rent as assumptions.RentCompsLike | null,
     primeRate: prime?.rate ?? null,
     primeRateDate: prime?.date ?? null,

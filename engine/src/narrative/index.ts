@@ -1,5 +1,5 @@
 export * from "./types";
-export { generateNarrative, canBuildSentence, pencilsSentence, barrierLines, nextStepLines } from "./templates";
+export { generateNarrative, canBuildSentence, pencilsSentence, barrierLines, nextStepLines, ROUTINE_REQUIREMENTS, DECISION_IMPACT } from "./templates";
 export { validateNarrative, validateResult, extractNumbers, factPool, type NumberToken } from "./validate";
 export { derive, proFormaMath, type Derived } from "./derive";
 export {

@@ -31,6 +31,8 @@ export interface BudgetLine {
   group: LineGroup | "total";
   label: string;
   short?: string;
+  /** Routine transaction and carrying item (permits, title, lender fees, taxes while holding): grouped into one line in the UI. */
+  minor?: boolean;
   amount: number | null;
   basis: string;
   sourceLabel: string;
@@ -107,28 +109,37 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   if (plan.tenure === "rent" && rent.noi != null) verdict = rent.noi <= 0 ? "no" : thinYoc != null && rent.yieldOnCost != null ? (rent.yieldOnCost < thinYoc ? "thin" : "yes") : null;
 
   // ---- Sentences
+  const MINOR = new Set(["permits", "other_soft", "tap_fees", "loan_fees", "holding"]);
+  for (const b of budget) if (MINOR.has(b.id)) b.minor = true;
   const sentences: string[] = [];
   const hardLines = budget.filter((b) => b.group === "hard" && b.amount != null);
   const softSum = budget.filter((b) => b.group === "soft" && b.amount != null).reduce((t, b) => t + b.amount!, 0);
   const finSum = v(c.financing);
   if (tdc != null) {
+    const sumOf = (xs: BudgetLine[]) => xs.reduce((t, x) => t + (x.amount ?? 0), 0);
+    const design = budget.filter((x) => x.group === "soft" && !x.minor);
+    const minor = budget.filter((x) => x.minor);
     const parts = [
       plan.land.value != null ? `${plan.strategy === "rehab_existing" ? "purchase" : "land"} ${usd(plan.land.value)}` : null,
-      ...hardLines.map((b) => `${b.short ?? b.label.toLowerCase()} ${usd(b.amount!)}`),
-      `soft costs ${usd(softSum)}`,
+      ...hardLines.map((x) => `${x.short ?? x.label.toLowerCase()} ${usd(x.amount!)}`),
+      design.length ? `design and engineering ${usd(sumOf(design))}` : null,
       v(c.contingency) != null ? `contingency ${usd(v(c.contingency)!)}` : null,
-      finSum != null ? `financing and holding ${usd(finSum)}` : null,
+      v(c.constructionInterest) != null ? `loan interest ${usd(v(c.constructionInterest)!)}` : null,
+      minor.length ? `closing, permit and carrying costs ${usd(sumOf(minor))}` : null,
     ].filter(Boolean);
     sentences.push(`Cost: ${parts.join(" + ")} = ${usd(tdc)} total.`);
   }
   if (plan.tenure === "sale") {
-    if (plan.revenue.sale.pricePerSf != null && plan.finishedSf != null && sale.grossSales != null)
-      sentences.push(`Value: ${usd(plan.revenue.sale.pricePerSf)} per sq ft × ${plan.finishedSf.toLocaleString("en-US")} sq ft = ${usd(sale.grossSales)} in sales.`);
-    if (sale.grossSales != null && sale.sellingCosts != null && sale.netSales != null)
-      sentences.push(`${usd(sale.grossSales)} in sales − ${usd(sale.sellingCosts)} selling costs = ${usd(sale.netSales)} you keep.`);
-    if (sale.netSales != null && tdc != null && sale.profit != null)
+    const u = plan.units ?? 0;
+    if (sale.grossSales != null) {
+      if (plan.revenue.sale.basis === "Your sale price per home")
+        sentences.push(`Value: ${usd(plan.revenue.sale.pricePerUnit!)} per home × ${u} home${u === 1 ? "" : "s"} = ${usd(sale.grossSales)} in sales.`);
+      else if (plan.revenue.sale.pricePerSf != null && plan.finishedSf != null)
+        sentences.push(`Value: ${usd(plan.revenue.sale.pricePerSf)} per sq ft × ${plan.finishedSf.toLocaleString("en-US")} finished sq ft = ${usd(sale.grossSales)} in sales.`);
+    }
+    if (sale.grossSales != null && sale.sellingCosts != null && tdc != null && sale.profit != null)
       sentences.push(
-        `${usd(sale.netSales)} − ${usd(tdc)} total cost = ${sale.profit >= 0 ? `${usd(sale.profit)} profit` : `${usd(-sale.profit)} short`}${sale.margin != null ? ` (${sale.margin >= 0 ? "" : "a loss of "}${pct1(Math.abs(sale.margin))} of cost)` : ""}.`,
+        `Profit: ${usd(sale.grossSales)} sales − ${usd(tdc)} total cost − ${usd(sale.sellingCosts)} selling costs = ${sale.profit >= 0 ? `${usd(sale.profit)} profit` : `${usd(-sale.profit)} short`}${sale.margin != null ? ` (${sale.margin >= 0 ? "" : "a loss of "}${pct1(Math.abs(sale.margin))} of cost)` : ""}.`,
       );
   } else {
     const units = plan.units ?? 0;
@@ -171,6 +182,20 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
         yieldOnCostPct: rent.yieldOnCost != null ? rent.yieldOnCost * 100 : null, verdict,
       };
   }
+
+  // Decisive money risks and steps for the four answers (plain words, no numbers).
+  const risks: string[] = [];
+  const steps: string[] = [];
+  const newBuild = plan.strategy !== "rehab_existing";
+  const vc = plan.valueComps;
+  if (plan.tenure === "sale" && plan.revenue.sale.sourceLabel !== "Your input" && (!vc || vc.status !== "ok" || vc.sufficient === false)) {
+    risks.push(newBuild ? "Too few recent new-home sales nearby to price a new house, so its value is not estimated." : "Too few similar home sales nearby to price the finished home.");
+    steps.push(newBuild ? "Ask a local agent or appraiser what new homes like this sell for nearby." : "Ask a local agent or appraiser what a fixed-up home like this sells for nearby.");
+  }
+  if (plan.sizeWarning) risks.push("The layout is small next to new homes that sold nearby, so the sale value is uncertain.");
+  if (verdict === "no" || verdict === "thin") steps.push("Get a builder's bid for this layout before buying; the cost lines show what drives the total.");
+  if (plan.exclusions.length) steps.push("Get local quotes for the cost items the estimate leaves out.");
+  if (narrative) narrative = { ...narrative, risks, steps };
 
   // ---- Benchmarks
   const projects = config.benchmarks.projects;

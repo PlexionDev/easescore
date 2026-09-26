@@ -111,6 +111,10 @@ export interface NarrativeProForma {
   fundingGap?: number | null;
   /** The pro forma's own verdict, if it has one. Otherwise margin > 0 = yes. */
   verdict?: "yes" | "thin" | "no" | null;
+  /** Decisive money risks for "What's in the way?" (plain words, no numbers), e.g. thin comps. */
+  risks?: string[] | null;
+  /** Decisive next steps from the pro forma (plain words, no numbers), e.g. get a builder's bid. */
+  steps?: string[] | null;
 }
 
 export interface NarrativeRequirement {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
 import { easeInputs, parcelFacts, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
-import { primeRate, readCostOverrides, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
+import { newCompsFor, primeRate, readCostOverrides, rehabComps, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
 import EaseScorePanel from "./EaseScorePanel";
 import ProFormaPanel from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
@@ -80,6 +80,7 @@ function money(v: unknown) {
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
+  const asOf = new Date().toISOString().slice(0, 10);
   const factsP = parcelFacts(parid);
   const salesP = salesComps(parid);
   const [facts, sales, rent, mapData, qfInput, ease, zba, permits, sfComps, prime, tapFees] = await Promise.all([
@@ -111,11 +112,17 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   let pf: assumptions.ProFormaResult | null = null;
   if (selected?.applicable) {
     try {
+      const rehab = selected.strategy === "rehab_existing";
+      const [newComps, matched] = await Promise.all([
+        newCompsFor(selected.strategy, parid, f.centroid, asOf),
+        rehab ? rehabComps(sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
+      ]);
       const plan = assumptions.buildDevelopmentInputs({
         strategy: selected.strategy,
         facts: f as assumptions.ProFormaFacts,
         scheme: easeResult?.schemes?.[selected.strategy] ?? null,
-        comps: sfComps,
+        comps: rehab ? matched : sfComps,
+        newComps,
         rents: rent as assumptions.RentCompsLike | null,
         primeRate: prime?.rate ?? null,
         primeRateDate: prime?.date ?? null,
@@ -128,8 +135,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pf = null;
     }
   }
-  const pencilsNote = pf && pf.plan.exclusions.length
-    ? `Partial estimate. Not included yet: ${pf.plan.exclusions.map((e) => e.label.charAt(0).toLowerCase() + e.label.slice(1)).join("; ")}.`
+  const pencilsNote = pf
+    ? [
+        pf.plan.sizeWarning,
+        pf.plan.priceCheck,
+        pf.plan.exclusions.length ? `Partial estimate. Not included yet: ${pf.plan.exclusions.map((e) => e.label.charAt(0).toLowerCase() + e.label.slice(1)).join("; ")}.` : null,
+      ].filter(Boolean).join(" ") || null
     : null;
 
   let answers: narrative.NarrativeResult | null = null;

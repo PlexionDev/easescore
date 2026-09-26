@@ -29,12 +29,23 @@ const MINE: Facts = {
 };
 const UNDERMINED: Facts = { ...FLAT, mines: { in_city_undermined: true } };
 
-const SCHEME = { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 1700 };
+const SCHEME = { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 1700, footprintSf: 1000, stories: 2 };
+
+// Synthetic sales around a synthetic point: six new homes ($300/SF, 1,800 SF) and many old resales ($150/SF).
+const AT = { lat: 40.4, lon: -80.0 };
+const mi = (m: number) => m / 69; // degrees of latitude per mile, close enough for tests
+const NEW_SALES: assumptions.SaleRecord[] = [0.1, 0.15, 0.2, 0.35, 0.4, 0.45].map((d, i) => ({
+  parid: `N${i}`, saleDate: `2026-0${(i % 6) + 1}-15`, price: 540000, livingAreaSqft: 1800, yearBuilt: 2024, use: "SINGLE FAMILY", lat: AT.lat + mi(d), lon: AT.lon,
+}));
+const OLD_SALES: assumptions.SaleRecord[] = Array.from({ length: 20 }, (_, i) => ({
+  parid: `O${i}`, saleDate: "2025-05-01", price: 180000, livingAreaSqft: 1200, yearBuilt: 1920, use: "SINGLE FAMILY", lat: AT.lat + mi(0.05), lon: AT.lon,
+}));
+const NEW = assumptions.newConstructionComps(AT, [...OLD_SALES, ...NEW_SALES], { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "single-family homes" });
 const COMPS: assumptions.SalesCompsLike = { status: "ok", sufficient: true, count: 12, radius_mi: 0.5, comparable_use: "single family", median_price_per_sqft: 300 };
 const RENTS: assumptions.RentCompsLike = { zori: { zip: "15000", latest_rent: 1500, latest_month: "2026-08-31" } };
 
 const plan = (facts: Facts, extra: Partial<assumptions.PlanArgs> = {}) =>
-  buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: SCHEME, comps: COMPS, rents: RENTS, primeRate: 0.07, permitMonths: 4, tapFeesPerUnit: 1000, ...extra });
+  buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: SCHEME, comps: COMPS, newComps: NEW, rents: RENTS, primeRate: 0.07, permitMonths: 4, tapFeesPerUnit: 1000, ...extra });
 
 describe("cost config", () => {
   it("has a version stamp and the Good tier at $250 as the default", () => {
@@ -51,6 +62,89 @@ describe("cost config", () => {
     expect(COST_CONFIG.siteAdders.geotechReport.value).toBeNull();
     expect(COST_CONFIG.siteAdders.demolition.value).toBeNull();
     expect(COST_CONFIG.siteAdders.dumpstersAndStreetPermit.value).toBeNull();
+  });
+});
+
+describe("comparable sales", () => {
+  it("values a new build from new-construction sales, not older resales", () => {
+    expect(NEW.status).toBe("ok");
+    expect(NEW.count).toBe(6);
+    expect(NEW.radius_mi).toBe(0.5);
+    expect(NEW.search_steps).toEqual(["3 within 0.25 mi", "6 within 0.5 mi"]);
+    expect(NEW.median_price_per_sqft).toBe(300);
+    expect(NEW.median_living_area_sqft).toBe(1800);
+    expect(NEW.year_built_range).toEqual({ from: 2024, to: 2024 });
+    const p = plan(FLAT);
+    expect(p.revenue.sale.pricePerSf).toBe(300);
+    expect(p.valueComps).toBe(NEW);
+  });
+  it("says 'insufficient new-construction comps' and shows older homes only as a floor", () => {
+    const few = assumptions.newConstructionComps(AT, [...OLD_SALES, ...NEW_SALES.slice(0, 4)], { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "single-family homes" });
+    expect(few.status).toBe("insufficient comps");
+    expect(few.radius_mi).toBe(3);
+    expect(few.note).toMatch(/^Insufficient new-construction comps: only 4 sale/);
+    const oldComps = { status: "ok", sufficient: true, count: 20, radius_mi: 0.25, comparable_use: "single family", median_price_per_sqft: 150 };
+    const p = plan(FLAT, { newComps: few, comps: oldComps });
+    expect(p.revenue.sale.pricePerSf).toBeNull();
+    expect(p.floor?.pricePerSf).toBe(150);
+    expect(p.missing[0]).toMatch(/Insufficient new-construction comps/);
+    expect(p.missing[0]).toMatch(/That is a floor, not the value of a new home/);
+    const r = evaluateDevelopment(p);
+    expect(r.sale.grossSales).toBeNull();
+    expect(r.narrative?.risks?.[0]).toMatch(/Too few recent new-home sales/);
+  });
+  it("ignores homes older than ten years at sale and sales outside the window", () => {
+    const stale = NEW_SALES.map((x) => ({ ...x, yearBuilt: 2010 }));
+    expect(assumptions.newConstructionComps(AT, stale, { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "x" }).count).toBe(0);
+    expect(assumptions.newConstructionComps(AT, NEW_SALES, { asOf: "2030-01-01", uses: ["SINGLE FAMILY"], useLabel: "x" }).count).toBe(0);
+  });
+  it("is deterministic regardless of record order", () => {
+    const shuffled = [...NEW_SALES, ...OLD_SALES].reverse();
+    expect(JSON.stringify(assumptions.newConstructionComps(AT, shuffled, { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "single-family homes" }))).toBe(JSON.stringify(NEW));
+  });
+  it("warns when the layout is small for new construction nearby", () => {
+    const p = plan(FLAT, { scheme: { units: 1, grossFloorAreaSf: 1100, netFloorAreaSf: 900 } });
+    expect(p.sizeWarning).toBe("This layout is small for new construction nearby: 900 vs 1,800 sq ft typical per home. The value assumes a home this size sells for the same price per sq ft.");
+  });
+  it("matches existing-home comps on size and age for rehab", () => {
+    const base = { comparable_use: "single family", radius_mi: 0.25, comps: [
+      ...Array.from({ length: 5 }, (_, i) => ({ parid: `A${i}`, sale_date: "2025-01-01", price: 150000, living_area_sqft: 1000, year_built: 1920, distance_mi: 0.1 })),
+      { parid: "B", sale_date: "2025-01-01", price: 900000, living_area_sqft: 3000, year_built: 2020, distance_mi: 0.1 },
+    ] };
+    const m = assumptions.matchedExistingComps({ livingAreaSqft: 1000, yearBuilt: 1915 }, base);
+    expect(m.count).toBe(5);
+    expect(m.median_price_per_sqft).toBe(150);
+  });
+});
+
+describe("your own program", () => {
+  const TOWN = { units: 4, grossFloorAreaSf: 4800, netFloorAreaSf: 4080, footprintSf: 1600, stories: 3 };
+  const prog = { parking: "tuck_under" as const, storiesAboveGarage: 2, bedrooms: 2, baths: 2.5 };
+  it("counts a tuck-under garage as gross area, never as finished area", () => {
+    const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: prog });
+    expect(p.program).toMatchObject({ units: 4, footprintPerUnitSf: 400, finishedPerUnitSf: 680, garagePerUnitSf: 400, grossSf: 4800 });
+    expect(p.finishedSf).toBe(2720);
+    // Tier cost: finished area at $250 + garage level at half the tier rate.
+    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 250 * 0.5);
+    expect(p.forSale.hardCost).toBe(2720 * 250 + 1600 * 125);
+  });
+  it("uses your cost per home without double counting the garage, and adds site adders unless they are included", () => {
+    const no = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000 } });
+    expect(no.forSale.hardCost).toBe(800000);
+    expect(no.lines.some((l) => l.id === "garage_level")).toBe(false);
+    expect(no.lines.find((l) => l.id === "slope_adder")?.amount).toBe(60 * 2720);
+    expect(no.lines.find((l) => l.id === "hard_base")?.sourceLabel).toBe("Your number");
+    const yes = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000, costIncludesSite: true } });
+    expect(yes.lines.some((l) => l.id === "slope_adder")).toBe(false);
+    expect(yes.adders[0]!.reason).toBe("Steep slope under 80% of the lot → included in your per-home cost");
+    expect(yes.exclusions.map((e) => e.id)).toEqual(["geotech"]);
+  });
+  it("uses your sale price per home and checks it against new-build sales", () => {
+    const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, salePricePerUnit: 350000, units: 3 } });
+    expect(p.units).toBe(3);
+    expect(p.revenue.sale.grossSales).toBe(1050000);
+    expect(p.priceCheck).toBe("Your price $350,000 per home vs. recent new-build median $540,000 ($300/SF, 1,800 sq ft; 6 sales within 0.5 mi).");
+    expect(evaluateDevelopment(p).sentences[1]).toBe("Value: $350,000 per home × 3 homes = $1,050,000 in sales.");
   });
 });
 
@@ -156,15 +250,16 @@ describe("pro forma", () => {
     expect(r.sale.sellingCosts).toBeCloseTo(510000 * 0.07, 6);
     expect(r.sale.profit).toBeCloseTo(510000 * 0.93 - tdc, 6);
     expect(r.narrative).toMatchObject({ tenure: "sale", totalCost: r.tdc, value: r.sale.netSales });
-    expect(r.sentences[0]).toMatch(/^Cost: land \$10,000 \+ construction \$425,000 \+ soft costs/);
+    expect(r.sentences[0]).toMatch(/^Cost: land \$10,000 \+ construction \$425,000 \+ design and engineering \$34,000 \+ contingency/);
   });
   it("says so plainly when there are not enough comps", () => {
-    const p = plan(FLAT, { comps: { status: "insufficient comps", sufficient: false, count: 3, comparable_use: "single family", note: "Insufficient comps: only 3 comparable sale(s) within 3 mi in the last 5 years. No estimate is made.", median_price_per_sqft: 200 } });
+    const p = plan(FLAT, { newComps: null });
     expect(p.revenue.sale.pricePerSf).toBeNull();
     expect(p.evidence).toBe("missing");
     const r = evaluateDevelopment(p);
     expect(r.sale.grossSales).toBeNull();
-    expect(r.narrative).toEqual({ tenure: "sale", totalCost: r.tdc, value: null });
+    expect(r.narrative).toMatchObject({ tenure: "sale", totalCost: r.tdc, value: null });
+    expect(p.missing[0]).toMatch(/New-construction sales near this lot could not be loaded/);
     expect(r.headline).toMatch(/^Can't tell yet: it costs about \$[\d,]+, but no sale value/);
   });
   it("prices rent from the ZIP index and reports NOI and yield on cost", () => {
