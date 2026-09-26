@@ -22,7 +22,7 @@
       "sourceNote": "Production builders, construction cost only; excludes builder overhead and profit. Shown for comparison only."
     },
     "garageLevelShareOfTier": { "label": "Tuck-under garage level cost (share of the tier rate per sq ft)", "value": 0.5, "sourceLabel": "Assumption — editable", "sourceNote": "Unfinished garage floor: structure, slab and door, no interior finishes." },
-    "rehabNote": "Rehab uses the same tier as a stand-in on the existing living area. Gut-rehab bids can come in lower or higher; enter your own cost per sq ft."
+    "rehabNote": "No local rehab cost is set yet, so the rehab budget is not estimated. Enter your rehab cost (per sq ft or per home) to price it; new-construction rates are never used for a rehab."
   },
 
   "siteAdders": {
@@ -132,11 +132,12 @@
       "sourceLabel": "Allegheny County sales (valid new-construction comps)"
     },
     "existingMatch": {
-      "rule": "Nearby valid sales of the same use (see the sales comps), kept when living area is within 35% and year built within 25 years of the building; at least 5, otherwise all nearby same-use sales with a note.",
+      "rule": "After-repair value: nearby valid sales of the same use in Good or better condition (county assessment condition), kept when living area is within 35% of the building; at least 5, otherwise all Good-or-better sales nearby with a note. As-is sales of older homes are not used as the value after a rehab.",
+      "afterRepairConditions": ["GOOD", "VERY GOOD", "EXCELLENT"],
       "livingAreaTolerance": 0.35,
       "yearBuiltTolerance": 25,
       "minComps": 5,
-      "sourceLabel": "Allegheny County sales (existing homes matched on size and age)"
+      "sourceLabel": "Allegheny County sales (homes in Good or better condition, matched on size)"
     },
     "smallLayoutRatio": { "label": "Layout size below which it is called small for new construction nearby (share of the comps' median size)", "value": 0.67, "sourceLabel": "Assumption — editable" }
   },

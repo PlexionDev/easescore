@@ -106,14 +106,18 @@ describe("comparable sales", () => {
     const p = plan(FLAT, { scheme: { units: 1, grossFloorAreaSf: 1100, netFloorAreaSf: 900 } });
     expect(p.sizeWarning).toBe("This layout is small for new construction nearby: 900 vs 1,800 sq ft typical per home. The value assumes a home this size sells for the same price per sq ft.");
   });
-  it("matches existing-home comps on size and age for rehab", () => {
+  it("values a rehab from Good-or-better sales only (after-repair value), matched on size", () => {
     const base = { comparable_use: "single family", radius_mi: 0.25, comps: [
-      ...Array.from({ length: 5 }, (_, i) => ({ parid: `A${i}`, sale_date: "2025-01-01", price: 150000, living_area_sqft: 1000, year_built: 1920, distance_mi: 0.1 })),
-      { parid: "B", sale_date: "2025-01-01", price: 900000, living_area_sqft: 3000, year_built: 2020, distance_mi: 0.1 },
+      ...Array.from({ length: 5 }, (_, i) => ({ parid: `G${i}`, sale_date: "2025-01-01", price: 250000, living_area_sqft: 1000, year_built: 1920, condition_desc: "GOOD", distance_mi: 0.1 })),
+      ...Array.from({ length: 6 }, (_, i) => ({ parid: `F${i}`, sale_date: "2025-01-01", price: 90000, living_area_sqft: 1000, year_built: 1920, condition_desc: "FAIR", distance_mi: 0.1 })),
+      { parid: "B", sale_date: "2025-01-01", price: 900000, living_area_sqft: 3000, year_built: 2020, condition_desc: "VERY GOOD", distance_mi: 0.1 },
     ] };
     const m = assumptions.matchedExistingComps({ livingAreaSqft: 1000, yearBuilt: 1915 }, base);
     expect(m.count).toBe(5);
-    expect(m.median_price_per_sqft).toBe(150);
+    expect(m.median_price_per_sqft).toBe(250);
+    // As-is sales of homes in Fair condition never set the after-repair value.
+    const onlyFair = assumptions.matchedExistingComps({ livingAreaSqft: 1000, yearBuilt: 1915 }, { ...base, comps: base.comps.filter((c) => c.condition_desc === "FAIR") });
+    expect(onlyFair.sufficient).toBe(false);
   });
 });
 

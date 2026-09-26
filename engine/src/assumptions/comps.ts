@@ -29,6 +29,7 @@ export interface CompRow {
   pricePerSqft: number;
   yearBuilt: number | null;
   distanceMi: number;
+  condition?: string | null;
 }
 
 export interface CompSet {
@@ -141,27 +142,26 @@ export function matchedExistingComps(
     comparable_use?: string | null;
     radius_mi?: number | null;
     search_steps?: string[] | null;
-    comps?: { parid: string; address?: string | null; sale_date: string; price: number; living_area_sqft?: number | null; year_built?: number | null; distance_mi: number }[] | null;
+    comps?: { parid: string; address?: string | null; sale_date: string; price: number; living_area_sqft?: number | null; year_built?: number | null; condition_desc?: string | null; distance_mi: number }[] | null;
   } | null,
   config: CostConfig = COST_CONFIG,
 ): CompSet {
   const r = config.comps.existingMatch;
+  const good = new Set(r.afterRepairConditions.map((x) => x.toUpperCase()));
+  // After-repair value: only homes in Good or better condition; as-is sales of older homes are never the value.
   const all: CompRow[] = (base?.comps ?? [])
-    .filter((c) => (c.living_area_sqft ?? 0) > 0 && c.price > 0)
-    .map((c) => ({ parid: c.parid, address: c.address ?? null, saleDate: c.sale_date, price: c.price, livingAreaSqft: c.living_area_sqft!, pricePerSqft: c.price / c.living_area_sqft!, yearBuilt: c.year_built ?? null, distanceMi: c.distance_mi }));
+    .filter((c) => (c.living_area_sqft ?? 0) > 0 && c.price > 0 && good.has(String(c.condition_desc ?? "").toUpperCase()))
+    .map((c) => ({ parid: c.parid, address: c.address ?? null, saleDate: c.sale_date, price: c.price, livingAreaSqft: c.living_area_sqft!, pricePerSqft: c.price / c.living_area_sqft!, yearBuilt: c.year_built ?? null, distanceMi: c.distance_mi, condition: c.condition_desc ?? null }));
   const la = subject.livingAreaSqft;
-  const yb = subject.yearBuilt;
-  const matched = all.filter(
-    (c) => (la == null || Math.abs(c.livingAreaSqft - la) <= la * r.livingAreaTolerance) && (yb == null || c.yearBuilt == null || Math.abs(c.yearBuilt - yb) <= r.yearBuiltTolerance),
-  );
+  const matched = all.filter((c) => la == null || Math.abs(c.livingAreaSqft - la) <= la * r.livingAreaTolerance);
   const useMatched = matched.length >= r.minComps;
   const rows = useMatched ? matched : all;
   const ok = rows.length >= r.minComps;
   const note = !ok
-    ? `Insufficient comps: only ${rows.length} nearby sale(s) of the same use. No value is estimated.`
+    ? `Insufficient after-repair comps: only ${rows.length} nearby sale(s) of homes in Good or better condition. No after-repair value is estimated.`
     : useMatched
-      ? `${matched.length} of ${all.length} nearby sales are within ${Math.round(r.livingAreaTolerance * 100)}% of the building's size and ${r.yearBuiltTolerance} years of its age.`
-      : `Fewer than ${r.minComps} nearby sales match the building's size and age, so all ${all.length} nearby same-use sales are used.`;
+      ? `After-repair value from ${matched.length} nearby sales of homes in Good or better condition within ${Math.round(r.livingAreaTolerance * 100)}% of the building's size.`
+      : `Fewer than ${r.minComps} Good-or-better sales match the building's size, so all ${all.length} nearby Good-or-better sales are used.`;
   return summarize(rows, {
     kind: "existing_matched",
     status: ok ? "ok" : "insufficient comps",

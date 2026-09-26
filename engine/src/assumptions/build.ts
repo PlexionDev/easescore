@@ -345,6 +345,9 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction (your number per home)" : "Construction (your number per home)", short: "construction", amount: hardBase, basis: `${units} home${units === 1 ? "" : "s"} × ${usd(perUnitCost.value)}${perUnitCost.includesSite ? ", including site work and foundation" : ", building only (site adders added separately)"}${garageSf ? "; covers the garage level too" : ""}`, sourceLabel: "Your number" });
     row("costPerUnit", "Construction cost per home", usd(perUnitCost.value), { sourceLabel: "Your number" }, null, true);
     row("costIncludesSite", "Per-home cost includes site work and foundation", perUnitCost.includesSite ? "Yes: site adders not added" : "No: site adders added on top", { sourceLabel: "Your input" }, null, true);
+  } else if (rehab && !has(o.costPerSf)) {
+    // No local rehab cost yet: never price a rehab at new-construction rates.
+    missing.push("Enter your rehab cost (per sq ft or per home). No local rehab cost is set, and new-construction rates are not used for a rehab.");
   } else if (finishedSf != null) {
     hardBase = costPerSf * finishedSf;
     lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : tier.costPerSf.sourceLabel });
@@ -406,7 +409,8 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   let msiPremium: Receipt | null = null;
   let msiCoverage: number | null = null;
   if (mineApplies) {
-    minePath = o.minePath ?? (cityUndermined ? "grouting" : "insurance");
+    // Grouting protects a new foundation; a rehab of the existing house defaults to mine subsidence insurance.
+    minePath = o.minePath ?? (cityUndermined && !rehab ? "grouting" : "insurance");
     const why = cityUndermined ? "In the City's undermined area" : f.mines?.in_mined_out ? "Over a mapped mined-out area (PA DEP)" : "Mine subsidence risk confirmed on the PA DEP insurance map";
     if (minePath === "grouting") {
       const g = cfg.siteAdders.mineGrouting;

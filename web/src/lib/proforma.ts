@@ -217,9 +217,9 @@ export async function rehabComps(
 ): Promise<assumptions.CompSet> {
   const list = own?.comps ?? [];
   const ids = [...new Set(list.map((c) => c.parid))];
-  const years = ids.length ? await select<{ parid: string; year_built: number | null }>(`assessments?select=parid,year_built&parid=in.(${ids.join(",")})`) : [];
-  const y = new Map(years.map((r) => [r.parid, r.year_built]));
-  return assumptions.matchedExistingComps(subject, { ...own, comps: list.map((c) => ({ ...c, year_built: y.get(c.parid) ?? null })) });
+  const rows = ids.length ? await select<{ parid: string; year_built: number | null; condition_desc: string | null }>(`assessments?select=parid,year_built,condition_desc&parid=in.(${ids.join(",")})`) : [];
+  const y = new Map(rows.map((r) => [r.parid, r]));
+  return assumptions.matchedExistingComps(subject, { ...own, comps: list.map((c) => ({ ...c, year_built: y.get(c.parid)?.year_built ?? null, condition_desc: y.get(c.parid)?.condition_desc ?? null })) });
 }
 
 /** Query string without the pf_* keys (for "Reset to defaults"). */
