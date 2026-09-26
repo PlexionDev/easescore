@@ -507,7 +507,9 @@ export const CATALOG: CatalogItem[] = [
       if (mapped) t.push({ status: "NOT_NEEDED", advisory: true, reason: `This parcel is over a mapped underground mine. ${paths}` });
       else if (near) t.push({ status: "NOT_NEEDED", advisory: true, reason: `A mapped mined-out area is ${Math.round(m!.dist_mined_out_ft!)} ft away. PA DEP recommends Mine Subsidence Insurance for homes on or near undermined areas; have an engineer assess. ${paths}` });
       else if (m?.in_coal_bearing) t.push({ status: "NOT_NEEDED", advisory: true, reason: "Parcel sits on coal-bearing ground with no mapped mine nearby. Mining may still have occurred." });
-      if (mapped || near || m?.in_coal_bearing || !m) t.push({ status: "NOT_NEEDED", advisory: true, reason: m ? caveat : `County-wide mine maps are still loading. ${caveat}` });
+      // Always shown (catalog: "Absence of a mapped mine is NOT proof of no mine. Always say so.")
+      t.push({ status: "NOT_NEEDED", advisory: true, reason: caveat });
+      if (!mapped && !near && !m?.in_coal_bearing) t.push({ status: "NOT_NEEDED", reason: "No mapped mine under or within 500 ft of the parcel, and not coal-bearing on PA DEP's risk map.", source: "PA DEP mined-out areas; MSI risk map" });
       return t;
     },
   },

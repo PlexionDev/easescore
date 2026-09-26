@@ -57,6 +57,7 @@ begin
              order by o.layer)
       from public.overlays o
       where ST_Intersects(o.geom, p.geom)
+        and o.layer <> 'mine_map_sheets'  -- the sheet link is in the 'mines' block
         and not (o.layer = 'flood_fema_nfhl' and o.label = 'X'
                  and coalesce(o.attrs->>'subtype', '') not ilike '%0.2 PCT%')), '[]'::jsonb),
     'flood_1pct_share', coalesce((

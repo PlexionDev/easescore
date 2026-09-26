@@ -138,14 +138,14 @@ describe("hidden costs", () => {
     const rs = evaluateRequirements(HILLSIDE, newHome);
     expect(byId(rs, "realty_transfer_tax").status).toBe("REQUIRED");
     const m = byId(rs, "mine_subsidence_paths");
-    // DEP maps mine workings under this lot, but it's outside the City's Undermined overlay: advisory only.
+    // No mapped mine under or near this lot: not needed, but the incomplete-maps caveat and map link always show.
     expect(m.status).toBe("NOT_NEEDED");
-    expect(m.advisories.join(" ")).toMatch(/over a mapped underground mine/);
+    expect(m.advisories.join(" ")).toMatch(/not proof of no mine/);
     expect(m.advisories.join(" ")).toMatch(/minemaps\.psu\.edu/);
   });
 
   it("marks mines REQUIRED only where the City code requires it", () => {
-    const over = { ...HILLSIDE, mines: { ...(HILLSIDE.mines ?? { in_mined_out: true, dist_mined_out_ft: null, in_coal_bearing: false }), in_city_undermined: true } };
+    const over = { ...HILLSIDE, mines: { ...(HILLSIDE.mines ?? { in_mined_out: false, dist_mined_out_ft: null, in_coal_bearing: false }), in_mined_out: true, in_city_undermined: true } };
     const single = byId(evaluateRequirements(over, newHome), "mine_subsidence_paths");
     expect(single.status).toBe("REQUIRED"); // DEP mine records, §906.05
     expect(single.reasons.some((t) => /§906\.05/.test(t.reason))).toBe(true);
