@@ -1,6 +1,20 @@
-# EaseScore.AI — Development Ease Score engine (DRAFT v0.1 for review)
+# EaseScore.AI — Development Ease Score engine (DRAFT v0.2 for review)
 
 **Status: draft for Paul + housing SME review. Weights are proposals, not final.**
+
+## Result structure (v0.2 — decided)
+Shown top to bottom, always in this order:
+
+1. **RED FLAGS** — deal-breakers, shown *above* the score and **never averaged into it**. A red flag doesn't lower the score; it stands on its own with its reason and source. Examples: parcel in the FEMA floodway; no legal street access (landlocked, steps-only, paper street); undermined with no mitigation path; historic-district demolition restriction; zoned for a use that forbids housing.
+2. **SITE EASE** (the Development Ease Score) — how easy the *site* is to develop: zoning fit, lot, slope, hazards, access. Physical/regulatory ease only.
+3. **INSUFFICIENT EVIDENCE** — any factor whose data is missing for this parcel (e.g. suburban zoning not loaded) is shown as *insufficient evidence*, excluded from the average, and lowers coverage/confidence. It is never scored as zero or as "fine".
+4. **FINANCIAL RESULT** — kept separate from site ease: comps, rents, costs, funding gap. A cheap-to-build site with weak rents is a different answer from a hard site in a strong market; the two are never blended.
+
+## Comps (v0.2 — decided)
+For every parcel:
+- **Sales comps:** valid arm's-length sales only (county SALECODE `0`; prices under $1,000 excluded), similar property class, nearest first. Show **count and date range**.
+- **Rent comps:** Zillow Observed Rent Index (ZORI) by ZIP, HUD Fair Market Rents (Small Area by ZIP), and RentEase listings when available (labeled sample where applicable). Show count/source and dates.
+- **Minimum 5 comps.** If fewer than 5 are found, show **"insufficient comps"**, widen the search radius in steps, and say so in a note ("widened to 1 mile: 3 sales within ½ mile"). Never estimate silently.
 
 ## Principles
 1. **Deterministic.** Same parcel + same data = same score. No randomness, no LLM in the math.

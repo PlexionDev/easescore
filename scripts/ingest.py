@@ -513,7 +513,22 @@ def zoning_rules(con):
     upload("zoning_rules", jsonable(rows(con, sql)), total, batch=100, on_conflict="zone_code")
 
 
-DATASETS = {"hidden_costs": hidden_costs, "zoning_rules": zoning_rules, "permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
+def zori(con):
+    """Zillow Observed Rent Index by ZIP (Allegheny County rows only, last 5 years)."""
+    import csv
+    rows = []
+    with open(RAW / "zori_zip.csv") as f:
+        r = csv.DictReader(f)
+        months = [c for c in r.fieldnames if c[:2] == "20"][-61:]
+        for x in r:
+            if x.get("CountyName") == "Allegheny County" and x.get("State") == "PA":
+                for m in months:
+                    if x[m]:
+                        rows.append({"zip": x["RegionName"].zfill(5), "month": m, "rent": round(float(x[m]), 2)})
+    upload("zori_zip", iter(rows), len(rows), batch=2000, on_conflict="zip,month")
+
+
+DATASETS = {"zori": zori, "hidden_costs": hidden_costs, "zoning_rules": zoning_rules, "permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":
