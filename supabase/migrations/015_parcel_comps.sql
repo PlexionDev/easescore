@@ -19,11 +19,20 @@ declare
   steps      text[] := '{}';
   cand       jsonb;
   inside     jsonb;
+  fallback   text;
 begin
   select p.parid, p.centroid, a.use_desc, a.class_desc into subj
   from parcels p left join assessments a using (parid) where p.parid = p_parid;
   if not found then return null; end if;
   use_group := case when subj.use_desc ilike '%VACANT%' then 'VACANT' else coalesce(subj.use_desc, subj.class_desc) end;
+  -- Property types that rarely sell (schools, churches, government) have no market of their own:
+  -- fall back to single-family sales as a labeled reference.
+  if use_group <> 'VACANT' and not exists (
+      select 1 from sales_valid s join assessments a using (parid)
+      where a.use_desc = use_group and s.price >= 1000 and s.sale_date >= current_date - make_interval(years => p_years) limit 1) then
+    fallback := format('No valid sales of "%s" property in the last %s years; showing single-family sales as a reference.', lower(use_group), p_years);
+    use_group := 'SINGLE FAMILY';
+  end if;
 
   -- One indexed search at the widest radius, held in memory; each step is counted from this list.
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -60,6 +69,7 @@ begin
     'count', n, 'search_steps', to_jsonb(steps), 'radius_mi', used, 'years', p_years,
     'sufficient', n >= 5,
     'status', case when n >= 5 then 'ok' else 'insufficient comps' end,
+    'fallback_note', fallback,
     'note', case
       when n >= 5 and used > radii_mi[1] then format('Search widened to %s mi to reach 5 comps (%s).', used, array_to_string(steps, '; '))
       when n < 5 then format('Insufficient comps: only %s comparable sale(s) within %s mi in the last %s years (%s). No estimate is made.', n, used, p_years, array_to_string(steps, '; '))

@@ -3,7 +3,7 @@
 // confirmation (see docs/CODE-CITATIONS.md). Cost and duration are never filled here.
 import {
   SRC, USE_LABEL, ask, buildsNew, confidenceNote, hasStructure, isConstruction, isPittsburgh, notNeeded,
-  overlayLabelled, overlays, pct, usePermission,
+  overlayLabelled, overlays, pct, steepShare, usePermission,
 } from "./helpers";
 import type { ParcelFacts, Phase, ProjectAnswers, Trigger } from "./types";
 
@@ -45,9 +45,9 @@ export const CATALOG: CatalogItem[] = [
     id: "survey_topo", item: "Survey (topographic)", category: "Due diligence", phase: "due_diligence",
     issuer: "Licensed surveyor", trigger: "Slopes, grading, drainage design", data: ["Slope"], citation: null,
     rule: (f, p) => {
-      const s = f.slope;
-      if (s && s.steep_share > 0) return [{ status: "REQUIRED", reason: `${pct(s.steep_share)} of the lot is steeper than 25%; grading and foundations need measured contours.`, source: SRC.slope }];
-      if (s && s.mean_pct >= 15) return [{ status: "LIKELY", reason: `Average slope is ${s.mean_pct}%.`, source: SRC.slope }];
+      const s = steepShare(f);
+      if (s && s.share >= 0.1) return [{ status: "REQUIRED", reason: `${pct(s.share)} of the lot is steeper than 25%; grading and foundations need measured contours.`, source: s.label }];
+      if (s && s.mean >= 15) return [{ status: "LIKELY", reason: `Average slope is ${s.mean}%.`, source: s.label }];
       if (buildsNew(p)) return [{ status: "POSSIBLE", reason: "New construction usually needs spot elevations for drainage design." }];
       return [notNeeded("Lot is fairly flat.", SRC.slope)];
     },
@@ -181,7 +181,8 @@ export const CATALOG: CatalogItem[] = [
     rule: (f, p) => {
       const t: Trigger[] = [];
       if (p.type === "addition") t.push({ status: "REQUIRED", reason: "Additions change structural loads.", source: SRC.project });
-      if (buildsNew(p) && f.slope && f.slope.steep_share > 0) t.push({ status: "REQUIRED", reason: `Foundation on a lot that is ${pct(f.slope.steep_share)} steeper than 25%.`, source: SRC.slope });
+      const st = steepShare(f);
+      if (buildsNew(p) && st && st.share >= 0.1) t.push({ status: "LIKELY", reason: `Foundation on a lot that is ${pct(st.share)} steeper than 25%.`, source: st.label });
       if ((p.units ?? 0) >= 3) t.push({ status: "LIKELY", reason: "Multifamily building.", source: SRC.project });
       if (!p.type) t.push(needsType(p)!);
       return t.length ? t : [{ status: "POSSIBLE", reason: "Depends on the design." }];
@@ -191,9 +192,9 @@ export const CATALOG: CatalogItem[] = [
     id: "retaining_wall", item: "Retaining wall design", category: "Engineering", phase: "design_engineering",
     issuer: "Structural/geotechnical engineer", trigger: "Grade changes; walls over ~4 ft need engineered design", data: ["Slope"], citation: "IRC R404.4 (as adopted in PA UCC) — confirm",
     rule: (f, p) => {
-      const s = f.slope;
-      if (s && s.steep_share > 0 && (buildsNew(p) || !p.type)) return [{ status: "LIKELY", reason: `${pct(s.steep_share)} of the lot is steeper than 25%; level building area usually means walls over 4 ft.`, source: SRC.slope }];
-      if (s && s.mean_pct >= 15) return [{ status: "POSSIBLE", reason: `Average slope ${s.mean_pct}%.`, source: SRC.slope }];
+      const s = steepShare(f);
+      if (s && s.share >= 0.1 && (buildsNew(p) || !p.type)) return [{ status: "LIKELY", reason: `${pct(s.share)} of the lot is steeper than 25%; level building area usually means walls over 4 ft.`, source: s.label }];
+      if (s && s.mean >= 15) return [{ status: "POSSIBLE", reason: `Average slope ${s.mean}%.`, source: s.label }];
       return [notNeeded("Lot is fairly flat.", SRC.slope)];
     },
   },
@@ -202,7 +203,8 @@ export const CATALOG: CatalogItem[] = [
     issuer: "Civil engineer", trigger: "Grading, stormwater, multiple units, new driveways", data: ["Slope", "Project"], citation: null,
     rule: (f, p) => {
       const t: Trigger[] = [];
-      if (f.slope && f.slope.steep_share > 0 && buildsNew(p)) t.push({ status: "LIKELY", reason: "New construction on steep ground needs a grading plan.", source: SRC.slope });
+      const st = steepShare(f);
+      if (st && st.share >= 0.1 && buildsNew(p)) t.push({ status: "LIKELY", reason: `New construction on steep ground (${pct(st.share)} of the lot over 25%) needs a grading plan.`, source: st.label });
       if ((p.units ?? 0) >= 3) t.push({ status: "LIKELY", reason: `${p.units} units.`, source: SRC.project });
       if (p.new_driveway) t.push({ status: "LIKELY", reason: "New driveway.", source: SRC.project });
       if (!p.type) t.push(needsType(p)!);
@@ -288,7 +290,8 @@ export const CATALOG: CatalogItem[] = [
       }
       const perm = usePermission(f, p);
       if (perm?.code === "N") t.push({ status: "LIKELY", reason: `${USE_LABEL[perm.col]} is not permitted in ${f.zoning!.code}: a use variance would be needed (§911.02 Use Table)${confidenceNote(rules.confidence)}.`, source: "Pittsburgh Zoning Code" });
-      if (f.slope && f.slope.steep_share >= 0.5) t.push({ status: "POSSIBLE", reason: `${pct(f.slope.steep_share)} of the lot is steeper than 25%; steep lots often can't fit standard setbacks (front ${rules.min_front_setback_ft ?? "?"} ft, rear ${rules.min_rear_setback_ft ?? "?"} ft, side ${rules.min_side_setback_ft ?? "?"} ft).`, source: SRC.slope });
+      const st = steepShare(f);
+      if (st && st.share >= 0.5) t.push({ status: "POSSIBLE", reason: `${pct(st.share)} of the lot is steeper than 25%; steep lots often can't fit standard setbacks (front ${rules.min_front_setback_ft ?? "?"} ft, rear ${rules.min_rear_setback_ft ?? "?"} ft, side ${rules.min_side_setback_ft ?? "?"} ft).`, source: st.label });
       if (p.units === undefined) t.push(ask("How many units? The use table differs by unit count."));
       return t.length ? t : [notNeeded(`Lot meets ${f.zoning!.code}'s minimum size and the use is allowed; dimensional fit depends on the design.`, "Pittsburgh Zoning Code")];
     },
@@ -316,7 +319,7 @@ export const CATALOG: CatalogItem[] = [
       if (!perm) return [{ status: "POSSIBLE", reason: "No use rule found for this district." }];
       if (perm.code === "S") return [{ status: "REQUIRED", reason: `${USE_LABEL[perm.col]} is a special exception in ${f.zoning!.code}${confidenceNote(perm.rules.confidence)}.`, source: "Pittsburgh Zoning Code" }];
       if (perm.code === "A") return [{ status: "LIKELY", reason: `${USE_LABEL[perm.col]} needs an Administrator Exception in ${f.zoning!.code}.`, source: "Pittsburgh Zoning Code" }];
-      return [notNeeded(`${USE_LABEL[perm.col]} is ${perm.code === "P" ? "permitted by right" : "not handled by special exception"} in ${f.zoning!.code}.`, "Pittsburgh Zoning Code")];
+      return [notNeeded(perm.code === "P" ? `${USE_LABEL[perm.col]} is permitted by right in ${f.zoning!.code}.` : perm.code === "N" ? `${USE_LABEL[perm.col]} isn't allowed in ${f.zoning!.code} at all (see Variance), so a special exception doesn't apply.` : `No special exception needed for ${USE_LABEL[perm.col]} in ${f.zoning!.code}.`, "Pittsburgh Zoning Code")];
     },
   },
   {
@@ -363,7 +366,7 @@ export const CATALOG: CatalogItem[] = [
     issuer: "PLI / municipality", trigger: "Removing any structure", data: ["Existing structure"], citation: null,
     rule: (f, p) => {
       if (p.type === "demolition") return [{ status: "REQUIRED", reason: "Project is a demolition.", source: SRC.project }];
-      if (hasStructure(f) && p.type === "new_build") return [{ status: "LIKELY", reason: "There is a structure on the lot today.", source: SRC.assessment }];
+      if (hasStructure(f) && p.type === "new_build") return [ask("There's a building on the lot today. Will it be demolished?")];
       if (!p.type && hasStructure(f)) return [ask("Will the existing structure be removed?")];
       return [notNeeded(hasStructure(f) ? "Existing structure stays." : "No structure recorded on the lot.", SRC.assessment)];
     },
@@ -372,7 +375,8 @@ export const CATALOG: CatalogItem[] = [
     id: "grading_permit", item: "Grading / earth disturbance permit", category: "Permit", phase: "permits",
     issuer: "PLI / municipality", trigger: "Cut/fill beyond threshold, hillside work", data: ["Slope", "Project"], citation: null,
     rule: (f, p) => {
-      if (buildsNew(p) && f.slope && f.slope.steep_share > 0) return [{ status: "LIKELY", reason: `Hillside construction (${pct(f.slope.steep_share)} of lot over 25%).`, source: SRC.slope }];
+      const st = steepShare(f);
+      if (buildsNew(p) && st && st.share >= 0.1) return [{ status: "LIKELY", reason: `Hillside construction (${pct(st.share)} of lot over 25%). A land operations permit is needed at 50 cu yd of grading or a 5 ft cut on a 25% slope (Pittsburgh §1003.03).`, source: st.label }];
       if (buildsNew(p)) return [{ status: "POSSIBLE", reason: "Depends on cut/fill volume (threshold pending)." }];
       return p.type ? [notNeeded("No significant earthwork expected.")] : [needsType(p)!];
     },
@@ -452,7 +456,7 @@ export const CATALOG: CatalogItem[] = [
   { id: "sewage_planning", item: "Sewage planning (new connections/lots)", category: "Utilities", phase: "permits", issuer: "Municipality / sewer authority; PA DEP", trigger: "New lots or added units adding sewer load", data: ["Units"], citation: "PA Sewage Facilities Act (Act 537), 35 P.S. §750.1 et seq.",
     rule: (_f, p) => (p.units === undefined ? [ask("How many units?")] : buildsNew(p) || p.lot_split_or_merge ? [{ status: "POSSIBLE", reason: "New units or lots add sewer load; confirm the local planning rule.", source: SRC.project }] : [notNeeded("No added sewer load.")]) },
   { id: "utility_disconnect", item: "Utility disconnects", category: "Demolition", phase: "permits", issuer: "Each utility", trigger: "Before any demolition", data: ["Existing structure"], citation: null,
-    rule: (f, p) => (p.type === "demolition" || (p.type === "new_build" && hasStructure(f)) ? [{ status: "REQUIRED", reason: "Utilities must be cut before demolition.", source: SRC.assessment }] : [notNeeded("No demolition.")]) },
+    rule: (f, p) => (p.type === "demolition" ? [{ status: "REQUIRED", reason: "Utilities must be cut before demolition.", source: SRC.project }] : p.type === "new_build" && hasStructure(f) ? [ask("There's a building on the lot today. Will it be demolished? (Utilities must be cut before any demolition.)")] : [notNeeded("No demolition.")]) },
 
   // ---------- Construction ----------
   { id: "contractor_license", item: "Contractor licensing / registration", category: "Construction", phase: "construction", issuer: "City; PA Attorney General (HICPA)", trigger: "Always", data: [], citation: "Home Improvement Consumer Protection Act, 73 P.S. §517.1 et seq.",
@@ -599,7 +603,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "hillside_repair", item: "Retaining wall failure / hillside repair", category: "Hidden cost", phase: "due_diligence",
     issuer: "Structural / geotechnical engineer", trigger: "Steep lot with existing walls or structures", data: ["Slope", "Existing structure"], citation: null,
-    rule: (f) => (f.slope && f.slope.steep_share >= 0.25 && hasStructure(f) ? [{ status: "POSSIBLE", reason: `${pct(f.slope.steep_share)} of the lot is over 25% with existing structures: inspect retaining walls and the hillside.`, source: SRC.slope }] : [notNeeded("No steep lot with existing structures.", SRC.slope)]),
+    rule: (f) => { const st = steepShare(f); return st && st.share >= 0.25 && hasStructure(f) ? [{ status: "POSSIBLE", reason: `${pct(st.share)} of the lot is over 25% with existing structures: inspect retaining walls and the hillside.`, source: st.label }] : [notNeeded("No steep lot with existing structures.", st?.label ?? SRC.slope)]; },
   },
   {
     id: "access", item: "Access problems (steps-only, paper street, landlocked)", category: "Hidden cost", phase: "due_diligence",

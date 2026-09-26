@@ -50,7 +50,14 @@ export function usePermission(f: ParcelFacts, p: ProjectAnswers) {
 export const confidenceNote = (c: string | null | undefined) =>
   c && c !== "confirmed" ? ` (rule transcription is ${c}; check the code text)` : "";
 
-export const ask =(question: string): Trigger => ({ status: "ASK", reason: question, source: "Project answers" });
+/** Share of the lot steeper than 25%: 1 m lidar when available, else 10 m. */
+export function steepShare(f: ParcelFacts): { share: number; mean: number; label: string } | null {
+  if (f.slope_1m) return { share: f.slope_1m.share_over_25, mean: f.slope_1m.mean_pct, label: "USGS 3DEP 1 m lidar" };
+  if (f.slope) return { share: f.slope.steep_share, mean: f.slope.mean_pct, label: "USGS 3DEP elevation (10 m)" };
+  return null;
+}
+
+export const ask = (question: string): Trigger => ({ status: "ASK", reason: question, source: "Project answers" });
 
 export const notNeeded = (reason: string, source?: string): Trigger => ({ status: "NOT_NEEDED", reason, source });
 
