@@ -22,6 +22,8 @@ export function hasSignChange(flows: readonly number[]): boolean {
 
 // Solver settings (numerical, not financial assumptions).
 const TOLERANCE = 1e-10;
+/** Relative precision to which IRR rates are solved. */
+const RATE_PRECISION = 1e-14;
 const MAX_NEWTON = 100;
 const MAX_BISECT = 300;
 const NEWTON_SEED = 0.1;
@@ -42,12 +44,12 @@ export function irr(flows: readonly number[]): number | null {
   let r = NEWTON_SEED;
   for (let k = 0; k < MAX_NEWTON; k++) {
     const f = npv(r, flows);
-    if (Math.abs(f) <= TOLERANCE * scale) return r;
+    if (f === 0) return r;
     const d = npvDerivative(r, flows);
     if (d === 0 || !Number.isFinite(d)) break;
     const next = r - f / d;
     if (!Number.isFinite(next) || next <= -1) break;
-    if (Math.abs(next - r) < TOLERANCE) {
+    if (Math.abs(next - r) <= RATE_PRECISION * Math.max(1, Math.abs(next))) {
       if (Math.abs(npv(next, flows)) <= Math.sqrt(TOLERANCE) * scale) return next;
       break;
     }
@@ -57,7 +59,7 @@ export function irr(flows: readonly number[]): number | null {
   for (let g = 0; g + 1 < BRACKET_GRID.length; g++) {
     const lo = BRACKET_GRID[g] as number;
     const hi = BRACKET_GRID[g + 1] as number;
-    const root = bisect((x) => npv(x, flows), lo, hi);
+    const root = bisect((x) => npv(x, flows), lo, hi, RATE_PRECISION);
     if (root !== null) return root;
   }
   return null;

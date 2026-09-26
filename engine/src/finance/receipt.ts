@@ -124,20 +124,29 @@ export function sumLines(
 }
 
 /**
- * Pick the first alternative whose inputs were supplied. When none are complete, the result is
- * "insufficient evidence" listing each alternative, e.g. "hardCost (or hardCostPerSqFt and grossSqFt)".
+ * Pick the first alternative whose inputs were supplied (e.g. hard cost as a total, or cost per sq ft × sq ft).
+ * - An alternative that computes (or is "not computable") wins.
+ * - Else, an alternative whose own inputs were all entered but which waits on an upstream value is chosen,
+ *   so the missing list names only the upstream items.
+ * - Else the missing list offers each alternative: "hardCost (or hardCostPerSqFt and grossSqFt)".
  */
 export function oneOf(label: string, alternatives: Receipt[]): Receipt {
   const done = alternatives.find((r) => r.status !== "insufficient evidence");
   if (done) return done;
-  const options = alternatives.map((r) => (r.status === "insufficient evidence" ? r.missing.join(" and ") : ""));
-  const first = alternatives[0];
+  const insufficient = alternatives.filter((r): r is Insufficient => r.status === "insufficient evidence");
+  const own = (r: Insufficient) => r.missing.filter((m) => m in r.inputs);
+  const upstream = (r: Insufficient) => r.missing.filter((m) => !(m in r.inputs));
+  const chosen = insufficient.find((r) => own(r).length === 0);
+  if (chosen) return chosen;
+  const options = insufficient.map((r) => own(r).join(" and "));
+  const first = options[0] ?? label;
+  const offer = options.length > 1 ? `${first} (or ${options.slice(1).join(", or ")})` : first;
   return {
     status: "insufficient evidence",
     value: null,
     label,
     formula: alternatives.map((r) => r.formula).join("  OR  "),
-    inputs: first ? first.inputs : {},
-    missing: [options.length > 1 ? `${options[0]} (or ${options.slice(1).join(", or ")})` : options[0] ?? label],
+    inputs: Object.assign({}, ...alternatives.map((r) => r.inputs)),
+    missing: dedupe([offer, ...insufficient.slice(1).flatMap(upstream)]),
   };
 }
