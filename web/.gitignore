@@ -43,3 +43,9 @@ next-env.d.ts
 # MapLibre worker copies (created by postinstall)
 public/maplibre-gl-worker.mjs
 public/maplibre-gl-shared.mjs
+
+# Generated map tiles (large; regenerate with scripts/terrain.py and scripts/vector_tiles.sh)
+public/tiles/
+
+# Cesium static assets (Workers, Assets, Widgets, ThirdParty), copied by postinstall
+public/cesium/

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { quickfit } from "@easescore/engine";
 
 type QFInput = {
@@ -28,7 +28,7 @@ function Plan({ input, env, scheme }: { input: QFInput; env: [number, number][][
   const path = (ring: [number, number][]) => ring.map((p, i) => `${i ? "L" : "M"}${p[0] - minX},${maxY - p[1]}`).join(" ") + " Z";
   const n = all.length;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-72 w-full rounded border border-zinc-200 bg-zinc-50" role="img" aria-label="Plan view of the lot, buildable area, and scheme footprints">
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-56 w-full rounded-xl border border-slate-200 bg-slate-50" role="img" aria-label="Plan view of the lot, buildable area, and scheme footprints">
       {input.masks.map((m, i) => m.polygon.map((r, j) => (
         <path key={`m${i}${j}`} d={path(r)} fill={m.mode === "cut" ? "#3b82f6" : "#ef4444"} fillOpacity={0.18} stroke="none" />
       )))}
@@ -43,7 +43,7 @@ function Plan({ input, env, scheme }: { input: QFInput; env: [number, number][][
   );
 }
 
-export default function QuickFitPanel({ input, rules, zoneCode }: { input: QFInput; rules: Record<string, unknown> | null; zoneCode: string | null }) {
+export default function QuickFitPanel({ input, rules, zoneCode, onScheme, onEnvelope }: { input: QFInput; rules: Record<string, unknown> | null; zoneCode: string | null; onScheme?: (s: quickfit.Scheme | null) => void; onEnvelope?: (polygons: [number, number][][][] | null) => void }) {
   const [goal, setGoal] = useState<quickfit.Goal>("most_units");
   const [frontVar, setFrontVar] = useState<string>("");
   const [sideVar, setSideVar] = useState<string>("");
@@ -65,6 +65,16 @@ export default function QuickFitPanel({ input, rules, zoneCode }: { input: QFInp
       return { error: String(e) } as const;
     }
   }, [input, rules, zoneCode, goal, frontVar, sideVar]);
+
+  const chosenForMap = useMemo(() => {
+    if (!result || "error" in result) return null;
+    const seen: quickfit.Scheme[] = [];
+    for (const s of result.ranked) { if (!seen.some((t) => t.typology === s.typology)) seen.push(s); if (seen.length === 3) break; }
+    return seen[Math.min(pick, seen.length - 1)] ?? null;
+  }, [result, pick]);
+  useEffect(() => { onScheme?.(chosenForMap); }, [chosenForMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Buildable envelope in the same local coordinates as the footprints (for the photoreal 3D view).
+  useEffect(() => { onEnvelope?.(result && !("error" in result) ? (result.envelope.polygons as [number, number][][][]) : null); }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!rules || !zoneCode) return <p className="text-sm text-zinc-600">QuickFit needs the district's zoning rules; they're only loaded for the City of Pittsburgh so far.</p>;
   if (input.frontEdges.length === 0) return <p className="text-sm text-zinc-600">No street frontage found near this lot, so QuickFit can't orient a building.</p>;
@@ -96,7 +106,7 @@ export default function QuickFitPanel({ input, rules, zoneCode }: { input: QFInp
         <p className="text-zinc-600">Lot {Math.round(result.lotAreaSf).toLocaleString()} sq ft · buildable envelope {Math.round(result.envelope.areaSf).toLocaleString()} sq ft · {result.all.length} layouts tried</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4">
         <div>
           <Plan input={input} env={result.envelope.polygons as [number, number][][][]} scheme={chosen} />
           <p className="mt-1 text-xs text-zinc-500">Yellow: lot · black: street frontage · green dashed: buildable envelope · blue: floodway (cut) · red: hazard overlay (flag) · colored boxes: units</p>

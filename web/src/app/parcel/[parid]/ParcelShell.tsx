@@ -1,0 +1,129 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import MapStage, { type Footprints } from "./MapStage";
+import QuickFitPanel from "./QuickFitPanel";
+import { ViewSwitch, KeyNeeded, PhotorealSkeleton, VIEW_MODES, type ViewMode } from "./ViewModes";
+
+// Cesium + Google tiles load only when the photoreal view is shown (never in the initial JS).
+const Photoreal3D = dynamic(() => import("./Photoreal3D"), { ssr: false, loading: () => <PhotorealSkeleton /> });
+
+// Inlined at build time; true when a Google Map Tiles key is configured.
+const HAS_KEY = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+const PANEL_W = 440, GUTTER = 16;
+
+type Affine = { lon0: number; lat0: number; lon_per_x: number; lat_per_x: number; lon_per_y: number; lat_per_y: number };
+type Sheet = "peek" | "half" | "full";
+const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
+const PEEK_PX = 104;
+
+export default function ParcelShell({ header, top, mapData, qfInput, rules, zoneCode, children }: {
+  header: ReactNode; top?: ReactNode; mapData: any; qfInput: any; rules: Record<string, unknown> | null; zoneCode: string | null; children: ReactNode;
+}) {
+  const [footprints, setFootprints] = useState<Footprints>(null);
+  const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
+  const a: Affine | undefined = qfInput?.toLonLat;
+  const toLonLat = (p: [number, number]): [number, number] =>
+    a ? [a.lon0 + a.lon_per_x * p[0] + a.lon_per_y * p[1], a.lat0 + a.lat_per_x * p[0] + a.lat_per_y * p[1]] : p;
+
+  // View mode: kept in the URL hash (#view=photoreal|terrain|analysis).
+  const [mode, setMode] = useState<ViewMode>(HAS_KEY ? "photoreal" : "terrain");
+  const [stageMounted, setStageMounted] = useState(!HAS_KEY);
+  useEffect(() => {
+    const read = () => {
+      const m = /view=(\w+)/.exec(window.location.hash)?.[1] as ViewMode | undefined;
+      if (m && VIEW_MODES.includes(m)) { setMode(m); if (m !== "photoreal") setStageMounted(true); }
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+  const choose = (m: ViewMode) => {
+    setMode(m);
+    if (m !== "photoreal") setStageMounted(true);
+    window.history.replaceState(null, "", `#view=${m}`);
+  };
+
+  // Mobile: the panel is a bottom sheet (peek / half / full), the map stays full-bleed.
+  const [mobile, setMobile] = useState(false);
+  const [vh, setVh] = useState(800);
+  const [sheet, setSheet] = useState<Sheet>("half");
+  const [dragH, setDragH] = useState<number | null>(null);
+  const drag = useRef<{ y: number; h: number; moved: boolean } | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const upd = () => { setMobile(mq.matches); setVh(window.innerHeight); };
+    upd();
+    mq.addEventListener("change", upd);
+    window.addEventListener("resize", upd);
+    return () => { mq.removeEventListener("change", upd); window.removeEventListener("resize", upd); };
+  }, []);
+  const sheetPx = (s: Sheet) => (s === "peek" ? PEEK_PX : Math.round(vh * SHEET_FRAC[s]));
+  const sheetH = dragH ?? sheetPx(sheet);
+  const insets = useMemo(() => (mobile ? { left: 0, bottom: sheetPx(sheet) } : { left: PANEL_W + GUTTER, bottom: 0 }), [mobile, sheet, vh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onHandleDown = (e: React.PointerEvent) => {
+    drag.current = { y: e.clientY, h: sheetH, moved: false };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const dy = d.y - e.clientY;
+    if (Math.abs(dy) > 4) d.moved = true;
+    if (d.moved) setDragH(Math.max(PEEK_PX, Math.min(vh * 0.92, d.h + dy)));
+  };
+  const onHandleUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (!d.moved) { setSheet(sheet === "peek" ? "half" : sheet === "half" ? "full" : "peek"); setDragH(null); return; }
+    const h = dragH ?? d.h;
+    const best = (["peek", "half", "full"] as Sheet[]).reduce((b, s) => (Math.abs(sheetPx(s) - h) < Math.abs(sheetPx(b) - h) ? s : b), "half");
+    setSheet(best);
+    setDragH(null);
+  };
+
+  const photoFootprints = useMemo(() => (footprints ? { rings: footprints.rings, heightFt: footprints.heightFt } : null), [footprints]);
+  const maxHeightFt = typeof rules?.max_height_ft === "number" ? (rules.max_height_ft as number) : 40;
+  const photoEnvelope = useMemo(() => (envelope ? { rings: envelope, heightFt: maxHeightFt } : null), [envelope, maxHeightFt]);
+  const parcelKey = String((mapData?.features as { properties?: { kind?: string; id?: string } }[] | undefined)?.find((f) => f.properties?.kind === "parcel")?.properties?.id ?? mapData?.center?.join(",") ?? "parcel");
+
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-slate-100">
+      {mapData && stageMounted && (
+        <div className={`absolute inset-0 ${mode === "photoreal" ? "invisible" : ""}`} aria-hidden={mode === "photoreal"}>
+          <MapStage data={mapData} footprints={footprints} />
+        </div>
+      )}
+      {mapData && mode === "photoreal" && (HAS_KEY
+        ? <Photoreal3D parcelKey={parcelKey} data={mapData} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
+        : <KeyNeeded onFallback={() => choose("terrain")} />)}
+      {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} />}
+
+      <aside
+        className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-2xl border border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl md:inset-x-auto md:bottom-4 md:left-4 md:top-4 md:w-[440px] md:rounded-2xl md:bg-white/85 ${dragH == null ? "transition-[height] duration-300" : ""}`}
+        style={mobile ? { height: sheetH } : undefined}>
+        <button type="button" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
+          className="flex w-full touch-none justify-center pb-1 pt-2 md:hidden" aria-label={sheet === "full" ? "Collapse details" : "Expand details"}>
+          <span className="h-1.5 w-10 rounded-full bg-slate-300" />
+        </button>
+        <div className="border-b border-slate-200/70 px-5 pb-3 pt-1 md:pt-4">{header}</div>
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
+          {top}
+          <section>
+            <h2 className="text-base font-semibold text-slate-900">QuickFit · what fits here</h2>
+            <p className="mb-2 text-xs text-slate-500">Single-family, duplex, townhouse row. The selected layout is drawn in 3D on the map.</p>
+            {qfInput ? (
+              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode}
+                onScheme={(s) => setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null)}
+                onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
+            ) : <p className="text-sm text-slate-600">No lot geometry available.</p>}
+          </section>
+          {children}
+        </div>
+      </aside>
+    </div>
+  );
+}
