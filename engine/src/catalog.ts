@@ -494,7 +494,7 @@ export const CATALOG: CatalogItem[] = [
       return [notNeeded("No stream or wetland mapped nearby.", "NHD / NWI")];
     } },
 
-  // ---------- Hidden / surprise costs (cost amounts: Paul fills) ----------
+  // ---------- Hidden / surprise costs (cost amounts: supplied by the project owner) ----------
   {
     id: "mine_subsidence_paths", item: "Mine subsidence — investigation, insurance, or grouting", category: "Hidden cost", phase: "due_diligence",
     issuer: "PA DEP Mine Subsidence Insurance; mine-grouting contractor + engineer", trigger: "Required only where a local code requires it (City of Pittsburgh §906.05); otherwise an awareness advisory", data: ["Mined-out areas", "Coal-bearing areas", "PA Mine Map Atlas"],

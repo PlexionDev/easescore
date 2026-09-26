@@ -147,6 +147,6 @@ export interface RequirementResult {
   advisories: string[]; // awareness notes that don't change the status
   citation: string | null;
   notes: string[]; // "confirm with <municipality>", "verify with the issuing office", ...
-  cost: null; // Paul fills — never invented
+  cost: null; // supplied by the project owner — never invented
   duration: null;
 }

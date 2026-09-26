@@ -1,6 +1,6 @@
 # EaseScore.AI — Development Ease Score engine (DRAFT v0.2 for review)
 
-**Status: draft for Paul + housing SME review. Weights are proposals, not final.**
+**Status: draft for project owner + housing SME review. Weights are proposals, not final.**
 
 ## Result structure (v0.2 — decided)
 Shown top to bottom, always in this order:
