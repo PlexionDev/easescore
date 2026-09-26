@@ -95,7 +95,7 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
       // Hazards
       for (const o of OVERLAYS) {
         const f: maplibregl.FilterSpecification = ["==", ["get", "kind"], o.kind];
-        m.addLayer({ id: `${o.kind}-fill`, type: "fill", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "fill-color": o.color, "fill-opacity": 0.1 } });
+        m.addLayer({ id: `${o.kind}-fill`, type: "fill", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "fill-color": o.color, "fill-opacity": 0.04 } });
         m.addLayer({ id: `${o.kind}-line`, type: "line", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "line-color": o.color, "line-width": 2, "line-opacity": 0.85, "line-dasharray": [4, 2] } });
       }
       // Contours
@@ -118,7 +118,7 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
         paint: { "fill-extrusion-color": "#f59e0b", "fill-extrusion-height": ["coalesce", ["get", "height_m"], 8], "fill-extrusion-opacity": 0.95, "fill-extrusion-vertical-gradient": true } });
       // The parcel: glowing outline + translucent lift
       m.addLayer({ id: "parcel-glow", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#facc15", "line-width": 12, "line-blur": 8, "line-opacity": 0.7 } });
-      m.addLayer({ id: "parcel-fill", type: "fill", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "fill-color": "#facc15", "fill-opacity": 0.18 } });
+      m.addLayer({ id: "parcel-fill", type: "fill", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "fill-color": "#facc15", "fill-opacity": 0.07 } });
       m.addLayer({ id: "parcel-line", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#ca8a04", "line-width": 3 } });
       // QuickFit scheme massing
       m.addSource("scheme", { type: "geojson", data: { type: "FeatureCollection", features: [] } });

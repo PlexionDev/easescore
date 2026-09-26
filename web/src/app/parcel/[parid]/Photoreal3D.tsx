@@ -185,7 +185,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
           const zoning = f.properties.kind === "zoning";
           for (const poly of polysOf(f.geometry)) {
             if (!poly[0] || poly[0].length < 3) continue;
-            if (!zoning) ents.push(src.entities.add({ polygon: { hierarchy: hier(poly), material: col(color, 0.18), classificationType: CT } }));
+            if (!zoning) ents.push(src.entities.add({ polygon: { hierarchy: hier(poly), material: col(color, 0.05), classificationType: CT } }));
             ents.push(src.entities.add({ polyline: { positions: line(open(poly[0])), width: zoning ? 2.5 : 2, material: col(zoning ? "#0f172a" : color, 0.95), clampToGround: true, classificationType: CT } }));
             if (zoning && f.properties.label) {
               const outer = open(poly[0]);
@@ -227,8 +227,8 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
 
       // The parcel: light fill, soft glow, crisp bright edge.
       for (const r of parcelRings) {
-        src.entities.add({ polygon: { hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(r.flat())), material: col("#facc15", 0.2), classificationType: CT } });
-        src.entities.add({ polyline: { positions: line(r), width: 12, material: col("#facc15", 0.35), clampToGround: true, classificationType: CT } });
+        src.entities.add({ polygon: { hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(r.flat())), material: col("#facc15", 0.07), classificationType: CT } });
+        src.entities.add({ polyline: { positions: line(r), width: 12, material: col("#facc15", 0.22), clampToGround: true, classificationType: CT } });
         src.entities.add({ polyline: { positions: line(r), width: 3, material: col("#fde047", 1), clampToGround: true, classificationType: CT } });
       }
 
