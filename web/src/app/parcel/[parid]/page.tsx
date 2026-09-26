@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { evaluateRequirements, PHASE_ORDER, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
-import { parcelFacts, rentComps, salesComps } from "@/lib/data";
+import { parcelFacts, parcelMap, rentComps, salesComps } from "@/lib/data";
+import ParcelMap from "./ParcelMap";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -47,7 +48,7 @@ function money(v: unknown) {
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
-  const [facts, sales, rent] = await Promise.all([parcelFacts(parid), salesComps(parid), rentComps(parid)]);
+  const [facts, sales, rent, mapData] = await Promise.all([parcelFacts(parid), salesComps(parid), rentComps(parid), parcelMap(parid)]);
   if (!facts) notFound();
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
@@ -66,6 +67,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       <p className="text-zinc-600">
         {a?.municipality} · {f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not available"} · {a?.use} · Parcel {parid}
       </p>
+
+      {mapData && <section className="mt-4"><ParcelMap data={mapData} /></section>}
 
       {/* 1. Red flags — above everything, never averaged in */}
       <section className="mt-6">

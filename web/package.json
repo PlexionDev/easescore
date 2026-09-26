@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/"
   },
   "dependencies": {
     "@easescore/engine": "file:../engine",
+    "maplibre-gl": "^6.11.2",
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",

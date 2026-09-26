@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# MapLibre worker copies (created by postinstall)
+public/maplibre-gl-worker.mjs
+public/maplibre-gl-shared.mjs
