@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { evaluateRequirements, PHASE_ORDER, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
-import { parcelFacts, parcelMap, rentComps, salesComps } from "@/lib/data";
+import { parcelFacts, parcelMap, quickfitInput, rentComps, salesComps } from "@/lib/data";
+import QuickFitPanel from "./QuickFitPanel";
 import ParcelMap from "./ParcelMap";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -48,7 +49,7 @@ function money(v: unknown) {
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
-  const [facts, sales, rent, mapData] = await Promise.all([parcelFacts(parid), salesComps(parid), rentComps(parid), parcelMap(parid)]);
+  const [facts, sales, rent, mapData, qfInput] = await Promise.all([parcelFacts(parid), salesComps(parid), rentComps(parid), parcelMap(parid), quickfitInput(parid)]);
   if (!facts) notFound();
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
@@ -86,6 +87,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       <section className="mt-6 rounded border border-dashed border-zinc-300 p-4">
         <h2 className="text-lg font-semibold">Site ease</h2>
         <p className="text-sm text-zinc-600">Not scored yet. The scoring algorithm is built after the data is complete. Financial results are shown separately.</p>
+      </section>
+
+      {/* QuickFit: what fits on this lot */}
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold">QuickFit: what fits here <span className="text-xs font-normal text-zinc-500">(single-family, duplex, townhouse row)</span></h2>
+        {qfInput ? <QuickFitPanel input={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} /> : <p className="text-sm text-zinc-600">No lot geometry available.</p>}
       </section>
 
       {/* Project answers */}

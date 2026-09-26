@@ -16,6 +16,7 @@ export const parcelFacts = (parid: string) => rpc<Record<string, unknown>>("parc
 export const salesComps = (parid: string) => rpc<Record<string, unknown>>("parcel_sales_comps", { p_parid: parid });
 export const rentComps = (parid: string) => rpc<Record<string, unknown>>("parcel_rent_comps", { p_parid: parid });
 export const parcelMap = (parid: string) => rpc<any>("parcel_map", { p_parid: parid });
+export const quickfitInput = (parid: string) => rpc<any>("parcel_quickfit_input", { p_parid: parid });
 
 export type SearchHit = { parid: string; house_num: string | null; address: string | null; city: string | null; zip: string | null;
   muni_desc: string | null; use_desc: string | null; match: string; score: number };
