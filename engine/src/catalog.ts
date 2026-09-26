@@ -82,7 +82,11 @@ export const CATALOG: CatalogItem[] = [
       if (floodway.length) t.push({ status: "REQUIRED", reason: `${pct(floodway.reduce((a, o) => a + o.share, 0))} of the lot is in the FEMA floodway: new buildings and fill are heavily restricted. Likely a deal-breaker; talk to the floodplain administrator first.`, source: SRC.flood });
       if (f.flood_1pct_share > 0) t.push({ status: "REQUIRED", reason: `${pct(f.flood_1pct_share)} of the lot is in the 100-year floodplain (A/AE): floodplain development review, an elevation certificate, and building above base flood elevation.`, source: SRC.flood });
       if (x500.length) t.push({ status: "POSSIBLE", reason: `Lot touches FEMA's 500-year (0.2%-annual-chance) area: insurance recommended, review not usually required.`, source: SRC.flood });
-      return t.length ? t : [notNeeded("Lot is outside FEMA flood zones. Flash flooding and sewer backups aren't on FEMA maps.", SRC.flood)];
+      const ev = f.flood_evidence;
+      if (ev?.tract_nfip_claims_10y) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${ev.tract_nfip_claims_10y} flood insurance claim(s) in this census tract in the last 10 years (FEMA, aggregated; ${ev.tract_nfip_policies ?? 0} policies in force${ev.tract_nfip_median_premium ? `, median premium $${Math.round(ev.tract_nfip_median_premium)}` : ""}).` });
+      if (ev?.in_combined_sewer) t.push({ status: "NOT_NEEDED", advisory: true, reason: "Combined-sewer area: heavy rain can back sewage into basements. These floods aren't on FEMA maps; a backwater valve is worth pricing." });
+      if (ev?.flooding_311_5y_tract) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${ev.flooding_311_5y_tract} flooding / drainage / sewer 311 reports in this tract in the last 5 years (tract-wide, not this parcel).` });
+      return t.some((x) => !x.advisory) ? t : [...t, notNeeded("Lot is outside FEMA flood zones. Flash flooding and sewer backups aren't on FEMA maps.", SRC.flood)];
     },
   },
   {
@@ -134,6 +138,9 @@ export const CATALOG: CatalogItem[] = [
       else if (pgh && steep && p.cut_fill_over_25 === undefined && moves) t.push({ status: "ASK", reason: `${pct(f.slope!.steep_share)} of the lot is steeper than 25%. Will your grading create cut or fill slopes steeper than 25%? If so, a geotechnical report is required (§915.02.A.1.c).`, source: SRC.slope });
 
       if ((p.units ?? 0) >= 3 && !p.party_wall) t.push({ status: "REQUIRED", reason: `${p.units}-unit building falls under the IBC: a geotechnical investigation is required unless the building official waives it (IBC §1803.2).`, source: SRC.project });
+
+      if ((f.landslides_within_300ft ?? 0) > 0) t.push({ status: "POSSIBLE", reason: `${f.landslides_within_300ft} recorded landslide(s) within 300 ft. Not a code trigger by itself, but officials may ask for a soils investigation (IRC R401.4; PLI guidance).`, source: "Allegheny County landslide inventory (Pomeroy)" });
+      if ((f.red_bed_landslides_300ft ?? 0) > 0) t.push({ status: "NOT_NEEDED", advisory: true, reason: `${f.red_bed_landslides_300ft} of the nearby recorded landslides involve red beds (landslide-prone claystone, USGS Professional Paper 1229). No code names red beds; an engineer's opinion is wise.` });
 
       if (pgh && f.zoning?.code === "H") t.push({ status: "POSSIBLE", reason: "Hillside (H) district: the Zoning Administrator may require a soils engineering report (§911.04.A.69).", source: SRC.zoning });
 

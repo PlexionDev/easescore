@@ -151,6 +151,13 @@ begin
                                 'source', 'HUD Fair Market Rents')
       from public.hud_fmr f where f.zip = left(a.zip, 5) or f.zip is null
       order by (f.zip is null) limit 1),
+    'flood_evidence', (
+      select jsonb_build_object('floodway_share', f.floodway_share, 'sfha_share', f.sfha_share, 'x500_share', f.x500_share,
+                                'tract_nfip_claims_10y', f.tract_nfip_claims_10y, 'tract_nfip_median_premium', f.tract_nfip_median_premium,
+                                'tract_nfip_policies', f.tract_nfip_policies, 'flooding_311_5y_tract', f.flooding_311_5y_tract,
+                                'in_combined_sewer', f.in_combined_sewer,
+                                'sources', 'FEMA NFHL; OpenFEMA NFIP redacted policies & claims (aggregated by tract); Pittsburgh 311; PWSA/3RWW combined sewersheds')
+      from public.parcel_flood f where f.parid = p.parid),
     'condemned', exists (select 1 from public.condemned c where c.parid = p.parid and c.status = 'Active'),
     -- Mine subsidence (040_parcel_mines). Mine maps are incomplete: no mapped mine is not proof of no mine.
     'mines', (
@@ -169,6 +176,20 @@ begin
                'caveat', 'Mine maps are incomplete; absence of a mapped mine is not proof that no mine exists.')
       from public.parcel_mines pm where pm.parid = p.parid)
   );
+  -- Site facts used directly by requirement rules (buildings, streets, water, landslides, cleanup sites).
+  result := result || coalesce((
+    select jsonb_build_object(
+      'building_footprint_sqft', ps.building_footprint_sqft,
+      'shares_wall', ps.shares_wall,
+      'street_frontage', ps.street_frontage,
+      'landslides_within_300ft', ps.landslides_within_300ft,
+      'red_bed_landslides_300ft', ps.red_bed_landslides_300ft,
+      'streams_or_wetlands_within_100ft', ps.streams_within_100ft or ps.wetlands_within_100ft,
+      'env_sites_within_500ft', ps.env_sites_within_500ft,
+      'site', jsonb_build_object('building_count', ps.building_count, 'streams_within_100ft', ps.streams_within_100ft,
+                                 'wetlands_within_100ft', ps.wetlands_within_100ft,
+                                 'sources', 'County building footprints & centerlines; City centerlines (paper streets); county landslide inventory; USGS NHD; USFWS NWI; PA DEP Land Recycling; EPA ACRES'))
+    from public.parcel_site ps where ps.parid = p.parid), '{}'::jsonb);
   return result;
 end $$;
 

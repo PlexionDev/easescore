@@ -77,6 +77,7 @@ export interface ParcelFacts {
   slope: { mean_pct: number; steep_share: number; cells: number; resolution_m: number } | null;
   /** Filled when those layers are loaded; undefined = layer not available yet. */
   landslides_within_300ft?: number;
+  red_bed_landslides_300ft?: number;
   soils_limitation?: string | null;
   streams_or_wetlands_within_100ft?: boolean;
   env_sites_within_500ft?: number;
@@ -93,6 +94,9 @@ export interface ParcelFacts {
                    parts: { jurisdiction_type: string; name: string; rate_type: string; mills: number }[] } | null;
   transfer_tax?: { total_pct: number; parts: { jurisdiction: string; jurisdiction_type: string; rate_pct: number; confidence: string }[] } | null;
   street_frontage?: "street" | "steps" | "paper" | "none";
+  flood_evidence?: { floodway_share: number; sfha_share: number; x500_share: number; tract_nfip_claims_10y: number | null;
+                     tract_nfip_median_premium: number | null; tract_nfip_policies: number | null;
+                     flooding_311_5y_tract: number | null; in_combined_sewer: boolean | null } | null;
   context?: { municipality: string | null; neighborhood: string | null; street_trees_15m: number | null;
               public_owner: string | null; tax_delinquent: boolean | null; delinquency_band: string | null } | null;
 }
