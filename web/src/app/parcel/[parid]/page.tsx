@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { evaluateRequirements, PHASE_ORDER, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
-import { parcelFacts, parcelMap, quickfitInput, rentComps, salesComps } from "@/lib/data";
-import QuickFitPanel from "./QuickFitPanel";
-import ParcelMap from "./ParcelMap";
+import { evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
+import { easeInputs, parcelFacts, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
+import EaseScorePanel from "./EaseScorePanel";
+import ParcelShell from "./ParcelShell";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -29,17 +29,46 @@ function readProject(sp: Record<string, string | string[] | undefined>): Project
   };
 }
 
-// v0.5 display-only red flags. The scoring algorithm (red flags never averaged into site ease) comes later.
-function preliminaryRedFlags(f: ParcelFacts & Record<string, any>, p: ProjectAnswers) {
-  const flags: { title: string; reason: string }[] = [];
-  const fw = f.flood_evidence?.floodway_share ?? 0;
-  if (fw > 0) flags.push({ title: "In the FEMA floodway", reason: `${Math.round(fw * 100)}% of the lot. New buildings and fill are heavily restricted.` });
-  if (f.street_frontage === "none") flags.push({ title: "No street access found", reason: "No street centerline within 20 m of the lot: possibly landlocked or reached only by steps. Confirm legal access." });
-  if (f.street_frontage === "paper") flags.push({ title: "Only an unopened (paper) street", reason: "The adjoining street is unopened; construction access may require a right-of-way process." });
-  if (f.condemned) flags.push({ title: "Condemned / dead-end property", reason: "Active City condemnation record." });
-  const hist = f.overlays?.find((o: any) => o.layer === "historic_district_pgh" && o.share > 0);
-  if (hist && p.type === "demolition") flags.push({ title: "Demolition in a historic district", reason: `${hist.label}: demolition needs Historic Review Commission approval.` });
-  return flags;
+// Ease Score: the checklist answers each strategy stands for (for the four answers' "what next").
+const STRATEGY_PROJECT: Record<score.StrategyId, ProjectAnswers> = {
+  new_sf: { type: "new_build", units: 1 },
+  duplex: { type: "new_build", units: 2 },
+  three_four_unit: { type: "new_build", units: 3 },
+  townhouse_row: { type: "new_build", units: 2, party_wall: true, lot_split_or_merge: true },
+  adu: { type: "new_build", units: 1 },
+  rehab_existing: { type: "rehab" },
+};
+const USE_LABEL: Record<score.StrategyId, string> = {
+  new_sf: "a new single-family house",
+  duplex: "a duplex",
+  three_four_unit: "a 3-4 unit building",
+  townhouse_row: "a townhouse row",
+  adu: "an accessory dwelling unit",
+  rehab_existing: "fixing up the existing building",
+};
+
+type Zba = { by_relief?: Record<string, score.ZbaReliefCounts> } | null;
+
+/** The zoning part of the four answers, read from the F1 factor the engine already computed. */
+function narrativeZoning(s: score.StrategyResult, district: string | null, municipality: string | null, zba: Zba): narrative.NarrativeZoning {
+  const f1 = s.factors.find((f) => f.id === "F1");
+  const inp = (f1?.inputs ?? {}) as { lotOfRecordPath?: boolean; nonconforming?: boolean; permissionCode?: string | null; fitStatus?: string | null; varianceRules?: string[]; grantRate?: number };
+  const base = { district, useLabel: USE_LABEL[s.strategy], units: s.units, municipality: municipality ?? "the municipality" };
+  if (!f1 || f1.subscore == null) return { ...base, use: "unknown", dimensional: "unknown", municipality: district ? "City zoning staff" : base.municipality };
+  const use: narrative.UsePath = inp.lotOfRecordPath ? "administrator_exception" : inp.nonconforming ? "by_right" : narrative.usePathFromPermission(inp.permissionCode as Parameters<typeof narrative.usePathFromPermission>[0]);
+  const fit = inp.fitStatus ?? null;
+  const dimensional: narrative.DimensionalFit = inp.lotOfRecordPath || fit === "existing" || fit === "by_right" ? "fits"
+    : fit === "contextual" ? "contextual" : fit === "variance" || fit === "no_fit" ? "variance" : "unknown";
+  // Quote the Zoning Board record only when the engine used it (enough decided cases), never the default rate.
+  const c = zba?.by_relief?.[score.DEFAULT_CONFIG.f1.zba.dimensionalReliefType];
+  const decided = (c?.granted ?? 0) + (c?.denied ?? 0);
+  const useRecord = dimensional === "variance" && inp.grantRate != null && decided >= score.DEFAULT_CONFIG.f1.zba.minCases;
+  return {
+    ...base, use, dimensional,
+    varianceItems: Array.isArray(inp.varianceRules) ? inp.varianceRules.map((r) => r.replace(/_/g, " ")) : [],
+    grantRate: useRecord ? inp.grantRate ?? null : null,
+    grantCases: useRecord ? decided : null,
+  };
 }
 
 function money(v: unknown) {
@@ -49,56 +78,85 @@ function money(v: unknown) {
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
-  const [facts, sales, rent, mapData, qfInput] = await Promise.all([parcelFacts(parid), salesComps(parid), rentComps(parid), parcelMap(parid), quickfitInput(parid)]);
+  const factsP = parcelFacts(parid);
+  const [facts, sales, rent, mapData, qfInput, ease, zba, permits] = await Promise.all([
+    factsP, salesComps(parid), rentComps(parid), parcelMap(parid), quickfitInput(parid), easeInputs(parid),
+    factsP.then((x) => zbaGrantRates((x as ParcelFacts | null)?.zoning?.code)).catch(() => null), permitTimes(),
+  ]);
   if (!facts) notFound();
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
   const results = evaluateRequirements(f, project);
-  const flags = preliminaryRedFlags(f, project);
+
+  // Ease Score v0.1, computed on the server. A failure hides the score block, never the page.
+  let easeResult: score.EaseScoreResult | null = null;
+  try {
+    // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
+    easeResult = score.scoreParcel(f, { quickfitInput: qfInput ?? null, easeInputs: ease, zba, permitTimes: score.isCityParcel(f) ? permits : undefined, unlocks: true });
+  } catch {
+    easeResult = null;
+  }
+  const wanted = typeof sp.strategy === "string" ? sp.strategy : null;
+  const selected = easeResult
+    ? easeResult.strategies.find((x) => x.strategy === wanted) ?? easeResult.strategies.find((x) => x.strategy === easeResult!.best) ?? easeResult.strategies[0] ?? null
+    : null;
+  let answers: narrative.NarrativeResult | null = null;
+  if (selected?.applicable) {
+    try {
+      const reqs = evaluateRequirements(f, STRATEGY_PROJECT[selected.strategy]);
+      answers = narrative.generateNarrative(narrative.fromStrategyResult({
+        parid, proForma: null, requirements: reqs,
+        // Callout titles read "Review required: X"; the answers list X alone.
+        result: { ...selected, reviewCallouts: selected.reviewCallouts.map((c) => ({ ...c, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()) })) },
+        zoning: narrativeZoning(selected, score.isCityParcel(f) ? f.zoning?.code ?? null : null, f.context?.municipality ?? f.assessment?.municipality ?? null, zba),
+      }));
+    } catch {
+      answers = null;
+    }
+  }
   const a = f.assessment;
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   const counts = results.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
   const s = sales as any, r = rent as any;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <Link href="/" className="text-sm text-zinc-500 hover:underline">← Search</Link>
-      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">v0.5 internal test build</p>
-      <h1 className="text-2xl font-bold">{a?.address || parid}</h1>
-      <p className="text-zinc-600">
-        {a?.municipality} · {f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not available"} · {a?.use} · Parcel {parid}
-      </p>
-
-      {mapData && <section className="mt-4"><ParcelMap data={mapData} /></section>}
-
-      {/* 1. Red flags — above everything, never averaged in */}
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold">Red flags <span className="text-xs font-normal text-zinc-500">(preliminary)</span></h2>
-        {flags.length ? (
-          <ul className="mt-2 space-y-2">
-            {flags.map((x) => (
-              <li key={x.title} className="rounded border border-red-300 bg-red-50 px-3 py-2"><b>{x.title}.</b> {x.reason}</li>
-            ))}
-          </ul>
-        ) : <p className="mt-1 text-sm text-zinc-600">None found in our data.</p>}
+    <ParcelShell
+      top={<>
+      {/* Key facts */}
+      <section className="flex flex-wrap gap-1.5 text-xs">
+        {[
+          f.slope_1m ? `Slope avg ${Math.round(Number((f as any).slope_1m.mean_pct))}% · ${Math.round(Number((f as any).slope_1m.share_over_25) * 100)}% of lot over 25%` : null,
+          (f as any).flood_1pct_share > 0 ? `${Math.round((f as any).flood_1pct_share * 100)}% in 100-yr flood` : "Outside FEMA flood zones",
+          (f as any).mines?.in_mined_out ? "Over mapped mine (DEP)" : (f as any).mines?.in_city_undermined ? "City undermined overlay" : "No mapped mine within 500 ft",
+          f.overlays?.some((o: any) => o.layer === "landslide_prone_pgh") ? "Landslide-prone overlay" : null,
+          f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not loaded here",
+          (f as any).transit?.nearest_frequent_stop_m != null ? `Frequent transit ${Math.round((f as any).transit.nearest_frequent_stop_m)} m` : null,
+        ].filter(Boolean).map((t) => <span key={String(t)} className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">{t}</span>)}
       </section>
-
-      {/* 2. Site ease — placeholder until the algorithm phase */}
-      <section className="mt-6 rounded border border-dashed border-zinc-300 p-4">
-        <h2 className="text-lg font-semibold">Site ease</h2>
-        <p className="text-sm text-zinc-600">Not scored yet. The scoring algorithm is built after the data is complete. Financial results are shown separately.</p>
-      </section>
-
-      {/* QuickFit: what fits on this lot */}
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold">QuickFit: what fits here <span className="text-xs font-normal text-zinc-500">(single-family, duplex, townhouse row)</span></h2>
-        {qfInput ? <QuickFitPanel input={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} /> : <p className="text-sm text-zinc-600">No lot geometry available.</p>}
-      </section>
-
+      {easeResult && selected
+        ? <EaseScorePanel parid={parid} result={easeResult} selected={selected} answers={answers} sp={sp} />
+        : <section className="rounded-xl border border-dashed border-slate-300 p-3">
+            <h2 className="text-base font-semibold text-slate-900">Ease Score</h2>
+            <p className="text-sm text-zinc-600">We could not score this parcel right now. The facts, checklist and comps below still apply.</p>
+          </section>}
+      </>}
+      mapData={mapData} qfInput={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
+      header={
+        <div>
+          <div className="flex items-center justify-between">
+            <Link href="/" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">v0.5 test build</span>
+          </div>
+          <h1 className="mt-2 text-xl font-bold tracking-tight text-slate-900">{a?.address || parid}</h1>
+          <p className="text-sm text-slate-600">{a?.municipality} · {f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not available"} · {a?.use}</p>
+          <p className="text-xs text-slate-400">Parcel {parid}</p>
+        </div>
+      }>
       {/* Project answers */}
-      <section className="mt-6">
+      <section>
         <h2 className="text-lg font-semibold">Your project</h2>
-        <form className="mt-2 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <form className="mt-2 grid grid-cols-2 gap-2 text-sm">
+          {typeof sp.strategy === "string" && <input type="hidden" name="strategy" value={sp.strategy} />}
           <label className="flex flex-col">Project type
             <select name="type" defaultValue={String(sp.type ?? "")} className="rounded border px-2 py-1">
               <option value="">— not set —</option><option value="new_build">New build</option><option value="addition">Addition</option>
@@ -118,12 +176,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
                 <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
               </select></label>
           ))}
-          <button className="col-span-2 rounded bg-zinc-900 px-3 py-2 text-white md:col-span-4">Update checklist</button>
+          <button className="col-span-2 rounded-lg bg-slate-900 px-3 py-2 text-white">Update checklist</button>
         </form>
       </section>
 
       {/* 3. Requirements checklist */}
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold">Process checklist</h2>
         <p className="text-sm text-zinc-600">
           {Object.entries(counts).map(([k, v]) => `${v} ${k.replace("_", " ").toLowerCase()}`).join(" · ")}
@@ -155,7 +213,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       </section>
 
       {/* 4. Financial evidence — separate from site ease */}
-      <section className="mt-8 grid gap-6 md:grid-cols-2">
+      <section className="grid gap-4">
         <div className="rounded border border-zinc-200 p-4">
           <h2 className="text-lg font-semibold">Sales comps</h2>
           <p className="text-sm">
@@ -182,12 +240,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       </section>
 
       {/* Raw facts for checking the data */}
-      <details className="mt-8 rounded border border-zinc-200 p-3">
+      <details className="rounded-xl border border-slate-200 p-3">
         <summary className="cursor-pointer font-semibold">All parcel facts (raw data, for checking)</summary>
         <pre className="mt-2 max-h-[32rem] overflow-auto text-xs">{JSON.stringify(facts, null, 2)}</pre>
       </details>
 
       <p className="mt-8 text-xs text-zinc-500">Decision support only. Verify with your lender, accountant, and the permitting office.</p>
-    </main>
+    </ParcelShell>
   );
 }

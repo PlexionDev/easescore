@@ -6,6 +6,9 @@ _Plain-language build log. Newest first._
 - Loading Allegheny County data into the database (assessments → parcel boundaries → zoning → hazards → sales).
 
 ## Done
+- Parcel page shows the Ease Score v0.1: score and band per housing option (best by default, switchable), red flags banner, the four plain-English answers, amber "Review required" items with citations and costs, factor bars with data receipts, months to a permit, the planning badge, and "What would unlock it".
+- Water service: every parcel tagged with its public water system from PA DEP service-area maps (577,131 inside a service area, 4,866 clearly outside, 3,354 near a boundary). Sewer service marked unknown: no public sewer service-area map exists for the county.
+- Permit timing: City review targets (business days) and the current PLI review queue loaded; one lookup gives target, queue size, and queue age by permit type.
 - Zoning decisions: 227 ZBA cases (364 requests, outcomes by relief type) and 74 City Council conditional uses, tied to parcels; collected politely under robots.txt.
 - Transit access loaded: 6,388 stops with weekday peak frequency; distance to nearest frequent stop for every parcel.
 - Slope computed for every parcel from USGS elevation data (10 m).

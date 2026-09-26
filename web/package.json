@@ -7,12 +7,19 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/"
+    "postinstall": "cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/ && rm -rf public/cesium && mkdir -p public/cesium && cp -R node_modules/cesium/Build/Cesium/Workers node_modules/cesium/Build/Cesium/Assets node_modules/cesium/Build/Cesium/Widgets node_modules/cesium/Build/Cesium/ThirdParty public/cesium/"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@easescore/engine": "file:../engine",
+    "@protomaps/basemaps": "^5.7.2",
+    "cesium": "^1.145.0",
+    "maplibre-contour": "^0.1.1",
     "maplibre-gl": "^6.11.2",
     "next": "16.3.6",
+    "pdf-lib": "^1.17.1",
+    "pmtiles": "^4.5.0",
+    "puppeteer-core": "^25.12.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1"
