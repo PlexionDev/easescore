@@ -6,6 +6,7 @@ _Plain-language build log. Newest first._
 - Loading Allegheny County data into the database (assessments → parcel boundaries → zoning → hazards → sales).
 
 ## Done
+- Census neighborhood context loaded: 394 tracts (2024 ACS income, rent, rent burden, vacancy); every parcel tagged.
 - Pittsburgh overlays (historic districts, inclusionary housing, height, parking, riverfront, RCO areas), PLI permits, and condemned properties loaded.
 - School districts (45) and Pittsburgh Public Schools attendance zones (51) loaded; every parcel tagged.
 - Parcel boundaries loaded: 585,351 parcel shapes, matched to assessments by parcel ID.

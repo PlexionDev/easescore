@@ -157,3 +157,7 @@ lidar/
 *.las
 .vercel
 .vercel-global/
+
+# Python
+__pycache__/
+*.pyc

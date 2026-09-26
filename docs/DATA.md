@@ -18,6 +18,7 @@ Every table the app reads, where it came from, and what was removed. Join key ev
 | `overlays` · Pittsburgh zoning overlays | City of Pittsburgh GIS: CHD Historic Districts (21), Zoning Overlays (139), Inclusionary Housing Overlay (1), Riverfront (5), Uptown IPOD (1), Parking Reduction (9), Height Reduction (4) | City only | 180 | The general overlay layer combines Registered Community Organization (RCO) areas, inclusionary-housing, height caps, parking reductions, and riparian buffers in one label per area. |
 | `permits` | City of Pittsburgh PLI Permits (WPRDC, CC-BY) | City only, 2019-06 → 2026-09 | 65,378 | 3,439 new construction; 1,300 demolition permits. Owner, contractor, and free-text description fields are never loaded. |
 | `condemned` | City of Pittsburgh Condemned / Dead-End Properties (WPRDC, CC-BY) | City only | 2,895 | Source has 3,569 rows; duplicates collapsed to one per record number. Owner field never loaded. |
+| `tracts` / `parcel_tract` | U.S. Census Bureau ACS 5-year 2024 (B19013, B25064, B25070, B25002, B01003) + 2024 cartographic tract boundaries | All of Allegheny County | 394 tracts; 585,351 parcels tagged | 14 tracts have no income estimate (13 no rent) — mostly zero-population 9800-series tracts plus one suppressed estimate. 75 parcels fall outside every tract polygon. |
 
 ## Personal data removed at ingest
 - Assessments: owner mailing-address fields, legal descriptions, deed book/page, prior-sale history. The county does not publish owner names.
