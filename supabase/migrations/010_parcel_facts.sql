@@ -62,6 +62,12 @@ begin
       from public.parcel_slope s where s.parid = p.parid),
     'schools', (
       select to_jsonb(ps) - 'parid' from public.parcel_schools ps where ps.parid = p.parid),
+    'transit', (
+      select jsonb_build_object('nearest_frequent_stop_m', t.nearest_frequent_stop_m,
+                                'nearest_any_stop_m', t.nearest_any_stop_m,
+                                'frequent_stops_800m', t.frequent_stops_800m,
+                                'source', 'Pittsburgh Regional Transit GTFS (weekday 7-9am)')
+      from public.parcel_transit t where t.parid = p.parid),
     'tract', (
       select to_jsonb(t) - 'geom' from public.parcel_tract pt join public.tracts t using (geoid)
       where pt.parid = p.parid),

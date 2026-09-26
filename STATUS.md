@@ -6,6 +6,7 @@ _Plain-language build log. Newest first._
 - Loading Allegheny County data into the database (assessments → parcel boundaries → zoning → hazards → sales).
 
 ## Done
+- Transit access loaded: 6,388 stops with weekday peak frequency; distance to nearest frequent stop for every parcel.
 - Slope computed for every parcel from USGS elevation data (10 m).
 - Requirements engine: 57-item checklist with plain-language reasons; 15 tests passing.
 - Census neighborhood context loaded: 394 tracts (2024 ACS income, rent, rent burden, vacancy); every parcel tagged.
