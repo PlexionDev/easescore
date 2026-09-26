@@ -141,3 +141,19 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- Hackathon private files (never commit) ---
+PLANNING.md
+CLAUDE.md
+.claude/
+.omc/
+.planning/
+REVIEW.md
+data/raw/
+lidar/
+*.tif
+*.tiff
+*.laz
+*.las
+.vercel
+.vercel-global/
