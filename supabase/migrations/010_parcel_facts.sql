@@ -34,7 +34,8 @@ begin
     'assessment', case when a.parid is null then null else jsonb_build_object(
         'address', trim(concat_ws(' ', nullif(a.house_num, '0'), a.address)),
         'municipality', a.muni_desc, 'municode', a.municode,
-        'is_pittsburgh', a.muni_desc ilike '%PITTSBURGH%',
+        -- City of Pittsburgh = wards 101-132 (a name match would also catch East Pittsburgh, 822).
+        'is_pittsburgh', a.municode ~ '^1(0[1-9]|[12][0-9]|3[0-2])$',
         'class', a.class_desc, 'use', a.use_desc, 'owner_type', a.owner_type,
         'lot_area_sqft', a.lot_area_sqft, 'year_built', nullif(a.year_built, 0),
         'stories', a.stories, 'living_area_sqft', a.living_area_sqft,
@@ -48,7 +49,9 @@ begin
                                 'source', 'City of Pittsburgh Zoning Districts',
                                 'rules', (select to_jsonb(r) - 'zone_code' from public.zoning_rules r
                                           where r.zone_code = z.zone_code))
-      from public.zoning z where ST_Intersects(z.geom, p.centroid) limit 1),
+      -- District covering the largest share of the lot (a centre point can land in a neighbouring district).
+      from public.zoning z where ST_Intersects(z.geom, p.geom)
+      order by ST_Area(ST_Intersection(z.geom, p.geom)) desc limit 1),
     -- Share of the lot (0-1) covered by each overlay feature.
     'overlays', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -196,6 +199,18 @@ begin
                                  'wetlands_within_100ft', ps.wetlands_within_100ft,
                                  'sources', 'County building footprints & centerlines; City centerlines (paper streets); county landslide inventory; USGS NHD; USFWS NWI; PA DEP Land Recycling; EPA ACRES'))
     from public.parcel_site ps where ps.parid = p.parid), '{}'::jsonb);
+  -- Water / sewer service (081_utilities). Boundaries are approximate; sewer has no public
+  -- service-area layer, so it stays 'unknown' rather than assumed served.
+  result := result || jsonb_build_object('utilities', (
+    select jsonb_build_object(
+             'water', jsonb_build_object('served', u.water_served, 'system', u.water_system,
+                                         'pwsid', u.water_pwsid, 'owner_type', w.owner_type,
+                                         'dist_to_service_area_m', u.water_dist_m, 'source', u.water_source),
+             'sewer', jsonb_build_object('served', u.sewer_served, 'status', u.sewer_status, 'source', u.sewer_source),
+             'computed_at', u.computed_at,
+             'caveat', 'Service-area maps are approximate and show where a public system serves, not whether this lot has a connection. Confirm with the utility.')
+    from public.parcel_utilities u left join public.water_service_areas w on w.pwsid = u.water_pwsid
+    where u.parid = p.parid));
   return result;
 end $$;
 
