@@ -268,6 +268,26 @@ OVERLAYS = {
     "undermined_pgh": (f"{PGH}/PGHWebUndermined/FeatureServer/0", "1=1",
                        "objectid,undermined", "'undermined'", "json_object('undermined', undermined)"),
     "greenway_pgh": (f"{PGH}/PGHWebGreenways/FeatureServer/0", "1=1", "*", "'greenway'", "NULL"),
+    # City of Pittsburgh historic districts (Historic Review Commission jurisdiction).
+    "historic_district_pgh": (f"{PGH}/PGHWebCHDHistoricDistricts/FeatureServer/0", "1=1",
+                              "OBJECTID,type,historic_name,guideline_link", "historic_name",
+                              "json_object('type', type, 'guidelines', guideline_link)"),
+    # Zoning overlays (e.g. steep slope, environmental, residential compatibility).
+    "zoning_overlay_pgh": (f"{PGH}/PGHWebZoningOverlays/FeatureServer/0", "1=1",
+                           "OBJECTID,overlay,criteria,computronixvalue", "overlay",
+                           "json_object('criteria', criteria, 'code', computronixvalue)"),
+    "inclusionary_pgh": (f"{PGH}/InclusionaryHousingOverlayDistrict/FeatureServer/0", "1=1",
+                         "OBJECTID", "'Inclusionary Housing Overlay'", "NULL"),
+    "riverfront_pgh": (f"{PGH}/PGHWebRiverfrontOverlay/FeatureServer/0", "1=1",
+                       "objectid,type,zone,riverfront_ipod", "coalesce(zone, type)",
+                       "json_object('type', type, 'ipod', riverfront_ipod)"),
+    "uptown_ipod_pgh": (f"{PGH}/PGHWebUptownIPOD/FeatureServer/0", "1=1", "objectid",
+                        "'Uptown IPOD'", "NULL"),
+    "parking_reduction_pgh": (f"{PGH}/PGHWebParkingReductionOverlay/FeatureServer/0", "1=1",
+                              "OBJECTID,name,reduction", "name",
+                              "json_object('reduction', reduction)"),
+    "height_reduction_pgh": (f"{PGH}/HeightReductionZone_ZoningOverlay/FeatureServer/0", "1=1",
+                             "OBJECTID,Zone,Height", "Zone", "json_object('height', Height)"),
 }
 
 
@@ -334,6 +354,48 @@ def assessment_dates(con):
     upload("assessments", jsonable(rows(con, sql)), total, batch=5000)
 
 
+def permits(con):
+    # Selected columns only: owner/contractor names and free-text descriptions are never read.
+    con.execute(f"""
+      create table pm as select permit_id, parcel_num, permit_type, work_type,
+             commercial_or_residential, total_project_value, issue_date, status
+      from read_csv('{clean_tsv("permits")}', all_varchar=true, header=true,
+                    delim='\\t', quote='', escape='')
+    """)
+    total = con.execute("select count(distinct permit_id) from pm").fetchone()[0]
+    sql = """
+      select distinct on (permit_id) permit_id,
+             case when length(trim(parcel_num)) = 16 then trim(parcel_num) end parid,
+             nullif(trim(permit_type),'') permit_type, nullif(trim(work_type),'') work_type,
+             nullif(trim(commercial_or_residential),'') res_or_comm,
+             try_cast(total_project_value as double) project_value,
+             try_cast(left(issue_date, 10) as date) issue_date, nullif(trim(status),'') status
+      from pm where nullif(trim(permit_id),'') is not null order by permit_id
+    """
+    upload("permits", jsonable(rows(con, sql)), total, batch=5000, on_conflict="permit_id")
+
+
+def condemned(con):
+    # The source "owner" column is never read.
+    con.execute(f"""
+      create table cd as select record_number, parcel_id, property_type, create_date,
+             latest_inspection_result, latest_inspection_score, inspection_status
+      from read_csv('{clean_tsv("condemned")}', all_varchar=true, header=true,
+                    delim='\\t', quote='', escape='')
+    """)
+    total = con.execute("select count(*) from cd").fetchone()[0]
+    sql = """
+      select distinct on (record_number) record_number,
+             case when length(trim(parcel_id)) = 16 then trim(parcel_id) end parid,
+             property_type, try_cast(left(create_date, 10) as date) created,
+             nullif(trim(latest_inspection_result),'') inspection_result,
+             try_cast(latest_inspection_score as double) inspection_score,
+             inspection_status status
+      from cd where nullif(trim(record_number),'') is not null order by record_number
+    """
+    upload("condemned", jsonable(rows(con, sql)), total, batch=5000, on_conflict="record_number")
+
+
 def schools(con):
     src = RAW / "school_districts.geojson"   # WPRDC, already WGS84
     con.execute(f"create table sd as select * from ST_Read('{src}')")
@@ -353,7 +415,7 @@ def schools(con):
         """)), total, batch=10, on_conflict="level,school_id")
 
 
-DATASETS = {"schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
+DATASETS = {"permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ _Plain-language build log. Newest first._
 - Loading Allegheny County data into the database (assessments → parcel boundaries → zoning → hazards → sales).
 
 ## Done
+- Pittsburgh overlays (historic districts, inclusionary housing, height, parking, riverfront, RCO areas), PLI permits, and condemned properties loaded.
 - School districts (45) and Pittsburgh Public Schools attendance zones (51) loaded; every parcel tagged.
 - Parcel boundaries loaded: 585,351 parcel shapes, matched to assessments by parcel ID.
 - Valid property sales loaded: 99,176 arm's-length sales, 2012–2026.

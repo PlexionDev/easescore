@@ -15,8 +15,12 @@ Every table the app reads, where it came from, and what was removed. Join key ev
 | `overlays` · `landslide_prone_pgh` | City of Pittsburgh — Landslide Prone Areas | City only | 37 | ~11.5 sq mi. Outside the city: unknown, not "no risk". |
 | `overlays` · `undermined_pgh` | City of Pittsburgh — Undermined Areas | City only | 47 | ~15.2 sq mi. Outside the city: unknown. |
 | `overlays` · `greenway_pgh` | City of Pittsburgh — Greenways | City only | 10 | ~0.4 sq mi. Looks low; source last substantively updated ~2018. |
+| `overlays` · Pittsburgh zoning overlays | City of Pittsburgh GIS: CHD Historic Districts (21), Zoning Overlays (139), Inclusionary Housing Overlay (1), Riverfront (5), Uptown IPOD (1), Parking Reduction (9), Height Reduction (4) | City only | 180 | The general overlay layer combines Registered Community Organization (RCO) areas, inclusionary-housing, height caps, parking reductions, and riparian buffers in one label per area. |
+| `permits` | City of Pittsburgh PLI Permits (WPRDC, CC-BY) | City only, 2019-06 → 2026-09 | 65,378 | 3,439 new construction; 1,300 demolition permits. Owner, contractor, and free-text description fields are never loaded. |
+| `condemned` | City of Pittsburgh Condemned / Dead-End Properties (WPRDC, CC-BY) | City only | 2,895 | Source has 3,569 rows; duplicates collapsed to one per record number. Owner field never loaded. |
 
 ## Personal data removed at ingest
 - Assessments: owner mailing-address fields, legal descriptions, deed book/page, prior-sale history. The county does not publish owner names.
 - Map layers: GIS editor user names (`created_user`, `last_edited_user`) are never loaded.
+- Permits and condemned properties: owner, contractor, and description fields are never read.
 - Sales: the county file has no buyer/seller names; deed book/page is not kept.
