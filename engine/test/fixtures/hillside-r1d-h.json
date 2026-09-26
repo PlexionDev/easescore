@@ -1,0 +1,82 @@
+{
+ "assessment": {
+  "abatement": false,
+  "address": "JEANNETTE ST",
+  "as_of": "2026-09-01",
+  "class": "RESIDENTIAL",
+  "condition": null,
+  "fmv_building": 0,
+  "fmv_land": 18900,
+  "fmv_total": 18900,
+  "homestead": null,
+  "is_pittsburgh": true,
+  "last_sale_date": "2018-04-18",
+  "last_sale_price": 29900,
+  "living_area_sqft": null,
+  "lot_area_sqft": 15180,
+  "municipality": "19th Ward - PITTSBURGH",
+  "municode": "119",
+  "owner_type": "REGULAR-ETAL",
+  "source": "Allegheny County Property Assessments",
+  "stories": null,
+  "use": "VACANT LAND",
+  "year_built": null
+ },
+ "centroid": {
+  "lat": 40.419423,
+  "lon": -80.014192
+ },
+ "condemned": false,
+ "flood_1pct_share": 0,
+ "lot_area_sqft_gis": 14685,
+ "overlays": [
+  {
+   "attrs": {
+    "acres": 1054.607
+   },
+   "label": "landslide-prone",
+   "layer": "landslide_prone_pgh",
+   "share": 1
+  },
+  {
+   "attrs": {
+    "code": "RCO - Mount Washington Community Development Corporation",
+    "criteria": "RCO - Mount Washington Community Development Corporation"
+   },
+   "label": "RCO - Mount Washington Community Development Corporation",
+   "layer": "zoning_overlay_pgh",
+   "share": 1
+  }
+ ],
+ "parid": "0015E00009000000",
+ "permits": {
+  "count_5y": 0,
+  "recent": []
+ },
+ "schools": {
+  "district": "City of Pittsburgh",
+  "district_assessment": "Pittsburgh",
+  "district_match": true,
+  "near_district_line_m": null,
+  "pps_elementary": "Whittier K-5",
+  "pps_high": "Brashear",
+  "pps_middle": "SOUTH HILLS 6-8"
+ },
+ "slope": null,
+ "tract": {
+  "acs_year": 2024,
+  "geoid": "42003191500",
+  "median_income": 75463,
+  "median_rent": 1451,
+  "name": "1915",
+  "population": 1799,
+  "rent_burden_30_pct": 25.11,
+  "rent_burden_50_pct": 6.28,
+  "vacancy_rate": 17.15
+ },
+ "zoning": {
+  "code": "R1D-H",
+  "source": "City of Pittsburgh Zoning Districts",
+  "type": "SINGLE-UNIT DETACHED RESIDENTIAL HIGH DENSITY"
+ }
+}

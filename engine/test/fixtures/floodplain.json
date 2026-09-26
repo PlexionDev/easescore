@@ -1,0 +1,78 @@
+{
+ "assessment": {
+  "abatement": false,
+  "address": "836 PINEVIEW DR",
+  "as_of": "2026-09-01",
+  "class": "RESIDENTIAL",
+  "condition": "FAIR",
+  "fmv_building": 42200,
+  "fmv_land": 22200,
+  "fmv_total": 64400,
+  "homestead": true,
+  "is_pittsburgh": false,
+  "last_sale_date": "1995-08-02",
+  "last_sale_price": 1,
+  "living_area_sqft": 1296,
+  "lot_area_sqft": 5500,
+  "municipality": "Elizabeth Twp",
+  "municode": "908",
+  "owner_type": "REGULAR",
+  "source": "Allegheny County Property Assessments",
+  "stories": 2,
+  "use": "SINGLE FAMILY",
+  "year_built": 1935
+ },
+ "centroid": {
+  "lat": 40.224497,
+  "lon": -79.830442
+ },
+ "condemned": false,
+ "flood_1pct_share": 1,
+ "lot_area_sqft_gis": 5582,
+ "overlays": [
+  {
+   "attrs": {
+    "bfe": -9999,
+    "sfha": "T",
+    "subtype": null,
+    "zone": "AE"
+   },
+   "label": "AE",
+   "layer": "flood_fema_nfhl",
+   "share": 1
+  }
+ ],
+ "parid": "1904E00063000000",
+ "permits": {
+  "count_5y": 0,
+  "recent": []
+ },
+ "schools": {
+  "district": "Elizabeth Forward",
+  "district_assessment": "Elizabeth Forward",
+  "district_match": true,
+  "near_district_line_m": null,
+  "pps_elementary": null,
+  "pps_high": null,
+  "pps_middle": null
+ },
+ "slope": {
+  "cells": 4,
+  "mean_pct": 4.2,
+  "resolution_m": 10,
+  "source": "USGS 3DEP elevation",
+  "steep_share": 0
+ },
+ "tract": {
+  "acs_year": 2024,
+  "geoid": "42003496102",
+  "median_income": 66984,
+  "median_rent": null,
+  "name": "4961.02",
+  "population": 4258,
+  "rent_burden_30_pct": 52.69,
+  "rent_burden_50_pct": 29.34,
+  "vacancy_rate": 5.32
+ },
+ "zoning": null
+}

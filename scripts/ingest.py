@@ -89,9 +89,14 @@ def rows(con, sql):
             yield dict(zip(cols, rec))
 
 
-def jsonable(gen):
+def jsonable(gen, json_cols=("attrs",)):
+    import json
     for r in gen:
-        yield {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in r.items()}
+        out = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in r.items()}
+        for c in json_cols:  # DuckDB returns JSON as text; send it as a real object
+            if isinstance(out.get(c), str):
+                out[c] = json.loads(out[c])
+        yield out
 
 
 # ---------- datasets ----------
