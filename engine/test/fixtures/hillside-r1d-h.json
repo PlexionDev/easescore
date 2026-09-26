@@ -1,7 +1,7 @@
 {
  "assessment": {
   "abatement": false,
-  "address": "JEANNETTE ST",
+  "address": "REDACTED",
   "as_of": "2026-09-01",
   "class": "RESIDENTIAL",
   "condition": null,
@@ -128,7 +128,7 @@
    "share": 1
   }
  ],
- "parid": "0015E00009000000",
+ "parid": "HILLSIDE-R1D-H",
  "permits": {
   "count_5y": 0,
   "recent": []

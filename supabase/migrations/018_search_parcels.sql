@@ -37,7 +37,7 @@ declare
 begin
   if raw = '' then return; end if;
 
-  -- 1. Parcel ID, with or without dashes/spaces (e.g. 0015-E-00009-0000-00)
+  -- 1. Parcel ID, with or without dashes/spaces (e.g. 0011-J-00056-0000-00)
   if alnum ~ '^[0-9]{4}[A-Z][0-9]{11}$' then
     return query select a.parid::text, a.house_num, a.address, a.city, a.zip, a.muni_desc, a.use_desc, 'parcel id'::text, 1::real
       from assessments a where a.parid = alnum;
