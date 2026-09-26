@@ -231,7 +231,7 @@ function Toggle({ label, checked, onChange, swatch, dim }: { label: string; chec
 }
 
 // Tag buildings that sit mostly inside the subject parcel so the map can highlight them.
-function markSubject(data: any, parcel: any) {
+export function markSubject(data: any, parcel: any) {
   if (!parcel) return data;
   const rings: number[][][] = parcel.geometry.type === "Polygon" ? [parcel.geometry.coordinates[0]] : parcel.geometry.coordinates.map((p: any) => p[0]);
   const inside = ([x, y]: number[]) => rings.some((r) => {
@@ -249,7 +249,7 @@ function markSubject(data: any, parcel: any) {
     ? { ...f, properties: { ...f.properties, subject: true } } : f) };
 }
 
-function bboxOf(g: any): [number, number, number, number] {
+export function bboxOf(g: any): [number, number, number, number] {
   const pts: number[][] = g.type === "Polygon" ? g.coordinates.flat() : g.coordinates.flat(2);
   const xs = pts.map((p) => p[0]!), ys = pts.map((p) => p[1]!);
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
