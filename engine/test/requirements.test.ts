@@ -134,10 +134,24 @@ describe("flood rules", () => {
 });
 
 describe("hidden costs", () => {
-  it("always flags transfer tax and says missing mine data is not proof of no mine", () => {
+  it("always flags transfer tax; mine awareness is an advisory, not a requirement", () => {
     const rs = evaluateRequirements(HILLSIDE, newHome);
     expect(byId(rs, "realty_transfer_tax").status).toBe("REQUIRED");
-    expect(byId(rs, "mine_subsidence_paths").reasons[0]?.reason).toMatch(/not proof of no mine/);
+    const m = byId(rs, "mine_subsidence_paths");
+    expect(m.status).toBe("NOT_NEEDED");
+    expect(m.advisories.join(" ")).toMatch(/not proof of no mine/);
+  });
+
+  it("marks mines REQUIRED only where the City code requires it", () => {
+    const over = { ...HILLSIDE, overlays: [...HILLSIDE.overlays, { layer: "undermined_pgh", label: "undermined", attrs: null, share: 1 }] };
+    const single = byId(evaluateRequirements(over, newHome), "mine_subsidence_paths");
+    expect(single.status).toBe("REQUIRED"); // DEP mine records, §906.05
+    expect(single.reasons.some((t) => /§906\.05/.test(t.reason))).toBe(true);
+    expect(single.advisories.join(" ")).toMatch(/Mine Subsidence Insurance/);
+    const suburb = { ...FLOOD, mines: { in_mined_out: true, dist_mined_out_ft: 0, in_coal_bearing: true } };
+    const s2 = byId(evaluateRequirements(suburb, newHome), "mine_subsidence_paths");
+    expect(s2.status).toBe("NOT_NEEDED");
+    expect(s2.advisories.join(" ")).toMatch(/over a mapped underground mine/);
   });
 
   it("flags the post-construction tax jump for a new build", () => {

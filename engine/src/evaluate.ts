@@ -12,8 +12,10 @@ function strongest(triggers: Trigger[]): Trigger[] {
 }
 
 export function evaluateItem(item: CatalogItem, facts: ParcelFacts, project: ProjectAnswers): RequirementResult {
-  const reasons = strongest(item.rule(facts, project));
-  const top = reasons[0] ?? { status: "POSSIBLE" as Status, reason: "No rule output." };
+  const all = item.rule(facts, project);
+  const advisories = all.filter((t) => t.advisory).map((t) => t.reason);
+  const reasons = strongest(all.filter((t) => !t.advisory));
+  const top = reasons[0] ?? { status: "NOT_NEEDED" as Status, reason: "No legal requirement found." };
   const notes = ["Verify with the issuing office."];
   if (!isPittsburgh(facts)) notes.unshift(`Requirements differ by municipality: confirm with ${municipality(facts)}.`);
   return {
@@ -25,6 +27,7 @@ export function evaluateItem(item: CatalogItem, facts: ParcelFacts, project: Pro
     status: top.status,
     confirm: reasons.some((r) => r.status === top.status && r.confirm === true),
     reasons,
+    advisories,
     citation: item.citation,
     notes,
     cost: null,

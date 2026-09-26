@@ -120,9 +120,10 @@ export const CATALOG: CatalogItem[] = [
       const undermined = overlays(f, "undermined_pgh").length > 0 || f.mines?.in_mined_out === true;
       if (undermined && pgh) {
         if ((p.units ?? 0) >= 3) t.push({ status: "REQUIRED", reason: `Over mapped mine workings with a ${p.units}-unit building (larger than a typical house): site investigation required (§906.05).`, source: SRC.undermined });
-        else t.push({ status: "LIKELY", reason: "Over mapped mine workings: new buildings must submit PA DEP mine records; a site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05). A single house with more than 100 ft of cover needs only evidence of that.", source: SRC.undermined });
+        else t.push({ status: "POSSIBLE", reason: "Over mapped mine workings: a site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05). A single house with more than 100 ft of cover needs only evidence of that.", source: SRC.undermined });
       } else if (undermined) {
         t.push({ status: "POSSIBLE", reason: `Over mapped mine workings. State law doesn't require an investigation; ${muni}'s ordinance may (the county subdivision ordinance requires a PE subsidence certification at 100 ft of cover or less).`, source: "PA DEP mined-out areas" });
+        t.push({ status: "NOT_NEEDED", advisory: true, reason: "Even where no investigation is required, building over old mines carries subsidence risk; consider an engineer's opinion and Mine Subsidence Insurance." });
       }
 
       const steep = f.slope && (f.slope.steep_share > 0 || f.slope.mean_pct >= 25);
@@ -422,7 +423,12 @@ export const CATALOG: CatalogItem[] = [
   { id: "sidewalk", item: "Sidewalk repair / replacement", category: "Right-of-way", phase: "construction", issuer: "DOMI / owner", trigger: "Damaged sidewalk or new curb cut", data: [], citation: null,
     rule: (_f, p) => (p.new_driveway ? [{ status: "LIKELY", reason: "New curb cut crosses the sidewalk.", source: SRC.project }] : [{ status: "POSSIBLE", reason: "Depends on sidewalk condition at inspection." }]) },
   { id: "street_tree", item: "Tree removal / street tree permit", category: "Right-of-way", phase: "construction", issuer: "City forestry", trigger: "Removing or affecting street trees", data: [], citation: null,
-    rule: () => [{ status: "POSSIBLE", reason: "Street tree data isn't loaded yet." }] },
+    rule: (f, p) => {
+      const n = f.context?.street_trees_15m;
+      if (n == null) return [{ status: "POSSIBLE", reason: isPittsburgh(f) ? "Street tree data unavailable for this parcel." : "Street tree inventory covers Pittsburgh only." }];
+      if (n > 0 && (buildsNew(p) || p.new_driveway)) return [{ status: "LIKELY", reason: `${n} City street tree(s) within 15 m; construction or a new curb cut may affect them.`, source: "City of Pittsburgh street trees" }];
+      return [{ status: "POSSIBLE", reason: n > 0 ? `${n} City street tree(s) within 15 m.` : "No City street trees mapped within 15 m (inventory may be incomplete).", source: "City of Pittsburgh street trees" }];
+    } },
   { id: "paper_street", item: "Paper street vacation", category: "Right-of-way", phase: "zoning", issuer: "DOMI right-of-way vacation", trigger: "Unopened street adjoins parcel and is needed", data: ["Street centerlines"], citation: null,
     rule: () => [{ status: "POSSIBLE", reason: "Unopened-street data isn't loaded yet." }] },
   { id: "utility_letters", item: "Utility availability letters", category: "Utilities", phase: "due_diligence", issuer: "Each utility", trigger: "New connections", data: ["Service areas"], citation: null,
@@ -470,17 +476,33 @@ export const CATALOG: CatalogItem[] = [
 
   // ---------- Hidden / surprise costs (cost amounts: Paul fills) ----------
   {
-    id: "mine_subsidence_paths", item: "Mine subsidence — insurance or grouting", category: "Hidden cost", phase: "due_diligence",
-    issuer: "PA DEP Mine Subsidence Insurance; mine-grouting contractor + engineer", trigger: "On or within 500 ft of a mapped mined-out area; coal-bearing ground", data: ["Mined-out areas", "Coal-bearing areas", "PA Mine Map Atlas"],
-    citation: "Pittsburgh Zoning Code §906.05 (undermined areas); PA DEP Mine Subsidence Insurance program",
-    rule: (f) => {
+    id: "mine_subsidence_paths", item: "Mine subsidence — investigation, insurance, or grouting", category: "Hidden cost", phase: "due_diligence",
+    issuer: "PA DEP Mine Subsidence Insurance; mine-grouting contractor + engineer", trigger: "Required only where a local code requires it (City of Pittsburgh §906.05); otherwise an awareness advisory", data: ["Mined-out areas", "Coal-bearing areas", "PA Mine Map Atlas"],
+    citation: "Pittsburgh Zoning Code §906.05; PA Bituminous Mine Subsidence and Land Conservation Act (no builder investigation duty found); PA DEP Mine Subsidence Insurance (voluntary)",
+    rule: (f, p) => {
       const m = f.mines;
-      const note = "Historic mine maps are incomplete: no mapped mine is not proof of no mine.";
-      if (m?.in_mined_out || overlays(f, "undermined_pgh").length) return [{ status: "REQUIRED", reason: `Parcel is over a mapped mined-out area. Two paths: A) Mine Subsidence Insurance (annual premium) or B) grouting the voids before building (engineer-scoped). ${note}`, source: m ? "PA DEP mined-out areas" : SRC.undermined }];
-      if (m?.dist_mined_out_ft != null && m.dist_mined_out_ft <= 500) return [{ status: "LIKELY", reason: `Mapped mined-out area ${Math.round(m.dist_mined_out_ft)} ft away: Mine Subsidence Insurance recommended; have an engineer assess. ${note}`, source: "PA DEP mined-out areas" }];
-      if (m?.in_coal_bearing) return [{ status: "POSSIBLE", reason: `Coal-bearing ground with no mapped mine. Check the PA Mine Map Atlas. ${note}`, source: "Coal-bearing areas" }];
-      if (!m) return [{ status: "POSSIBLE", reason: `County-wide mine maps are still loading. ${note}` }];
-      return [notNeeded(`No mapped mine within 500 ft and not coal-bearing. ${note}`, "PA DEP mined-out areas")];
+      const cityUndermined = overlays(f, "undermined_pgh").length > 0;
+      const mapped = cityUndermined || m?.in_mined_out === true;
+      const near = !mapped && m?.dist_mined_out_ft != null && m.dist_mined_out_ft <= 500;
+      const t: Trigger[] = [];
+      const paths = "Two paths if you proceed: A) Mine Subsidence Insurance from PA DEP (voluntary, annual premium; not included in standard home insurance) or B) grouting the mine voids before building (engineer-scoped).";
+      const caveat = "Historic mine maps are incomplete: no mapped mine is not proof of no mine. Check the PA Mine Map Atlas.";
+
+      // Legal status: only the City of Pittsburgh code requires anything here.
+      if (mapped && isPittsburgh(f) && (buildsNew(p) || p.type === undefined)) {
+        t.push({ status: "REQUIRED", reason: "Over mapped mine workings in the City: new buildings and enlargements must submit PA DEP mine records (§906.05).", source: SRC.undermined });
+        if ((p.units ?? 0) >= 3) t.push({ status: "REQUIRED", reason: `A ${p.units}-unit building is larger than a typical house: site investigation required (§906.05).`, source: SRC.undermined });
+        else t.push({ status: "POSSIBLE", reason: "A site investigation is required if cover over the mine is 100 ft or less or there's nearby subsidence (§906.05); a single house with more than 100 ft of cover only needs evidence of that.", source: SRC.undermined });
+      } else if (mapped) {
+        t.push({ status: "NOT_NEEDED", reason: `No state law requires an investigation or insurance; check ${f.assessment?.municipality ?? "the municipality"}'s ordinance and your lender's conditions.`, source: "PA DEP mined-out areas" });
+      }
+
+      // Awareness advisories: always shown when there's any sign of mining, even if nothing is required.
+      if (mapped) t.push({ status: "NOT_NEEDED", advisory: true, reason: `This parcel is over a mapped underground mine. ${paths}` });
+      else if (near) t.push({ status: "NOT_NEEDED", advisory: true, reason: `A mapped mined-out area is ${Math.round(m!.dist_mined_out_ft!)} ft away. PA DEP recommends Mine Subsidence Insurance for homes on or near undermined areas; have an engineer assess. ${paths}` });
+      else if (m?.in_coal_bearing) t.push({ status: "NOT_NEEDED", advisory: true, reason: "Parcel sits on coal-bearing ground with no mapped mine nearby. Mining may still have occurred." });
+      if (mapped || near || m?.in_coal_bearing || !m) t.push({ status: "NOT_NEEDED", advisory: true, reason: m ? caveat : `County-wide mine maps are still loading. ${caveat}` });
+      return t;
     },
   },
   {
@@ -491,7 +513,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "back_taxes_liens", item: "Back taxes, liens & municipal claims", category: "Hidden cost", phase: "due_diligence",
     issuer: "Title company; County / City treasurer", trigger: "Delinquent taxes or filed liens on the parcel", data: ["Tax delinquency", "Tax liens"], citation: null,
-    rule: (f) => (f.tax_delinquent === undefined ? [{ status: "POSSIBLE", reason: "Tax-delinquency data is loading; a title search will show liens either way." }] : f.tax_delinquent ? [{ status: "LIKELY", reason: "Parcel appears on the tax delinquency / lien list: liens follow the property.", source: "Tax delinquency data" }] : [notNeeded("Not on the delinquency list (title search still confirms).", "Tax delinquency data")]),
+    rule: (f) => ((f.context?.tax_delinquent ?? f.tax_delinquent) === undefined ? [{ status: "POSSIBLE", reason: "Tax-delinquency data is loading; a title search will show liens either way." }] : (f.context?.tax_delinquent ?? f.tax_delinquent) ? [{ status: "LIKELY", reason: `Parcel has unsatisfied county tax liens${f.context?.delinquency_band ? ` (${f.context.delinquency_band})` : ""}: liens follow the property.`, source: "Allegheny County Tax Liens" }] : [notNeeded("Not on the delinquency list (title search still confirms).", "Tax delinquency data")]),
   },
   {
     id: "sewer_lateral", item: "Sewer lateral inspection / replacement at sale", category: "Hidden cost", phase: "due_diligence",

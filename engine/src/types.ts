@@ -86,6 +86,8 @@ export interface ParcelFacts {
   tax_delinquent?: boolean;
   muni_rules?: { sewer_lateral_at_sale?: "Y" | "N" | "unknown"; point_of_sale_inspection?: "Y" | "N" | "unknown" } | null;
   street_frontage?: "street" | "steps" | "paper" | "none";
+  context?: { municipality: string | null; neighborhood: string | null; street_trees_15m: number | null;
+              public_owner: string | null; tax_delinquent: boolean | null; delinquency_band: string | null } | null;
 }
 
 export type ProjectType = "new_build" | "addition" | "rehab" | "demolition" | "conversion";
@@ -112,6 +114,8 @@ export interface Trigger {
   reason: string; // plain language, shown to the user
   source?: string; // dataset or answer the reason relies on
   confirm?: boolean; // "our data strongly indicates this; confirm the code section"
+  /** Awareness note: shown to the user but never changes the status (e.g. possible mine, not legally required). */
+  advisory?: boolean;
 }
 
 export interface RequirementResult {
@@ -123,6 +127,7 @@ export interface RequirementResult {
   status: Status;
   confirm: boolean;
   reasons: Trigger[]; // every trigger found, strongest first
+  advisories: string[]; // awareness notes that don't change the status
   citation: string | null;
   notes: string[]; // "confirm with <municipality>", "verify with the issuing office", ...
   cost: null; // Paul fills — never invented

@@ -80,7 +80,29 @@ begin
                                                                'date', issue_date) order by issue_date desc)
                           from (select * from public.permits pm where pm.parid = p.parid
                                 order by issue_date desc limit 5) x), '[]'::jsonb)),
-    'condemned', exists (select 1 from public.condemned c where c.parid = p.parid and c.status = 'Active')
+    'context', (
+      select jsonb_build_object('municipality', c.muni_name, 'neighborhood', c.neighborhood,
+                                'street_trees_15m', c.street_trees_15m, 'public_owner', c.public_owner,
+                                'tax_delinquent', c.tax_delinquent, 'delinquency_band', c.delinquency_band,
+                                'sources', 'County municipal boundaries; City neighborhoods & street trees; City-owned properties; County tax liens')
+      from public.parcel_context c where c.parid = p.parid),
+    'condemned', exists (select 1 from public.condemned c where c.parid = p.parid and c.status = 'Active'),
+    -- Mine subsidence (040_parcel_mines). Mine maps are incomplete: no mapped mine is not proof of no mine.
+    'mines', (
+      select jsonb_build_object(
+               'in_mined_out', pm.in_mined_out, 'mined_out_share', pm.mined_out_share,
+               'dist_mined_out_ft', pm.dist_mined_out_ft, 'in_coal_bearing', pm.in_coal_bearing,
+               'msi_risk', pm.msi_risk, 'in_city_undermined', pm.in_city_undermined,
+               'mine_map_url', pm.mine_map_url,
+               'mines_within_500ft', pm.sources->'mines_within_500ft',
+               'seams_within_500ft', pm.sources->'seams_within_500ft',
+               'mine_map_sheet', pm.sources->>'mine_map_sheet',
+               'mine_map_pdf', pm.sources->>'mine_map_pdf',
+               'sources', jsonb_build_object(
+                 'mined_out', pm.sources->>'mined_out', 'coal_bearing', pm.sources->>'coal_bearing',
+                 'city_undermined', pm.sources->>'city_undermined', 'mine_map', pm.sources->>'mine_map'),
+               'caveat', 'Mine maps are incomplete; absence of a mapped mine is not proof that no mine exists.')
+      from public.parcel_mines pm where pm.parid = p.parid)
   );
   return result;
 end $$;
