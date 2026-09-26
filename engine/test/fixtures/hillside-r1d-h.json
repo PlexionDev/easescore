@@ -40,6 +40,36 @@
   },
   {
    "attrs": {
+    "creep": "",
+    "debris": "",
+    "man_made_fill": "",
+    "prehistoric": "Y",
+    "red_beds": "Y",
+    "rills": "",
+    "rockfall": "",
+    "very_steep_slope": ""
+   },
+   "label": null,
+   "layer": "landslide_recorded",
+   "share": 0.635
+  },
+  {
+   "attrs": {
+    "creep": "",
+    "debris": "",
+    "man_made_fill": "",
+    "prehistoric": "",
+    "red_beds": "Y",
+    "rills": "",
+    "rockfall": "",
+    "very_steep_slope": ""
+   },
+   "label": null,
+   "layer": "landslide_recorded",
+   "share": 0.365
+  },
+  {
+   "attrs": {
     "code": "RCO - Mount Washington Community Development Corporation",
     "criteria": "RCO - Mount Washington Community Development Corporation"
    },
@@ -80,8 +110,35 @@
   "rent_burden_50_pct": 6.28,
   "vacancy_rate": 17.15
  },
+ "transit": {
+  "frequent_stops_800m": 14,
+  "nearest_any_stop_m": 83,
+  "nearest_frequent_stop_m": 385,
+  "source": "Pittsburgh Regional Transit GTFS (weekday 7-9am)"
+ },
  "zoning": {
   "code": "R1D-H",
+  "rules": {
+   "citation": "\u00a7903.03.D.2 site development standards table (current text; history cites Ord. 10-2025); \u00a7911.02 Use Table; \u00a7914.02.A Parking Schedule A; \u00a7925.06.B",
+   "confidence": "confirmed",
+   "contextual_front_setback": true,
+   "district_name": "Single-Unit Detached Residential, High Density",
+   "max_far": null,
+   "max_height_ft": 40,
+   "max_height_stories": 3,
+   "max_lot_coverage_pct": null,
+   "min_front_setback_ft": 15,
+   "min_lot_area_per_unit_sqft": null,
+   "min_lot_area_sqft": 1200,
+   "min_rear_setback_ft": 15,
+   "min_side_setback_ft": 5,
+   "multi_unit": "N",
+   "notes": "The current \u00a7903.03 table has one minimum lot size and no per-unit lot area row. The 2024 DCP draft struck the per-unit rows, and the section history cites Ord. 10-2025 (eff. 5-7-2025). Side setback shown is the minimum interior side yard; minimum exterior (street) side yard is 15 ft. Interior side setback is zero on a party-wall side for attached units (\u00a7903.03.D.2). Single-Unit Attached is P/S in R1D: by right on lots 35 ft wide or narrower, special exception on wider lots (\u00a7911.04.A.69A). Ch. 916 Residential Compatibility Standards can add height/setback limits near residential/H districts. Parking minimum is 1 per unit for single-unit detached/two/three/multi-unit (0 for single-unit attached); a maximum also applies. \u00a7914.02.A Schedule A. Contextual side (min 3 ft), rear and height are also allowed (\u00a7925.06.C, \u00a7925.06.I, \u00a7925.07.D). The code sets no FAR or lot coverage in residential districts. Ch. 915/906 overlays can add limits.",
+   "parking_per_unit": 1,
+   "single_unit_detached": "P",
+   "three_unit": "N",
+   "two_unit": "N"
+  },
   "source": "City of Pittsburgh Zoning Districts",
   "type": "SINGLE-UNIT DETACHED RESIDENTIAL HIGH DENSITY"
  }

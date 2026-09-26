@@ -34,6 +34,28 @@ export interface Overlay {
   share: number; // 0-1 of the lot
 }
 
+/** P permitted · C conditional use · S special exception · A administrator exception · N not permitted */
+export type UsePermission = "P" | "C" | "S" | "A" | "N" | string;
+
+/** One row of public.zoning_rules (transcribed from the Pittsburgh Zoning Code). */
+export interface ZoningRules {
+  district_name: string | null;
+  single_unit_detached: UsePermission | null;
+  two_unit: UsePermission | null;
+  three_unit: UsePermission | null;
+  multi_unit: UsePermission | null;
+  min_lot_area_sqft: number | null;
+  min_front_setback_ft: number | null;
+  min_rear_setback_ft: number | null;
+  min_side_setback_ft: number | null;
+  max_height_ft: number | null;
+  max_height_stories: number | null;
+  parking_per_unit: number | null;
+  contextual_front_setback: boolean | null;
+  citation: string | null;
+  confidence: "confirmed" | "partial" | "unconfirmed" | string | null;
+}
+
 export interface ParcelFacts {
   parid: string;
   lot_area_sqft_gis: number;
@@ -49,7 +71,7 @@ export interface ParcelFacts {
     fmv_building: number | null;
     fmv_total: number | null;
   } | null;
-  zoning: { code: string; type: string } | null;
+  zoning: { code: string; type: string; rules?: ZoningRules | null } | null;
   overlays: Overlay[];
   flood_1pct_share: number;
   slope: { mean_pct: number; steep_share: number; cells: number; resolution_m: number } | null;

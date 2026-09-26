@@ -420,7 +420,25 @@ def schools(con):
         """)), total, batch=10, on_conflict="level,school_id")
 
 
-DATASETS = {"permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
+def zoning_rules(con):
+    src = ROOT / "data" / "seed" / "pgh_zoning_rules.csv"
+    con.execute(f"create table zr as select * from read_csv('{src}', all_varchar=true, header=true)")
+    total = con.execute("select count(*) from zr").fetchone()[0]
+    num = lambda c: f"try_cast(nullif(trim({c}),'') as double) as {c}"
+    txt = lambda c: f"nullif(trim({c}),'') as {c}"
+    sql = f"""
+      select {txt('zone_code')}, {txt('district_name')}, {txt('single_unit_detached')}, {txt('two_unit')},
+             {txt('three_unit')}, {txt('multi_unit')}, {num('min_lot_area_sqft')}, {num('min_lot_area_per_unit_sqft')},
+             {num('min_front_setback_ft')}, {num('min_rear_setback_ft')}, {num('min_side_setback_ft')},
+             {num('max_height_ft')}, {num('max_height_stories')}, {num('max_far')}, {num('max_lot_coverage_pct')},
+             {num('parking_per_unit')}, upper(trim(contextual_front_setback)) = 'Y' as contextual_front_setback,
+             {txt('citation')}, {txt('confidence')}, {txt('notes')}
+      from zr where nullif(trim(zone_code),'') is not null
+    """
+    upload("zoning_rules", jsonable(rows(con, sql)), total, batch=100, on_conflict="zone_code")
+
+
+DATASETS = {"zoning_rules": zoning_rules, "permits": permits, "condemned": condemned, "schools": schools, "assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 // every trigger it finds. No AI decides a status. Citations marked null are pending
 // confirmation (see docs/CODE-CITATIONS.md). Cost and duration are never filled here.
 import {
-  SRC, ask, buildsNew, hasStructure, isConstruction, isPittsburgh, notNeeded,
-  overlayLabelled, overlays, pct,
+  SRC, USE_LABEL, ask, buildsNew, confidenceNote, hasStructure, isConstruction, isPittsburgh, notNeeded,
+  overlayLabelled, overlays, pct, usePermission,
 } from "./helpers";
 import type { ParcelFacts, Phase, ProjectAnswers, Trigger } from "./types";
 
@@ -194,56 +194,102 @@ export const CATALOG: CatalogItem[] = [
   },
   {
     id: "inclusionary", item: "Inclusionary zoning compliance", category: "Zoning", phase: "zoning",
-    issuer: "City Planning", trigger: "Inclusionary overlay and project over the unit threshold", data: ["Inclusionary overlay", "Units"], citation: "Pittsburgh Zoning Code §907.04 — threshold pending confirmation",
+    issuer: "City Planning", trigger: "Inclusionary Housing Overlay and 20+ units", data: ["Inclusionary overlay", "Units"],
+    citation: "Pittsburgh Zoning Code §907.04.A.5–6",
     rule: (f, p) => {
       const iz = [...overlays(f, "inclusionary_pgh"), ...overlayLabelled(f, /Inclusionary|IZ-O/i)];
       if (!iz.length) return [notNeeded("Not in the Inclusionary Housing Overlay.", SRC.overlays)];
-      if (p.units === undefined) return [ask("How many units? The Inclusionary Housing Overlay applies above a unit threshold.")];
-      return [{ status: p.units >= 20 ? "REQUIRED" : "POSSIBLE", reason: `In the Inclusionary Housing Overlay with ${p.units} units (threshold pending confirmation).`, source: SRC.overlays }];
+      if (p.units === undefined) return [ask("How many units? The Inclusionary Housing Overlay applies at 20 or more.")];
+      if (p.units >= 20) return [{ status: "REQUIRED", reason: `${p.units} units in the Inclusionary Housing Overlay: 10% must be affordable (rental at 50% AMI, ownership at 80% AMI, 35-year term).`, source: SRC.overlays }];
+      return [notNeeded(`In the Inclusionary Housing Overlay, but ${p.units} units is under the 20-unit threshold.`, SRC.overlays)];
     },
   },
   {
     id: "rco_meeting", item: "Registered Community Organization meeting", category: "Zoning", phase: "zoning",
-    issuer: "City Planning / RCO", trigger: "Development activities that need a public hearing or Planning Commission review", data: ["RCO areas"], citation: "Pittsburgh Code Ch. 178E — confirm",
-    rule: (f) => {
+    issuer: "City Planning / RCO", trigger: "Project needs a public hearing and meets a size/type trigger (e.g. 4+ units, 2,400+ sq ft, use variance, HRC application)", data: ["RCO areas", "Project"],
+    citation: "Pittsburgh Code §178E.08(c)",
+    rule: (f, p) => {
       const r = overlayLabelled(f, /RCO/i);
-      if (!r.length) return [notNeeded("No Registered Community Organization mapped here.", SRC.overlays)];
-      return [{ status: "POSSIBLE", reason: `Within ${r[0]!.label?.replace(/^.*?RCO[:\s-]*/i, "") ?? "an RCO area"}. A development activities meeting is required if the project needs a hearing (variance, special exception, conditional use).`, source: SRC.overlays }];
+      const who = r.length ? (r[0]!.label?.replace(/^.*?RCO[:\s-]*/i, "") ?? "the local RCO") : "the Registered Community Organization for this area";
+      if (!isPittsburgh(f)) return [notNeeded("City of Pittsburgh process; not applicable here.")];
+      const perm = usePermission(f, p);
+      const hearing = perm && ["C", "S", "N"].includes(perm.code);
+      if (hearing && (p.units ?? 0) >= 4) return [{ status: "REQUIRED", reason: `Project needs a hearing and has ${p.units} units: a development activities meeting with ${who} at least 30 days before the first hearing.`, source: SRC.overlays }];
+      if (hearing) return [{ status: "LIKELY", reason: `Project needs a hearing; a meeting with ${who} is required if it also meets a size/type trigger (2,400+ sq ft, 10+ parking stalls, use variance, HRC application, and others).`, source: SRC.overlays }];
+      return [{ status: "POSSIBLE", reason: `Required only if the project needs a public hearing (variance, special exception, conditional use) and meets a size/type trigger. RCO here: ${who}.`, source: SRC.overlays }];
     },
   },
   {
     id: "variance", item: "Variance", category: "Zoning", phase: "zoning",
-    issuer: "Zoning Board of Adjustment (hearing)", trigger: "Project breaks a dimensional rule (setback, height, lot size)", data: ["Zoning rules", "Project"], citation: "Pittsburgh Zoning Code Ch. 922 — confirm",
-    rule: (f) => {
+    issuer: "Zoning Board of Adjustment (hearing)", trigger: "Project breaks a dimensional or use rule (setback, height, lot size, use)", data: ["Zoning rules", "Project"],
+    citation: "Pittsburgh Zoning Code §922.09 (variances) — confirm; district standards per zoning_rules citation",
+    rule: (f, p) => {
       if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Zoning rules for ${f.assessment?.municipality ?? "this municipality"} aren't in our data.` }];
+      const rules = f.zoning?.rules;
+      if (!rules) return [{ status: "POSSIBLE", reason: "No zoning district found for this parcel." }];
       const t: Trigger[] = [];
-      if (f.slope && f.slope.steep_share > 0.3) t.push({ status: "POSSIBLE", reason: "Steep lots often can't meet standard setbacks without a variance.", source: SRC.slope });
-      t.push({ status: "POSSIBLE", reason: "Depends on the design vs. the district's setbacks, height, and lot size (dimensional rules not loaded yet)." });
-      return t;
+      const lot = f.assessment?.lot_area_sqft ?? f.lot_area_sqft_gis;
+      if (rules.min_lot_area_sqft && lot < rules.min_lot_area_sqft) {
+        t.push({ status: "LIKELY", reason: `Lot is ${Math.round(lot).toLocaleString()} sq ft; ${f.zoning!.code} requires ${rules.min_lot_area_sqft.toLocaleString()} sq ft (${rules.citation?.split(";")[0] ?? "district standards"})${confidenceNote(rules.confidence)}.`, source: "Pittsburgh Zoning Code" });
+      }
+      const perm = usePermission(f, p);
+      if (perm?.code === "N") t.push({ status: "LIKELY", reason: `${USE_LABEL[perm.col]} is not permitted in ${f.zoning!.code}: a use variance would be needed (§911.02 Use Table)${confidenceNote(rules.confidence)}.`, source: "Pittsburgh Zoning Code" });
+      if (f.slope && f.slope.steep_share >= 0.5) t.push({ status: "POSSIBLE", reason: `${pct(f.slope.steep_share)} of the lot is steeper than 25%; steep lots often can't fit standard setbacks (front ${rules.min_front_setback_ft ?? "?"} ft, rear ${rules.min_rear_setback_ft ?? "?"} ft, side ${rules.min_side_setback_ft ?? "?"} ft).`, source: SRC.slope });
+      if (p.units === undefined) t.push(ask("How many units? The use table differs by unit count."));
+      return t.length ? t : [notNeeded(`Lot meets ${f.zoning!.code}'s minimum size and the use is allowed; dimensional fit depends on the design.`, "Pittsburgh Zoning Code")];
     },
   },
   {
     id: "contextual_setback", item: "Contextual setback determination", category: "Zoning", phase: "zoning",
-    issuer: "Zoning Administrator", trigger: "Front setback short of code; neighbors sit closer to street", data: ["Setbacks", "Building footprints"], citation: null,
-    rule: (f) => (isPittsburgh(f) ? [{ status: "POSSIBLE", reason: "Needs neighboring building footprints (not loaded yet) to compare front setbacks." }] : [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }]),
+    issuer: "Zoning Administrator", trigger: "Front setback short of code; neighbors sit closer to street", data: ["Zoning rules", "Building footprints"],
+    citation: "Pittsburgh Zoning Code §925.06",
+    rule: (f) => {
+      if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }];
+      const rules = f.zoning?.rules;
+      if (rules?.contextual_front_setback) return [{ status: "POSSIBLE", reason: `${f.zoning!.code} lets the front setback follow neighboring buildings (§925.06). Useful when the ${rules.min_front_setback_ft ?? "?"} ft standard doesn't fit; comparing neighbors needs building footprints (loading).`, source: "Pittsburgh Zoning Code" }];
+      if (!rules) return [{ status: "POSSIBLE", reason: "No zoning rule found for this parcel's district." }];
+      return [notNeeded("District doesn't use contextual front setbacks.", "Pittsburgh Zoning Code")];
+    },
   },
   {
     id: "special_exception", item: "Special exception", category: "Zoning", phase: "zoning",
-    issuer: "Zoning Board of Adjustment", trigger: "Use listed as special exception", data: ["Zoning rules"], citation: null,
-    rule: () => [{ status: "POSSIBLE", reason: "Depends on the proposed use vs. the district's use table (loading)." }],
+    issuer: "Zoning Board of Adjustment", trigger: "Use listed as special exception (S)", data: ["Zoning rules", "Units"],
+    citation: "Pittsburgh Zoning Code §911.02 Use Table; §922.07",
+    rule: (f, p) => {
+      if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }];
+      if (p.units === undefined) return [ask("How many units? The use table differs by unit count.")];
+      const perm = usePermission(f, p);
+      if (!perm) return [{ status: "POSSIBLE", reason: "No use rule found for this district." }];
+      if (perm.code === "S") return [{ status: "REQUIRED", reason: `${USE_LABEL[perm.col]} is a special exception in ${f.zoning!.code}${confidenceNote(perm.rules.confidence)}.`, source: "Pittsburgh Zoning Code" }];
+      if (perm.code === "A") return [{ status: "LIKELY", reason: `${USE_LABEL[perm.col]} needs an Administrator Exception in ${f.zoning!.code}.`, source: "Pittsburgh Zoning Code" }];
+      return [notNeeded(`${USE_LABEL[perm.col]} is ${perm.code === "P" ? "permitted by right" : "not handled by special exception"} in ${f.zoning!.code}.`, "Pittsburgh Zoning Code")];
+    },
   },
   {
     id: "conditional_use", item: "Conditional use approval", category: "Zoning", phase: "zoning",
-    issuer: "City Council (Pittsburgh)", trigger: "Use listed as conditional", data: ["Zoning rules"], citation: null,
-    rule: () => [{ status: "POSSIBLE", reason: "Depends on the proposed use vs. the district's use table (loading)." }],
+    issuer: "City Council (Pittsburgh)", trigger: "Use listed as conditional (C)", data: ["Zoning rules", "Units"],
+    citation: "Pittsburgh Zoning Code §911.02 Use Table; §922.06",
+    rule: (f, p) => {
+      if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }];
+      if (p.units === undefined) return [ask("How many units? The use table differs by unit count.")];
+      const perm = usePermission(f, p);
+      if (!perm) return [{ status: "POSSIBLE", reason: "No use rule found for this district." }];
+      if (perm.code === "C") return [{ status: "REQUIRED", reason: `${USE_LABEL[perm.col]} is a conditional use in ${f.zoning!.code}: City Council approval${confidenceNote(perm.rules.confidence)}.`, source: "Pittsburgh Zoning Code" }];
+      return [notNeeded(`${USE_LABEL[perm.col]} isn't a conditional use in ${f.zoning!.code}.`, "Pittsburgh Zoning Code")];
+    },
   },
   {
     id: "parking", item: "Parking & loading compliance", category: "Zoning", phase: "zoning",
-    issuer: "Zoning review", trigger: "District requires parking", data: ["Zoning rules", "Parking reduction overlay"], citation: null,
-    rule: (f) => {
+    issuer: "Zoning review", trigger: "District requires parking", data: ["Zoning rules", "Parking reduction overlay"],
+    citation: "Pittsburgh Zoning Code §914.02.A (Schedule A); §914.04 reductions",
+    rule: (f, p) => {
+      if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }];
       const red = [...overlays(f, "parking_reduction_pgh"), ...overlayLabelled(f, /Parking/i)];
-      if (red.length) return [{ status: "POSSIBLE", reason: `Parking reduction area: ${red[0]!.label}.`, source: SRC.overlays }];
-      return [{ status: "POSSIBLE", reason: "Depends on the district's parking minimums (loading)." }];
+      const per = f.zoning?.rules?.parking_per_unit;
+      const need = per != null && p.units !== undefined ? ` ${f.zoning!.code} minimum: ${per} space(s) per unit → ${per * p.units} for ${p.units} unit(s).` : "";
+      if (red.length) return [{ status: "POSSIBLE", reason: `Parking reduction area (${red[0]!.label}).${need}`, source: SRC.overlays }];
+      if (per) return [{ status: "REQUIRED", reason: `Off-street parking required.${need}`, source: "Pittsburgh Zoning Code" }];
+      return [{ status: "POSSIBLE", reason: "District parking minimum not transcribed." }];
     },
   },
   {

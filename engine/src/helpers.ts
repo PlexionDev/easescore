@@ -25,7 +25,32 @@ export const buildsNew = (p: ProjectAnswers) => p.type === "new_build" || p.type
 export const hasStructure = (f: ParcelFacts) =>
   (f.assessment?.fmv_building ?? 0) > 0 || !!f.assessment?.year_built;
 
-export const ask = (question: string): Trigger => ({ status: "ASK", reason: question, source: "Project answers" });
+/** Zoning use column for the project's unit count. */
+export function useColumn(units: number): "single_unit_detached" | "two_unit" | "three_unit" | "multi_unit" {
+  return units <= 1 ? "single_unit_detached" : units === 2 ? "two_unit" : units === 3 ? "three_unit" : "multi_unit";
+}
+
+export const USE_LABEL = {
+  single_unit_detached: "a single-unit detached house",
+  two_unit: "a two-unit building",
+  three_unit: "a three-unit building",
+  multi_unit: "a multi-unit building",
+} as const;
+
+/** Permission code for this project in this district, or null when we can't tell. */
+export function usePermission(f: ParcelFacts, p: ProjectAnswers) {
+  const rules = f.zoning?.rules;
+  if (!rules || p.units === undefined) return null;
+  const col = useColumn(p.units);
+  const code = rules[col];
+  return code ? { code, col, rules } : null;
+}
+
+/** Plain-language note that a transcribed rule isn't fully confirmed. */
+export const confidenceNote = (c: string | null | undefined) =>
+  c && c !== "confirmed" ? ` (rule transcription is ${c}; check the code text)` : "";
+
+export const ask =(question: string): Trigger => ({ status: "ASK", reason: question, source: "Project answers" });
 
 export const notNeeded = (reason: string, source?: string): Trigger => ({ status: "NOT_NEEDED", reason, source });
 

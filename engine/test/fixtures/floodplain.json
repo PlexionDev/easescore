@@ -74,5 +74,11 @@
   "rent_burden_50_pct": 29.34,
   "vacancy_rate": 5.32
  },
+ "transit": {
+  "frequent_stops_800m": 0,
+  "nearest_any_stop_m": null,
+  "nearest_frequent_stop_m": null,
+  "source": "Pittsburgh Regional Transit GTFS (weekday 7-9am)"
+ },
  "zoning": null
 }

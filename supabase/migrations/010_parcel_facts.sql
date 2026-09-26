@@ -38,7 +38,9 @@ begin
         'source', 'Allegheny County Property Assessments') end,
     'zoning', (
       select jsonb_build_object('code', z.zone_code, 'type', z.zone_type,
-                                'source', 'City of Pittsburgh Zoning Districts')
+                                'source', 'City of Pittsburgh Zoning Districts',
+                                'rules', (select to_jsonb(r) - 'zone_code' from public.zoning_rules r
+                                          where r.zone_code = z.zone_code))
       from public.zoning z where ST_Intersects(z.geom, p.centroid) limit 1),
     -- Share of the lot (0-1) covered by each overlay feature.
     'overlays', coalesce((
