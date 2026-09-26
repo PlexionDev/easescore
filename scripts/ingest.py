@@ -129,7 +129,7 @@ def assessments(con):
         HOMESTEADFLAG = 'HOM' as homestead,
         CLEANGREEN = 'Y' as clean_green,
         nullif(trim(ABATEMENTFLAG),'') is not null as abatement,
-        try_cast(SALEDATE as date) as last_sale_date,
+        try_strptime(SALEDATE, '%m-%d-%Y')::date as last_sale_date,
         try_cast(SALEPRICE as double) as last_sale_price,
         nullif(trim(SALECODE),'') as last_sale_code,
         nullif(trim(SALEDESC),'') as last_sale_desc,
@@ -147,7 +147,7 @@ def assessments(con):
         nullif(trim(CDUDESC),'') as cdu_desc,
         try_cast(FINISHEDLIVINGAREA as double) as living_area_sqft,
         try_cast(TAXYEAR as int) as tax_year,
-        try_cast(ASOFDATE as date) as as_of_date
+        try_strptime(ASOFDATE, '%d-%b-%y')::date as as_of_date
       from a
       where length(PARID) = 16
       order by PARID, try_cast(CARDNUMBER as int) nulls last
@@ -306,7 +306,20 @@ def sales(con):
     upload("sales_valid", jsonable(rows(con, sql)), total, batch=2000, on_conflict="sale_id")
 
 
-DATASETS = {"assessments": assessments, "parcels": parcels, "zoning": zoning,
+def assessment_dates(con):
+    """Re-send only the date columns (upsert updates just the columns provided)."""
+    con.execute(f"create table a as select * from read_csv('{RAW / 'assessments.csv'}', all_varchar=true, header=true)")
+    total = con.execute("select count(distinct PARID) from a").fetchone()[0]
+    sql = """
+      select distinct on (PARID) PARID parid,
+             try_strptime(SALEDATE, '%m-%d-%Y')::date last_sale_date,
+             try_strptime(ASOFDATE, '%d-%b-%y')::date as_of_date
+      from a where length(PARID) = 16 order by PARID, try_cast(CARDNUMBER as int) nulls last
+    """
+    upload("assessments", jsonable(rows(con, sql)), total, batch=5000)
+
+
+DATASETS = {"assessments": assessments, "assessment_dates": assessment_dates, "parcels": parcels, "zoning": zoning,
             "overlays": overlays, "sales": sales}
 
 if __name__ == "__main__":
