@@ -81,7 +81,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
   const t = tiers[i]!;
   const top = t.id === "luxury" ? "+" : "";
   return (
-    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <label htmlFor="pf-quality" className="text-xs font-semibold text-slate-700">Build quality</label>
         <p className="text-[13px] text-slate-900"><b>{t.label}</b> · ${t.costPerSf.value}/SF <span className="text-slate-500">(range ${t.costPerSf.range[0]}–${t.costPerSf.range[1]}{top}/SF)</span></p>
@@ -92,7 +92,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
         {tiers.map((x, k) => (
           <button key={x.id} type="button" aria-pressed={x.id === t.id} onClick={() => onTier(x.id)} className={`min-h-6 leading-tight ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
             <span className="block">{x.label.replace(/ \(spec\)$/, "")}</span>
-            <span className="hidden tabular-nums sm:block">${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}</span>
+            <span className="block tabular-nums">${x.costPerSf.value}/SF</span>
           </button>
         ))}
       </div>
@@ -212,20 +212,8 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
   };
 
   return (
-    <section aria-label="Does it pencil?" className="rounded-xl border border-slate-200 bg-white/80 p-3">
+    <section aria-label="Pencil calculator" className="rounded-xl border border-slate-200 bg-white/80 p-3">
       <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`}>{VERDICT_TEXT[r.verdict]}</span>}
-            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
-            {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
-          </div>
-        </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{p.configVersion}</span>
-      </div>
-
       {rehab ? (
         p.rehab && (
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-[12px] text-slate-700">
@@ -237,26 +225,19 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <QualitySlider tierId={over.tier ?? p.tier.id} onTier={setTier} />
       )}
 
+      <div className="mt-2 flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`}>{VERDICT_TEXT[r.verdict]}</span>}
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
+            {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{p.configVersion}</span>
+      </div>
+
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
-      <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
-      <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rent to the nearest $50, sale price to $5,000 a home, cost lines to $1,000, totals to $10,000 — the math uses the rounded numbers. {sale ? rg.sale.method : rg.rent.method}</p>
-
-      {p.units != null && p.finishedSf != null && (
-        <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
-          <b>Size:</b> {p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
-          {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.</span>
-        </p>
-      )}
-      {p.sizeWarning && <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-950">{p.sizeWarning}</p>}
-      {p.priceCheck && <p className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[13px] text-sky-950">{p.priceCheck}</p>}
-      {sale && <CompBlock comps={p.valueComps} floor={p.floor?.text ?? null} newBuild={!rehab} />}
-
-      {r.sentences.length > 0 && (
-        <ul className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-800">
-          {r.sentences.map((t) => <li key={t}>{t}</li>)}
-        </ul>
-      )}
-
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500">Total cost</p>
@@ -271,47 +252,15 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
           <p className="text-sm"><PctRangeValue r={sale ? rg.sale.marginPct : rg.rent.yieldOnCostPct} /></p>
         </div>
       </div>
-      <ul className="mt-2 space-y-1 text-[12px] text-slate-700">
-        <li className="flex flex-wrap items-center gap-1"><b>Land:</b> <RangeValue r={rg.land.range} /> <SourceBadge s={rg.land.source} />{p.rounding.land && <span className="text-[11px] text-slate-500">({p.rounding.land})</span>}</li>
-        {sale
-          ? <li className="flex flex-wrap items-center gap-1"><b>Value:</b> {rg.sale.pricePerSf ? `$${rg.sale.pricePerSf.low}–$${rg.sale.pricePerSf.high}/SF (likely $${rg.sale.pricePerSf.likely})` : "not set"} <SourceBadge s={rg.sale.source} /> <span className="text-[11px] text-slate-500">{rg.sale.basis}{p.rounding.sale ? `; ${p.rounding.sale}` : ""}</span></li>
-          : (
-            <li>
-              <span className="flex flex-wrap items-center gap-1"><b>Rent:</b> {rg.rent.monthlyPerUnit ? `$${rg.rent.monthlyPerUnit.low.toLocaleString("en-US")}–$${rg.rent.monthlyPerUnit.high.toLocaleString("en-US")} a month (likely $${rg.rent.monthlyPerUnit.likely.toLocaleString("en-US")})` : "not set"} <SourceBadge s={rg.rent.source} /></span>
-              {rentE && p.sources.rent.kind !== "user" && <span className="block text-[11px] text-slate-600">{rents.rentOneLiner(rentE)}</span>}
-              {p.rounding.rent && <span className="block text-[11px] text-slate-500">{p.rounding.rent}.</span>}
-              {rentE && <span className="block text-[11px] text-slate-500">{rentE.method} {rents.CAVEAT}</span>}
-            </li>
-          )}
-        {!sale && p.assessedAfter && <li className="text-[11px] text-slate-600"><b className="text-[12px] text-slate-700">Property tax:</b> {p.assessedAfter.receipt}</li>}
-      </ul>
-
-      {p.exclusions.length > 0 && (
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
-          <p className="font-semibold">Not included yet (cost unknown, so the total is low by these amounts)</p>
-          <ul className="mt-0.5 space-y-0.5">
-            {p.exclusions.map((e) => <li key={e.id}>{e.text}. <span className="text-amber-800">{e.reason}.</span></li>)}
-          </ul>
-          <p className="mt-1 text-[11px] text-amber-900/80">Enter a cost under &ldquo;Change the assumptions&rdquo; to include it.</p>
-        </div>
+      {p.units != null && p.finishedSf != null && (
+        <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
+          <b>Layout:</b> {live.scheme ? "the QuickFit layout, " : ""}{p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
+          {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.</span>
+        </p>
       )}
-      {p.outliers.length > 0 && (
-        <ul className="mt-2 space-y-0.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-900">
-          {p.outliers.map((o) => <li key={o}>{o}</li>)}
-        </ul>
-      )}
-      {p.adders.length > 0 && (
-        <div className="mt-2 text-[13px] text-slate-800">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Site adders that apply</p>
-          <ul className="mt-0.5 space-y-0.5">
-            {p.adders.map((a) => <li key={a.id}>{a.reason} <span className="text-[11px] text-slate-500">({a.sourceLabel}{a.range ? `; range ${a.range}` : ""})</span></li>)}
-          </ul>
-        </div>
-      )}
-
       <div className="mt-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-900">Budget estimate</h4>
+          <h3 className="text-sm font-semibold text-slate-900">Budget estimate</h3>
           {anyEdits && <button type="button" onClick={resetAll} className="text-[11px] text-slate-600 underline">Reset all to the estimate</button>}
         </div>
         <p className="text-[11px] text-slate-500">A budget, not an invoice: every line is prefilled from the sources shown, low–likely–high. Type your own number on any line; it is marked &ldquo;Your number&rdquo; and everything recomputes.</p>
@@ -366,6 +315,58 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
           summary={{ units: p.units ?? undefined, finishedSf: p.finishedSf ?? undefined, tdc: rg.tdc?.likely, costPerSf: r.costPerSf ?? undefined, costPerUnit: r.costPerUnit ?? undefined,
             marginPct: rg.sale.marginPct?.likely, yieldPct: rg.rent.yieldOnCostPct?.likely, verdict: r.verdict ?? undefined, tenure: p.tenure }} />
       </div>
+
+      <h3 className="mt-3 text-sm font-semibold text-slate-900">How we got these numbers</h3>
+      <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rent to the nearest $50, sale price to $5,000 a home, cost lines to $1,000, totals to $10,000 — the math uses the rounded numbers. {sale ? rg.sale.method : rg.rent.method}</p>
+
+      {p.sizeWarning && <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-950">{p.sizeWarning}</p>}
+      {p.priceCheck && <p className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[13px] text-sky-950">{p.priceCheck}</p>}
+      {sale && <CompBlock comps={p.valueComps} floor={p.floor?.text ?? null} newBuild={!rehab} />}
+
+      {r.sentences.length > 0 && (
+        <ul className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-800">
+          {r.sentences.map((t) => <li key={t}>{t}</li>)}
+        </ul>
+      )}
+
+      <ul className="mt-2 space-y-1 text-[12px] text-slate-700">
+        <li className="flex flex-wrap items-center gap-1"><b>Land:</b> <RangeValue r={rg.land.range} /> <SourceBadge s={rg.land.source} />{p.rounding.land && <span className="text-[11px] text-slate-500">({p.rounding.land})</span>}</li>
+        {sale
+          ? <li className="flex flex-wrap items-center gap-1"><b>Value:</b> {rg.sale.pricePerSf ? `$${rg.sale.pricePerSf.low}–$${rg.sale.pricePerSf.high}/SF (likely $${rg.sale.pricePerSf.likely})` : "not set"} <SourceBadge s={rg.sale.source} /> <span className="text-[11px] text-slate-500">{rg.sale.basis}{p.rounding.sale ? `; ${p.rounding.sale}` : ""}</span></li>
+          : (
+            <li>
+              <span className="flex flex-wrap items-center gap-1"><b>Rent:</b> {rg.rent.monthlyPerUnit ? `$${rg.rent.monthlyPerUnit.low.toLocaleString("en-US")}–$${rg.rent.monthlyPerUnit.high.toLocaleString("en-US")} a month (likely $${rg.rent.monthlyPerUnit.likely.toLocaleString("en-US")})` : "not set"} <SourceBadge s={rg.rent.source} /></span>
+              {rentE && p.sources.rent.kind !== "user" && <span className="block text-[11px] text-slate-600">{rents.rentOneLiner(rentE)}</span>}
+              {p.rounding.rent && <span className="block text-[11px] text-slate-500">{p.rounding.rent}.</span>}
+              {rentE && <span className="block text-[11px] text-slate-500">{rentE.method} {rents.CAVEAT}</span>}
+            </li>
+          )}
+        {!sale && p.assessedAfter && <li className="text-[11px] text-slate-600"><b className="text-[12px] text-slate-700">Property tax:</b> {p.assessedAfter.receipt}</li>}
+      </ul>
+
+      {p.exclusions.length > 0 && (
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
+          <p className="font-semibold">Not included yet (cost unknown, so the total is low by these amounts)</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {p.exclusions.map((e) => <li key={e.id}>{e.text}. <span className="text-amber-800">{e.reason}.</span></li>)}
+          </ul>
+          <p className="mt-1 text-[11px] text-amber-900/80">Enter a cost under &ldquo;Change the assumptions&rdquo; to include it.</p>
+        </div>
+      )}
+      {p.outliers.length > 0 && (
+        <ul className="mt-2 space-y-0.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-900">
+          {p.outliers.map((o) => <li key={o}>{o}</li>)}
+        </ul>
+      )}
+      {p.adders.length > 0 && (
+        <div className="mt-2 text-[13px] text-slate-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Site adders that apply</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {p.adders.map((a) => <li key={a.id}>{a.reason} <span className="text-[11px] text-slate-500">({a.sourceLabel}{a.range ? `; range ${a.range}` : ""})</span></li>)}
+          </ul>
+        </div>
+      )}
 
       <p className="mt-2 text-[12px] text-slate-700">{r.benchmark.line}</p>
       <details className="text-[11px] text-slate-600">

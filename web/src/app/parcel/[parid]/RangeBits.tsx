@@ -12,19 +12,22 @@ export function RangeValue({ r, strong = false }: { r: MoneyRange | null; strong
   if (r.low === r.high) return <span className={`tabular-nums ${strong ? "font-semibold text-slate-900" : "text-slate-900"}`}>{s(r.likely)}</span>;
   return (
     <span className="tabular-nums">
-      <span className={strong ? "font-semibold text-slate-900" : "text-slate-900"}>{s(r.low)}–{s(r.high)}</span>
+      <span className={strong ? "font-semibold text-slate-900" : "text-slate-900"}>{s(Math.min(r.low, r.high))}{Math.min(r.low, r.high) < 0 ? " to " : "–"}{s(Math.max(r.low, r.high))}</span>
       <span className="block text-[10px] text-slate-500">likely {s(r.likely)}</span>
     </span>
   );
 }
 
+/** "12%", "−18%" (true minus sign, whole percent). */
+export const pctText = (x: number) => { const v = Math.round(x); return `${v < 0 ? "−" : ""}${Math.abs(v)}%`; };
+
 export function PctRangeValue({ r }: { r: assumptions.PctRange | null }) {
   if (!r) return <span className="text-slate-400">—</span>;
-  if (r.low === r.high) return <span className="tabular-nums font-semibold text-slate-900">{r.likely}%</span>;
+  if (r.low === r.high) return <span className="tabular-nums font-semibold text-slate-900">{pctText(r.likely)}</span>;
   return (
     <span className="tabular-nums">
-      <span className="font-semibold text-slate-900">{r.low}% to {r.high}%</span>
-      <span className="block text-[10px] text-slate-500">likely {r.likely}%</span>
+      <span className="font-semibold text-slate-900">{pctText(Math.min(r.low, r.high))} to {pctText(Math.max(r.low, r.high))}</span>
+      <span className="block text-[10px] text-slate-500">likely {pctText(r.likely)}</span>
     </span>
   );
 }
