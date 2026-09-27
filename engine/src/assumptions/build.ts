@@ -371,7 +371,10 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const la = o.lineAmounts ?? {};
   const userLand = has(la.land) ? la.land : has(o.land) ? o.land : null;
   const isCity = f.assessment?.is_pittsburgh === true;
-  const lotSqft = f.assessment?.lot_area_sqft ?? f.lot_area_sqft_gis ?? null;
+  // Lot area: the mapped GIS outline first (what the pane, report and site plan show), the
+  // assessor's recorded lot only when there is no outline. Assessor lots can be a fraction of the
+  // parcel (e.g. 1,200 sq ft recorded on a 6,764 sq ft outline).
+  const lotSqft = f.lot_area_sqft_gis ?? f.assessment?.lot_area_sqft ?? null;
   const landEst: LandEstimate | null = rehab ? null : landEstimate({ lotSqft, area: f.area, isCity, ownerClass: f.owner_class }, cfg);
   let rehabPurchase: { likely: number; low: number; high: number; basis: string } | null = null;
   if (rehab) {
@@ -618,7 +621,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   let permits = has(o.permitShare) ? o.permitShare : permitDollars != null ? toShare(permitDollars) : pgh ? pc.value / 1000 : 0.015;
   // Structural, civil, survey, insurance, title and closing.
   const structural = newBuild && ((slopeUsed != null && slopeUsed > LM.slopeOverPct) || steepSite) ? LM.structural.value : 0;
-  const lotSf = f.assessment?.lot_area_sqft ?? f.lot_area_sqft_gis ?? Infinity;
+  const lotSf = lotSqft ?? Infinity;
   const disturbance = footprintSf != null ? Math.round(Math.min(lotSf, (Math.sqrt(footprintSf) + 2 * LM.civil.workZoneFt) ** 2 + LM.civil.drivewaySf)) : null;
   const civil = newBuild && ((disturbance != null && disturbance >= LM.civil.disturbanceSfMin) || steepSite) ? LM.civil.value : 0;
   const survey = newBuild ? LM.survey.value : 0;

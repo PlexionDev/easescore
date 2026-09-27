@@ -267,6 +267,20 @@ describe("items that apply but have no cost yet", () => {
   });
 });
 
+describe("land lot area", () => {
+  it("prices land on the mapped GIS lot (what the pane shows), not a smaller assessor lot", () => {
+    const p = plan({ ...FLAT, assessment: { ...FLAT.assessment, lot_area_sqft: 1200 }, lot_area_sqft_gis: 6000 });
+    const gisOnly = plan({ ...FLAT, assessment: { ...FLAT.assessment, lot_area_sqft: 6000 } });
+    expect(p.land.value).toBe(gisOnly.land.value);
+    expect(p.land.estimate?.basis).toMatch(/6,000 sq ft/);
+    expect(p.land.estimate?.basis).not.toMatch(/1,200 sq ft/);
+  });
+  it("falls back to the assessor lot when there is no GIS outline", () => {
+    const p = plan({ ...FLAT, lot_area_sqft_gis: null });
+    expect(p.land.estimate?.basis).toMatch(/3,000 sq ft/);
+  });
+});
+
 describe("pro forma", () => {
   it("adds up: TDC equals the sum of the budget lines (hand-checked flat lot)", () => {
     const r = evaluateDevelopment(plan(FLAT));

@@ -24,6 +24,14 @@ export interface Ctx {
   print?: boolean;
 }
 
+/** Screen address for a sale: "1200 block of Smith St" (full street addresses only in the PDF). */
+const blockText = (address: string | null | undefined) => {
+  if (!address) return "";
+  const b = assumptions.blockLevelAddressOf(address);
+  const m = /^(.*block of )(.+)$/.exec(b);
+  return m ? `${m[1]}${titleCase(m[2])}` : titleCase(b);
+};
+
 export const REPORT_VERSION = "report v0.1";
 const PENCILS_TEXT: Record<string, string> = { yes: "Yes", thin: "Barely", no: "No" };
 export const DISCLAIMER = "Decision support — not legal, financial, or engineering advice.";
@@ -1151,13 +1159,13 @@ export function S6(x: Ctx) {
           )}
           {tC > 0 && (
             <>
-              <div className="tcap">Table {tC}. Nearest comparable sales (up to 15 shown){fn(x, "sales")}</div>
+              <div className="tcap">Table {tC}. Nearest comparable sales (up to 15 shown){fn(x, "sales")}{x.print ? "" : ". On screen, addresses show the block only; the downloadable PDF lists full street addresses."}</div>
               <table>
-                <thead><tr><th>Address</th><th>Sale date</th><th className="num">Price</th><th className="num">{land ? "Lot area" : "Living area"}</th><th className="num">$ / sq ft</th><th className="num">Distance</th></tr></thead>
+                <thead><tr><th>Address{x.print ? "" : " (block)"}</th><th>Sale date</th><th className="num">Price</th><th className="num">{land ? "Lot area" : "Living area"}</th><th className="num">$ / sq ft</th><th className="num">Distance</th></tr></thead>
                 <tbody>
                   {s.comps.slice(0, 15).map((c) => (
                     <tr key={`${c.parid}-${c.sale_date}`}>
-                      <td>{titleCase(c.address)}</td>
+                      <td>{x.print ? titleCase(c.address) : blockText(c.address)}</td>
                       <td>{c.sale_date}</td>
                       <td className="num">{money(c.price)}</td>
                       <td className="num">{num(land ? c.lot_area_sqft : c.living_area_sqft)}</td>
