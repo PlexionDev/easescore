@@ -10,7 +10,10 @@ export default async function Footer({ home = false }: { home?: boolean }) {
       <div className="wrap">
         <div className="footer-top">
           <div className="footer-brand">
-            <Link className="brand" href="/">EaseScore<span className="brand-ai">.AI</span></Link>
+            <Link className="brand" href="/" aria-label="EaseScore.AI home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/easescore-logo-stacked.svg" alt="" aria-hidden="true" className="footer-logo" />
+            </Link>
             <p>Intelligent Feasibility</p>
           </div>
           <div className="footer-links">

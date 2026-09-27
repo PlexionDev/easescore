@@ -364,11 +364,11 @@
   flex-direction: column;
 }
 .rpt .cover .brand {
-  font-family: var(--font-sans), Arial, sans-serif;
-  font-weight: 700;
-  font-size: 11pt;
-  color: var(--accent);
-  letter-spacing: 0.01em;
+  height: 0.62in;
+  width: auto;
+  display: block;
+  align-self: flex-start;
+  margin: 0;
 }
 .rpt .cover .doctype {
   font-family: var(--font-sans), Arial, sans-serif;

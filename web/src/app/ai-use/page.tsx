@@ -14,6 +14,7 @@ const DEV_TOOLS: [string, string, string][] = [
   ["Claude Code (Anthropic)", "Claude Opus 5.5", "Drafted a Spanish translation of the interface and summary during the hackathon. It was removed before submission: the site is English only."],
   ["ChatGPT (OpenAI)", "\u2014", "Homepage design and layout (HTML/CSS), later ported into the app."],
   ["ChatGPT image generation (OpenAI)", "\u2014", "Homepage images. They are AI-generated regional imagery: not photos of any lot or parcel, and not copyrighted photography."],
+  ["ChatGPT image generation (OpenAI) + Claude", "\u2014", "Logo concept generated with ChatGPT (image generation), then redrawn as vector geometry by Claude."],
 ];
 
 const TOC: [string, string][] = [

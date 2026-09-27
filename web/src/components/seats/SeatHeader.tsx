@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { BrandMark } from "@/components/home/Header";
 import { brandSans } from "@/components/home/font";
 import { SEATS, seatFromPath, seatHref, type SeatId } from "./seats";
 import { useSeatSelection } from "./selection";
@@ -33,8 +32,8 @@ export default function SeatHeader({ seat, controls, actions, hrefs }: {
   return (
     <header className={`es-seat es-seat-header ${brandSans.variable}`}>
       <Link className="es-seat-brand" href="/" aria-label="EaseScore.AI home">
-        <BrandMark />
-        <span>EaseScore<b>.AI</b></span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/easescore-logo-horizontal.svg" alt="" aria-hidden="true" />
       </Link>
       {/* The page's one heading for screen readers: the seat's job ("Compare and rank sites"). */}
       <h1 className="es-sr-only">{SEATS.find((s) => s.id === current)?.job ?? "EaseScore.AI"}</h1>

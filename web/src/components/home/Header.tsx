@@ -14,16 +14,11 @@ export function focusSearch(): boolean {
   return true;
 }
 
+/** Small icon-only mark (no wordmark), for tight spaces like loading states. */
 export function BrandMark() {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" fill="none">
-      <path
-        d="M3 25c5-1 8-7 14-7s8 4 12 2M3 18c5-1 8-7 14-7s8 4 12 2M3 11c5-1 8-7 14-7s8 4 12 2"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/brand/easescore-logo-icon.svg" alt="" aria-hidden="true" style={{ width: "100%", height: "100%" }} />
   );
 }
 
@@ -53,11 +48,9 @@ export default function Header({ home = false }: { home?: boolean }) {
   return (
     <header className="header" id="site-header">
       <Link className="brand" href="/" aria-label={"EaseScore.AI home"}>
-        <BrandMark />
-        <span>
-          EaseScore<span className="brand-ai">.AI</span>
-          <small>Intelligent Feasibility</small>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/easescore-logo-horizontal.svg" alt="" aria-hidden="true" className="brand-logo" />
+        <small>Intelligent Feasibility</small>
       </Link>
       <button
         type="button"

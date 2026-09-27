@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BrandMark } from "@/components/home/Header";
 
 export const metadata: Metadata = { title: "Page not found — EaseScore.AI" };
 
@@ -9,8 +8,8 @@ export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 text-center text-slate-900">
       <Link href="/" aria-label="EaseScore.AI home" className="mb-8 inline-flex items-center gap-2 text-lg font-semibold">
-        <span className="inline-flex text-teal-700 [&_svg]:h-7 [&_svg]:w-7"><BrandMark /></span>
-        <span>EaseScore<b className="font-semibold text-teal-700">.AI</b></span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/easescore-logo-horizontal.svg" alt="" aria-hidden="true" className="h-7 w-auto" />
       </Link>
       <h1 className="text-3xl font-bold tracking-tight">We couldn&apos;t find that page</h1>
       <p className="mt-3 max-w-md text-slate-600">
