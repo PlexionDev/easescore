@@ -450,7 +450,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pane={pane}
       planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Does it pencil?", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "pencils", title: "Does it pencil?", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Details", content: details },
       ]}

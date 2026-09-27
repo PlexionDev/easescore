@@ -7,6 +7,7 @@ import { assumptions, finance } from "@easescore/engine";
 import { PF } from "@/lib/proforma";
 import { OpenDrawer } from "./Drawers";
 import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
+import ProFormaLive, { type LiveInputs } from "./ProFormaLive";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -81,12 +82,17 @@ function CompBlock({ comps, floor, newBuild }: { comps: Comps; floor: string | n
   );
 }
 
-export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
+export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, overrides }: {
   parid: string;
   result: assumptions.ProFormaResult;
   strategyLabel: string;
   sp: SP;
+  /** When given, the panel runs in the browser: build-quality slider and editable budget lines recompute instantly. */
+  live?: LiveInputs | null;
+  overrides?: assumptions.CostOverrides;
 }) {
+  if (live) return <ProFormaLive live={live} initial={overrides ?? {}} strategyLabel={strategyLabel} />;
+  void parid;
   const r = result;
   const p = r.plan;
   const cfg = assumptions.COST_CONFIG;
