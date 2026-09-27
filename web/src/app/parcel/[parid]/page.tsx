@@ -182,14 +182,18 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Map data and lot geometry stream to the browser after the pane (never awaited here).
   const quickfitP = quickfitInput(parid);
   // Built-on parcels the stored score treated as empty (migration 146 lookup); null when not listed or on any error.
-  const unscoredP = fetch(`${SB_URL}/rest/v1/planner_building_unscored?select=reason,use_desc&parid=eq.${encodeURIComponent(parid)}`, {
-    headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
-  }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string; use_desc: string | null }[]) => x[0] ?? null).catch(() => null);
+  // Exclusion lookups get one retry (4 s each): a busy database must not let a street, park or railroad lot show a score.
+  const lookup = <T,>(path: string): Promise<T[]> => {
+    const once = () => fetch(`${SB_URL}/rest/v1/${path}`, { headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(4000) })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json() as Promise<T[]>; });
+    return once().catch(() => once()).catch(() => []);
+  };
+  const unscoredP = lookup<{ reason: string; use_desc: string | null }>(`planner_building_unscored?select=reason,use_desc&parid=eq.${encodeURIComponent(parid)}`)
+    .then((x) => x[0] ?? null);
   // Not a housing lot (streets and rights-of-way, parks, parking, utility, transit, plazas, common areas): the
   // Planner's "Other public land" list (planner_other_public_land); null when not listed or on any error.
-  const otherLandP = fetch(`${SB_URL}/rest/v1/planner_other_public_land?select=reason&parid=eq.${encodeURIComponent(parid)}`, {
-    headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
-  }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string }[]) => x[0]?.reason ?? null).catch(() => null);
+  const otherLandP = lookup<{ reason: string }>(`planner_other_public_land?select=reason&parid=eq.${encodeURIComponent(parid)}`)
+    .then((x) => x[0]?.reason ?? null);
   // Privacy: the planning-priority badge is shown only for publicly owned land (owner_class = 'public');
   // an error or timeout is treated the same as "not public" so a badge never shows without knowing.
   const ownerClassP = fetch(`${SB_URL}/rest/v1/parcel_scores?select=owner_class,owner_agency&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
