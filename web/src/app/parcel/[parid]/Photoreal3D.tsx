@@ -350,18 +350,21 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         if (ts.clippingPolygons) ts.clippingPolygons.enabled = false;
       });
 
-      const onProgress = (p: number, q: number) => setPending(p + q);
+      // The shared tileset is warmed before the camera reaches this parcel, so its one-time initialTilesLoaded event
+      // has usually fired already; reveal instead when this view's requests drain (pending back to 0).
+      let inFlight = -1;
+      const onProgress = (p: number, q: number) => { inFlight = p + q; setPending(p + q); };
       cleanups.push(ts.loadProgress.addEventListener(onProgress));
       // Reveal (crossfade over the still) once this view's tiles are in: the tileset's first full load, any later
       // full load, or, when everything needed is already cached, the first quiet frames.
       const stats = (ts as unknown as { statistics: { numberOfCommands: number } }).statistics;
       await new Promise<void>((resolve) => {
         let frames = 0, fin = false;
-        const t = setTimeout(done, 12000);
+        const t = setTimeout(done, 6000); // fallback: show whatever has loaded rather than hold the still
         const un = [
           ts.initialTilesLoaded.addEventListener(done),
           ts.allTilesLoaded.addEventListener(done),
-          scene.postRender.addEventListener(() => { if (++frames > 5 && ts.tilesLoaded && stats.numberOfCommands > 0) done(); }),
+          scene.postRender.addEventListener(() => { if (++frames > 5 && (ts.tilesLoaded || inFlight === 0) && stats.numberOfCommands > 0) done(); }),
         ];
         function done() { if (fin) return; fin = true; clearTimeout(t); un.forEach((u) => u()); resolve(); }
         cleanups.push(done);
