@@ -185,17 +185,31 @@ export function approvalItems(m: ReportModel): Finding[] {
       : m.qfError ?? "No building type fit inside the setbacks and rules for this district.";
     return [{ title: c ? "No new building allowed by right" : "No scheme found by the site-fit solver", reason: why, mitigation: "Ask a zoning professional what could fit; relief may be possible.", sources: ["quickfit"] }];
   }
-  return s.approvals.map((a) => ({
-    title: a.label,
-    reason:
-      a.odds?.status === "rate"
-        ? `Past decisions for this kind of request: ${a.odds.granted} granted, ${a.odds.denied} denied (${a.odds.n} decided).`
-        : a.odds
-          ? `Fewer than 5 past decisions match this request (${a.odds.n}), so no approval rate is shown.`
-          : "An approval step for this scheme.",
-    mitigation: "Meet zoning staff before applying; talk to the Registered Community Organization early.",
-    sources: a.odds ? ["zba"] : ["zoning_rules"],
-  }));
+  // One record for every section: the canonical approvals (named type, what breaks, code section).
+  return m.approvals.items.map((it) => {
+    const odds = oddsFor(m, it);
+    return {
+      title: it.name,
+      reason: `${it.detail.charAt(0).toUpperCase()}${it.detail.slice(1)} (${it.citation}). ${
+        odds?.status === "rate"
+          ? `Past decisions for this kind of request: ${odds.granted} granted, ${odds.denied} denied (${odds.n} decided).`
+          : odds
+            ? `Fewer than 5 past decisions match this request (${odds.n}), so no approval rate is shown.`
+            : `Decided by the ${it.body}.`
+      }`,
+      mitigation: "Meet zoning staff before applying; talk to the Registered Community Organization early.",
+      sources: odds ? ["zba"] : ["zoning_rules"],
+    };
+  });
+}
+
+/** Past-decision odds the solver attached to the scheme approval behind a record item. */
+export function oddsFor(m: ReportModel, it: { topic: string; detail: string }) {
+  const s = m.scheme ?? m.closest;
+  const a = s?.approvals.find((a) =>
+    it.topic === "use" ? a.kind === "use" : it.topic === "parking" ? /park/.test(a.rule) : a.kind !== "use" && a.label.replace(/\.$/, "") === it.detail,
+  );
+  return a?.odds ?? null;
 }
 
 export interface Gap {

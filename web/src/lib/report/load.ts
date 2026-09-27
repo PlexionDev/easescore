@@ -8,6 +8,7 @@ import {
   assumptions,
   evaluateRequirements,
   finance,
+  narrative,
   quickfit,
   score as easeEngine,
   type ParcelFacts,
@@ -265,6 +266,8 @@ export interface ReportModel {
   tapFees: TapFee[];
   rentLimits: RentLimit[];
   requirements: RequirementResult[];
+  /** The one approvals record (use permission + zoning checks of the studied scheme) every section reads. */
+  approvals: narrative.ApprovalsRecord;
   scenario: Scenario;
   score: EaseScoreView;
   forSale: finance.ForSaleProForma;
@@ -558,7 +561,16 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     stories: scenario.project.stories ?? scheme?.stories,
   };
   scenario.project = project;
-  const requirements = evaluateRequirements(facts as unknown as ParcelFacts, project);
+  const studied = scheme ?? closest;
+  const approvals = narrative.buildApprovalsRecord({
+    zoningLoaded: easeEngine.zoningLoaded(facts as unknown as ParcelFacts) && !ubPlan?.pf,
+    municipality: facts.assessment?.municipality ?? null,
+    district: facts.zoning?.code ?? null,
+    rulesCitation: facts.zoning?.rules?.citation?.split(";")[0]?.trim() || null,
+    scheme: studied,
+    closest: !scheme && !!closest,
+  });
+  const requirements = narrative.reconcileRequirements(evaluateRequirements(facts as unknown as ParcelFacts, project), approvals);
 
   const sales = (P.sales as SalesPayload | null) ?? null;
   const rent = (P.rent as RentPayload | null) ?? null;
@@ -702,6 +714,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     tapFees,
     rentLimits: rentLimits.filter((r) => r.year === rentLimits[0]?.year),
     requirements,
+    approvals,
     scenario,
     score,
     forSale: proForma.forSale,

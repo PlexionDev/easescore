@@ -40,7 +40,7 @@ const PHRASE: Record<score.StrategyId, (u: number | null) => string> = {
   new_sf: () => "one single-family home",
   duplex: () => "a duplex (two homes)",
   three_four_unit: (u) => (u ? `a ${u}-unit building` : "a 3-4 unit building"),
-  townhouse_row: (u) => (u ? `a row of ${u} townhouses` : "a townhouse row"),
+  townhouse_row: (u) => (u ? narrative.schemePhrase("Townhouse row", u) : "a townhouse row"),
   adu: () => "a backyard cottage (ADU)",
   rehab_existing: () => "fixing up the existing building",
 };

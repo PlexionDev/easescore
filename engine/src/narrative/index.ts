@@ -12,3 +12,7 @@ export {
   type SummaryInput, type SummaryOption, type SummaryApprovalOption, type SummaryPrecedent, type SummaryResult, type SummaryValidation, type ReliefType,
 } from "./summary";
 export { classifyPlan, pickPlans, defaultStrategy, type PlanPath } from "./plans";
+export {
+  buildApprovalsRecord, reconcileRequirements, countNoun, schemePhrase,
+  type ApprovalsRecord, type ApprovalItem, type ApprovalType, type ApprovalTopic, type ApprovalPath, type ApprovalSchemeLike,
+} from "./approvals";

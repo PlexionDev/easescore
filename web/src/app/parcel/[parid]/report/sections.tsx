@@ -10,9 +10,10 @@ import { STRATEGY_LABEL } from "@/lib/report/load";
 import { CapitalStack, CompsScatter, LotPlan, PhaseSequence, SlopeBar, Tornado, TornadoPending } from "@/lib/report/charts";
 import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras";
 import { narrative, score as ease } from "@easescore/engine";
-import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
+import { approvalItems, oddsFor, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
 import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
+import { ExitLead } from "./exit";
 import { CompsGrid, ConfidenceGrades } from "./evidence";
 
 export interface Ctx {
@@ -297,7 +298,8 @@ export function Contents() {
 
 export function S1(x: Ctx) {
   const { m } = x;
-  // The decision box comes first on the page, so its tables and footnotes are numbered first.
+  // The studied exit leads, then the decision box, so their tables and footnotes are numbered first.
+  const exitLead = ExitLead(x);
   const decision = DecisionBlock(x);
   const s = m.scheme;
   const flags = redFlags(m);
@@ -305,44 +307,25 @@ export function S1(x: Ctx) {
   const approvals = approvalItems(m);
   // Ranked by decision impact: blockers, then approvals that can fail, then hazard reviews, then money risks.
   const moneyRisks: Finding[] = (m.proForma.narrative?.risks ?? []).map((t) => ({ title: t.split(",")[0]!.replace(/\.$/, ""), reason: t, mitigation: "", sources: ["cost_config"] }));
-  const barriers: Finding[] = [...flags, ...(s && !s.byRight ? approvals : []), ...reviews, ...moneyRisks].slice(0, 3);
+  const barriers: Finding[] = [...flags, ...(s && !m.approvals.byRight ? approvals : []), ...reviews, ...moneyRisks].slice(0, 3);
   const steps = nextSteps(m);
-  const zone = m.facts.zoning?.code;
 
-  let canBuild: ReactNode;
-  if (!s)
-    canBuild = (
-      <p>
-        {m.closest ? (
-          <>
-            Not by right. The closest new building our site-fit check found, a {m.closest.typologyLabel.toLowerCase()}, would need{" "}
-            {blockers(m.closest)}
-            {fn(x, "quickfit", "zoning_rules")}.
-          </>
-        ) : (
-          <>Not shown yet. {m.qfError ?? "No building type fit inside the setbacks and rules for this district."}{fn(x, "quickfit")}</>
-        )}
-        {m.score.status === "ready" ? ` The Ease Score looks at other paths too; its best is ${m.score.strategyLabel.toLowerCase()} (Appendix D).` : ""}
+  // The three answers come from the one approvals record (m.approvals); these are the facts beside them.
+  const canBuildNote: ReactNode =
+    s?.needsSubdivision || (!s && m.score.status === "ready") ? (
+      <p className="small">
+        {s?.needsSubdivision ? "It would need the lot split into one lot per home. " : ""}
+        {!s && m.score.status === "ready" ? `The Ease Score looks at other paths too; its best is ${m.score.strategyLabel.toLowerCase()} (Appendix D).` : ""}
+        {reviews.length ? ` ${reviews.length} site item${reviews.length > 1 ? "s" : ""} still need${reviews.length > 1 ? "" : "s"} review (see below).` : ""}
       </p>
-    );
-  else if (s.byRight)
-    canBuild = (
-      <p>
-        Yes, on paper. A {s.typologyLabel.toLowerCase()} with {s.units} unit{s.units > 1 ? "s" : ""} fits by right under {zone} zoning{fn(x, "zoning", "zoning_rules")}, based on our site-fit
-        check{fn(x, "quickfit")}.{s.needsSubdivision ? " It would need the lot split into one lot per home." : ""}{reviews.length ? ` ${reviews.length} item${reviews.length > 1 ? "s" : ""} still need${reviews.length > 1 ? "" : "s"} review (see below).` : ""}
-      </p>
-    );
-  else
-    canBuild = (
-      <p>
-        Possibly. A {s.typologyLabel.toLowerCase()} with {s.units} unit{s.units > 1 ? "s" : ""} fits the lot{fn(x, "quickfit")}, but it needs{" "}
-        {s.approvals.map((a) => a.label.toLowerCase()).join(", ") || "an approval"} under {zone} zoning{fn(x, "zoning_rules")}.
-      </p>
-    );
+    ) : reviews.length ? (
+      <p className="small">{reviews.length} site item{reviews.length > 1 ? "s" : ""} still need{reviews.length > 1 ? "" : "s"} review (see below).</p>
+    ) : null;
 
   return (
     <Sec id="s1" no="1" title="Summary in plain English">
       <UbBanner m={m} />
+      {exitLead}
       {decision}
       <p className="lead">
         {s ? (
@@ -385,8 +368,17 @@ export function S1(x: Ctx) {
 
       <div className="answers">
         <div className="answer">
-          <h3>Can you build here?</h3>
-          {canBuild}
+          <h3>Is the use permitted?</h3>
+          <p>{m.approvals.answers.use}{fn(x, "zoning", "zoning_rules")}</p>
+        </div>
+        <div className="answer">
+          <h3>Does the studied layout fit?</h3>
+          <p>{m.approvals.answers.fit}{fn(x, "quickfit")}</p>
+          {canBuildNote}
+        </div>
+        <div className="answer">
+          <h3>What approval is needed?</h3>
+          <p>{m.approvals.answers.approval}{fn(x, "zoning_rules")}</p>
         </div>
         <div className="answer">
           <h3>Does it pencil?</h3>
@@ -527,7 +519,7 @@ export function S2(x: Ctx) {
           <tr><td>Parking</td><td>{s ? `${s.parking === "none" ? "No parking" : s.parking === "garage" ? "Tuck-under garage" : "Surface parking"}: ${s.parkingSpaces} space${s.parkingSpaces === 1 ? "" : "s"}${s.parkingRequired != null ? ` (${s.parkingRequired} required)` : ""}` : "—"}</td></tr>
           <tr><td>Lot split</td><td>{s ? (s.needsSubdivision ? `Needed: each townhouse sits on its own new lot${s.subLots ? ` (${s.subLots.count} lots, ${num(s.subLots.minWidthFt)}–${num(s.subLots.maxWidthFt)} ft wide)` : ""}` : "Not needed") : "—"}</td></tr>
           <tr><td>Lot coverage</td><td>{s ? pct(s.lotCoveragePct / 100) : "—"}</td></tr>
-          <tr><td>Zoning status</td><td>{s ? (s.byRight ? "Allowed by right" : s.badge === "needs_approval" ? `Needs approval: ${s.approvals.map((a) => a.label).join("; ")}` : "Not permitted") : "—"}</td></tr>
+          <tr><td>Zoning status</td><td>{s ? (m.approvals.byRight ? "Allowed by right" : m.approvals.path === "not_permitted" ? "Not permitted" : `Needs approval: ${m.approvals.items.map((a) => a.name).join("; ")}`) : "—"}</td></tr>
           <tr><td>What limits it</td><td>{s ? `${s.binding.label}. ${s.binding.detail}` : "—"}</td></tr>
           <tr><td>Sale or rent</td><td>{m.scenario.tenure === "rent" ? "Built to rent" : "Built to sell"}</td></tr>
           <tr><td>Affordable mode</td><td>{m.scenario.affordable ? "On" : "Off"}</td></tr>
@@ -947,24 +939,28 @@ export function S4(x: Ctx) {
       <OptionsAndPrecedent x={x} />
 
       <h2>Approvals needed</h2>
-      {s ? (
-        s.approvals.length ? (
+      {m.approvals.items.length ? (
+        <>
+          {m.approvals.closest && <p>No scheme is allowed as of right. The closest one tried ({m.approvals.scheme?.phrase}) needs:</p>}
           <ul>
-            {s.approvals.map((a) => (
-              <li key={a.label}>
-                <b>{a.label}.</b>{" "}
-                {a.odds?.status === "rate"
-                  ? `Similar past requests: ${a.odds.granted} of ${a.odds.n} granted (${pct(a.odds.rate)}).`
-                  : a.odds
-                    ? `Only ${a.odds.n} similar decided case${a.odds.n === 1 ? "" : "s"} on record (fewer than 5), so no rate is given.`
-                    : ""}
-                {a.odds ? fn(x, "zba") : null}
-              </li>
-            ))}
+            {m.approvals.items.map((a) => {
+              const odds = oddsFor(m, a);
+              return (
+                <li key={a.name}>
+                  <b>{a.name}.</b> {a.detail.charAt(0).toUpperCase()}{a.detail.slice(1)}. Decided by the {a.body}. {a.citation}.{" "}
+                  {odds?.status === "rate"
+                    ? `Similar past requests: ${odds.granted} of ${odds.n} granted (${pct(odds.rate)}).`
+                    : odds
+                      ? `Only ${odds.n} similar decided case${odds.n === 1 ? "" : "s"} on record (fewer than 5), so no rate is given.`
+                      : ""}
+                  {odds ? fn(x, "zba") : fn(x, "zoning_rules", "quickfit")}
+                </li>
+              );
+            })}
           </ul>
-        ) : (
-          <p>None for zoning: the studied scheme is allowed by right{fn(x, "quickfit")}. Building, grading and other permits are in Section 5.</p>
-        )
+        </>
+      ) : s ? (
+        <p>None for zoning: the studied scheme is allowed by right{fn(x, "quickfit")}. Building, grading and other permits are in Section 5.</p>
       ) : (
         <p>
           {m.closest ? `No scheme is allowed as of right. The closest one tried (${m.closest.typologyLabel.toLowerCase()}) needs ${blockers(m.closest)}.` : m.qfError ?? "No scheme fit, so approvals were not checked."}
@@ -1531,7 +1527,7 @@ export function S9(x: Ctx) {
         still need an input (a market cap rate, a hold period, a discount rate) say what they need. The formula column is the math in plain words.
       </p>
       {SourcesUsesBlock(x)}
-      <h2>If built to sell</h2>
+      <h2>{m.proForma.plan.tenure === "rent" ? "If you sold instead…" : "If built to sell"}</h2>
       {m.proForma.plan.units != null && m.proForma.plan.finishedSf != null && (
         <p>
           <b>Size:</b> {m.proForma.plan.units} home{m.proForma.plan.units === 1 ? "" : "s"} × {sqft(Math.round(m.proForma.plan.finishedSf / m.proForma.plan.units))} finished. {m.proForma.plan.sizeBasis}.
@@ -1580,7 +1576,7 @@ export function S9(x: Ctx) {
           ])}
         </tbody>
       </table>
-      <h2>If built to rent</h2>
+      <h2>{m.proForma.plan.tenure === "rent" ? "If built to rent" : "If you rented instead…"}</h2>
       {m.scenario.tenure === "rent" && m.proForma.sentences.length > 1 && (
         <ul className="small">{m.proForma.sentences.slice(1).map((t) => <li key={t}>{t}</li>)}</ul>
       )}
@@ -1776,7 +1772,7 @@ export function S12(x: Ctx) {
   const { m } = x;
   const flags = redFlags(m);
   const reviews = reviewItems(m, m.score.status === "ready" ? m.score.reviewCallouts.map((c) => c.title) : []);
-  const approvals = m.scheme?.byRight ? [] : approvalItems(m);
+  const approvals = m.scheme && m.approvals.byRight ? [] : approvalItems(m);
   const gaps = dataGaps(m);
   const tG = x.tab();
   const permission = m.scheme?.permission;
@@ -1853,7 +1849,7 @@ export function S13(x: Ctx) {
   const flags = redFlags(m);
   const must: string[] = [];
   flags.forEach((f) => must.push(`The red flag “${f.title.toLowerCase()}” is resolved.`));
-  if (m.scheme && !m.scheme.byRight) must.push(`The needed approval${m.scheme.approvals.length > 1 ? "s are" : " is"} granted: ${m.scheme.approvals.map((a) => a.label.toLowerCase()).join("; ")}.`);
+  if (m.scheme && m.approvals.items.length) must.push(`The needed approval${m.approvals.items.length > 1 ? "s are" : " is"} granted: ${m.approvals.items.map((a) => a.name.toLowerCase()).join("; ")}.`);
   const reviewTitles = [...(m.score.status === "ready" ? m.score.reviewCallouts.map((c) => c.title.replace(/^Review required:\s*/i, "")) : []), ...reviews.map((r) => r.title)];
   if (reviewTitles.length)
     must.push(`Professionals check the review items (${[...new Set(reviewTitles.map((t) => t.toLowerCase()))].join("; ")}) and find nothing that stops the project or pushes the cost too high.`);

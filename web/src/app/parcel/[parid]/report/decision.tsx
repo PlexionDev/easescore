@@ -54,7 +54,7 @@ export function DecisionBlock(x: Ctx) {
   const rlv = d.residual.value;
   return (
     <div className="decision" id="decision">
-      <h2 style={{ marginTop: 0 }}>Decision box: what can you pay for the land, and what must it sell for?</h2>
+      <h2 style={{ marginTop: 0 }}>{d.rentalPlan ? "If you sold instead… " : ""}Decision box: what can you pay for the land, and what must it sell for?</h2>
       <p className="lead"><b>{d.sentence}</b>{fn(x, "cost_config", "finance_engine")}</p>
       {d.rentalPlan && (
         <p className="small">This option is studied as a rental; the box tests building the same homes to sell. The rental result (unlevered, before loan payments) is in Sections 8 and 9.</p>
