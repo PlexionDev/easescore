@@ -1380,6 +1380,7 @@ export function S7(x: Ctx) {
         </tbody>
       </table>
       {pf.sentences[0] ? <p className="small">{pf.sentences[0]}</p> : null}
+      <p className="small"><b>{assumptions.COST_CONFIG.disclaimer}</b></p>
       {p.outliers.length > 0 && (
         <Callout tone="red" title="Unusually high — verify">
           <ul>{p.outliers.map((o) => <li key={o}>{o}</li>)}</ul>
@@ -2025,22 +2026,23 @@ export function AppC(x: Ctx) {
         Not set yet (no default, so never counted): market cap rate, discount rate, hold period and exit cap rate (rental returns), permanent loan terms, minimum debt coverage. Items that apply but have
         no local cost are listed in Section 7 as not included.
       </p>
-      <div className="tcap">Table {t3}. Construction cost tiers (per finished sq ft, including builder overhead and profit){fn(x, "builder_ranges")}</div>
+      <div className="tcap">Table {t3}. Construction cost tiers (cost to build per finished sq ft, builder fee removed){fn(x, "builder_ranges")}</div>
       <table>
-        <thead><tr><th>Tier</th><th>What it means</th><th className="num">Range</th><th className="num">Default</th></tr></thead>
+        <thead><tr><th>Tier</th><th>What it means</th><th className="num">Range</th><th className="num">Default</th><th className="num">Published retail (cross-check)</th></tr></thead>
         <tbody>
           {cc.construction.tiers.map((t) => (
             <tr key={t.id} style={t.id === plan.tier.id ? { fontWeight: 600 } : undefined}>
               <td>{t.label}{t.id === plan.tier.id ? " (used)" : ""}</td>
               <td>{t.meaning}</td>
-              <td className="num">{money(t.costPerSf.range[0])}–{money(t.costPerSf.range[1])}{t.id === "luxury" ? "+" : ""}</td>
+              <td className="num">{money(t.costPerSf.range[0])}–{money(t.costPerSf.range[1])}{t.id === "custom" ? "+" : ""}</td>
               <td className="num">{money(t.costPerSf.value)}</td>
+              <td className="num">{money(t.retail.range[0])}–{money(t.retail.range[1])}{t.id === "custom" ? "+" : ""}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="small">
-        Site adders on top of the tier: moderate slope (8–25%) +{money(cc.siteAdders.moderateSlope.value)} per sq ft of building footprint (range {money(cc.siteAdders.moderateSlope.range[0])}–{money(cc.siteAdders.moderateSlope.range[1])}); steep slope or stepped
+        Site adders on top of the tier (slope measured under the building footprint): moderate slope (over 15%) +{money(cc.siteAdders.moderateSlope.value)} per sq ft of building footprint (range {money(cc.siteAdders.moderateSlope.range[0])}–{money(cc.siteAdders.moderateSlope.range[1])}); steep slope or stepped
         foundation +{money(cc.siteAdders.steepSlope.value)} per sq ft of footprint (range {money(cc.siteAdders.steepSlope.range[0])}–{money(cc.siteAdders.steepSlope.range[1])}) plus retaining walls {money(cc.siteAdders.retainingWalls.value)} per building, all “{cc.siteAdders.steepSlope.sourceLabel}”; mine grouting{" "}
         {money(cc.siteAdders.mineGrouting.value)} (range {money(cc.siteAdders.mineGrouting.range[0])}–{money(cc.siteAdders.mineGrouting.range[1])}), “{cc.siteAdders.mineGrouting.sourceLabel}”; geotechnical report, demolition and
         dumpsters: awaiting local cost data{fn(x, "cost_config")}.

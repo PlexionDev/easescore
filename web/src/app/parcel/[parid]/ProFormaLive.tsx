@@ -79,10 +79,9 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
   const tiers = assumptions.COST_CONFIG.construction.tiers;
   const i = Math.max(0, tiers.findIndex((t) => t.id === tierId));
   const t = tiers[i]!;
-  const top = t.id === "luxury" ? "+" : "";
+  const top = t.id === "custom" ? "+" : "";
   const def = assumptions.COST_CONFIG.construction.defaultTier;
-  // Owner decision (A5, option c): the published Pittsburgh tiers are builders' retail rates to an owner.
-  const sourceOf = (x: typeof t) => (x.costPerSf.sourceLabel === "Pittsburgh builder published ranges" ? "Pittsburgh builder (retail) rates" : x.costPerSf.sourceLabel);
+  const sourceOf = (x: typeof t) => x.costPerSf.sourceLabel;
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
@@ -99,7 +98,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
           </button>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Construction per finished sq ft, builder overhead and profit included; site adders are separate lines.</p>
+      <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Cost to build per finished sq ft, builder fee removed; site adders are separate lines. Cross-check: {t.retail.label}.</p>
       <details className="text-[11px] text-slate-500">
         <summary className="cursor-pointer underline decoration-dotted underline-offset-2">Source: {sourceOf(t)}</summary>
         <p className="mt-0.5">{t.costPerSf.sourceNote}</p>
@@ -306,6 +305,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
             </tr>
           </tbody>
         </table>
+        <p className="mt-1 text-[11px] font-medium text-slate-700">{assumptions.COST_CONFIG.disclaimer}</p>
         <p className="mt-1 text-[11px] text-slate-600">
           {sale ? <>Sale value: {p.revenue.sale.basis} ({p.sources.sale.label}).</> : <>Rent: {p.revenue.rent.basis} ({p.sources.rent.label}).</>} Land: {p.sources.land.label}.
         </p>

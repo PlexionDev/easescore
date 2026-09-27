@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ease from "@easescore/engine/config/ease-score.v0.2.json";
-import costs from "@easescore/engine/config/cost-assumptions.v0.1.json";
+import costs from "@easescore/engine/config/cost-assumptions.v0.2.json";
 import capital from "@easescore/engine/config/capital-sources.v0.1.json";
 import { assumptions } from "@easescore/engine";
 import Shell from "../_docs/Shell";
@@ -56,8 +56,6 @@ const TOC: [string, string][] = [
   ["sources", "Sources"],
 ];
 
-/** Pro forma backtest (scripts/backtest.sh, run 2026-09-27; Good spec default, cost-assumptions config of that date). */
-const BACKTEST = { n: 518, built: "2020–2025", sold: "March 2021 to August 2026", lossDefault: 94, loss185: 78 };
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 
@@ -195,7 +193,7 @@ export default function MethodsPage() {
               <strong>&ldquo;Review required&rdquo; callouts</strong> cover issues that add cost, time or a study but can be handled: landslide-prone
               ground, undermined land, historic districts and similar. Each lists the code sections that apply, a checklist, and cost notes.
               The mine grouting figure is an editable default ({usd(ease.reviewCallouts.groutingCostUsd.low)}–{usd(ease.reviewCallouts.groutingCostUsd.high)}),
-              not a quote. No geotechnical report cost is set; get quotes from a geotechnical engineer.
+              not a quote. The geotechnical report default ({usd(costs.lineModel.geotech.hillsideOrLandslide)} landslide-prone or steep, {usd(costs.lineModel.geotech.underminedOnly)} undermined only) is an assumption; get quotes from a geotechnical engineer.
             </div>
             <p>
               In the requirements checklist, an item is marked Required only when a cited law requires it. Other items are shown as advisories.
@@ -236,38 +234,49 @@ export default function MethodsPage() {
             <h3>Costs</h3>
             <ul>
               <li>
-                <strong>Construction:</strong> a build-quality slider per finished square foot
-                ({tiers.map((t) => `${t.label} ${usd(t.costPerSf.value)}`).join(", ")}). The five from Basic up are published Pittsburgh builder ranges;
-                Production (spec) is {tiers.find((t) => t.id === "production")?.costPerSf.sourceLabel} The default is {defaultTier.label}, {usd(defaultTier.costPerSf.value)}.
+                <strong>Construction:</strong> the cost to build per finished square foot, with the builder&apos;s fee removed: published Pittsburgh builder
+                ranges divided by about 1.20 (NAHB 2024 builder overhead and profit). Tiers: {tiers.map((t) => `${t.label} ${usd(t.costPerSf.value)} (${usd(t.costPerSf.range[0]!)}–${usd(t.costPerSf.range[1]!)}; published retail ${usd(t.retail.range[0]!)}–${usd(t.retail.range[1]!)})`).join(", ")}.
+                The default is {defaultTier.label}, {usd(defaultTier.costPerSf.value)}.
               </li>
               <li>
-                <strong>Backtest:</strong> we ran the pro forma on {BACKTEST.n} new homes built in Allegheny County in {BACKTEST.built} that then sold
-                ({BACKTEST.sold}), each priced at its actual sale price. At default assumptions, {BACKTEST.lossDefault}% of real completed homes show a loss;
-                at the Production (spec) rate of $185 per square foot, {BACKTEST.loss185}%. Real builders built and sold these homes, so the default
-                costs are on the high side for production and spec builders: the pro forma leans toward &ldquo;does not pencil.&rdquo;
-              </li>
-              <li>
-                <strong>Hillside adders</strong> fire from the lidar slope: moderate slope {usd(costs.siteAdders.moderateSlope.value)} and steep slope{" "}
-                {usd(costs.siteAdders.steepSlope.value)} per square foot of building footprint (the foundation area, not every floor), plus {usd(costs.siteAdders.retainingWalls.value)} of retaining walls per building on a steep or stepped site, each with the reason shown.
+                <strong>Hillside adders</strong> fire from the lidar slope under the building footprint (the lot&apos;s average slope when there is no footprint yet):
+                over {costs.lineModel.slopeOverPct}%, {usd(costs.siteAdders.moderateSlope.value)} per square foot of footprint; {costs.lineModel.steepPct}% or more,{" "}
+                {usd(costs.siteAdders.steepSlope.value)} per square foot of footprint plus {usd(costs.siteAdders.retainingWalls.value)} of retaining walls per building, each with the reason shown.
+                Water and sewer laterals: {usd(costs.siteAdders.waterSewerLateral.value)} per house ({costs.siteAdders.waterSewerLateral.sourceLabel.toLowerCase()}).
               </li>
               <li><strong>Undermined lots:</strong> the mine grouting or mine subsidence insurance path; the premium comes from the PA DEP rate chart.</li>
               <li>
-                <strong>Soft costs:</strong> architecture and engineering {pct(costs.softCosts.architectureEngineering.value)} of hard cost; the Pittsburgh
-                building permit fee at {usd(costs.softCosts.pittsburghBuildingPermitFee.value)} per $1,000 of construction value; survey, title, legal and
-                insurance {pct(costs.softCosts.surveyTitleLegalInsurance.value)}.
+                <strong>Soft costs:</strong> architecture and design {pct(costs.softCosts.architectureEngineering.value)} of hard cost, at least {usd(costs.softCosts.architectureEngineering.min)};
+                structural engineer {usd(costs.lineModel.structural.value)} when the slope under the building is over {costs.lineModel.slopeOverPct}%;
+                civil and grading plan {usd(costs.lineModel.civil.value)} when about {costs.lineModel.civil.disturbanceSfMin.toLocaleString("en-US")} sq ft or more is disturbed or the site is steep;
+                survey {usd(costs.lineModel.survey.value)}; geotechnical report {usd(costs.lineModel.geotech.hillsideOrLandslide)} (landslide-prone or steep) or {usd(costs.lineModel.geotech.underminedOnly)} (undermined only);
+                builder&apos;s risk and liability insurance {pct(costs.lineModel.insurance.value)} of hard cost; title and closing {pct(costs.lineModel.titleClosing.value)} of the land price.
               </li>
               <li>
-                <strong>Contingency:</strong> {pct(costs.contingency.flat.value)} on a flat lot, {pct(costs.contingency.hillside.value)} on a hillside or
-                hazard site, {pct(costs.contingency.rehab.value)} for a rehab.
+                <strong>Permits:</strong> inside the City, the PLI 2026 fee schedule ({usd(costs.softCosts.pittsburghBuildingPermitFee.value)} per $1,000 of construction value,
+                minimum {usd(costs.softCosts.pittsburghBuildingPermitFee.min)}, maximum {usd(costs.softCosts.pittsburghBuildingPermitFee.max)}, plus electrical, mechanical and
+                certificate of occupancy) and Pittsburgh Water {usd(costs.softCosts.pittsburghBuildingPermitFee.pittsburghWater)}. Outside the City, a flat{" "}
+                {usd(costs.softCosts.permitsAndFees.flatPerHouse)} per house for permits and tap-in fees, flagged &ldquo;confirm with the municipality.&rdquo;
               </li>
               <li>
-                <strong>Financing:</strong> construction loan at the Bank Prime Loan Rate plus {pct(costs.financing.rateSpreadOverPrime.value)},
-                {" "}{pct(costs.financing.loanToCost.value)} of cost, with {pct(costs.financing.averageDrawShare.value)} of the loan drawn on average.
+                <strong>Contingency:</strong> {pct(costs.contingency.flat.value)} of hard and site cost; {pct(costs.contingency.hillside.value)} in the landslide-prone
+                overlay or on a steep site; {pct(costs.contingency.rehab.value)} for a rehab.
               </li>
               <li>
-                <strong>Items with no local cost yet</strong> (demolition, geotechnical report, dumpsters and street permit) are listed as &ldquo;Not
+                <strong>Financing:</strong> construction loan at {pct(costs.financing.constructionRate.value)}, interest-only,{" "}
+                {pct(costs.financing.loanToCost.value)} of cost, with {pct(costs.financing.averageDrawShare.value)} of the loan drawn on average over{" "}
+                {costs.financing.constructionMonths.single.value} months for one home; lender fees {pct(costs.financing.loanFeeShare.value)} of the loan.
+              </li>
+              <li>
+                <strong>Sale and taxes:</strong> no sales commissions; the seller&apos;s half of the realty transfer tax (City {costs.sale.transferTax.cityPct}% total,
+                {" "}{costs.sale.transferTax.cityBaldwinWhitehallPct}% in the Baldwin-Whitehall School District, elsewhere the municipality&apos;s rate). Property taxes while
+                holding use the City&apos;s 2026 total of {costs.propertyTax.cityMills.value} mills ({costs.propertyTax.cityMills.sourceLabel.replace(/^2026 millage: /, "")}).
+              </li>
+              <li>
+                <strong>Items with no local cost yet</strong> (demolition, dumpsters and street permit) are listed as &ldquo;Not
                 included&rdquo; and the estimate is marked partial. They are never counted as zero.
               </li>
+              <li><strong>{costs.disclaimer}</strong></li>
               <li>{costs.construction.rehabNote}</li>
             </ul>
             <h3>Ranges</h3>
@@ -286,6 +295,21 @@ export default function MethodsPage() {
             </p>
             <p>
               Totals are checked against recent Allegheny County projects as a sanity check, never as defaults.
+            </p>
+            <h3>Backtest</h3>
+            <p>
+              We tested our cost model against 518 homes that were actually built and sold in Allegheny County since 2020 (3 sales under $100 per
+              square foot were set aside as likely non-market, leaving 515). Our earlier model&apos;s cost estimates ran a median 53% above what those
+              homes actually sold for. The current model is roughly break-even on single-lot infill homes (96 homes; median margin −0.6%). Because
+              real builders earned a profit on those homes, our estimates are likely conservative. Subdivision homes built by large production
+              builders on pre-graded lots cost less to build than one-off infill (419 homes; 78% show a loss under our costs), so EaseScore is not
+              calibrated for them.
+            </p>
+            <p className="text-sm text-slate-600">
+              Method: new single-family homes, townhouses and rowhouses built in 2020 or later, each at its first valid sale after completion (at least
+              $75,000 and 600 sq ft). The engine prices each home with its own size, lot, slope, overlays, taxes and land estimate, and uses its actual
+              sale price as the value. Margin = (sale price − selling costs − our total cost) ÷ our total cost; a loss means our total cost is above
+              what the home sold for, net of selling costs.
             </p>
           </section>
 
