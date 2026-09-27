@@ -64,6 +64,12 @@ function Callout({ tone, title, children }: { tone: "red" | "amber" | "pending" 
   );
 }
 
+/** Zoning not loaded: the banner on every number block priced on the building the user entered (null otherwise). */
+function UbBanner({ m }: { m: ReportModel }) {
+  if (!m.userBuilding) return null;
+  return <Callout tone="amber" title={ease.zoningNotCheckedBanner(m.facts.context?.municipality ?? m.facts.assessment?.municipality)} />;
+}
+
 const PHASE_LABEL: Record<string, string> = {
   due_diligence: "Due diligence",
   design_engineering: "Design & engineering",
@@ -194,8 +200,8 @@ export function Cover(x: Ctx) {
         </div>
         <div style={{ gridColumn: "span 2" }}>
           <div className="k">Scenario studied</div>
-          {m.scheme ? schemeLabel(m) : "No building placed by the site-fit solver"}
-          {m.scheme ? (m.scenario.tenure === "rent" ? ", to rent" : ", for sale") : ""}
+          {m.userBuilding ? `The building you entered: ${ease.userBuildingText(m.userBuilding)}, new construction (zoning not checked)` : m.scheme ? schemeLabel(m) : "No building placed by the site-fit solver"}
+          {m.scheme || m.userBuilding ? ((m.userBuilding ? m.proForma.plan.tenure : m.scenario.tenure) === "rent" ? ", to rent" : ", for sale") : ""}
           {m.scenario.affordable ? ", affordable mode" : ""}
         </div>
         <div>
@@ -203,6 +209,7 @@ export function Cover(x: Ctx) {
           {sqft(f.lot_area_sqft_gis ?? a?.lot_area_sqft)}
         </div>
       </div>
+      {m.userBuilding && <div style={{ marginTop: "10pt" }}><UbBanner m={m} /></div>}
       <div className="hero">
         {hero ? (
           <figure>
@@ -335,6 +342,7 @@ export function S1(x: Ctx) {
 
   return (
     <Sec id="s1" no="1" title="Summary in plain English">
+      <UbBanner m={m} />
       {decision}
       <p className="lead">
         {s ? (
@@ -502,6 +510,7 @@ export function S2(x: Ctx) {
   const t2 = m.perType.length ? x.tab() : 0;
   return (
     <Sec flow id="s2" no="2" title="Project scenario">
+      <UbBanner m={m} />
       <p>
         The scenario is the building this study tests. Unless you chose one, it is the scheme our site-fit solver ranked first for the goal “
         {m.scenario.goal === "by_right_only" ? "allowed by right only" : "most homes"}”{fn(x, "quickfit")}.
@@ -864,9 +873,10 @@ export function S4(x: Ctx) {
   if (!f.zoning?.code || !r) {
     return (
       <Sec flow id="s4" no="4" title="Zoning and approvals">
-        <Callout tone="pending" title="Zoning not loaded here">
+        <Callout tone="pending" title={m.userBuilding ? `Not available for ${ease.municipalityName(f.context?.municipality ?? f.assessment?.municipality)}.` : "Zoning not loaded here"}>
           <p>
             Zoning rules are loaded for the City of Pittsburgh only. Confirm zoning with {titleCase(f.assessment?.municipality) || "the municipality"}.
+            {m.userBuilding ? ` This study prices the building you entered (${ease.userBuildingText(m.userBuilding)}) and assumes it is allowed; zoning was not checked.` : ""}
           </p>
         </Callout>
         <OptionsAndPrecedent x={x} />
@@ -1322,6 +1332,7 @@ export function S7(x: Ctx) {
   const groups = ["land", "hard", "soft", "contingency", "financing"] as const;
   return (
     <Sec id="s7" no="7" title="Development budget">
+      <UbBanner m={m} />
       {p.missing.length > 0 ? (
         <Callout tone="pending" title="Some inputs are missing">
           <ul>{p.missing.map((t) => <li key={t}>{t}</li>)}</ul>
@@ -1442,6 +1453,7 @@ export function S8(x: Ctx) {
   const mine = !!(overlay(m, "undermined_pgh") || f.mines?.msi_risk === "confirmed" || f.mines?.in_mined_out);
   return (
     <Sec flow id="s8" no="8" title="Operations (if rented)">
+      <UbBanner m={m} />
       <p>
         This section applies if the homes are rented. {m.scenario.tenure === "rent" ? "This study’s scenario is to rent." : "This study’s scenario is to sell; the rental view is shown for comparison."}
       </p>
@@ -1513,6 +1525,7 @@ export function S9(x: Ctx) {
   const t2 = x.tab();
   return (
     <Sec flow id="s9" no="9" title="Financing and returns">
+      <UbBanner m={m} />
       <p>
         Every measure below is computed by the finance engine{fn(x, "finance_engine")} from the budget in Section 7 and the assumptions in Appendix C. Rows that
         still need an input (a market cap rate, a hold period, a discount rate) say what they need. The formula column is the math in plain words.
@@ -1683,6 +1696,7 @@ export function S11(x: Ctx) {
   const bp = sv.breakEvenPriceChange;
   return (
     <Sec flow id="s11" no="11" title="Sensitivity and scenarios">
+      <UbBanner m={m} />
       <p>
         Sensitivity shows which assumption moves the result most{fn(x, "finance_engine")}. {sv.moves.join(" ")}{fn(x, "cost_config")}
       </p>
@@ -1851,6 +1865,7 @@ export function S13(x: Ctx) {
   must.push("A survey confirms the lot lines, frontage and buildable area.");
   return (
     <Sec flow id="s13" no="13" title="Conclusion and next steps">
+      <UbBanner m={m} />
       <p>
         This study is decision support, not a recommendation to buy or build. It shows what public data and published rules say about this lot, and what is
         still unknown.
