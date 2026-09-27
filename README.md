@@ -8,10 +8,10 @@ Built for the AI for Housing Hackathon 2026, Track 1 (Allegheny County parcels).
 
 | User | What they do here |
 |---|---|
-| Municipal planner | Filter and rank City parcels by score and top blocker, compare a shortlist side by side, export a CSV (`/planner`). |
-| Small or mid-size developer | Check one lot: score, what fits, whether it pencils, and the full Feasibility Study PDF (`/check`, `/parcel/<id>`). |
-| Housing nonprofit or CDC | Planned: rents locked to affordability, funding gap and capital stack (`/nonprofit` is a labeled "Coming next" page today). |
-| Policy analyst | Today: "What would unlock it" on each parcel reruns the score with one rule change at a time. Planned: a county-wide rule simulator (`/policy` is a labeled "Coming next" page). |
+| Municipal planner | Filter and rank City parcels by score and top blocker, compare a shortlist side by side, see blockers linked to a Policy scenario, export a CSV or a staff memo PDF (`/planner`). |
+| Small or mid-size developer | Check one lot: score, what fits, whether it pencils, an instant 3D massing with hillside stepping, and the full Feasibility Study PDF (`/check`, `/parcel/<id>`). |
+| Housing nonprofit or CDC | Start from a neighborhood's need (HUD income limits and the 30% rule), pick public sites, and size one project's funding gap and capital stack; export an advocacy brief PDF (`/nonprofit`). |
+| Policy analyst | Turn zoning levers (attached homes on narrow lots, minimum lot size, parking minimums, a tax abatement) on and see homes gained, whether they pencil, and the fiscal impact by taxing body; export a council packet PDF (`/policy`). |
 
 ## Key features
 
@@ -21,9 +21,12 @@ Built for the AI for Housing Hackathon 2026, Track 1 (Allegheny County parcels).
   - **Evidence and ranges.** A factor with no data is marked missing and left out of the average. The result then shows a range and, below 60% evidence, the label "Preliminary."
 - **Plain-English answers.** Four answers (Can you build here? Does it pencil? What's in the way? What next?) and a two-sentence summary, built from the computed results. A validator rejects any sentence with a number that is not in the data.
 - **"Pencils?" pro forma.** Budget from published Pittsburgh cost ranges plus hillside and mine adders, sale value from nearby new-construction sales (or after-repair value for a rehab), profit and margin, with the math written as sentences. Every assumption is editable on the page.
-- **Feasibility Study PDF.** Site, zoning, process, market, costs, returns, risks and sources in one cited document.
-- **3D views.** Google Photorealistic 3D Tiles in CesiumJS, plus our own terrain and slope layers built from USGS 1-meter lidar. The lidar views work without a Google key.
-- **Planner compare and rank.** Filter bar, synced map and ranked table, blocker summary, compare tray, CSV export.
+- **QuickFit instant 3D generator.** A "Build it in 3D" panel on the parcel map: change building type, stories, unit width, parking and setbacks and the layout re-solves in a Web Worker (about 7–10 ms warm) and redraws as massing in the photoreal and lidar-terrain views. On slopes steeper than 15% under the building, the floors step down the lidar grade; up to three schemes can be pinned and compared.
+- **Feasibility Study PDF.** Site, zoning, process, market, costs, returns, risks and sources in one cited document, rendered serverless.
+- **3D views.** Google Photorealistic 3D Tiles in CesiumJS, plus our own terrain and slope layers built from USGS 1-meter lidar, with lot lines drawn at lidar ground height. The lidar views work without a Google key.
+- **Planner compare and rank.** Filter bar, synced map and ranked table, blocker summary linked to a Policy scenario, compare tray, CSV and staff memo PDF export.
+- **Nonprofit need → sites → project.** Neighborhood affordability need from ACS and HUD CHAS, a shortlist of public sites, and one project's funding gap, capital stack (LIHTC, HOME, CDBG, PHARE, AHP, land write-down, tax abatement) and an advocacy brief PDF. Every source amount is labeled "typical, not an award."
+- **Policy lever lab.** Turn zoning levers on one at a time or together, see the county-wide policy wave on the map, a for-sale pencil-test range, a fiscal ledger by taxing body (county, municipality, school district), and export a council packet PDF.
 
 Details: [Data and methods](https://easescore.ai/methods) · [Limitations](https://easescore.ai/limitations) · [AI tools used](https://easescore.ai/ai-use)
 
@@ -32,16 +35,22 @@ Details: [Data and methods](https://easescore.ai/methods) · [Limitations](https
 ```
 web/        Next.js 16 App Router app (React 19). Pages, API routes, PDF rendering, maps.
 engine/     @easescore/engine — TypeScript package: Ease Score, QuickFit lot-fit solver,
-            requirements checklist, finance module, plain-English templates and validator.
-            All weights and cost defaults live in engine/config/*.json.
+            requirements checklist, finance module, affordable-housing gap and capital-stack
+            math, policy-lever rewriting and fiscal ledger, plain-English templates and
+            validator. All weights and cost defaults live in engine/config/*.json.
 supabase/   Postgres + PostGIS migrations (Row Level Security on for every table).
 scripts/    Data pipeline: Python ingest scripts (run with uv), lidar slope and terrain,
-            vector tiles, and scripts/score_all.ts to precompute scores for the planner.
+            vector tiles, scripts/score_all.ts (planner scores), scripts/pane_all.ts
+            (parcel page), and scripts/policy_batch.ts (policy lever states).
 docs/       Data inventory, engine notes, code citations, geotech and hidden-cost research.
 ```
 
-- **Map tiles.** Basemap, parcel and hazard layers, and slope classes are PMTiles files served from `web/public/tiles/` (built by `scripts/vector_tiles.sh`; not committed). The lidar terrain tiles come from `scripts/terrain.py`.
+- **Map tiles.** Basemap, parcel and hazard layers, and slope classes are PMTiles files read through MapLibre GL, served from `web/public/tiles/` or a hosted bucket set by `NEXT_PUBLIC_TILES_BASE` (built by `scripts/vector_tiles.sh`; not committed). The lidar terrain tiles come from `scripts/terrain.py`.
+- **3D views.** CesiumJS renders Google Photorealistic 3D Tiles and our own lidar terrain and slope layers, with lot lines drawn at lidar ground height so they sit on the real grade, not a flat plane.
+- **Precomputed parcel results.** `scripts/score_all.ts` scores every parcel into `parcel_scores` for the Planner, `scripts/pane_all.ts` precomputes the Developer parcel pane, and `scripts/policy_batch.ts` precomputes Policy lever states into `policy_states` / `policy_results`, so those seats stay fast without scoring live on every request. A parcel without a precomputed row is still scored live.
+- **QuickFit in a Web Worker.** The lot-fit solver behind the instant 3D generator runs off the main thread (`web/src/lib/quickfit-worker.ts`) so sliders and toggles stay responsive while it re-solves.
 - **Deterministic engine.** Same parcel and same data give the same score and the same budget. No language model runs in the scoring or the financial math.
+- **Serverless PDFs.** The Feasibility Study, staff memo, advocacy brief and council packet PDFs render with Puppeteer, using `@sparticuz/chromium` on Vercel and a local Chrome/Chromium install in development.
 - **Server-only secrets.** Calls that need a secret key (Anthropic, Supabase secret key) run in server routes. The browser gets only the Supabase publishable key and the Google Map Tiles key.
 
 ## Data sources
@@ -69,14 +78,20 @@ Accessed 2026-09-26 unless noted. Full ledger with URLs and fields: [SOURCES.md]
 | Pavement centerlines; 311 flooding requests | City of Pittsburgh | Not yet recorded | 2026 download |
 | Combined sewersheds | PWSA / 3 Rivers Wet Weather, via WPRDC | Not yet recorded | 2026 download |
 | Static GTFS | Pittsburgh Regional Transit | Not yet recorded | Feed 2026-06-28 to 2026-10-14 |
-| American Community Survey 5-year; tract boundaries | U.S. Census Bureau | U.S. Government work | 2024 |
+| American Community Survey 5-year; tract and block group boundaries | U.S. Census Bureau | U.S. Government work | 2020–2024 |
+| HUD CHAS (Comprehensive Housing Affordability Strategy) | U.S. Dept. of Housing and Urban Development, via HUD eGIS and the HUD User CHAS API | U.S. Government work | Tract data vintage 2016–2020; county and municipality data 2018–2022 |
+| HUD LIHTC database | U.S. Dept. of Housing and Urban Development, via HUD eGIS | U.S. Government work | Projects placed in service through 2019 (HUD's newer national file is not accessible; see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)) |
+| HUD Income Limits; Fair Market Rents and Small Area Fair Market Rents (by ZIP); Qualified Census Tract / Difficult Development Area designations | U.S. Dept. of Housing and Urban Development | U.S. Government work | FY2026 |
+| Ownership class (public agency, housing nonprofit, or private) | Derived: City-Owned Properties inventory, assessment class, and the owner's mailing address matched locally against verified public-agency and nonprofit office addresses | — | 2026 |
+| Parcel geography (council district, tract, block group, municipality, school district) | Allegheny County, City of Pittsburgh and U.S. Census Bureau boundaries, joined to each parcel | — | 2026 |
+| Property tax millage by taxing body (county, municipality, school district) | Allegheny County Treasurer | Public government record | 2025–2026 |
 | National Hydrography Dataset; National Wetlands Inventory | USGS; U.S. Fish and Wildlife Service | U.S. Government work | 2026 download |
 | ACRES brownfields | U.S. EPA | U.S. Government work | 2026 download |
 | Bank Prime Loan Rate (DPRIME) | Federal Reserve, via FRED | See FRED terms | Latest at load |
 | OpenStreetMap basemap (Protomaps build) | OpenStreetMap contributors, Protomaps | ODbL | 2026 build |
 | **Photorealistic 3D Tiles** | Google Maps Platform (Map Tiles API) | **Google Maps Platform Terms of Service.** Tiles stream at view time with Google's attribution shown; they are not stored or redistributed. | Live |
 
-Personal data is removed at ingest: no owner mailing addresses, deed references, or names from permits, condemnations or zoning decisions. See [docs/DATA.md](docs/DATA.md#personal-data-removed-at-ingest).
+Personal data is removed at ingest: no owner mailing addresses, deed references, or names from permits, condemnations or zoning decisions. Ownership class stores an agency name for a public agency only (e.g. Urban Redevelopment Authority, Housing Authority); nonprofit and private owners are never named. See [docs/DATA.md](docs/DATA.md#personal-data-removed-at-ingest).
 
 ## AI tools used
 
@@ -115,7 +130,8 @@ No AI runs in the scoring, the lot-fit solver, the requirements checklist or the
 | `SUPABASE_ACCESS_TOKEN` | Pipeline scripts (Supabase SQL API) | For data loading |
 | `ANTHROPIC_API_KEY` | `/api/narrative`, `/api/summary` (server only) | No: templates are used without it |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Photoreal 3D view (restrict it by HTTP referrer) | No: lidar views work without it |
-| `CHROME_PATH` | PDF rendering, if Chrome is not in a standard location | No |
+| `NEXT_PUBLIC_TILES_BASE` | Map and terrain tiles, if served from a hosted bucket instead of `web/public/tiles/` | No: unset serves same-origin `/tiles` |
+| `CHROME_PATH` | PDF rendering in development, if Chrome is not in a standard location | No |
 | `FRED_API_KEY`, `CENSUS_API_KEY`, `HUD_API_TOKEN`, `RENTCAST_API_KEY` | Data scripts | For those loads |
 | `RESEARCH_CONTACT` | User-Agent of the polite research collectors | For those loads |
 
@@ -145,15 +161,15 @@ cd web && npx tsc --noEmit -p .
 
 ## Limitations
 
-Zoning covers the City of Pittsburgh only, sewer service is unknown everywhere, permit times are City targets rather than measured times, and costs are editable assumptions, not bids. The full list is on the [Limitations page](https://easescore.ai/limitations) and in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+Zoning covers the City of Pittsburgh only, sewer service is unknown everywhere, permit times are City targets rather than measured times, and costs are editable assumptions, not bids. The Nonprofit funding gap and the Policy pencil test are screening estimates, not an underwriting or a bond analysis, and Policy's capacity numbers are how many homes a rule change would allow, not how many would get built. The full list is on the [Limitations page](https://easescore.ai/limitations) and in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 
 ## Roadmap
 
 - **City permitting integration.** Pull application dates and review status from the City's permitting system so months-to-permit is measured, not a target.
 - **Planner priority settings.** Let planning staff set the planning-badge weights and upload target areas as a named, dated profile.
-- **Nonprofit capital stack.** Rents locked to area median income, the funding gap, and a capital stack builder (LIHTC, HOME/CDBG, PHARE, FHLBank AHP, abatements), labeled as typical ranges, not awards.
-- **Policy what-if.** Rerun score, lot fit and pro forma county-wide under a rule change (minimum lot size, parking, attached housing by right) with a fiscal ledger by taxing body.
-- **County-wide zoning.** Transcribe zoning for the other Allegheny County municipalities, starting with the largest.
+- **Nonprofit: for-sale tenure and finer geography.** Model for-sale (not just rental) projects, and let a user draw a custom area or work at the block-group level instead of only the 90 City neighborhoods.
+- **Rental verdicts.** A local market cap rate and hold period, so rentals get a yes/no answer and a stabilized value the way for-sale layouts do.
+- **County-wide zoning.** Transcribe zoning for the other Allegheny County municipalities, starting with the largest, so the Planner, Nonprofit and Policy seats work outside the City.
 - **RentEase.** A resident-facing rental search on the same parcel data.
 
 ## License

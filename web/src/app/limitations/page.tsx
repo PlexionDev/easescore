@@ -64,6 +64,31 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
     detail: "Pittsburgh Public Schools attendance zones date from 2012–13 (verify with the district). Greenways were last substantially updated around 2018.",
     vintage: "2012–13; ~2018",
   },
+  {
+    what: "HUD CHAS is an older vintage",
+    detail: "Tract-level affordability need (households by income band, cost burden) comes from HUD's eGIS copy of CHAS. The newer tract file is behind a bot challenge on huduser.gov and could not be loaded, so county- and municipality-level need uses the newer 2018–2022 vintage while tract-level need does not.",
+    vintage: "Tract data 2016–2020; county/municipality data 2018–2022",
+  },
+  {
+    what: "LIHTC projects are not current",
+    detail: "The Low-Income Housing Tax Credit database used for the Nonprofit seat's local-precedent numbers lists projects placed in service only through 2019. HUD's newer national LIHTC file is behind the same bot challenge.",
+    vintage: "Placed in service through 2019",
+  },
+  {
+    what: "Land Bank parcels are counted with the Urban Redevelopment Authority",
+    detail: "The Pittsburgh Land Bank publishes no public parcel list, and its properties share the URA's mailing address in the county's data, so Land Bank parcels cannot be told apart from URA parcels. Ownership-class figures for \"URA\" include both.",
+    vintage: "2026",
+  },
+  {
+    what: "Nonprofit ownership class is approximate",
+    detail: "A parcel is marked publicly or nonprofit-owned by matching the owner's mailing address (never stored) to a short list of known public-agency and housing-nonprofit office addresses, not by an owner name or a registry. A nonprofit that owns land under a different mailing address will not be found; the app never names a private or nonprofit owner.",
+    vintage: "2026",
+  },
+  {
+    what: "Policy Analyst numbers are screening estimates",
+    detail: "The pencil test behind each policy lever is a quick check (sale price per square foot from nearby new-construction sales, a published construction-cost range, land at assessed value, one margin floor), not a full underwriting. \"Capacity\" is how many homes a rule change would allow by right; it is not a forecast of how many would actually get built, financed, or permitted.",
+    vintage: "Cost assumptions effective 2026-09-26",
+  },
 ];
 
 const TOC: [string, string][] = [

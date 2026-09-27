@@ -98,3 +98,34 @@ const result = score.scoreParcel(parcelFacts, {
 **Code sections encoded (checked against the official text):** §911.02 Use Table for the P and H districts; §905.01 P standards, contextual setbacks in P (§905.01.C.1) and Site Plan Review on P lots of 2,400 sf or more (§905.01.D.1, counted as an approval step in F5); Chapter 921 nonconformities: repair of a nonconforming building needs no relief (§921.03.A.1), compliant enlargement is allowed (§921.03.D.1), rebuilding after a disaster is a special exception (§921.03.C.2). Lots of record (§921.04.A): an undersized vacant lot is scored on the Administrator Exception path with partial evidence, because our data can't confirm the lot was vacant and separately owned on the date the Code became applicable (that date isn't in our data).
 
 **Known limits (v0.1):** ADU rules are not transcribed (ADU zoning = missing). Townhouse permissions exist only for residential districts and H. Water/sewer service areas are not loaded yet, so utilities score as unknown (x0.85). Steep ground is not yet cut from the QuickFit envelope, so steep lots can "fit" on paper. The slope-movement input is the 1982 county inventory (on-lot areas only), so the geohazard factor is marked partial.
+
+## Ease Score v0.2 (implemented; `engine/config/ease-score.v0.2.json`)
+
+A credibility pass on top of v0.1. Same factors, weights and evidence rules; three changes:
+
+- **Hazard band cap.** When at least `caps.hazardBand.landslideProneShareMin` of the lot is in the City's landslide-prone overlay, or at least `caps.hazardBand.steepShareOver25Min` of it is steeper than 25%, the result is held to `caps.hazardBand.maxBand` (Moderate) or lower, whatever the raw weighted average would say, and the score carries a `cap` with the reason. This is what `scripts/score_all.ts` reads to add "Steep slope" or the landslide label to a parcel's blocker list.
+- **F1 variance cap.** A layout that only fits with a dimensional variance can no longer score as a sure thing: its dimensional factor (variance base rate weighted by the district's Zoning Board grant record) is itself capped at `caps.varianceF1Max`% of the permission score.
+- **Variance-odds fallback chain.** A district's Zoning Board grant rate is used when it has at least `f1.zba.minCases` decided cases; below that, the citywide rate for the same kind of request is used instead, labeled with its own case count and year range; only when neither exists does the rate fall back to the config's labeled default (`f1.zba.defaultGrantRate`).
+
+Both v0.1 and v0.2 config files ship in `engine/config/`; the app and the batches read v0.2 (`ease-score.v0.2.json`) as `score.DEFAULT_CONFIG`. Every result still carries `configVersion` so old and new rows can be told apart.
+
+## SelectedScheme: one layout per option
+
+Each strategy (new single-family, duplex, 3&ndash;4 units, townhouse row, ADU, rehab) can fit a lot several ways. `SelectedScheme` (`engine/src/score/strategies.ts`, `byMostUnits`) picks one QuickFit layout per strategy &mdash; ranked by unit count, then permission, then gross floor area, then id &mdash; and that single layout now feeds the score, the pro forma, the plain-English summary, QuickFit's "Priced layout" card and the 3D massing together, so they never describe two different buildings for the same parcel. The parcel page opens on the summary's featured by-right option; QuickFit shows the priced scheme as-is until a control is changed, at which point it re-solves.
+
+## Ranges, not point estimates
+
+Cost and value lines in the pro forma, the Nonprofit funding gap, and the Policy pencil test are never a single number: each carries a low, a likely and a high figure, ordered so low &le; likely &le; high even at rounding ties (`ordered()` in `engine/src/affordable/gap.ts`; the same pattern in `engine/src/policy/pencil.ts`'s three scenarios). Ranges come from each input's own documented spread (builder cost tiers, comps quartiles, financing terms) rather than one arbitrary percentage wherever a real range exists; where none does, the range is a labeled assumption (for example land and rent move &plusmn;25%/&plusmn;10% around one figure). Every range keeps its source label so the parcel page, the Nonprofit and Policy seats, and the PDFs can show a source badge without recomputing anything.
+
+## `engine/src/affordable` &mdash; Nonprofit / CDC seat
+
+- `limits.ts`: HUD Income Limits (30/50/80% published; 60% = 1.2&times; the 50% limit, HUD's MTSP convention; any other percentage is a labeled derived scale), the LIHTC 30%-of-income rent rule with an imputed 1.5-persons-per-bedroom household size, and a placeholder tenant-paid utility allowance by bedroom count.
+- `gap.ts`: `supportableDebt` sizes a permanent loan off the restricted rents (NOI &divide; DSCR &divide; the annual mortgage constant); `evaluateProject` runs every configured capital source's eligibility checks (AMI band, tenure, site, project-size thresholds) and typical amount (`engine/config/capital-sources.v0.1.json`: LIHTC 4%/9% credit-equity, HOME, CDBG, PHARE, HOF, AHP, a land write-down, and a LERTA-style abatement), then nets the funding gap before and after the sources a user turns on. Every source amount is labeled "Typical, not an award" and capped so it can never overshoot what is left of the gap.
+- No AI and no live pane call in this math: cost comes from a precomputed parcel-pane layout when one exists for the lot, otherwise a labeled standard bedroom-count program, never an unpriced guess.
+
+## `engine/src/policy` &mdash; Policy Analyst seat
+
+- `levers.ts`: three levers (attached homes by right on narrow single-unit lots, minimum lot size scaled to a share, parking minimums off or waived near transit) that rewrite one parcel's zoning-rules row before it is scored &mdash; the scoring engine itself is never edited, and with every lever off a parcel scores exactly as its own parcel page shows. `stateKey`/`parseKey` give every lever combination a short, readable, cacheable key (e.g. `a35.m0.pt`); `PRECOMPUTE_KEYS` lists the states `scripts/policy_batch.ts` computes ahead of time.
+- `pencil.ts`: a screening-only "does the by-right scheme plausibly sell?" test in three scenarios (low quartile price / high cost, medians, high quartile price / low cost), reusing the same construction-cost tiers as the Developer pro forma so the two never disagree.
+- `fiscal.ts`: a per-taxing-body ledger (county, municipality, school district) from each new home's added assessed value (sale value &times; the county's new-construction assessment ratio) times that body's current millage, with an optional abatement's break-even year.
+- `evaluate.ts` (batch entry) ties the three together per lever state across the parcels a state applies to; capacity and pencil ranges widen (never silently guess) for parcels a batch run could not finish within its per-parcel time budget.

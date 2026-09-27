@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ease from "@easescore/engine/config/ease-score.v0.2.json";
 import costs from "@easescore/engine/config/cost-assumptions.v0.1.json";
+import capital from "@easescore/engine/config/capital-sources.v0.1.json";
 import { assumptions } from "@easescore/engine";
 import Shell from "../_docs/Shell";
 import d from "../_docs/docs.module.css";
@@ -48,6 +49,9 @@ const TOC: [string, string][] = [
   ["time", "Months to a permit"],
   ["proforma", "Does it pencil?"],
   ["comps", "How homes are valued"],
+  ["planner", "How the Planner ranks a parcel"],
+  ["policy", "Policy levers"],
+  ["nonprofit", "Nonprofit affordability math"],
   ["words", "The plain-English layer"],
   ["sources", "Sources"],
 ];
@@ -300,6 +304,103 @@ export default function MethodsPage() {
               A rehab is valued from nearby valid sales of the same use in Good, Very Good or Excellent condition (county assessment rating),
               with living area within {pct(arv.livingAreaTolerance)} of the building. We need at least {arv.minComps}; with fewer, all
               Good-or-better sales nearby are used with a note. As-is sales of older homes are not used as the value after a rehab.
+            </p>
+          </section>
+
+          <section id="planner" aria-labelledby="planner-h">
+            <h2 id="planner-h">How the Planner ranks a parcel</h2>
+            <p>
+              A parcel&apos;s rank uses its best strategy that <strong>adds</strong> homes: new single-family, duplex, 3&ndash;4 units,
+              townhouse row, or ADU. A rehab of the existing building is shown alongside, never in place of it. ADU only becomes
+              the ranked option when no other strategy has a zoning answer &mdash; ADU zoning is not transcribed yet, so without this
+              rule ADU would float to the top of most parcels on missing data, not on merit. Outside the City, where no zoning is
+              loaded at all, the same rule applies: the best of single-family, duplex, 3&ndash;4 units or townhouse ranks the parcel,
+              and ADU only stands in when none of them has an answer.
+            </p>
+            <p>
+              <strong>Blockers</strong> are the factors and callouts actually holding the ranked strategy back: every red flag, a v0.2
+              hazard band cap, then the first factor losing at least one score point and any other losing at least two. A data gap
+              (for example, sewer service marked unknown) is never listed as a blocker &mdash; missing evidence is not the same as a
+              problem. &ldquo;Only blocked by X&rdquo; on the filter rail means every one of a parcel&apos;s blockers is in the set X.
+            </p>
+            <p>
+              Each blocker can link to a <Link href="/policy">Policy</Link> scenario that would relax it &mdash; a minimum-lot-size or
+              lot-too-small blocker links to no minimum lot size, a parking blocker links to no parking minimum near transit, and a
+              use-not-permitted, special-exception, conditional-use or too-small-to-fit blocker links to attached homes by right on
+              narrow lots. When several of a parcel&apos;s blockers have a lever, the link combines them. Setbacks and slope have no
+              lever yet, so they carry no link.
+            </p>
+          </section>
+
+          <section id="policy" aria-labelledby="policy-h">
+            <h2 id="policy-h">Policy levers</h2>
+            <p>
+              A lever never changes the engine. It rewrites the zoning-rules row a parcel is scored with, only for the parcels it
+              applies to; with every lever off, a parcel scores exactly as it does on its own parcel page. Three levers, defined
+              exactly as the code applies them:
+            </p>
+            <ul>
+              <li>
+                <strong>Attached homes by right on narrow lots.</strong> On existing single-unit lots (districts R1D and R1A) at or
+                under a chosen width, a side-by-side attached pair becomes permitted by right; in R1D, the existing townhouse-row
+                width limit also rises to that width when it is currently lower. Parks (district P) are excluded from every lever.
+              </li>
+              <li>
+                <strong>Minimum lot size.</strong> A district&apos;s minimum lot area and minimum lot area per unit are scaled down to
+                a chosen share of the current number (0% removes the minimum).
+              </li>
+              <li>
+                <strong>Parking minimums.</strong> Off, none within a quarter mile of a frequent-transit stop (the Ease Score&apos;s own
+                transit test), or none anywhere.
+              </li>
+            </ul>
+            <p>
+              <strong>Capacity</strong> is shown as a range: the low end counts only homes needing no lot split, the likely figure
+              counts every lot-fit gain the batch could test, and the high end adds lots that ran past the per-parcel time budget,
+              estimated at the average gain. Capacity is how many homes a rule change would allow by right, not how many would get
+              built.
+            </p>
+            <p>
+              <strong>The pencil test</strong> is a screening test, not an underwriting: sale price per square foot from at least five
+              nearby new-construction sales, construction cost from the &ldquo;{tiers.find((t) => t.id === costs.construction.defaultTier)?.label}&rdquo; tier
+              range in the same cost-assumptions config the Developer pro forma uses, land at the county&apos;s assessed value, and a{" "}
+              {pct(costs.pencils.thinMarginBelow.value)} margin floor. It never runs financing, absorption or a hold period.
+            </p>
+            <p>
+              <strong>The fiscal ledger</strong> multiplies a new home&apos;s added assessed value by each taxing body&apos;s current
+              millage (county, municipality, school district). Assessed value is estimated as sale value times the county&apos;s
+              assessment ratio for recent new-construction sales, minus the assessed value of anything the new home replaces. A tax
+              abatement lever, where turned on, is illustrative and fiscal-only: it does not change how many homes a rule allows or
+              whether they pencil.
+            </p>
+          </section>
+
+          <section id="nonprofit" aria-labelledby="nonprofit-h">
+            <h2 id="nonprofit-h">Nonprofit affordability math</h2>
+            <p>
+              <strong>Rent limits</strong> follow HUD Income Limits and the LIHTC 30% rule: household size is imputed at{" "}
+              {capital.rentRule.personsPerBedroom.value} persons per bedroom (1 for an efficiency), the income limit for that
+              household size at the chosen AMI band is looked up (30% and 50% and 80% are HUD&apos;s published limits; 60% is{" "}
+              {capital.rentRule.sixtyPctFactor.value}&times; the 50% limit, HUD&apos;s Multifamily Tax Subsidy convention), and the
+              maximum gross rent is {pct(capital.rentRule.incomeShare.value)} of that income divided by 12. A placeholder tenant-paid
+              utility allowance by bedroom count (labeled &ldquo;{capital.utilityAllowance.sourceLabel}&rdquo;) is subtracted from gross
+              rent to get the rent the project collects.
+            </p>
+            <p>
+              <strong>Need</strong> compares households at or below 50% of the area median (HUD CHAS, all tenures) against the count of
+              rental units in the tract already affordable at that band; the receipt labels this comparison rough.
+            </p>
+            <p>
+              <strong>The funding gap</strong> is total development cost, from the same pro forma the Developer seat uses, minus the
+              permanent loan the restricted rents can support (net operating income &divide; a debt-coverage ratio &divide; the annual
+              payment per dollar borrowed). Turning a capital source on subtracts its typical amount &mdash; labeled &ldquo;Typical, not
+              an award&rdquo; &mdash; from the remaining gap, capped at what is left. Every source&apos;s eligibility checks (AMI limits,
+              tenure, site, minimum project size) run in plain words before its amount is offered.
+            </p>
+            <p>
+              <strong>Cost</strong> comes from the same precomputed site-fit layout the Developer parcel page prices when one exists for
+              the lot; otherwise it falls back to a labeled standard program (homes sized by bedroom count as floors over the lot&apos;s
+              buildable footprint), never a live, unpriced guess.
             </p>
           </section>
 
