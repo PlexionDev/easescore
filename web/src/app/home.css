@@ -318,8 +318,9 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 
 /* ---- Port additions (not in the source design) ---- */
 
-/* Tailwind's preflight removes list bullets; the design relied on the browser default in dialogs. */
-.es-home .dialog-body ul{list-style:disc}
+/* Tailwind's preflight zeroes browser defaults the design relied on: the centred modal and list bullets. */
+.es-home dialog{margin:auto}
+.es-home .dialog-body ul{list-style:disc;margin:1em 0}
 /* Overscroll and short pages show the design's paper, not the app's white. */
 body:has(.es-home){background:#fbfcfd}
 
