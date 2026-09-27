@@ -64,7 +64,8 @@ function costDriver(pf: assumptions.ProFormaResult | null): { costDriver: string
   if (!pf || pf.tdc == null) return { costDriver: null, costDriverEffect: null };
   const line = (id: string) => pf.plan.lines.find((l) => l.id === id)?.amount ?? null;
   const cands: { amount: number; driver: string; effect: string }[] = [];
-  const slope = line("slope_adder");
+  // Stepped/hillside foundation and the retaining-wall line together, so the summary matches the budget's two lines.
+  const slope = (line("slope_adder") ?? 0) + (line("retaining_walls") ?? 0) || null;
   if (slope) {
     const steep = pf.plan.adders.some((a) => a.id === "steep_slope");
     cands.push(steep
