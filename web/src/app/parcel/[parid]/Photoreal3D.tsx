@@ -121,7 +121,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
   const [mode, setMode] = useState<"existing" | "buildable">("existing");
   const [orbit, setOrbit] = useState(false);
   const [heading, setHeading] = useState(0);
-  const [ground, setGround] = useState<{ parcel: number[]; base: number } | null>(null);
+  const [ground, setGround] = useState<{ parcel: number[]; base: number; rings: Ring[] } | null>(null);
   const [panelOpen, setPanelOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [capturing, setCapturing] = useState(false);
   const me = useMemo(() => Symbol("parcel3d"), []);
@@ -158,14 +158,15 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       const ok = hs.filter((h): h is number => h != null);
       const fallback = ok.length ? median(ok) : 300; // outside DEM coverage: a typical county ground height
       const parcel = hs.map((h) => Math.min(h ?? fallback, median(ok.length ? ok : [fallback]) + 6));
-      setGround({ parcel, base: Math.min(...parcel) });
+      setGround({ parcel, base: Math.min(...parcel), rings: parcelRings });
     });
     return () => { dead = true; };
   }, [parcelRings]);
 
   // Mount the shared viewer, configure it for the parcel view, drape the parcel and overlays.
   useEffect(() => {
-    if (!ground || !host.current) return;
+    // Wait for this parcel's heights (after client-side navigation the previous parcel's are still in state).
+    if (!ground || ground.rings !== parcelRings || !host.current) return;
     let dead = false;
     const cleanups: (() => void)[] = [];
     (async () => {
@@ -379,6 +380,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
     return () => {
       dead = true;
       setReady(false);
+      setStatus({ phase: "tiles" }); // hide the canvas; the still for the next place shows until its tiles are in
       for (const c of cleanups.reverse()) { try { c(); } catch { /* viewer already gone */ } }
       layerEnts.current = {};
       release(sh.current, me);
