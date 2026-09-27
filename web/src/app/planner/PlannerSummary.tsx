@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { EmptyState, RangeValue, ReceiptButton, type Receipt } from "@/components/seats";
-import { BAND_COLOR, BANDS, BLOCKER_LEVER, NO_BAND_COLOR, policyKey, type Filters, type PlannerSummary } from "@/lib/planner";
+import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, NO_BAND_COLOR, policyKey, type Filters, type PlannerSummary } from "@/lib/planner";
 
 const BLOCKER_RECEIPT: Receipt = {
   label: "What's holding them back",
@@ -31,7 +31,7 @@ export default function PlannerSummary({ s, f, set, loading }: {
 }) {
   if (!s) return <EmptyState tone="error" title="Results could not load">Try again in a moment. The filters still work.</EmptyState>;
   if (!s.total) return <EmptyState tone="empty" title="No parcels match these filters">Remove a filter on the left to widen the search.</EmptyState>;
-  const bands = [...BANDS, "No score"].map((b) => ({ b, n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
+  const bands = [...BANDS, "Partial", "No score"].map((b) => ({ b, label: b === "Partial" ? "partial (zoning not loaded)" : bandLabel(b).toLowerCase(), n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
   // Blockers a rule change can relax (slope and hazards are not rules), most common first; levers that
   // relax blockers on at least 10% of the matching parcels are combined into one Policy scenario.
   const ruleBlockers = s.blockers.filter((b) => BLOCKER_LEVER[b.blocker]);
@@ -47,10 +47,10 @@ export default function PlannerSummary({ s, f, set, loading }: {
       <section aria-label="Matching parcels">
         <p className="pl-card-label" style={{ fontSize: 12, color: "var(--es-muted)" }}>Matching parcels</p>
         <p className="pl-count">{s.total.toLocaleString("en-US")}</p>
-        <div className="pl-bandbar" role="img" aria-label={bands.map((x) => `${x.n} ${x.b.toLowerCase()}`).join(", ")}>
+        <div className="pl-bandbar" role="img" aria-label={bands.map((x) => `${x.n} ${x.label}`).join(", ")}>
           {bands.map((x) => <span key={x.b} style={{ width: `${(100 * x.n) / s.total}%`, background: BAND_COLOR[x.b] ?? NO_BAND_COLOR }} />)}
         </div>
-        <p className="pl-bandlegend">{bands.map((x) => `${x.n.toLocaleString("en-US")} ${x.b.toLowerCase()}`).join(" · ")}</p>
+        <p className="pl-bandlegend">{bands.map((x) => `${x.n.toLocaleString("en-US")} ${x.label}`).join(" · ")}</p>
       </section>
 
       <section aria-labelledby="pl-blk-h">

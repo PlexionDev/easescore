@@ -412,7 +412,8 @@ export function approvalTag(r: Pick<PlannerRow, "by_right_units" | "blockers">):
 }
 
 /** "Best option: [type] ([by right / needs administrator exception / needs variance])" (§4.1). */
-export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers">): string {
+export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers"> & { band?: PlannerRow["band"] }): string {
+  if (r.band === "Partial") return "Best option: can't determine; zoning not loaded";
   if (!r.best_strategy) return "Best option: none scored";
   const type = STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy;
   return `Best option: ${type} (${approvalTag(r)})`;

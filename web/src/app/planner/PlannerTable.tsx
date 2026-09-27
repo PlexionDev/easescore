@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BandPill, CheckboxField } from "@/components/seats";
-import { BADGE_NOTE, FT_PER_M, MONTHS_RANGE_NOTE, duplicateAddresses, monthsRangeText, ownerShort, parcelLabel, titleCase, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
+import { BADGE_NOTE, FT_PER_M, bandLabel, MONTHS_RANGE_NOTE, duplicateAddresses, monthsRangeText, ownerShort, parcelLabel, titleCase, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
 
 type ColId = "neighborhood" | "zoning" | "lot" | "owner" | "score" | "blocker" | "byright" | "relief" | "hazards" | "months" | "badge" | "transit" | "rehab" | "district";
 type Col = { id: ColId; label: string; title?: string; sort?: Sort; num?: boolean; cell: (r: PlannerRow) => ReactNode; always?: boolean };
@@ -44,7 +44,7 @@ const COLS: Col[] = [
   { id: "months", label: "Months to permit", title: `Predicted months to a building permit for the best option (estimate). ${MONTHS_RANGE_NOTE}`, sort: "months", num: true, cell: (r) => monthsRangeText(r.months_to_permit) },
   { id: "badge", label: "Planning badge", title: BADGE_NOTE, cell: (r) => r.planning_badge ?? <span className="pl-muted">None</span> },
   { id: "transit", label: "To frequent transit", sort: "transit", num: true, cell: (r) => (r.transit_m != null ? `${Math.round((r.transit_m * FT_PER_M) / 10) * 10} ft` : "—") },
-  { id: "rehab", label: "Rehab existing", title: "Ease Score for rehabbing the existing building (not used for ranking)", cell: (r) => (r.rehab_score != null ? `${r.rehab_score} ${r.rehab_band ?? ""}` : <span className="pl-muted">No building</span>) },
+  { id: "rehab", label: "Rehab existing", title: "Ease Score for rehabbing the existing building (not used for ranking)", cell: (r) => (r.rehab_score != null ? `${r.rehab_score} ${bandLabel(r.rehab_band, "")}` : <span className="pl-muted">{r.band === "Partial" && !r.vacant ? "Not scored" : "No building"}</span>) },
   { id: "district", label: "Council district", cell: (r) => r.council_district ?? "—" },
 ];
 const DEFAULT_COLS: ColId[] = ["neighborhood", "zoning", "lot", "owner", "score", "blocker", "byright", "relief", "hazards", "months", "badge"];

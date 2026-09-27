@@ -6,7 +6,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
-import {
+import { partialHeadline, relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
+import { bandLabel,
   BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, approvalNeeded, bestOptionHeadline, monthsRangeText, ownerLabel, parcelLabel, titleCase,
   type PlannerRow,
 } from "@/lib/planner";
@@ -40,14 +41,15 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
               <b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />
               {r.range_lo != null ? <span className="pl-hint">{r.preliminary ? "Preliminary: " : "Range with missing data: "}{r.range_lo} to {r.range_hi}</span> : null}
             </div>
-            {!r.zoning ? <p className="pl-callout amber">Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded, so the zoning factor is left out and the score is shown as a range. Confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
+            {r.band === "Partial" ? <p className="pl-callout amber">{partialHeadline(r.municipality)}. No Ease Score: we have zoning rules for the City of Pittsburgh only. The known facts (lot, hazards, existing building) still apply. Confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
+            {r.score != null ? <p className="pl-hint">{SCORE_CAPTION}</p> : null}
             <p className="pl-hint" style={{ marginTop: -10 }}>
               {bestOptionHeadline(r)}.
-              {!r.vacant ? <> Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "not scored"}.</> : null}
+              {!r.vacant ? <> Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${bandLabel(r.rehab_band)})` : "not scored"}.</> : null}
               {!r.by_right_units ? <> Homes by right: 0{approvalNeeded(r) ? ` — needs approval for ${approvalNeeded(r)!.toLowerCase()}.` : "."}</> : null}
             </p>
             {r.red_flags.map((f) => <p key={f.id} className="pl-callout red"><strong>Blocked unless resolved:</strong> {f.title}</p>)}
-            {r.cap_label ? <p className="pl-callout amber">{r.cap_label}</p> : null}
+            {r.cap_label ? <p className="pl-callout amber">{relabelBands(r.cap_label)}</p> : null}
             {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
             <section>
               <h3 style={{ fontSize: 13, fontWeight: 650 }}>What holds it back</h3>
