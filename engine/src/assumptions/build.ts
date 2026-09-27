@@ -120,6 +120,27 @@ export interface PlanArgs {
   tapFeesPerUnit?: number | null;
   overrides?: CostOverrides;
   config?: CostConfig;
+  /**
+   * Hillside stepping of the site-fit building (floor plates stepped down the lidar grade under the
+   * footprint). When it steps, the steep-slope adder (stepped foundation, retaining walls) prices it:
+   * it replaces the moderate-slope adder, or is added when no slope adder fired; when the lot already
+   * gets the steep-slope adder, nothing is added again. Ignored for the rehab option.
+   */
+  stepping?: SteppingInput | null;
+}
+
+/** Hillside stepping measured under the building footprint (computed by the caller from the lidar grid). */
+export interface SteppingInput {
+  /** Level changes between floor plates (0 = no stepping). */
+  steps: number;
+  /** Highest plate minus lowest plate, feet. */
+  dropFt: number;
+  /** Slope of the ground under the footprint (plane fit), percent. */
+  footprintSlopePct: number;
+  /** Stepping starts at this footprint slope, percent (labeled threshold). */
+  thresholdPct: number;
+  /** Plate increment, feet. */
+  incrementFt: number;
 }
 
 export type LineGroup = "land" | "hard" | "soft" | "contingency" | "financing";
@@ -215,6 +236,8 @@ export interface DevelopmentPlan {
   shares: { ae: number; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab" };
   loanFeeShare: number;
   adders: AdderFired[];
+  /** Hillside stepping that priced the stepped-foundation line (or was covered by the lot's steep-slope adder). */
+  stepping: (SteppingInput & { pricedBy: "stepping" | "steep_slope_adder" }) | null;
   exclusions: Exclusion[];
   minePath: "grouting" | "insurance" | null;
   msiPremium: Receipt | null;
@@ -346,16 +369,35 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const modT = cfg.siteAdders.moderateSlope.trigger;
   let slopeKind: "steep" | "moderate" | null = null;
   if (!sl || (!has(mean) && !has(sh25))) {
-    if (!rehab) exclude("slope_adder", "Hillside foundation adder", "No lidar slope data for this lot, so no slope adder was checked", "no slope data for this lot");
+    if (!rehab && !(a.stepping && a.stepping.steps > 0)) exclude("slope_adder", "Hillside foundation adder", "No lidar slope data for this lot, so no slope adder was checked", "no slope data for this lot");
   } else if (!rehab) {
     if ((has(sh25) && sh25 >= steepT.shareOver25Min) || (has(mean) && mean >= steepT.meanSlopePctMin)) slopeKind = "steep";
     else if (has(mean) && mean >= modT.meanSlopePctMin) slopeKind = "moderate";
   }
+  // The lot-level slope class drives staging (dumpsters) and the hillside contingency; stepping only prices the foundation.
+  const lotSlopeKind = slopeKind;
+  const st = !rehab && a.stepping && a.stepping.steps > 0 ? a.stepping : null;
+  let stepping: DevelopmentPlan["stepping"] = null;
+  if (st) {
+    const stepWhy = `Stepped floor plates: ${st.steps} step${st.steps === 1 ? "" : "s"} of ${st.incrementFt} ft or more, ${+st.dropFt.toFixed(1)} ft total, ground under the footprint slopes ${Math.round(st.footprintSlopePct)}% (stepping starts at ${st.thresholdPct}%)`;
+    if (slopeKind === "steep") {
+      stepping = { ...st, pricedBy: "steep_slope_adder" };
+      notes.push(`${stepWhy}. Covered by the steep-slope adder (stepped foundation, retaining walls), so it is not added again.`);
+    } else {
+      stepping = { ...st, pricedBy: "stepping" };
+      if (slopeKind === "moderate") notes.push("The moderate-slope adder is replaced by the stepped-foundation line (the stepped building needs the steep-slope foundation work), so it is not counted twice.");
+      slopeKind = "steep";
+    }
+    row("stepping", "Hillside stepping (under the footprint)", `${st.steps} step${st.steps === 1 ? "" : "s"}, ${+st.dropFt.toFixed(1)} ft drop, ${Math.round(st.footprintSlopePct)}% slope`, { sourceLabel: "1 m lidar under the site-fit footprint", sourceNote: `Threshold ${st.thresholdPct}% and ${st.incrementFt} ft plate increments are editable placeholders` }, null, false);
+  }
+  const steppedOnly = stepping?.pricedBy === "stepping";
   if (slopeKind) {
-    const def = slopeKind === "steep" ? cfg.siteAdders.steepSlope : cfg.siteAdders.moderateSlope;
+    const def0 = slopeKind === "steep" ? cfg.siteAdders.steepSlope : cfg.siteAdders.moderateSlope;
+    const def = steppedOnly ? { ...def0, label: "Stepped foundation and retaining walls (hillside stepping)" } : def0;
     const perSf = has(o.slopeAdderPerSf) ? o.slopeAdderPerSf : def.value;
-    const why =
-      slopeKind === "steep"
+    const why = steppedOnly
+      ? `Stepped floor plates: ${st!.steps} step${st!.steps === 1 ? "" : "s"}, ${+st!.dropFt.toFixed(1)} ft drop under the footprint (steep-slope rate)`
+      : slopeKind === "steep"
         ? has(sh25) && sh25 >= steepT.shareOver25Min
           ? `Steep slope under ${wholePct(sh25)} of the lot`
           : `Steep slope: the lot averages ${Math.round(mean!)}%`
@@ -368,10 +410,10 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     });
     if (siteSuppressed) notes.push(`${def.label}: included in your per-home cost, so it is not added again.`);
     row("slopeAdder", def.label, `${usd(perSf)}/SF`, def, rangeText(def.range, "usdSf"), has(o.slopeAdderPerSf));
-    notes.push("Slope is measured across the whole lot (1 m lidar), not under the building footprint.");
+    notes.push(steppedOnly ? "Stepping is measured under the building footprint (1 m lidar)." : "Slope is measured across the whole lot (1 m lidar), not under the building footprint.");
     if (amount != null) {
       hardSite.siteWork += amount;
-      lines.push({ id: "slope_adder", group: "hard", label: def.label, short: "hillside foundation", amount, basis: `${why}: ${finishedSf!.toLocaleString("en-US")} sq ft × ${usd(perSf)}/SF`, sourceLabel: has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel });
+      lines.push({ id: "slope_adder", group: "hard", label: def.label, short: steppedOnly ? "stepped foundation" : "hillside foundation", amount, basis: `${why}: ${finishedSf!.toLocaleString("en-US")} sq ft × ${usd(perSf)}/SF`, sourceLabel: has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel });
     }
     if (perSf > cfg.outliers.siteFoundationPerSfMax.value)
       outliers.push(`Foundation and site work at ${usd(perSf)}/SF is above ${usd(cfg.outliers.siteFoundationPerSfMax.value)}/SF: unusually high — verify.`);
@@ -439,7 +481,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
       row("geotech", g.label, "not set", g, null, false);
     }
   }
-  const dumpApplies = demoApplies || (slopeKind === "steep" && !siteSuppressed);
+  const dumpApplies = demoApplies || (lotSlopeKind === "steep" && !siteSuppressed);
   if (dumpApplies) {
     const dd = cfg.siteAdders.dumpstersAndStreetPermit;
     const reason = demoApplies ? "Debris from demolition has to be hauled away" : "A steep lot leaves no flat room to stage on site";
@@ -482,7 +524,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   if (ae > cfg.outliers.aeShareMax.value) outliers.push(`Architecture and engineering at ${pctText(ae)} of hard cost is above ${pctText(cfg.outliers.aeShareMax.value)}: unusually high — verify.`);
 
   // ---- Contingency
-  const hazard = slopeKind != null || landslide || mineApplies;
+  const hazard = lotSlopeKind != null || landslide || mineApplies;
   const contingencyKind: "flat" | "hillside" | "rehab" = rehab ? "rehab" : hazard ? "hillside" : "flat";
   const cdef = cfg.contingency[contingencyKind];
   const contingency = has(o.contingencyShare) ? o.contingencyShare : cdef.value;
@@ -701,6 +743,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     shares: { ae, permits, other, permitsBasis, contingency, contingencyKind },
     loanFeeShare: fin.loanFeeShare.value,
     adders,
+    stepping,
     exclusions,
     minePath,
     msiPremium,

@@ -4,6 +4,7 @@
 // Next.js imports here, so the batch can bundle it.
 
 import { assumptions, score, type ParcelFacts } from "@easescore/engine";
+import type { TerrainGrid } from "./terrain-grid";
 
 /** FNV-1a hash of a JSON value (so any edit to a config, not only its version label, changes the key). */
 function hash(v: unknown): string {
@@ -14,7 +15,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.6|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.7|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -39,6 +40,8 @@ export interface PaneInputs {
   newSales: assumptions.SaleRecord[] | null;
   /** Year built and condition of the parcel's own sales comps (for the rehab's matched comps). */
   compDetails: Record<string, { year_built: number | null; condition_desc: string | null }> | null;
+  /** Lidar elevation grid under the lot (lib/terrain-grid.ts), sampled by the caller; null when not covered. */
+  terrain?: TerrainGrid | null;
 }
 
 export interface PanePayload {
@@ -54,6 +57,8 @@ export interface PanePayload {
   tapFees: number | null;
   /** Lot outline in local feet (quickfit parcel ring), for the still placeholder before the map loads. */
   outline: [number, number][] | null;
+  /** Lidar ground grid under the lot, same local feet as `outline` (QuickFit 3D: plate heights, hillside stepping). */
+  terrain: TerrainGrid | null;
   /** Ease Score for every strategy (policy unlocks on, as on the parcel page); null if scoring failed. */
   score: score.EaseScoreResult | null;
   newComps: Partial<Record<score.StrategyId, assumptions.CompSet | null>>;
@@ -141,6 +146,7 @@ export function buildPane(i: PaneInputs): PanePayload {
     prime: i.prime,
     tapFees: i.tapFees,
     outline: Array.isArray(ring) && ring.length >= 3 ? ring : null,
+    terrain: i.terrain ?? null,
     score: result,
     newComps,
     rehabComps,

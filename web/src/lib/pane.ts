@@ -9,6 +9,7 @@ import { easeInputs, parcelFactsChecked, permitTimes, rentComps, salesComps, zba
 import { newConstructionSalesNear, primeRate, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
 import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
 import type { Timing } from "@/lib/timing";
+import { terrainGridFor } from "@/lib/terrain-tiles";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -61,9 +62,10 @@ async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: 
     T.time("rest_zba_citywide", fetchZbaCitywide(URL, KEY)),
   ]);
   if (!fr.facts) return { ok: false, error: fr.error };
+  const terrain = await T.time("terrain_grid", terrainGridFor(qf as Parameters<typeof terrainGridFor>[0]));
   const payload = T.timeSync("score_and_comps", () => buildPane({
     parid, asOf, facts: fr.facts, quickfitInput: qf ?? null, easeInputs: (ease ?? null) as score.EaseInputsRpc | null,
-    zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details,
+    zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details, terrain,
   }));
   return { ok: true, payload, source: "live" };
 }

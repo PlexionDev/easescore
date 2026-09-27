@@ -12,13 +12,15 @@
 // A parcel over the time budget is skipped (no row: the page computes it live). Rows are upserted
 // with the service key (never printed). Default workers: half the CPU cores.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cpus } from "node:os";
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { assumptions, score } from "@easescore/engine";
 import { buildPane, fetchZbaCitywide, PANE_VERSION, toStored, type PaneInputs } from "../web/src/lib/pane-core";
+import { sampleTerrainGrid, type TerrainGrid } from "../web/src/lib/terrain-grid";
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 const ROOT = process.cwd();
@@ -36,9 +38,26 @@ interface Shared {
 
 // ------------------------------------------------------------------------------ worker
 
+// Lidar grid under the lot, from the same terrain tiles the page decodes (sharp from web/node_modules).
+const TERRAIN_DIR = join(ROOT, "web", "public", "tiles", "terrain", "16");
+async function terrainFor(qf: Json): Promise<TerrainGrid | null> {
+  if (!qf?.parcel || !qf?.toLonLat || !existsSync(TERRAIN_DIR)) return null;
+  try {
+    const sharp = createRequire(join(ROOT, "web", "package.json"))("sharp");
+    return await sampleTerrainGrid(qf.parcel, qf.toLonLat, async (x, y) => {
+      const file = join(TERRAIN_DIR, String(x), `${y}.webp`);
+      if (!existsSync(file)) return null;
+      const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
+      return { w: info.width, h: info.height, ch: info.channels, data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) };
+    });
+  } catch {
+    return null;
+  }
+}
+
 if (!isMainThread) {
   const sh = workerData as Shared;
-  parentPort!.on("message", (m: { id: number; row: Json }) => {
+  parentPort!.on("message", async (m: { id: number; row: Json }) => {
     try {
       const r = m.row;
       const facts = r.facts;
@@ -51,7 +70,7 @@ if (!isMainThread) {
         // Same as singleFamilyComps(): the parcel's own comps when they are single-family sales.
         sfComps: sales?.comparable_use === "single family" ? sales : r.sf ?? null,
         prime: sh.prime, tapFees: facts?.assessment?.is_pittsburgh === true ? sh.tapFeesCity : null,
-        newSales: sh.newSales, compDetails: r.details ?? {},
+        newSales: sh.newSales, compDetails: r.details ?? {}, terrain: await terrainFor(r.qf),
       };
       parentPort!.postMessage({ id: m.id, stored: toStored(buildPane(inputs)) });
     } catch (e) {
