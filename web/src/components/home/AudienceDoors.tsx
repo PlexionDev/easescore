@@ -16,7 +16,7 @@ const TEXT: Record<string, string> = {
   "seat.developer.g1": "Ease Score with a receipt for every factor",
   "seat.developer.g2": "What fits by right and with approval",
   "seat.developer.g3": "Pro forma and full feasibility study",
-  "seat.developer.go": "Search for a lot",
+  "seat.developer.go": "Open the developer workspace",
   "seat.developer.alt": "AI-generated vacant hillside infill lot between brick rowhouses, with survey stakes and a small excavator.",
   "seat.nonprofit.title": "Housing Nonprofit / CDC",
   "seat.nonprofit.q": "“Can we build homes families can afford here, and what’s the gap?”",
@@ -43,15 +43,14 @@ type Seat = {
 
 const SEATS: Seat[] = [
   { key: "planner", href: "/planner", src: "/home/images/seat-planner.webp", imgClass: "planning-photo" },
-  { key: "developer", href: "/#parcel-search", src: "/home/images/seat-developer.webp" },
+  { key: "developer", href: "/developer", src: "/home/images/seat-developer.webp" },
   { key: "nonprofit", href: "/nonprofit", src: "/home/images/seat-nonprofit.webp", imgClass: "community-photo" },
   { key: "policy", href: "/policy", src: "/home/images/seat-policy.webp" },
 ];
 
-/** In-page targets (the Developer seat's "/#parcel-search") use a plain link, so the search box sees the
- *  hash and focuses its field; the other seats open their own pages. */
+/** Each seat opens its own workspace page. */
 function SeatLink({ href, ...rest }: ComponentProps<"a"> & { href: string }) {
-  return href.startsWith("/#") ? <a href={href} {...rest} /> : <Link href={href} {...rest} />;
+  return <Link href={href} {...rest} />;
 }
 
 export default async function AudienceDoors() {

@@ -332,6 +332,10 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         </div>
         <div className="mt-0.5"><CopyParcelId parid={parid} /></div>
         <p className="mt-0.5 text-xs text-slate-600">{subline}</p>
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-xs">
+          <Link href={`/developer?parcel=${encodeURIComponent(parid)}`} className="text-sm font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-950">Open in Developer workspace →</Link>
+          <Link href="/planner" className="text-slate-600 underline decoration-dotted underline-offset-2 hover:text-slate-900">Compare sites in the Planner</Link>
+        </p>
       </header>
       {/* 2-3. Photo (Street View or our illustrative map) beside the site layout thumbnail */}
       <div className="grid grid-cols-2 gap-2">

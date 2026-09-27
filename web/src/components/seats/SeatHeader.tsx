@@ -12,8 +12,8 @@ import "./seats.css";
  * Compact app header for the seat pages: logo → home, the four-seat switcher (current seat highlighted),
  * then page controls (geography picker, scenario) and actions (saved lists, export) as slots.
  *
- * The Developer link opens the focused or first pinned parcel from the shared selection
- * (`setSelection({ focus })` / `setSelection({ parids })`), else the homepage parcel search.
+ * The Developer link opens /developer with the focused parcel from the shared selection
+ * (`setSelection({ focus })`) open in its pane, if there is one.
  */
 export default function SeatHeader({ seat, controls, actions, hrefs }: {
   /** Current seat. Defaults to the one matching the URL. */

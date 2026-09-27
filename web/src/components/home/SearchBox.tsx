@@ -25,6 +25,7 @@ export default function SearchBox({
   defaultValue,
   autoFocus = false,
   landmarkLabel,
+  onPick,
 }: {
   id: string;
   /** Name of the search landmark; give each search on a page its own (axe landmark-unique). */
@@ -34,6 +35,8 @@ export default function SearchBox({
   tryExample?: boolean;
   defaultValue?: string;
   autoFocus?: boolean;
+  /** Called with the chosen suggestion instead of opening /parcel/<id> (the Developer workspace opens it in its pane). */
+  onPick?: (h: SearchHit) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -166,7 +169,8 @@ export default function SearchBox({
 
   function goToHit(h: SearchHit) {
     setOpen(false);
-    router.push(`/parcel/${h.parid}`);
+    if (onPick) onPick(h);
+    else router.push(`/parcel/${h.parid}`);
   }
 
   return (

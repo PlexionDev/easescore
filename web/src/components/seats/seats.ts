@@ -16,7 +16,7 @@ export type Seat = {
 
 export const SEATS: readonly Seat[] = [
   { id: "planner", label: "Municipal Planner", short: "Planner", job: "Compare and rank sites" },
-  { id: "developer", label: "Developer", short: "Developer", job: "Check one parcel" },
+  { id: "developer", label: "Developer", short: "Developer", job: "Find and check lots" },
   { id: "nonprofit", label: "Nonprofit / CDC", short: "Nonprofit", job: "Plan affordable homes" },
   { id: "policy", label: "Policy Analyst", short: "Policy", job: "Test a rule change" },
 ];
@@ -27,13 +27,13 @@ export function seatFromPath(pathname: string | null | undefined): SeatId | null
   if (pathname.startsWith("/planner")) return "planner";
   if (pathname.startsWith("/nonprofit")) return "nonprofit";
   if (pathname.startsWith("/policy")) return "policy";
-  if (pathname.startsWith("/parcel/")) return "developer";
+  if (pathname.startsWith("/developer")) return "developer";
   return null;
 }
 
 /**
  * Where a seat link goes, keeping context where it makes sense:
- * - Developer opens the focused (or first pinned) parcel, else the homepage parcel search.
+ * - Developer opens its workspace with the focused parcel open in the pane (?parcel=<id>), if any.
  * - The other seats read the shared selection on mount (municipality / neighborhood), so their links
  *   stay plain paths; nothing personal goes into a URL.
  */
@@ -43,8 +43,8 @@ export function seatHref(id: SeatId, sel: SeatSelection): string {
     case "nonprofit": return "/nonprofit";
     case "policy": return "/policy";
     case "developer": {
-      const p = sel.focus ?? sel.parids[0];
-      return p ? `/parcel/${p}` : "/#parcel-search";
+      const p = sel.focus;
+      return p ? `/developer?parcel=${p}` : "/developer";
     }
   }
 }
