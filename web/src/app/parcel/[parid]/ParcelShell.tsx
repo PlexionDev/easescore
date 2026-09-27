@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter } from "next/navigation";
 import { preconnect } from "react-dom";
-import MapStage, { type Footprints } from "./MapStage";
-import QuickFitPanel, { type PricedOption, type PricedScheme } from "./QuickFitPanel";
+import type { quickfit, score } from "@easescore/engine";
+import MapStage, { markSubject, type MapMassing } from "./MapStage";
+import QuickFitPanel from "./QuickFitPanel";
+import BuildPanel from "./BuildPanel";
+import MetricsBar, { type Pinned } from "./MetricsBar";
 import { DrawerHost, type DrawerId } from "./Drawers";
 import PhotorealStill from "./PhotorealStill";
 import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
+import type { BuildMode, Massing } from "./Photoreal3D";
+import {
+  QF_KEYS, boxColor, controlsToQuery, sameControls, typologyDef,
+  type FinanceInputs, type GenControls, type GenInput, type GenMetrics, type GenTypology,
+} from "@/lib/quickfit-gen";
+import type { TerrainGrid } from "@/lib/terrain-grid";
+import { useQuickFit } from "@/lib/use-quickfit";
 
 // Cesium + Google tiles load only when the photoreal view is shown (never in the initial JS). Until the live
 // view is ready, PhotorealStill (server-rendered, our own data) stands in for it.
@@ -17,43 +28,91 @@ const Photoreal3D = dynamic(() => import("./Photoreal3D"), { ssr: false, loading
 const HAS_KEY = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 const NO_FEATURES = { type: "FeatureCollection" as const, bbox: [], center: [0, 0] as [number, number], features: [] };
 const PANEL_W = 440, GUTTER = 16;
+/** Height the metrics bar takes at the bottom of the map (desktop / phone). */
+const BAR_H = 92, BAR_H_M = 76;
+/** Width of the Build panel on desktop. */
+const BUILD_W = 300;
 
 type Affine = { lon0: number; lat0: number; lon_per_x: number; lat_per_x: number; lon_per_y: number; lat_per_y: number };
 type Sheet = "peek" | "half" | "full";
 const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
 const PEEK_PX = 104;
 
-export default function ParcelShell({ pane, planExtras, drawers, stage, outline, center, rules, zoneCode, selectedScheme, pricedOptions }: {
+/** What the page hands the QuickFit 3D generator (lib/quickfit-gen.ts). */
+export interface GenProps {
+  /** The selected option (the score's strategy). */
+  strategy: score.StrategyId | null;
+  /** Map controls for it (from the URL, or the ones that reproduce its priced scheme); null when it is not a new build. */
+  controls: GenControls | null;
+  /** Per building type: the controls that reproduce its priced scheme. */
+  defaults: Record<GenTypology, GenControls>;
+  /** The priced scheme per strategy (the score's fit scheme). */
+  fixed: Partial<Record<score.StrategyId, quickfit.Scheme>>;
+  fin: FinanceInputs;
+  zoneCode: string | null;
+  rulesRow: quickfit.QuickFitRules | null;
+  terrain: TerrainGrid | null;
+  /** The page's own pro forma metrics for the selected option (shown until the worker answers). */
+  serverMetrics: GenMetrics | null;
+  code: { front: number | null; side: number | null; rear: number | null };
+  notApplicable: Partial<Record<GenTypology, string>>;
+}
+
+// Pinned schemes live in sessionStorage (this tab only); an in-memory copy covers private mode.
+const PIN_EVENT = "easescore:qf-pins";
+const pinMemory = new Map<string, string>();
+function readPins(key: string): string {
+  try { return sessionStorage.getItem(key) ?? pinMemory.get(key) ?? "[]"; } catch { return pinMemory.get(key) ?? "[]"; }
+}
+function writePins(key: string, v: string) {
+  pinMemory.set(key, v);
+  try { sessionStorage.setItem(key, v); } catch { /* private mode: memory only */ }
+  window.dispatchEvent(new Event(PIN_EVENT));
+}
+function subscribePins(cb: () => void) {
+  window.addEventListener(PIN_EVENT, cb);
+  return () => window.removeEventListener(PIN_EVENT, cb);
+}
+
+/** Stable identity for props that arrive as new objects on every server render but rarely change. */
+function useStable<T>(v: T): T {
+  const key = JSON.stringify(v ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => v, [key]);
+}
+
+export default function ParcelShell({ parid, pane, planExtras, drawers, stage, outline, center, gen }: {
+  parid: string;
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
-  /** Assumptions and project questions, shown in "Change the plan" under QuickFit. */
+  /** Assumptions and project questions, shown in "Change the plan" under the scheme summary. */
   planExtras?: ReactNode;
   /** Other drawers (pro forma, process, details). */
   drawers: { id: DrawerId; title: string; content: ReactNode }[];
   /** Map data and lot geometry, streamed after the pane: the pane never waits for them. */
-  stage: Promise<{ mapData: any; qfInput: any }>;
+  stage: Promise<{ mapData: any; qfInput: any }>; // eslint-disable-line @typescript-eslint/no-explicit-any
   /** Lot outline in local feet, drawn as a still placeholder until the map data arrives. */
   outline: [number, number][] | null;
   /** Lot centroid [lon, lat] from the pane: the photoreal view aims there and starts tiles before the map data. */
   center?: [number, number] | null;
-  rules: Record<string, unknown> | null; zoneCode: string | null;
-  /** The one scheme the score, pro forma and summary use; drawn in 3D until the visitor picks another layout. */
-  selectedScheme?: PricedScheme | null;
-  /** Engine pro formas for the other options' schemes (shown on the matching QuickFit cards). */
-  pricedOptions?: PricedOption[];
+  gen: GenProps;
 }) {
-  const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null);
+  const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  // The page re-renders (new stage promise) whenever the plan is committed to the URL; keep the map data of the
+  // parcel already on screen so the maps are not rebuilt.
+  const loadedFor = useRef<string | null>(null);
   useEffect(() => {
     let live = true;
-    stage.then((x) => { if (live) setLoaded(x); }, () => { if (live) setLoaded({ mapData: null, qfInput: null }); });
+    stage.then((x) => {
+      if (!live || (loadedFor.current === parid && x?.mapData)) return;
+      loadedFor.current = x?.mapData ? parid : null;
+      setLoaded(x);
+    }, () => { if (live && loadedFor.current !== parid) setLoaded({ mapData: null, qfInput: null }); });
     return () => { live = false; };
-  }, [stage]);
+  }, [stage, parid]);
   const mapData = loaded?.mapData ?? null;
   const qfInput = loaded?.qfInput ?? null;
   if (HAS_KEY) preconnect("https://tile.googleapis.com");
-  const [footprints, setFootprints] = useState<Footprints>(null);
-  const [userPicked, setUserPicked] = useState(false);
-  const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
   const a: Affine | undefined = qfInput?.toLonLat;
   const toLonLat = (p: [number, number]): [number, number] =>
     a ? [a.lon0 + a.lon_per_x * p[0] + a.lon_per_y * p[1], a.lat0 + a.lat_per_x * p[0] + a.lat_per_y * p[1]] : p;
@@ -92,7 +151,10 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
   }, []);
   const sheetPx = (s: Sheet) => (s === "peek" ? PEEK_PX : Math.round(vh * SHEET_FRAC[s]));
   const sheetH = dragH ?? sheetPx(sheet);
-  const insets = useMemo(() => (mobile ? { left: 0, bottom: sheetPx(sheet) } : { left: PANEL_W + GUTTER, bottom: 0 }), [mobile, sheet, vh]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Desktop: the lot is framed right of the pane and (when open) the Build panel, above the metrics bar.
+  const [buildOpenSet, setBuildOpen] = useState<boolean | null>(null);
+  const buildOpen = buildOpenSet ?? !mobile;
+  const insets = useMemo(() => (mobile ? { left: 0, bottom: sheetPx(sheet) + BAR_H_M } : { left: PANEL_W + GUTTER + (buildOpen ? BUILD_W + GUTTER : 0), bottom: BAR_H }), [mobile, sheet, vh, buildOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onHandleDown = (e: React.PointerEvent) => {
     drag.current = { y: e.clientY, h: sheetH, moved: false };
@@ -116,14 +178,97 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
     setDragH(null);
   };
 
-  // Until QuickFit reports a layout, the 3D massing is the priced scheme (same building as the score and pro forma).
+  // ---- QuickFit 3D generator: map controls -> worker solve -> massing + metrics.
+  const router = useRouter();
+  const pathname = usePathname();
+  const [controls, setControls] = useState<GenControls | null>(gen.controls);
+  const touched = useRef(false);
+  // The strategy switcher in the pane (a server navigation) picks another option: follow it. Server renders that
+  // answer the map's own commits (possibly late, after the visitor moved on) are not followed.
+  const [lastStrategy, setLastStrategy] = useState(gen.strategy);
+  const [ownCommits, setOwnCommits] = useState<string[]>([]);
+  if (lastStrategy !== gen.strategy) {
+    setLastStrategy(gen.strategy);
+    const i = gen.strategy != null ? ownCommits.indexOf(gen.strategy) : -1;
+    if (i >= 0) setOwnCommits(ownCommits.filter((_, k) => k !== i));
+    const ours = i >= 0;
+    if (!ours && (!controls || !gen.controls || controls.typology !== gen.controls.typology)) setControls(gen.controls);
+  }
+  const [buildMode, setBuildMode] = useState<BuildMode>("buildable");
+  const change = (c: GenControls) => {
+    touched.current = true;
+    // A new building type starts from its own priced layout.
+    setControls(!controls || c.typology !== controls.typology ? gen.defaults[c.typology] : c);
+    setBuildMode("buildable");
+  };
+  // Commit the plan to the URL (?strategy= + qf_*) once the controls settle, so the score, summary and pro forma follow.
   useEffect(() => {
-    if (userPicked || !a || !selectedScheme?.footprints.length) return;
-    setFootprints({ rings: selectedScheme.footprints.map((r) => r.map(toLonLat)), heightFt: selectedScheme.heightFt });
-  }, [qfInput, selectedScheme]); // eslint-disable-line react-hooks/exhaustive-deps
-  const photoFootprints = useMemo(() => (footprints ? { rings: footprints.rings, heightFt: footprints.heightFt } : null), [footprints]);
-  const maxHeightFt = typeof rules?.max_height_ft === "number" ? (rules.max_height_ft as number) : 40;
+    if (!touched.current || !controls) return;
+    const t = setTimeout(() => {
+      const q = new URLSearchParams(window.location.search);
+      for (const k of QF_KEYS) q.delete(k);
+      q.set("strategy", typologyDef(controls.typology).strategy);
+      if (!sameControls(controls, gen.defaults[controls.typology])) for (const [k, v] of Object.entries(controlsToQuery(controls))) q.set(k, v);
+      const next = `${pathname}?${q.toString()}`;
+      if (next === `${pathname}${window.location.search}`) return;
+      // A commit that changes the option comes back as a server render with that strategy: remember it as ours.
+      const st = typologyDef(controls.typology).strategy;
+      if (new URLSearchParams(window.location.search).get("strategy") !== st && lastStrategy !== st) setOwnCommits((xs) => [...xs, st]);
+      router.replace(`${next}${window.location.hash}`, { scroll: false });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [controls]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fin = useStable(gen.fin);
+  const fixed = useStable(gen.fixed);
+  const defaults = useStable(gen.defaults);
+  const rulesRow = useStable(gen.rulesRow);
+  const terrain = useStable(gen.terrain);
+  // Existing buildings on the lot, in the lot's local feet (an ADU keeps clear of them).
+  const existing = useMemo(() => {
+    if (!mapData || !a) return [];
+    const parcel = (mapData.features as { properties: { kind: string } }[]).find((f) => f.properties.kind === "parcel");
+    const det = a.lon_per_x * a.lat_per_y - a.lon_per_y * a.lat_per_x;
+    if (!parcel || !det) return [];
+    const toLocal = ([lon, lat]: [number, number]): [number, number] => {
+      const dl = lon - a.lon0, dt = lat - a.lat0;
+      return [(dl * a.lat_per_y - dt * a.lon_per_y) / det, (dt * a.lon_per_x - dl * a.lat_per_x) / det];
+    };
+    return (markSubject(mapData, parcel).features as { properties: { kind: string; subject?: boolean }; geometry: { type: string; coordinates: unknown } }[])
+      .filter((f) => f.properties.kind === "building" && f.properties.subject)
+      .map((f) => ((f.geometry.type === "Polygon" ? (f.geometry.coordinates as [number, number][][])[0] : (f.geometry.coordinates as [number, number][][][])[0]?.[0]) ?? []).map(toLocal));
+  }, [mapData, a]);
+  const genInput = useMemo<GenInput | null>(() => (qfInput?.parcel ? { qf: qfInput, zoneCode: gen.zoneCode, rulesRow, terrain, existing } : null), [qfInput, gen.zoneCode, rulesRow, terrain, existing]);
+  const req = useMemo(() => (controls ? { kind: "run" as const, controls } : gen.strategy ? { kind: "finance" as const, strategy: gen.strategy } : null), [controls, gen.strategy]);
+  const run = useQuickFit(genInput, fin, fixed, defaults, req);
+  const result = controls ? run.result : null;
+  const metrics = run.metrics ?? gen.serverMetrics;
+  useEffect(() => { if (run.ms) (window as unknown as { __qfLast?: unknown }).__qfLast = { ...run.ms, scheme: run.result?.scheme?.id ?? null }; }, [run]);
+
+  const massing: Massing = useMemo(() => (result && a
+    ? { boxes: result.boxes.map((b) => ({ ring: b.ring.map(toLonLat), z0: b.z0, z1: b.z1, color: boxColor(b) })), zAbsolute: result.zAbsolute }
+    : null), [result, a]); // eslint-disable-line react-hooks/exhaustive-deps
+  const envKey = JSON.stringify(result?.envelope ?? null);
+  const envelope = useMemo(() => (result && a ? result.envelope.map((p) => (p[0] ?? []).map((q) => toLonLat(q as [number, number]))).filter((r) => r.length >= 3) : null), [envKey, a]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mapMassing: MapMassing = useMemo(() => (result && a
+    ? { boxes: result.boxes.map((b) => ({ ring: b.ring.map(toLonLat), z0: b.z0, z1: b.z1, color: boxColor(b), floor: b.floor })), envelope: envelope ?? [] }
+    : null), [result, a, envelope]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maxHeightFt = typeof rulesRow?.max_height_ft === "number" ? rulesRow.max_height_ft : 40;
   const photoEnvelope = useMemo(() => (envelope ? { rings: envelope, heightFt: maxHeightFt } : null), [envelope, maxHeightFt]);
+
+  // Pinned schemes (this tab only), up to three.
+  const pinKey = `es.qf.pins.${parid}`;
+  const pinsRaw = useSyncExternalStore(subscribePins, () => readPins(pinKey), () => "[]");
+  const pins = useMemo(() => { try { return JSON.parse(pinsRaw) as Pinned[]; } catch { return []; } }, [pinsRaw]);
+  const savePins = (p: Pinned[]) => writePins(pinKey, JSON.stringify(p));
+  const pin = () => {
+    if (!controls || !run.metrics || pins.length >= 3) return;
+    const key = JSON.stringify(controls);
+    if (pins.some((p) => p.key === key)) return;
+    const s = result?.scheme;
+    savePins([...pins, { key, controls, metrics: run.metrics, binding: result?.binding ?? null, label: `${typologyDef(controls.typology).label}${s ? `: ${s.units} home${s.units === 1 ? "" : "s"}` : ""}` }]);
+  };
+
   // Enough to aim the photoreal camera before the map data streams in: the centroid and the lot's radius.
   const early = useMemo(() => {
     if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) return null;
@@ -136,21 +281,39 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
     return { lon: center[0], lat: center[1], radiusM };
   }, [center?.[0], center?.[1], outline]); // eslint-disable-line react-hooks/exhaustive-deps
   const parcelKey = String((mapData?.features as { properties?: { kind?: string; id?: string } }[] | undefined)?.find((f) => f.properties?.kind === "parcel")?.properties?.id ?? mapData?.center?.join(",") ?? "parcel");
+  const overlaysOn = !(mobile && sheet === "full");
+  const shownControls = controls ?? gen.defaults.sf;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-100">
       {!loaded && <StagePlaceholder outline={outline} />}
       {mapData && stageMounted && (
         <div className={`absolute inset-0 ${mode === "photoreal" ? "invisible" : ""}`} aria-hidden={mode === "photoreal"}>
-          <MapStage data={mapData} footprints={footprints} />
+          <MapStage data={mapData} massing={mapMassing} bottomInset={insets.bottom} leftInset={mobile ? 0 : PANEL_W + GUTTER + BUILD_W + GUTTER} />
         </div>
       )}
       {mode === "photoreal" && HAS_KEY && (mapData || early) && <>
         {mapData && <PhotorealStill data={mapData} insets={insets} />}
-        <Photoreal3D parcelKey={parcelKey} data={mapData ?? NO_FEATURES} early={early} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
+        <Photoreal3D parcelKey={parcelKey} data={mapData ?? NO_FEATURES} early={early} massing={massing} envelope={photoEnvelope} insets={insets}
+          onFallback={() => choose("terrain")} mode={buildMode} onModeChange={setBuildMode} />
       </>}
       {mapData && mode === "photoreal" && !HAS_KEY && <KeyNeeded onFallback={() => choose("terrain")} />}
       {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} />}
+
+      {(mapData || qfInput) && overlaysOn && mode !== "analysis" && (
+        <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
+          <BuildPanel controls={shownControls} onChange={change} onReset={() => { touched.current = true; setControls(gen.defaults[shownControls.typology]); }}
+            isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} result={result} ms={run.ms}
+            open={buildOpen} onToggle={() => setBuildOpen(!buildOpen)} notApplicable={gen.notApplicable} />
+        </div>
+      )}
+      {(mapData || qfInput) && overlaysOn && (
+        <div className="absolute left-2 right-2 z-20 md:left-[472px] md:right-4" style={{ bottom: mobile ? sheetH + 6 : 12 }}>
+          <MetricsBar metrics={metrics} binding={result?.binding ?? null} reason={result?.reason ?? null} controls={controls} pins={pins}
+            onPin={pin} onUnpin={(k) => savePins(pins.filter((p) => p.key !== k))} onRestore={(p) => { touched.current = true; setControls(p.controls); setBuildMode("buildable"); }}
+            compact={mobile} busy={!!controls && !!run.result && !sameControls(run.result.controls, controls)} />
+        </div>
+      )}
 
       <aside
         className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-2xl border border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl md:inset-x-auto md:bottom-4 md:left-4 md:top-4 md:w-[440px] md:rounded-2xl md:bg-white/85 ${dragH == null ? "transition-[height] duration-300" : ""}`}
@@ -165,13 +328,9 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
         ...drawers.filter((d) => d.id === "pencils"),
         { id: "plan", title: "Change the plan", content: <>
           <section>
-            <h3 className="text-sm font-semibold text-slate-900">What fits here (QuickFit)</h3>
-            <p className="mb-2 text-xs text-slate-500">Single-family, duplex, townhouse row. The selected layout is drawn in 3D on the map.</p>
-            {qfInput ? (
-              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode} priced={selectedScheme ?? null} pricedOptions={pricedOptions ?? []}
-                onScheme={(s, byUser) => { setUserPicked(byUser); setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null); }}
-                onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
-            ) : <p className="text-sm text-slate-600">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}
+            <h3 className="text-sm font-semibold text-slate-900">The layout on the map (QuickFit 3D)</h3>
+            {qfInput ? <QuickFitPanel parcel={qfInput.parcel ?? null} result={result} notes={[]} />
+              : <p className="text-sm text-slate-600">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}
           </section>
           {planExtras}
         </> },

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
@@ -15,6 +16,10 @@ import SummaryText from "./SummaryText";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
+import {
+  GEN_TYPOLOGIES, controlsFromQuery, controlsFromScheme, financeFor, generate, metricsOf, plates, proFormaFacts, sameControls, typologyForStrategy,
+  type FinanceInputs, type GenControls, type GenInput, type GenTypology, type SteppingResult,
+} from "@/lib/quickfit-gen";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -106,6 +111,33 @@ function centerOf(f: object): [number, number] | null {
   return typeof c?.lon === "number" && typeof c?.lat === "number" ? [c.lon, c.lat] : null;
 }
 
+// Vercel: a parcel that is not precomputed is computed live; never let one request run away.
+export const maxDuration = 60;
+/** A live pane computation slower than this shows the "database busy, retry" state instead of hanging. */
+const LIVE_BUDGET_MS = 25_000;
+
+const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
+/** Tab title "<address> · Parcel <id> — EaseScore.AI" from one cheap keyed read (streamed; falls back to the id). */
+export async function generateMetadata({ params }: PageProps<"/parcel/[parid]">): Promise<Metadata> {
+  const { parid } = await params;
+  let address: string | null = null;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/parcel_scores?select=address&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
+      headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(1500),
+    });
+    if (r.ok) address = titleCase(((await r.json()) as { address?: string | null }[])[0]?.address ?? null) || null;
+  } catch {
+    address = null;
+  }
+  return { title: `${address ? `${address} · ` : ""}Parcel ${parid} — EaseScore.AI` };
+}
+
+/** Resolves to null after `ms` (the caller then shows the retry state). */
+const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
+  Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
@@ -117,10 +149,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid).then((m) => m ?? parcelMap(parid))), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
   stage.catch(() => undefined);
   // Pane data: one precomputed row (parcel_pane), or computed live when the parcel has no row yet.
-  const loaded = await loadPane(parid, asOf, quickfitP, T);
+  // The skeleton (loading.tsx) is already on screen; a busy database gets the retry page after LIVE_BUDGET_MS.
+  const loaded = await within(loadPane(parid, asOf, quickfitP, T), LIVE_BUDGET_MS);
+  if (!loaded) return <DataUnavailable parid={parid} />;
   if (!loaded.ok) {
     // 404 only when the parcel ID truly does not exist; a data error (e.g. a database timeout) gets a retry page.
-    const exists = await T.time("rest_parcel_exists", parcelExists(parid));
+    const exists = await T.time("rest_parcel_exists", within(parcelExists(parid), 4000));
     if (exists === false) notFound();
     return <DataUnavailable parid={parid} />;
   }
@@ -153,44 +187,50 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === defaultId) ?? easeResult.strategies[0] ?? null
     : null;
-  // Pro forma for the selected option: cost defaults from the versioned config, the user's pf_* edits,
-  // comps and rents from the database. A failure hides the section, never the page.
-  // One SelectedScheme for the selected option (site-fit scheme + the user's program edits): the score's
-  // fit, the pro forma, the summary and the 3D massing all read this same building.
-  let chosenScheme: score.SelectedScheme | null = null;
-  if (selected?.applicable) {
-    try {
-      chosenScheme = score.selectScheme({
-        strategy: selected.strategy, scheme: easeResult?.schemes?.[selected.strategy] ?? null, result: selected,
-        existing: { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, use: f.assessment?.use ?? null },
-        overrides: { units: overrides.units, storiesAboveGarage: overrides.storiesAboveGarage, parking: overrides.parking, bedrooms: overrides.bedrooms, baths: overrides.baths },
-      });
-    } catch {
-      chosenScheme = null;
+  // One SelectedScheme for the selected option and its pro forma, through the same function the map's
+  // QuickFit 3D generator runs in the browser (lib/quickfit-gen.ts financeFor): the score's fit scheme, or
+  // the generator's scheme when the visitor changed the map controls (qf_* keys), plus the program edits
+  // (pf_*) and hillside stepping measured on the lidar grid under the footprint.
+  const isCity = score.isCityParcel(f);
+  const fin: FinanceInputs = {
+    facts: proFormaFacts(f as unknown as Record<string, unknown>), sfComps: sfComps as FinanceInputs["sfComps"], newComps: P.newComps, rehabComps: P.rehabComps,
+    rents: rent as FinanceInputs["rents"], prime, tapFees,
+    permitMonths: Object.fromEntries((easeResult?.strategies ?? []).map((x) => [x.strategy, x.predictedMonthsToPermit?.months ?? null])),
+    overrides,
+    results: Object.fromEntries((easeResult?.strategies ?? []).map((x) => [x.strategy, { schemeId: x.schemeId ?? null, f1: (x.factors.find((q) => q.id === "F1")?.inputs ?? null) as Record<string, unknown> | null }])),
+  };
+  const genTyp: GenTypology | null = typologyForStrategy(selected?.strategy);
+  const urlControls: GenControls | null = genTyp ? controlsFromQuery(sp, genTyp) : null;
+  // Map controls per building type: the URL's for the selected one, else the ones that reproduce its priced scheme.
+  const genDefaults = Object.fromEntries(GEN_TYPOLOGIES.map((t) => {
+    const sch = easeResult?.schemes?.[t.strategy] ?? null;
+    const sr = easeResult?.strategies.find((x) => x.strategy === t.strategy);
+    const f1 = sr?.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string | null; varianceRules?: string[] } | undefined;
+    return [t.id, controlsFromScheme(t.id, sch, f1?.fitStatus ?? null, f1?.varianceRules ?? [])];
+  })) as Record<GenTypology, GenControls>;
+  let genScheme: import("@easescore/engine").quickfit.Scheme | null = selected ? easeResult?.schemes?.[selected.strategy] ?? null : null;
+  let genStepping: SteppingResult | null = null;
+  if (selected?.applicable && urlControls) {
+    // The visitor's map controls: rerun the generator here (needs the lot geometry, streamed otherwise).
+    const qfIn = await quickfitP.catch(() => null);
+    if (qfIn) {
+      const gi: GenInput = { qf: qfIn, zoneCode: f.zoning?.code ?? null, rulesRow: isCity ? ((f.zoning as { rules?: GenInput["rulesRow"] } | undefined)?.rules ?? null) : null, terrain: P.terrain };
+      const d = genDefaults[urlControls.typology];
+      const own = sameControls({ ...urlControls, stories: d.stories, unitWidthFt: d.unitWidthFt, parking: d.parking }, d) ? genScheme : null;
+      const g = T.timeSync("quickfit_generate", () => generate(gi, urlControls, own));
+      genScheme = g.scheme;
+      genStepping = g.stepping;
     }
-  }
+  } else if (genScheme) genStepping = plates(genScheme.footprints, P.terrain).stepping;
+  let chosenScheme: score.SelectedScheme | null = null;
   let pf: assumptions.ProFormaResult | null = null;
   if (selected?.applicable) {
     try {
-      const rehab = selected.strategy === "rehab_existing";
-      const newComps = P.newComps[selected.strategy] ?? null;
-      const matched = rehab ? P.rehabComps : null;
-      const plan = assumptions.buildDevelopmentInputs({
-        strategy: selected.strategy,
-        facts: f as assumptions.ProFormaFacts,
-        scheme: easeResult?.schemes?.[selected.strategy] ?? null,
-        selected: chosenScheme,
-        comps: rehab ? matched : sfComps,
-        newComps,
-        rents: rent as assumptions.RentCompsLike | null,
-        primeRate: prime?.rate ?? null,
-        primeRateDate: prime?.date ?? null,
-        permitMonths: selected.predictedMonthsToPermit?.months ?? null,
-        tapFeesPerUnit: tapFees,
-        overrides,
-      });
-      pf = T.timeSync("proforma", () => assumptions.evaluateDevelopment(plan));
+      const out = T.timeSync("proforma", () => financeFor(fin, selected.strategy, genScheme, genStepping));
+      chosenScheme = out.selected;
+      pf = out.pf;
     } catch {
+      chosenScheme = null;
       pf = null;
     }
   }
@@ -288,7 +328,6 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       </header>
       <div className="flex items-center justify-between">
         <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
-        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Test build</span>
       </div>
       {/* 2. Property image (streams in after the pane) */}
       <ParcelThumb stage={stage} date={asOf} />
@@ -435,18 +474,18 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Details", content: details },
       ]}
-      stage={stage} outline={P.outline} center={centerOf(f)} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
-      selectedScheme={chosenScheme && chosenScheme.footprints.length ? {
-        schemeId: chosenScheme.schemeId, label: `${chosenScheme.strategyLabel}${chosenScheme.typologyLabel ? ` (${chosenScheme.typologyLabel})` : ""}`,
-        units: chosenScheme.units, stories: chosenScheme.stories, heightFt: chosenScheme.heightFt ?? 0, finishedSf: chosenScheme.finishedSf,
-        grossSf: chosenScheme.grossFloorAreaSf, unitWidthFt: chosenScheme.layout?.unitWidthFt ?? null, unitDepthFt: chosenScheme.layout?.unitDepthFt ?? null,
-        lotCoveragePct: chosenScheme.layout?.lotCoveragePct ?? null, parking: chosenScheme.parking ? { spaces: chosenScheme.parking.spaces, required: chosenScheme.parking.required } : null,
-        path: chosenScheme.path, variancesNeeded: chosenScheme.variancesNeeded, binding: chosenScheme.bindingConstraint?.label ?? null,
-        footprints: chosenScheme.footprints as [number, number][][],
-        proForma: pf?.ranges.headline ?? null, totalCost: pf ? assumptions.rangeText(pf.ranges.tdc) : null,
-      } : null}
-      pricedOptions={(plans?.options ?? []).filter((o) => o.pf?.plan.scheme.schemeId).map((o) => ({
-        schemeId: o.pf!.plan.scheme.schemeId!, label: o.label, proForma: o.pf!.ranges.headline, totalCost: assumptions.rangeText(o.pf!.ranges.tdc),
-      }))} />
+      parid={parid} stage={stage} outline={P.outline} center={centerOf(f)}
+      gen={{
+        strategy: selected?.strategy ?? null,
+        controls: genTyp ? urlControls ?? genDefaults[genTyp] : null,
+        defaults: genDefaults, fixed: easeResult?.schemes ?? {}, fin,
+        zoneCode: f.zoning?.code ?? null, rulesRow: isCity ? ((f.zoning as { rules?: GenInput["rulesRow"] } | undefined)?.rules ?? null) : null,
+        terrain: P.terrain, serverMetrics: chosenScheme ? metricsOf(chosenScheme, pf) : null,
+        code: (() => {
+          const zr = (f.zoning as { rules?: { min_front_setback_ft?: number | null; min_side_setback_ft?: number | null; min_rear_setback_ft?: number | null } } | undefined)?.rules;
+          return { front: zr?.min_front_setback_ft ?? null, side: zr?.min_side_setback_ft ?? null, rear: zr?.min_rear_setback_ft ?? null };
+        })(),
+        notApplicable: Object.fromEntries(GEN_TYPOLOGIES.map((t) => [t.id, easeResult?.strategies.find((x) => x.strategy === t.strategy && !x.applicable)?.notApplicableReason ?? undefined]).filter(([, v]) => v)),
+      }} />
   );
 }

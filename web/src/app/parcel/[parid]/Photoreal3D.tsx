@@ -7,14 +7,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as CesiumNS from "cesium";
-import { acquire, groundHeights, prefersReducedMotion, release, sunTime, tileErrorOf, warm, type Shared, type TileError } from "@/lib/photoreal";
+import { acquire, GEOID_OFFSET_M, groundHeights, prefersReducedMotion, release, sunTime, tileErrorOf, warm, type Shared, type TileError } from "@/lib/photoreal";
 import { frameParcel, START_RANGE } from "./PhotorealStill";
 
 type Ring = [number, number][];
 type Geom = { type: string; coordinates: unknown };
 type Feature = { properties: { kind: string; label?: string | null }; geometry: Geom };
 export type MapFC = { type: "FeatureCollection"; bbox: number[]; center: [number, number]; features: Feature[] };
-export type Massing = { rings: Ring[]; heightFt: number } | null;
+/** QuickFit 3D boxes: lon/lat rings, bottom and top in feet (NAVD88 when zAbsolute, else above the ground), one color each. */
+export type Massing = { boxes: { ring: Ring; z0: number; z1: number; color: string }[]; zAbsolute: boolean } | null;
+export type BuildMode = "existing" | "buildable";
 export type Envelope = { rings: Ring[]; heightFt: number } | null;
 export type Insets = { left: number; bottom: number };
 /** Where the lot is, known from the pane before the map data streams in: enough to aim the camera and start tiles. */
@@ -23,7 +25,6 @@ export type Early = { lon: number; lat: number; radiusM: number };
 const SETTLE_S = 1.2; // short settle from the slightly wider opening framing (none under reduced motion)
 const LIFT_M = 0.4; // lines ride just above the lidar ground so they don't flicker against the mesh
 const DESATURATE = 0; // share of luminance mixed into the surroundings; 0 turns it off
-const SHADES = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#ca8a04", "#4f46e5"];
 
 const LAYERS: { id: string; label: string; kinds: Record<string, string> }[] = [
   { id: "landslide", label: "Landslide-prone (City)", kinds: { landslide_prone_pgh: "#ef4444" } },
@@ -138,8 +139,10 @@ function viewLoaded(s: Shared, ts: CesiumNS.Cesium3DTileset, cleanups: (() => vo
   });
 }
 
-export default function Photoreal3D({ parcelKey, data, early, massing, envelope, insets, onFallback }: {
+export default function Photoreal3D({ parcelKey, data, early, massing, envelope, insets, onFallback, mode: modeProp, onModeChange }: {
   parcelKey: string; data: MapFC; early?: Early | null; massing: Massing; envelope: Envelope; insets: Insets; onFallback: () => void;
+  /** Controlled "Existing / What can be built" (the map's Build panel turns the massing on). */
+  mode?: BuildMode; onModeChange?: (m: BuildMode) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const sh = useRef<Shared | null>(null);
@@ -155,7 +158,10 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
   const [status, setStatus] = useState<Status>({ phase: "engine" });
   const [pending, setPending] = useState(0);
   const [ready, setReady] = useState(false); // viewer mounted + base entities placed
-  const [mode, setMode] = useState<"existing" | "buildable">("existing");
+  const [modeState, setModeState] = useState<BuildMode>("existing");
+  const mode = modeProp ?? modeState;
+  const setMode = (m: BuildMode) => { setModeState(m); onModeChange?.(m); };
+  const prim = useRef<CesiumNS.Primitive | null>(null);
   const [orbit, setOrbit] = useState(false);
   const [heading, setHeading] = useState(0);
   const [ground, setGround] = useState<{ parcel: number[]; base: number; rings: Ring[] } | null>(null);
@@ -535,9 +541,8 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
     (async () => {
       src.entities.removeAll();
       const envRings = envelope?.rings.filter((r) => r.length >= 3) ?? [];
-      const massRings = massing?.rings.filter((r) => r.length >= 3) ?? [];
       const [hs, envLines] = await Promise.all([
-        groundHeights([...envRings.flat(), ...massRings.flat()]),
+        groundHeights(envRings.flat()),
         Promise.all(envRings.map((r) => groundLine(C, open(r), true, ground.base))),
       ]);
       if (dead) return;
@@ -574,19 +579,54 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
           depthFailMaterial: new C.PolylineDashMaterialProperty({ color: new C.CallbackProperty(() => col("#86efac", 0.9 * fade.current), false), dashLength: 12 }),
         } });
       }
-      // QuickFit massing: solid blocks that cast shadows.
-      massRings.forEach((r, j) => {
-        const hts = take(r.length);
-        const base = Math.min(...hts);
-        src.entities.add({ polygon: {
-          hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(r).flat())), height: base,
-          extrudedHeight: base + (massing?.heightFt ?? 30) * 0.3048 + (Math.max(...hts) - base),
-          material: col(SHADES[j % SHADES.length]!, 1), show: shown, shadows: C.ShadowMode.ENABLED,
-        } });
-      });
     })();
     return () => { dead = true; };
-  }, [ready, ground, envelope, massing, parcelRings]);
+  }, [ready, ground, envelope, parcelRings]);
+
+  // QuickFit 3D massing: every floor/unit box, stair core and parking pad in ONE Primitive (GeometryInstances with a
+  // per-instance color: one draw call), at our lidar ground heights converted to Google's ellipsoid frame the same way
+  // as groundLine (NAVD88 + GEOID_OFFSET_M). Rebuilt synchronously on every change, so a slider never flickers.
+  useEffect(() => {
+    const s = sh.current;
+    if (!ready || !s || !ground) return;
+    const { C, viewer } = s;
+    let dead = false;
+    let mine: CesiumNS.Primitive | null = null;
+    const boxes = massing?.boxes.filter((b) => b.ring.length >= 3) ?? [];
+    const build = (baseM: number | null) => {
+      if (dead || !boxes.length) return;
+      const toM = (ft: number) => (baseM == null ? ft * 0.3048 + GEOID_OFFSET_M : baseM + ft * 0.3048);
+      const instances = boxes.map((b) => new C.GeometryInstance({
+        geometry: new C.PolygonGeometry({
+          polygonHierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(b.ring).flat())),
+          height: toM(b.z0), extrudedHeight: toM(b.z1), vertexFormat: C.PerInstanceColorAppearance.VERTEX_FORMAT,
+        }),
+        attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color)) },
+      }));
+      mine = new C.Primitive({
+        geometryInstances: instances, appearance: new C.PerInstanceColorAppearance({ translucent: false, closed: true }),
+        asynchronous: false, shadows: C.ShadowMode.ENABLED, show: fade.current > 0.02,
+      });
+      viewer.scene.primitives.add(mine);
+      const old = prim.current;
+      prim.current = mine;
+      if (old && old !== mine) { viewer.scene.primitives.remove(old); if (!old.isDestroyed()) old.destroy(); }
+      viewer.scene.requestRender();
+    };
+    if (!boxes.length) {
+      const old = prim.current;
+      prim.current = null;
+      if (old) { viewer.scene.primitives.remove(old); if (!old.isDestroyed()) old.destroy(); }
+    } else if (massing!.zAbsolute) build(null);
+    else groundHeights([boxes[0]!.ring[0]!]).then(([h]) => build(h ?? ground.base));
+    return () => { dead = true; void mine; };
+  }, [ready, ground, massing]);
+  // Drop the massing when the view goes away.
+  useEffect(() => () => {
+    const p = prim.current, s = sh.current;
+    prim.current = null;
+    if (p && s && !s.viewer.isDestroyed()) { s.viewer.scene.primitives.remove(p); if (!p.isDestroyed()) p.destroy(); }
+  }, []);
 
   useEffect(() => {
     const s = sh.current, ts = tiles.current;
@@ -599,6 +639,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
     function tick() {
       const k = ms ? Math.min(1, (performance.now() - t0) / ms) : 1;
       fade.current = start + (target - start) * (k * k * (3 - 2 * k));
+      if (prim.current && !prim.current.isDestroyed()) prim.current.show = fade.current > 0.02;
       if (k < 1) return;
       if (target === 0 && ts?.clippingPolygons && !ts.isDestroyed()) ts.clippingPolygons.enabled = false;
       un();
@@ -744,7 +785,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
           {/* When the mobile sheet is fully open only a sliver of map shows: keep the credit lines, hide the tools. */}
           {!(insets.bottom > 0 && insets.left === 0 && typeof window !== "undefined" && insets.bottom > window.innerHeight * 0.6) && <>
           {/* Layers + Existing / What can be built */}
-          <div className="absolute right-4 top-16 z-10 w-64 rounded-2xl border border-white/40 bg-white/85 p-3 text-sm shadow-xl backdrop-blur-md xl:top-4">
+          <div className="absolute right-3 top-16 z-10 w-44 rounded-2xl border border-white/40 bg-white/85 p-2 text-sm shadow-xl backdrop-blur-md md:right-4 md:w-64 md:p-3 xl:top-4">
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 text-xs font-semibold" role="radiogroup" aria-label="Show">
               {(["existing", "buildable"] as const).map((m) => (
                 <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
@@ -754,8 +795,8 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
               ))}
             </div>
             {mode === "buildable" && (
-              <p className="mt-2 text-xs text-slate-600">
-                {massing?.rings.length ? "Green: buildable envelope · blocks: the selected QuickFit layout." : envelope?.rings.length ? "Green: buildable envelope. No layout fits by right; try the setback “what if” fields." : "QuickFit hasn't produced an envelope for this lot."}
+              <p className="mt-2 hidden text-xs text-slate-600 md:block">
+                {massing?.boxes.length ? "Green: buildable envelope and setback line · blocks: the layout from Build it in 3D." : envelope?.rings.length ? "Green: buildable envelope. Nothing fits with these settings; try the Build panel." : "QuickFit hasn't produced an envelope for this lot."}
               </p>
             )}
             <button onClick={() => setPanelOpen(!panelOpen)} className="mt-2 flex w-full items-center justify-between font-semibold text-slate-800">

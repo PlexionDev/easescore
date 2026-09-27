@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { tilesBase } from "@/lib/tiles";
 import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor } from "@protomaps/basemaps";
 import mlcontour from "maplibre-contour";
@@ -26,9 +27,10 @@ const OVERLAYS: { kind: string; label: string; color: string; on: boolean }[] = 
   { kind: "wetland_nwi", label: "Wetlands", color: "#14b8a6", on: false },
 ];
 
-export type Footprints = { rings: [number, number][][]; heightFt: number } | null;
+/** QuickFit 3D boxes in lon/lat with plate-based heights in feet (lib/quickfit-gen.ts GenBox), and the setback line. */
+export type MapMassing = { boxes: { ring: [number, number][]; z0: number; z1: number; color: string; floor: number }[]; envelope: [number, number][][] } | null;
 
-export default function MapStage({ data, footprints, onReady }: { data: FC; footprints?: Footprints; onReady?: () => void }) {
+export default function MapStage({ data, massing, bottomInset = 0, leftInset = 480, onReady }: { data: FC; massing?: MapMassing; bottomInset?: number; leftInset?: number; onReady?: () => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [aerial, setAerial] = useState(false);
@@ -45,12 +47,13 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
 
   useEffect(() => {
     if (!el.current || map.current) return;
-    const origin = window.location.origin;
+    // Hosted tiles in production (NEXT_PUBLIC_TILES_BASE), this site's /tiles locally.
+    const tiles = tilesBase();
     if (!protocolAdded) {
       maplibregl.addProtocol("pmtiles", new Protocol().tile);
       protocolAdded = true;
     }
-    const dem = new mlcontour.DemSource({ url: `${origin}/tiles/terrain/{z}/{x}/{y}.webp`, encoding: "mapbox", maxzoom: 16, worker: true, cacheSize: 200 });
+    const dem = new mlcontour.DemSource({ url: `${tiles}/terrain/{z}/{x}/{y}.webp`, encoding: "mapbox", maxzoom: 16, worker: true, cacheSize: 200 });
     dem.setupMaplibre(maplibregl as any);
 
     const parcel = data.features.find((f) => f.properties.kind === "parcel");
@@ -60,13 +63,13 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
       glyphs: "https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf",
       sprite: "https://protomaps.github.io/basemaps-assets/sprites/v4/light",
       sources: {
-        protomaps: { type: "vector", url: `pmtiles://${origin}/tiles/basemap.pmtiles`, attribution: "© OpenStreetMap contributors · Protomaps" },
+        protomaps: { type: "vector", url: `pmtiles://${tiles}/basemap.pmtiles`, attribution: "© OpenStreetMap contributors · Protomaps" },
         aerial: { type: "raster", tiles: [PEMA], tileSize: 512, attribution: "PEMA imagery 2021–2023 (PASDA)", maxzoom: 20 },
         // Mesh at z15 (1.8 m/px at 512 px); hillshade reads a separate source at full 1 m (z16) for crisp relief.
-        dem: { type: "raster-dem", tiles: [`${origin}/tiles/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 15, bounds: [-80.37, 40.19, -79.68, 40.68], attribution: "USGS 3DEP 1 m lidar" },
-        shade: { type: "raster-dem", tiles: [`${origin}/tiles/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 16, bounds: [-80.37, 40.19, -79.68, 40.68] },
+        dem: { type: "raster-dem", tiles: [`${tiles}/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 15, bounds: [-80.37, 40.19, -79.68, 40.68], attribution: "USGS 3DEP 1 m lidar" },
+        shade: { type: "raster-dem", tiles: [`${tiles}/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 16, bounds: [-80.37, 40.19, -79.68, 40.68] },
         contours: { type: "vector", tiles: [dem.contourProtocolUrl({ multiplier: 3.28084, thresholds: { 13: [20, 100], 14: [10, 50], 15: [5, 25], 16: [5, 25] }, elevationKey: "ele", levelKey: "level", contourLayer: "contours" })], maxzoom: 16 },
-        slope: { type: "vector", url: `pmtiles://${origin}/tiles/slope.pmtiles` },
+        slope: { type: "vector", url: `pmtiles://${tiles}/slope.pmtiles` },
         site: { type: "geojson", data: markSubject(data, parcel) as any },
       },
       layers: [
@@ -119,18 +122,19 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
       // The parcel: glowing outline + translucent lift
       m.addLayer({ id: "parcel-glow", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#facc15", "line-width": 12, "line-blur": 8, "line-opacity": 0.7 } });
       m.addLayer({ id: "parcel-line", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#ca8a04", "line-width": 3 } });
-      // QuickFit scheme massing
+      // QuickFit 3D massing: one fill-extrusion layer, a box per floor and unit, stepped plates as bases.
       m.addSource("scheme", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addSource("setback", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       // Footprint drawn on the ground too, so its place on the lot reads clearly under the pitched 3D view.
-      m.addLayer({ id: "scheme-ground", type: "fill", source: "scheme", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.35 } });
-      m.addLayer({ id: "scheme-outline", type: "line", source: "scheme", paint: { "line-color": "#1e3a8a", "line-width": 2 } });
+      m.addLayer({ id: "scheme-ground", type: "fill", source: "scheme", filter: ["<=", ["get", "floor"], 0], paint: { "fill-color": ["get", "color"], "fill-opacity": 0.35 } });
+      m.addLayer({ id: "setback-line", type: "line", source: "setback", paint: { "line-color": "#16a34a", "line-width": 2.5, "line-dasharray": [3, 2] } });
       m.addLayer({ id: "scheme-3d", type: "fill-extrusion", source: "scheme",
-        paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.92 } });
+        paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.95 } });
       // Cinematic arrival
       if (parcel) {
         // Keep the lot clear of the floating panel (440 px + gutter) when there is room for it.
         const w = m.getContainer().clientWidth, h = m.getContainer().clientHeight;
-        const left = w > 900 ? 480 : Math.round(w * 0.1), side = Math.round(w * 0.1), vert = Math.round(h * 0.2);
+        const left = w > 900 ? Math.min(leftInset + 24, w - 360) : Math.round(w * 0.1), side = Math.round(w * 0.1), vert = Math.round(h * 0.2);
         m.fitBounds(bboxOf(parcel.geometry), { pitch: 58, bearing: 160, maxZoom: 19.2, duration: 2600, essential: true,
           padding: { top: vert, bottom: vert, left, right: side } });
       }
@@ -147,14 +151,25 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
     return () => { m.remove(); map.current = null; setLoaded(false); };
   }, [data]);
 
-  // Scheme massing from QuickFit
+  // QuickFit 3D massing and setback line. Heights are relative to the lowest floor plate (the extrusion sits on the terrain).
   useEffect(() => {
     const m = map.current;
     const src = m?.getSource("scheme") as maplibregl.GeoJSONSource | undefined;
-    if (!src) return;
-    const colors = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#ca8a04", "#4f46e5"];
-    src.setData({ type: "FeatureCollection", features: (footprints?.rings ?? []).map((r, i) => ({ type: "Feature", properties: { color: colors[i % colors.length], h: (footprints!.heightFt) * 0.3048 }, geometry: { type: "Polygon", coordinates: [[...r, r[0]!]] } })) });
-  }, [footprints, loaded]);
+    const sb = m?.getSource("setback") as maplibregl.GeoJSONSource | undefined;
+    if (!src || !sb) return;
+    const boxes = massing?.boxes ?? [];
+    const z = boxes.length ? Math.min(...boxes.map((b) => b.z0)) : 0;
+    src.setData({ type: "FeatureCollection", features: boxes.map((b) => ({ type: "Feature", properties: { color: b.color, floor: b.floor, b: Math.max(0, (b.z0 - z) * 0.3048), h: (b.z1 - z) * 0.3048 }, geometry: { type: "Polygon", coordinates: [[...b.ring, b.ring[0]!]] } })) });
+    sb.setData({ type: "FeatureCollection", features: (massing?.envelope ?? []).filter((r) => r.length >= 3).map((r) => ({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [...r, r[0]!] } })) });
+  }, [massing, loaded]);
+
+  // Keep MapLibre's own bottom controls (zoom, scale, attribution) above the metrics bar.
+  useEffect(() => {
+    for (const c of ["bottom-right", "bottom-left"]) {
+      const box = el.current?.querySelector<HTMLElement>(`.maplibregl-ctrl-${c}`);
+      if (box) box.style.bottom = `${bottomInset}px`;
+    }
+  }, [bottomInset, loaded]);
 
   const vis = (id: string, show: boolean) => { if (loaded && map.current?.getLayer(id)) map.current.setLayoutProperty(id, "visibility", show ? "visible" : "none"); };
   useEffect(() => { vis("aerial", aerial); }, [aerial, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -183,7 +198,7 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
   return (
     <div className="absolute inset-0">
       {/* Camera controls: spin, tilt, orbit, reset. Right-drag or Ctrl-drag also rotates; two-finger twist on touch. */}
-      <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/40 bg-white/85 p-1 text-sm shadow-xl backdrop-blur-md md:left-[calc(50%+230px)]">
+      <div className="absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/40 bg-white/85 p-1 text-sm shadow-xl backdrop-blur-md md:left-[calc(50%+230px)]" style={{ bottom: bottomInset + 24 }}>
         <CamBtn title="Rotate left 45°" onClick={() => turn(-45)}>↺ 45°</CamBtn>
         <CamBtn title={orbit ? "Stop orbit" : "Orbit"} active={orbit} onClick={() => setOrbit(!orbit)}>{orbit ? "❚❚ Orbit" : "▶ Orbit"}</CamBtn>
         <CamBtn title="Rotate right 45°" onClick={() => turn(45)}>45° ↻</CamBtn>
