@@ -50,7 +50,6 @@ export default function Header({ home = false }: { home?: boolean }) {
       <Link className="brand" href="/" aria-label={"EaseScore.AI home"}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/easescore-logo-horizontal.svg" alt="" aria-hidden="true" className="brand-logo" />
-        <small>Intelligent Feasibility</small>
       </Link>
       <button
         type="button"

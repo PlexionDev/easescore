@@ -32,7 +32,7 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .skip:focus{top:12px}
 .es-home .header{height:84px;position:absolute;left:36px;right:36px;top:36px;display:flex;align-items:center;justify-content:space-between;gap:28px;padding:0 28px;z-index:20;border:1px solid #ffffffb3;background:#fbfcfdf5;border-radius:10px;box-shadow:0 4px 30px #101b2520;backdrop-filter:blur(16px)}
 .es-home .brand{display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
-.es-home .brand-logo{height:38px;width:auto;display:block}
+.es-home .brand-logo{height:64px;width:auto;display:block}
 .es-home .brand-ai{font-weight:430;color:var(--green)}
 .es-home .brand small{font-size:.625rem;letter-spacing:.11em;text-transform:uppercase;display:block;font-weight:500;color:var(--muted)}
 .es-home nav{display:flex;align-items:center;gap:30px}
@@ -222,7 +222,7 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .footer-links{gap:35px}
 .es-home .closing-inner{gap:35px}}
 @media(max-width:850px){.es-home .header{left:28px;right:28px;top:28px;height:75px}
-.es-home .brand-logo{height:33px}
+.es-home .brand-logo{height:54px}
 .es-home .menu-toggle{display:flex;flex-direction:column;gap:6px;border:1px solid #c7d8cf;border-radius:5px;width:44px;height:44px;justify-content:center;align-items:center;background:white}
 .es-home .menu-toggle>span{display:block;height:1.5px;width:20px;background:var(--ink)}
 .es-home nav{display:none;position:absolute;top:84px;left:0;right:0;background:var(--white);border:1px solid var(--line);padding:18px 24px;border-radius:8px;box-shadow:0 15px 25px #142a2220;align-items:stretch;gap:8px}
@@ -257,7 +257,7 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .header{left:20px;right:20px;top:20px;height:68px;padding:0 15px;border-radius:7px}
 .es-home .brand{gap:3px}
 .es-home .brand small{font-size:.52rem}
-.es-home .brand-logo{height:29px}
+.es-home .brand-logo{height:48px}
 .es-home .hero{border-radius:9px;min-height:730px;height:calc(100svh - 16px);max-height:810px}
 .es-home .hero-image img{object-position:60% center}
 .es-home .hero-shade{background:linear-gradient(0deg,#071d24ed,#071d247d 55%,#071d2410)}
