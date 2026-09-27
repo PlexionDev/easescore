@@ -69,22 +69,31 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .section-intro{display:grid;grid-template-columns:1.3fr 1fr;gap:80px;align-items:end;margin-bottom:50px}
 .es-home .section-intro>p{max-width:380px;margin-left:auto;font-size:1rem;line-height:1.75}
 .es-home .audiences{background:radial-gradient(ellipse at 99% 0%,#e7f7f077,transparent 43%)}
-.es-home .audience-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px 32px}
-.es-home .audience-card{min-width:0}
-.es-home .audience-image{position:relative;overflow:hidden;border-radius:8px;background:#dce7e0;height:250px}
-.es-home .audience-image::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#102b23a3,transparent 48%);pointer-events:none}
-.es-home .audience-image img{width:100%;height:100%;object-fit:cover;transition:transform .7s ease}
-.es-home .audience-card:hover .audience-image img{transform:scale(1.025)}
-.es-home .audience-image .planning-photo{object-position:center 64%}
-.es-home .audience-image .community-photo{object-position:center 75%;transform:scale(1.24)}
-.es-home .audience-card:hover .community-photo{transform:scale(1.27)}
-.es-home .audience-image>span{position:absolute;left:25px;bottom:20px;z-index:1;color:white;font-size:.8125rem;font-weight:550;letter-spacing:.02em}
-.es-home .audience-copy{padding:25px 2px 0}
-.es-home .audience-copy h3{font-size:1.75rem;line-height:1.2}
-.es-home .audience-copy>p{max-width:485px;margin-top:13px;font-size:1rem;line-height:1.65}
-.es-home .audience-copy>a{margin-top:21px;display:flex;justify-content:space-between;align-items:center;font-size:.875rem;font-weight:600;color:var(--green);padding-bottom:15px;border-bottom:1px solid var(--line)}
-.es-home .audience-copy>a span{font-size:1.2rem;transition:transform .2s}
-.es-home .audience-copy>a:hover span{transform:translate(2px,-2px)}
+.es-home .seats-section{padding:56px 0 104px}
+.es-home .seats-intro{display:flex;justify-content:space-between;align-items:end;gap:40px;margin-bottom:28px}
+.es-home .seats-intro h2{font-size:clamp(1.9rem,3vw,2.6rem);line-height:1.1;letter-spacing:-.03em}
+.es-home .seats-intro p{max-width:380px;color:var(--muted)}
+.es-home .seats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.es-home .seat{min-width:0}
+.es-home .seat-link{display:flex;flex-direction:column;height:100%;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .2s,box-shadow .2s}
+.es-home .seat-link:hover{border-color:var(--green);box-shadow:0 8px 24px #0c514014}
+.es-home .seat-link:focus-visible{outline:3px solid #6ec6aa;outline-offset:3px}
+.es-home .seat-image{height:132px;overflow:hidden;background:#dce7e0}
+.es-home .seat-image img{width:100%;height:100%;object-fit:cover}
+.es-home .seat-image .planning-photo{object-position:center 45%}
+.es-home .seat-image .community-photo{object-position:center 55%}
+.es-home .seat-body{display:flex;flex-direction:column;flex:1;padding:20px 20px 22px}
+.es-home .seat-body h3{font-size:1.3rem;line-height:1.2;letter-spacing:-.02em}
+.es-home .seat-q{margin-top:10px;font-size:.95rem;line-height:1.5;color:var(--ink)}
+.es-home .seat-gets{list-style:none;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--line);display:grid;gap:8px;font-size:.875rem;color:var(--muted)}
+.es-home .seat-gets li{padding-left:18px;position:relative}
+.es-home .seat-gets li::before{content:"";position:absolute;left:0;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--green);opacity:.75}
+.es-home .seat-cta{margin-top:auto;padding-top:20px;font-weight:600;font-size:.9rem;color:var(--green)}
+@media(max-width:1080px){.es-home .seats-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.es-home .seats-grid{grid-template-columns:1fr}
+.es-home .seats-intro{display:block}
+.es-home .seats-intro p{margin-top:10px}
+.es-home .seats-section{padding:40px 0 72px}}
 .es-home .understanding{background:#f0f4f1;margin-inline:-16px;padding-inline:16px}
 .es-home .example-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:100px;align-items:center}
 .es-home .explanation{display:flex;gap:23px;margin-bottom:42px}
@@ -201,8 +210,7 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .data-grid{gap:65px}
 .es-home .faq-grid{gap:55px}
 .es-home .footer-links{gap:35px}
-.es-home .closing-inner{gap:35px}
-.es-home .audience-image{height:225px}}
+.es-home .closing-inner{gap:35px}}
 @media(max-width:850px){.es-home .header{left:28px;right:28px;top:28px;height:75px}
 .es-home .brand{font-size:1.5rem}
 .es-home .brand svg{width:30px}
@@ -234,11 +242,7 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .closing-inner{grid-template-columns:1fr;gap:27px}
 .es-home .closing-search{max-width:650px}
 .es-home .footer-top{flex-direction:column;gap:35px}
-.es-home .footer-links{max-width:650px;gap:35px}
-.es-home .audience-copy h3{font-size:1.5rem}
-.es-home .audience-copy p{font-size:.9375rem}
-.es-home .audience-image{height:190px}
-.es-home .audience-grid{gap:35px 24px}}
+.es-home .footer-links{max-width:650px;gap:35px}}
 @media(max-width:580px){.es-home .site-shell{padding:8px 8px 0}
 .es-home .wrap{width:calc(100% - 36px)}
 .es-home .header{left:20px;right:20px;top:20px;height:68px;padding:0 15px;border-radius:7px}
@@ -271,12 +275,6 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home h2{font-size:2.05rem;line-height:1.1;letter-spacing:-.045em}
 .es-home .section-intro{margin-bottom:32px;gap:20px}
 .es-home .section-intro>p{font-size:.9375rem}
-.es-home .audience-grid{grid-template-columns:1fr;gap:35px}
-.es-home .audience-image{height:225px}
-.es-home .audience-image>span{left:19px;bottom:16px;font-size:.75rem}
-.es-home .audience-copy{padding-top:20px}
-.es-home .audience-copy h3{font-size:1.6rem}
-.es-home .audience-copy>a{margin-top:17px}
 .es-home .understanding{margin-inline:-8px;padding-inline:8px}
 .es-home .explanations{grid-template-columns:1fr;gap:29px}
 .es-home .explanation h3{font-size:1.4rem}

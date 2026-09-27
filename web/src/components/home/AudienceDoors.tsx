@@ -1,76 +1,86 @@
 import Image from "next/image";
 import Link from "next/link";
 
-type Door = {
-  who: string;
+type Seat = {
   title: string;
-  body: string;
+  question: string;
+  gets: string[];
   href: string;
   go: string;
   src: string;
-  width: number;
-  height: number;
   alt: string;
   imgClass?: string;
 };
 
-const DOORS: Door[] = [
+const SEATS: Seat[] = [
   {
-    who: "Municipal planners", title: "Compare and rank sites.", href: "/planner", go: "Open the site finder",
-    body: "Filter parcels by what blocks them, rank the best candidates, and export a list for staff review.",
-    src: "/home/images/hero-rivers.webp", width: 1672, height: 941, imgClass: "planning-photo",
-    alt: "AI-generated interpretation of Pittsburgh’s riverfront and downtown urban fabric.",
+    title: "Municipal Planner",
+    question: "“Which sites can take new housing, and what’s holding the rest back?”",
+    gets: ["Compare and rank parcels", "Zoning, environmental, infrastructure and policy flags", "Filtered export for staff reports"],
+    href: "/planner", go: "Open the site finder",
+    src: "/home/images/seat-planner.webp", imgClass: "planning-photo",
+    alt: "AI-generated overhead view of a planner’s table with a parcel map marked with colored dots.",
   },
   {
-    who: "Developers", title: "Check one lot.", href: "/check", go: "Check a lot",
-    body: "Get the score, what fits on the lot, and whether it pencils, then download the full feasibility study.",
-    src: "/home/images/hillside-homes.webp", width: 1200, height: 675,
-    alt: "AI-generated Pittsburgh hillside neighborhood with brick homes, mature trees, and new infill housing.",
+    title: "Small & Mid-Size Developer",
+    question: "“What can I build on this lot, and does it pencil?”",
+    gets: ["Ease Score with a receipt for every factor", "What fits by right and with approval", "Pro forma and full feasibility study"],
+    href: "/check", go: "Check a lot",
+    src: "/home/images/seat-developer.webp",
+    alt: "AI-generated vacant hillside infill lot between brick rowhouses, with survey stakes and a small excavator.",
   },
   {
-    who: "Nonprofits & CDCs", title: "Plan affordable homes.", href: "/nonprofit", go: "Model a project",
-    body: "Set rents families can pay, see the funding gap, and match it to the sources that can close it.",
-    src: "/home/images/hillside-homes.webp", width: 1200, height: 675, imgClass: "community-photo",
-    alt: "AI-generated view of modest brick housing and green streets inspired by Allegheny County.",
+    title: "Housing Nonprofit / CDC",
+    question: "“Can we build homes families can afford here, and what’s the gap?”",
+    gets: ["Rents set to income targets", "Funding gap and likely funding sources", "How to acquire public land"],
+    href: "/nonprofit", go: "Model a project",
+    src: "/home/images/seat-nonprofit.webp", imgClass: "community-photo",
+    alt: "AI-generated row of newly built modest townhomes with families moving in and a community garden next door.",
   },
   {
-    who: "Policy analysts", title: "Test a rule change.", href: "/policy", go: "Open the simulator",
-    body: "Change a zoning rule or incentive and see how many homes it unlocks, what it costs, and who pays.",
-    src: "/home/images/civic-downtown.webp", width: 1200, height: 675,
-    alt: "AI-generated civic architecture scene inspired by the Allegheny County Courthouse and downtown Pittsburgh.",
+    title: "Policy Analyst",
+    question: "“If we change this rule, how many homes does it unlock, and at what cost?”",
+    gets: ["Test zoning rules and incentives", "Homes unlocked, mapped by neighborhood", "Fiscal effect by taxing body"],
+    href: "/policy", go: "Open the simulator",
+    src: "/home/images/seat-policy.webp",
+    alt: "AI-generated empty public meeting room with a dais, microphones and a projected zoning map.",
   },
 ];
 
 export default function AudienceDoors() {
   return (
-    <section className="audiences section" id="who-its-for" aria-labelledby="audience-heading">
+    <section className="audiences seats-section" id="who-its-for" aria-labelledby="audience-heading">
       <div className="wrap">
-        <div className="section-intro reveal">
-          <div>
-            <p className="eyebrow">Built for the people who build</p>
-            <h2 id="audience-heading">Your perspective.<br />One complete picture.</h2>
-          </div>
-          <p>From a single lot to a countywide decision.<br />Choose how you want to start.</p>
+        <div className="seats-intro reveal">
+          <h2 id="audience-heading">Four seats, one set of facts.</h2>
+          <p>Each seat opens its own workspace, built on the same parcels, the same score and the same sources.</p>
         </div>
-        <div className="audience-grid">
-          {DOORS.map((d) => (
-            <article key={d.href} className="audience-card reveal">
-              <div className="audience-image">
-                <Image
-                  src={d.src}
-                  width={d.width}
-                  height={d.height}
-                  alt={d.alt}
-                  className={d.imgClass}
-                  sizes="(max-width:580px) 100vw, (max-width:1340px) 50vw, 620px"
-                />
-                <span>{d.who}</span>
-              </div>
-              <div className="audience-copy">
-                <h3>{d.title}</h3>
-                <p>{d.body}</p>
-                <Link href={d.href}>{d.go} <span aria-hidden="true">↗</span></Link>
-              </div>
+        <div className="seats-grid">
+          {SEATS.map((s) => (
+            <article key={s.href} className="seat reveal">
+              <Link className="seat-link" href={s.href} data-product={s.href.slice(1)}>
+                <div className="seat-image">
+                  <Image
+                    src={s.src}
+                    width={1200}
+                    height={675}
+                    alt={s.alt}
+                    className={s.imgClass}
+                    loading="lazy"
+                    sizes="(max-width:620px) 100vw, (max-width:1080px) 50vw, 25vw"
+                  />
+                </div>
+                <div className="seat-body">
+                  <h3>{s.title}</h3>
+                  <p className="seat-q">{s.question}</p>
+                  <ul className="seat-gets">
+                    {s.gets.map((g) => (
+                      <li key={g}>{g}</li>
+                    ))}
+                  </ul>
+                  <span className="seat-cta">{s.go} <span aria-hidden="true">↗</span></span>
+                </div>
+              </Link>
             </article>
           ))}
         </div>
