@@ -17,6 +17,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
   const total = rows.reduce((t, r) => t + r.homes, 0);
   const { top, share } = concentration(summary);
   const max = Math.max(1, ...rows.map((r) => r.homes));
+  const pencilHoods = rows.filter((r) => (r.homes_pencil ?? 0) > 0).sort((a, b) => (b.homes_pencil ?? 0) - (a.homes_pencil ?? 0));
   if (!rows.length) return <EmptyState title="No parcel gains homes under this change" tone="empty">The lever applies to {summary.eligible.toLocaleString()} parcels, but none of them fits more homes by right.</EmptyState>;
   return (
     <div className="pol-where">
@@ -25,13 +26,16 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
           ? <>{pct(share)} of the new capacity falls in 5 neighborhoods: {top.map((r) => r.neighborhood).join(", ")}.</>
           : <>New capacity lands in {rows.length} neighborhood{rows.length === 1 ? "" : "s"}.</>}
         {share >= 0.5 && top.length >= 5 ? " That is concentrated: check those neighborhoods’ infrastructure and displacement pressure." : ""}
+        {" "}{pencilHoods.length
+          ? <>Homes that pencil at today’s prices (likely scenario) are in {pencilHoods.length} neighborhood{pencilHoods.length === 1 ? "" : "s"}: {pencilHoods.slice(0, 5).map((r) => `${r.neighborhood} (${(r.homes_pencil ?? 0).toLocaleString()})`).join(", ")}{pencilHoods.length > 5 ? ", …" : ""}. Elsewhere the pencil column is 0 because nearby new-construction prices don’t cover cost (construction plus the lot at assessed value); the high-price column shows where they could.</>
+          : <>No added home pencils at today’s prices in the likely scenario; the high-price column shows where they could.</>}
       </p>
       <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
         <table className="pol-table">
           <caption className="es-sr">Homes added by right, by neighborhood</caption>
           <thead>
             <tr><th scope="col">Neighborhood</th><th scope="col" className="num">Parcels gaining</th><th scope="col" className="num">Newly buildable</th>
-              <th scope="col" className="num">Homes added</th><th scope="col" className="num">Share</th><th scope="col" className="num">Pencil (likely)</th><th scope="col"><span className="es-sr">Bar</span></th></tr>
+              <th scope="col" className="num">Homes added</th><th scope="col" className="num">Share</th><th scope="col" className="num">Pencil (likely)</th><th scope="col" className="num">Pencil (high prices)</th><th scope="col"><span className="es-sr">Bar</span></th></tr>
           </thead>
           <tbody>
             {rows.slice(0, 40).map((r) => (
@@ -42,6 +46,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
                 <td className="num">{r.homes.toLocaleString()}</td>
                 <td className="num">{total ? pct(r.homes / total) : "—"}</td>
                 <td className="num">{(r.homes_pencil ?? 0).toLocaleString()}</td>
+                <td className="num">{r.homes_pencil_high != null ? r.homes_pencil_high.toLocaleString() : "—"}</td>
                 <td className="pol-barcell" aria-hidden="true"><span style={{ width: `${(100 * r.homes) / max}%` }} /></td>
               </tr>
             ))}
@@ -200,7 +205,7 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
         {levers.contextual ? <li><strong>Front setback.</strong> {LEVER_METHOD.contextual}</li> : null}
         {levers.matchBlock ? <li><strong>Match the block.</strong> {LEVER_METHOD.matchBlock}</li> : null}
         {levers.height ? <li><strong>Height.</strong> {LEVER_METHOD.height}</li> : null}
-        <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance. The headline range: <em>low</em> = only homes that need no lot split (townhouse rows need a subdivision plan first); <em>likely</em> = every home the fit test finds; <em>high</em> = likely plus the lots the fit test could not finish in time, at the average gain per lot tested. When nearly every lot finished the test, likely and high round to the same number.</li>
+        <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance. The headline range: <em>low</em> = only homes that need no lot split (townhouse rows need a subdivision plan first; for ADUs, only lots where the footprint check passes); <em>likely</em> = low plus the homes that need a split on lots where the scheme pencils at high prices (the split could pay off); <em>high</em> = every home the fit test finds.</li>
         <li><strong>Pencil test.</strong> For parcels that gain homes, the by-right scheme is tested against nearby new-construction prices and the cost defaults, in a low, likely and high scenario.</li>
         <li><strong>Fiscal.</strong> Added assessed value × millage per taxing body, for homes that pencil.</li>
       </ol>
@@ -209,7 +214,7 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
         <li>Capacity is not production. Owners, financing, construction labor and market absorption decide what gets built and when; a lot that can take more homes may never be redeveloped.</li>
         <li>The Zoning Code text is summarized from our transcription; overlays, residential compatibility standards and site-specific conditions are not modeled. Check the code before relying on a count.</li>
         <li>The pencil test is simpler than the parcel pro forma: no financing detail or site adders; land at assessed value (a base-year level that often understates price).</li>
-        <li>Large or irregular lots whose fit test runs out of time are not counted in the likely value (they widen the high end).{summary?.skipped ? ` ${summary.skipped.toLocaleString()} lots in this run.` : ""}</li>
+        <li>Large or irregular lots whose fit test runs out of time are not counted in any of the three values.{summary?.skipped ? ` ${summary.skipped.toLocaleString()} lots in this run.` : ""}</li>
         <li>An inclusionary-share lever is not modeled.</li>
         <li>Census and demographic data are never inputs to capacity, pencils or scores.</li>
       </ul>

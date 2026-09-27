@@ -123,10 +123,10 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
         <h2>Where the new capacity lands</h2>
         {conc.top.length >= 5 ? <p>{Math.round(conc.share * 100)}% of the new capacity falls in 5 neighborhoods: {conc.top.map((x) => x.neighborhood).join(", ")}.</p> : null}
         <table>
-          <thead><tr><th>Neighborhood</th><th className="n">Parcels gaining</th><th className="n">Newly buildable</th><th className="n">Homes added</th><th className="n">Pencil (likely)</th><th style={{ width: "22%" }}>&nbsp;</th></tr></thead>
+          <thead><tr><th>Neighborhood</th><th className="n">Parcels gaining</th><th className="n">Newly buildable</th><th className="n">Homes added</th><th className="n">Pencil (likely)</th><th className="n">Pencil (high prices)</th><th style={{ width: "22%" }}>&nbsp;</th></tr></thead>
           <tbody>
             {hoods.slice(0, 10).map((x) => (
-              <tr key={x.neighborhood}><td>{x.neighborhood}</td><td className="n">{x.parcels.toLocaleString()}</td><td className="n">{x.newly.toLocaleString()}</td><td className="n">{x.homes.toLocaleString()}</td><td className="n">{(x.homes_pencil ?? 0).toLocaleString()}</td>
+              <tr key={x.neighborhood}><td>{x.neighborhood}</td><td className="n">{x.parcels.toLocaleString()}</td><td className="n">{x.newly.toLocaleString()}</td><td className="n">{x.homes.toLocaleString()}</td><td className="n">{(x.homes_pencil ?? 0).toLocaleString()}</td><td className="n">{x.homes_pencil_high != null ? x.homes_pencil_high.toLocaleString() : "—"}</td>
                 <td><span className="bar" style={{ width: `${(100 * x.homes) / maxHomes}%` }} /></td></tr>
             ))}
           </tbody>
@@ -143,7 +143,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
           {sc.levers.adu ? <li><b>ADUs.</b> {LEVER_METHOD.adu}</li> : null}
           {sc.levers.contextual ? <li><b>Front setback.</b> {LEVER_METHOD.contextual}</li> : null}
           {sc.levers.height ? <li><b>Height.</b> {LEVER_METHOD.height}</li> : null}
-          <li><b>Capacity.</b> The lot-fit test (QuickFit) reruns with the changed rules for single-family, duplex, 3–4 unit and townhouse-row options; homes allowed by right = the most homes an option fits with the use permitted and no variance. Range: low counts only homes that need no lot split; high adds lots the fit test could not finish, at the average gain.</li>
+          <li><b>Capacity.</b> The lot-fit test (QuickFit) reruns with the changed rules for single-family, duplex, 3–4 unit and townhouse-row options; homes allowed by right = the most homes an option fits with the use permitted and no variance. Range: low counts only homes that need no lot split (for ADUs, only lots that pass the footprint check); likely adds homes that need a split where the scheme pencils at high prices; high is every home the fit test finds.</li>
           <li><b>Pencil test.</b> Sale value = nearby new-construction price per finished sq ft × finished area. Cost = ${meta?.cost_basis.costPsf.high}–${meta?.cost_basis.costPsf.low} per sq ft construction × gross area × (1 + soft costs + {Math.round((meta?.cost_basis.contingencyShare ?? 0) * 100)}% contingency) + the lot at assessed value. Pencils at a margin of at least {Math.round((meta?.cost_basis.minMargin ?? 0) * 100)}% after {Math.round((meta?.cost_basis.brokerShare ?? 0) * 100)}% selling costs.</li>
           <li><b>Fiscal.</b> Added assessed value × millage for each taxing body, at full build-out of homes that pencil.</li>
         </ol>
@@ -167,7 +167,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
           <li>The pencil test is a screening test, simpler than a project pro forma. Land is valued at assessed value, which is a base-year level and often below market.</li>
           <li>New assessed values use a City-wide assessment ratio; actual assessments of new homes vary.</li>
           <li>Census and demographic data are never used to compute capacity, pencils or revenue. Displacement risk is not modeled here.</li>
-          <li>{s.skipped ? `${s.skipped.toLocaleString()} large or irregular lots could not be fit-tested in time; they widen the high end of the range.` : "Large or irregular lots whose fit test runs out of time are left out of the likely value."}</li>
+          <li>{s.skipped ? `${s.skipped.toLocaleString()} large or irregular lots could not be fit-tested in time; they are not counted in the range.` : "Large or irregular lots whose fit test runs out of time are not counted in the range."}</li>
         </ul>
         <p className="fine">EaseScore.AI · decision support only · not a legal reading of the Zoning Code or a financial forecast · {date}</p>
       </section>

@@ -10,7 +10,7 @@ import {
 
 export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, MATCH_BLOCK, type LeverState, type Triple };
 
-export interface HoodRow { neighborhood: string; parcels: number; homes: number; newly: number; homes_pencil: number | null }
+export interface HoodRow { neighborhood: string; parcels: number; homes: number; newly: number; homes_pencil: number | null; homes_pencil_high?: number; homes_no_split?: number }
 
 export interface Summary {
   key: string;
@@ -18,8 +18,10 @@ export interface Summary {
   parcels_gaining: number;
   newly_buildable: number;
   newly_no_split?: number;
+  newly_mid?: number;
   homes: number;
   homes_no_split?: number;
+  homes_mid?: number;
   homes_lost: number;
   homes_pencil: Triple;
   parcels_pencil: Triple;
@@ -99,25 +101,24 @@ const ord = (a: number, b: number, c: number): Triple => {
 
 /**
  * Additional homes allowed by right, as a range.
- * low    = homes that need no lot split (townhouse rows need a subdivision plan first) and, for ADUs,
- *          only lots where the ADU footprint check passes;
- * likely = every home the fit test finds;
- * high   = likely plus the lots the fit test could not finish in time, at the average gain per lot tested.
+ * low    = homes that need no extra step: no lot split (townhouse rows need a subdivision plan first) and, for
+ *          ADUs, only lots where the ADU footprint check passes;
+ * likely = low plus the homes that need that extra step only where the scheme pencils at high prices (where the
+ *          split could pay off at all);
+ * high   = every home the fit test finds.
+ * Lots the fit test could not finish in time are not counted (stated in the Method tab). Summaries computed before
+ * migration 115 have no homes_mid: the likely value falls back to the high end, as before.
  */
 export function homesRange(s: Summary): Triple {
-  const likely = s.homes;
-  const low = s.homes_no_split ?? likely;
-  const tested = Math.max(1, s.eligible);
-  const extra = s.skipped ? Math.round((s.skipped * likely) / tested) : 0;
-  return ord(low, likely, likely + extra);
+  const high = s.homes;
+  const low = s.homes_no_split ?? high;
+  return ord(low, s.homes_mid ?? high, high);
 }
 
 export function newlyRange(s: Summary): Triple {
-  const likely = s.newly_buildable;
-  const low = s.newly_no_split ?? likely;
-  const tested = Math.max(1, s.eligible);
-  const extra = s.skipped ? Math.round((s.skipped * likely) / tested) : 0;
-  return ord(low, likely, likely + extra);
+  const high = s.newly_buildable;
+  const low = s.newly_no_split ?? high;
+  return ord(low, s.newly_mid ?? high, high);
 }
 
 // ---------------------------------------------------------------------------------- fiscal

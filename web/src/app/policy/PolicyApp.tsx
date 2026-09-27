@@ -169,7 +169,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const rHomes: Receipt[] = [{
     label: "Additional homes allowed by right", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "data",
-    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Likely: every home the fit test finds. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. High end: adds lots the fit test could not finish in time, at the average gain per lot tested, so when nearly every lot finished, likely and high round to the same number.",
+    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. Likely: the low end plus the homes that need that extra step on lots where the scheme pencils at high prices (high-quartile nearby new-construction prices, low costs), i.e. where a split could pay off at all. High end: every home the fit test finds. Lots the fit test could not finish in time are not counted.",
     notes: "Capacity is not production: it says what the rules would allow, not what will be built or when.",
   }, ...(sc.levers.adu ? [{
     label: "ADUs by right (scenario ADU rules)", source: "EaseScore.AI policy lever; county assessment use and building footprint; zoning table setbacks",
@@ -185,7 +185,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   }] : [])];
   const rNewly: Receipt[] = [{
     label: "Parcels newly buildable by right", source: rHomes[0]!.source, date: rHomes[0]!.date, kind: "data",
-    method: "Parcels a lever applies to that allow no new home by right under today's code and allow at least one after the change (same lot-fit test as the homes count). Low end: only parcels that need no lot split. High end: adds lots the fit test could not finish in time, in proportion to the lots tested.",
+    method: "Parcels a lever applies to that allow no new home by right under today's code and allow at least one after the change (same lot-fit test as the homes count). Low end: only parcels that need no lot split. Likely: adds parcels that need a split where the scheme pencils at high prices. High end: every parcel the fit test finds.",
     notes: "A parcel counts once however many homes it gains.",
   }, ...rHomes.slice(1)];
   const rPencil: Receipt[] = meta ? [{
