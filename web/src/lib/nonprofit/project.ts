@@ -66,7 +66,8 @@ function saleCost(plan: () => assumptions.DevelopmentPlan): LotCost["sale"] {
 async function lotCost(parid: string, units: number, bedrooms: number, asOf: string): Promise<LotCost> {
   const base: LotCost = { parid, address: null, units, strategy: null, strategyLabel: null, needsRelief: false, finishedSf: null, sizeBasis: null, tier: null, tdc: null, land: null, landSource: null, headline: null, sale: null, mine: false, notes: [], source: "error", bestLabel: null, byRightUnits: null, lotSqft: null };
   // The same pane as the parcel page. When it cannot be read or computed, the standard program below (labeled).
-  const row = await parcelPane(parid, asOf);
+  // One retry: a live pane can fail while the database is busy (the parcel page retries the same way on reload).
+  const row = (await parcelPane(parid, asOf)) ?? (await parcelPane(parid, asOf));
   if (!row || !Object.keys(row.score?.schemes ?? {}).length) return standardProgram(base, parid, units, bedrooms);
   const loaded = { ok: true as const, payload: row, source: "row" as const };
   const P = loaded.payload;
