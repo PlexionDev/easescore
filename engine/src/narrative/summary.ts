@@ -206,7 +206,18 @@ export function validateSummary(text: string, input: SummaryInput): SummaryValid
   if (sentences.length !== 2) problems.push(`expected 2 sentences, got ${sentences.length}`);
   if (text.length > 600) problems.push("too long");
   problems.push(...proseProblems(text, sentences));
+  problems.push(...tenureTermProblems(text, input));
   return { ok: !numbers.length && !codes.length && !banned.length && !problems.length, numbers, codes, banned, problems };
+}
+
+/**
+ * A rental's return is a yield on cost, not a margin: "margin" is only for a for-sale option. When every
+ * option in the input is a rental, a draft that says "margin" is rejected (the template says "yield on cost").
+ */
+export function tenureTermProblems(text: string, input: SummaryInput): string[] {
+  const opts = [input.byRight, input.withApproval, input.lead].filter((o): o is SummaryOption => o != null && o.marginPct != null);
+  if (!opts.length || opts.some((o) => o.tenure === "sale")) return [];
+  return /\bmargins?\b/i.test(text) ? ["a rental's return is a yield on cost, not a margin: say \"yield on cost\""] : [];
 }
 
 // Plain prose only: letters, digits, spaces and ordinary punctuation (straight or curly quotes and

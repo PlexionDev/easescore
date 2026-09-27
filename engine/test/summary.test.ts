@@ -96,6 +96,29 @@ describe("generateSummary", () => {
   });
 });
 
+describe("rental wording", () => {
+  const rental = (): SummaryInput => {
+    const i = base();
+    i.byRight = { ...i.byRight!, strategyId: "three_four_unit", label: "a 3-unit building", units: 3, tenure: "rent", verdict: "thin", marginPct: 2.3 };
+    i.withApproval = null;
+    return i;
+  };
+  it("the template calls a rental's return a yield on cost and passes", () => {
+    const r = generateSummary(rental());
+    expect(r.text).toMatch(/yield on cost/);
+    expect(r.text).not.toMatch(/\bmargin/);
+    expect(validateSummary(r.text, rental()).ok).toBe(true);
+  });
+  it("rejects a draft that calls a rental's yield a margin", () => {
+    const v = validateSummary("By right the lot allows a 3-unit rental building with a thin 2% margin on cost, mainly because of the steep slope. No approval option was found.", rental());
+    expect(v.ok).toBe(false);
+    expect(v.problems.join(" ")).toMatch(/yield on cost/);
+  });
+  it("still allows 'margin' when an option is for sale", () => {
+    expect(narrative.tenureTermProblems("It pencils at a 9% margin.", base())).toEqual([]);
+  });
+});
+
 describe("validateSummary", () => {
   it("rejects numbers not in the input", () => {
     const v = validateSummary("By right, one home fits and pencils at about a 14% margin. A duplex would need a special exception.", base());

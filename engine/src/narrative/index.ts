@@ -8,7 +8,7 @@ export {
 } from "./format";
 export { toNarrativeFacts, fromStrategyResult, zoningFromFit, usePathFromPermission, type ScoreOutputLike, type NarrativeInputs } from "./adapter";
 export {
-  generateSummary, validateSummary, resolveSummary, proseProblems, precedentPhrase, splitSentences, SUMMARY_FINE_PRINT, PRECEDENT_MIN_CASES, BANNED_PATTERNS,
+  generateSummary, validateSummary, resolveSummary, proseProblems, tenureTermProblems, precedentPhrase, splitSentences, SUMMARY_FINE_PRINT, PRECEDENT_MIN_CASES, BANNED_PATTERNS,
   type SummaryInput, type SummaryOption, type SummaryApprovalOption, type SummaryPrecedent, type SummaryResult, type SummaryValidation, type ReliefType,
 } from "./summary";
 export { classifyPlan, pickPlans, defaultStrategy, type PlanPath } from "./plans";

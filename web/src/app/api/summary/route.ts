@@ -20,6 +20,7 @@ Sentence 1 is about what is allowed by right: the option in "byRight" and its ma
 Use ONLY the JSON you are given, and keep the facts, verdicts and precedent wording of the "template" you are given. Never state a number, district or code that is not in the JSON; you may round a JSON number the way a person would.
 Neutral tone: no hype, no doom, no advice to buy or not buy. Never use these words: guaranteed, definitely, perfect, great deal, avoid, impossible, can't lose, should buy, should not buy, risky (name the specific risk instead).
 Keep the precedent phrase exactly as the template has it ("usually been approved", "mixed", "usually denied", "too few nearby cases to judge", or "no nearby precedent on record").
+A rental's return ("tenure": "rent") is a yield on cost: call it "yield on cost", never a "margin"; say "margin" only for a for-sale option ("tenure": "sale").
 8th-grade reading level. Exactly two sentences. Output only the two sentences.`;
 
 const SCHEMA = {
