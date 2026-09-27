@@ -338,8 +338,9 @@ export const en = {
   "drawer.closeNamed": "Close {title}",
   "drawer.content": "{title} content",
 
-  // Report summary section
+  // Report summary section (Spanish only; the report itself is English)
   "report.englishRest": "",
+  "report.twoSentences": "In two sentences",
 } as const;
 
 export type Key = keyof typeof en;

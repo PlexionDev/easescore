@@ -325,5 +325,6 @@ export const es: Record<Key, string> = {
   "drawer.closeNamed": "Cerrar {title}",
   "drawer.content": "Contenido de {title}",
 
-  "report.englishRest": "Esta sección aún está en inglés. Solo el resumen de arriba está en español; el resto de este informe está en inglés, y la versión en inglés prevalece.",
+  "report.twoSentences": "En dos oraciones",
+  "report.englishRest": "El resto de este informe aún está en inglés; la versión en inglés prevalece.",
 };

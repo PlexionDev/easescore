@@ -1,3 +1,4 @@
+import { getPreferredLocale } from "@/lib/i18n/server";
 import { Fragment, Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -55,10 +56,12 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
   if (!head) notFound();
   const token = printToken();
   const print = !!token && (await headers()).get(PRINT_HEADER) === token;
+  // Spanish summary section: ?lang=es (the PDF renderer passes it) or the visitor's language menu choice.
+  const lang = sp.lang === "es" || (!print && (await getPreferredLocale()) === "es") ? "es" : "en";
   return (
     <main className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`}>
       <Suspense fallback={<FirstLook head={head} />}>
-        <FullStudy parid={parid} model={model} print={print} />
+        <FullStudy parid={parid} model={model} print={print} lang={lang} />
       </Suspense>
     </main>
   );
@@ -94,7 +97,7 @@ function FirstLook({ head }: { head: ReportHead }) {
   );
 }
 
-async function FullStudy({ parid, model, print }: { parid: string; model: Promise<ReportModel | null>; print: boolean }) {
+async function FullStudy({ parid, model, print, lang }: { parid: string; model: Promise<ReportModel | null>; print: boolean; lang: "en" | "es" }) {
   const m = await model;
   if (!m) {
     return (
@@ -107,7 +110,7 @@ async function FullStudy({ parid, model, print }: { parid: string; model: Promis
 
   let fig = 0;
   let tab = 0;
-  const x: Ctx = { m, c: buildSources(m), fig: () => ++fig, tab: () => ++tab, print };
+  const x: Ctx = { m, c: buildSources(m), fig: () => ++fig, tab: () => ++tab, print, lang };
 
   // Sections run as plain functions, in reading order, so footnote/figure/table numbers are stable.
   const body = [Cover(x), Contents(), S1(x), S2(x), S3(x), S4(x), S5(x), S6(x), S7(x), S8(x), S9(x), S10(x), S11(x), S12(x), S13(x), S14(x), AppA(x), AppB(x), AppC(x), AppD(x), AppE(x), AppF()];
