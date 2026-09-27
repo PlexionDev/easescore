@@ -226,15 +226,15 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
       <div className={`pol-lever${sc.levers.attached.on ? " is-on" : ""}`}>
         <Switch label="Attached homes by right" checked={sc.levers.attached.on} onChange={(v) => setLevers({ attached: { ...sc.levers.attached, on: v } })}
           hint="Two homes sharing a wall on one narrow lot, in single-unit districts (R1D, R1A)" />
-        <RangeSlider label="On lots up to" min={25} max={50} step={1} value={sc.levers.attached.maxWidthFt}
+        <RangeSlider label="On lots up to" min={25} max={50} step={5} value={sc.levers.attached.maxWidthFt}
           format={(v) => `${v} ft`} ends={["25 ft", "50 ft"]} disabled={!sc.levers.attached.on}
           onChange={(v: number) => setLevers({ attached: { on: true, maxWidthFt: v } })} />
       </div>
       <div className={`pol-lever${sc.levers.minLot.on ? " is-on" : ""}`}>
         <Switch label="Minimum lot size" checked={sc.levers.minLot.on} onChange={(v) => setLevers({ minLot: { on: v, share: v ? 0 : 1 } })}
           hint="Minimum lot size and lot area per unit, from today's code down to none" />
-        <RangeSlider label="Share of today's minimum" min={0} max={95} step={5} value={Math.round(sc.levers.minLot.share * 100)}
-          format={(v) => (v === 0 ? "None" : `${v}%`)} ends={["None", "Current code"]} disabled={!sc.levers.minLot.on}
+        <RangeSlider label="Share of today's minimum" min={0} max={75} step={25} value={Math.round(sc.levers.minLot.share * 100)}
+          format={(v) => (v === 0 ? "None" : `${v}%`)} ends={["None", "75% of today"]} disabled={!sc.levers.minLot.on}
           onChange={(v: number) => setLevers({ minLot: { on: true, share: v / 100 } })} />
       </div>
       <div className={`pol-lever${sc.levers.parking !== "current" ? " is-on" : ""}`}>
@@ -277,7 +277,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         ) : !finished ? (
           <div className="pol-banner" role="status" aria-live="polite">
             {st.status === "queued" || st.status === "missing"
-              ? "This combination has not been computed yet. It is queued for the background job; results appear here as parcels are done."
+              ? `This combination has not been computed yet. It is queued for the background job${st.ahead ? ` behind ${st.ahead} other${st.ahead === 1 ? "" : "s"}` : ""}; results appear here as parcels are done (a full City run takes a few hours). Precomputed now: Starter homes, each lever alone, and all three.`
               : `Computing this combination in the background: ${st.done} of ${st.total ?? "?"} parcel batches (${pctDone}%). Numbers so far cover only the parcels done; they will grow.`}
             <span className="pol-progress" aria-hidden="true"><span style={{ width: `${pctDone}%` }} /></span>
           </div>

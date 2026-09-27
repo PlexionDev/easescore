@@ -39,8 +39,9 @@ export const OFF: LeverState = { attached: { on: false, maxWidthFt: 35 }, minLot
 
 /** Clamp and snap a lever state so equal policies get equal keys. A lever that changes nothing is off. */
 export function normalize(s: Partial<LeverState> | null | undefined): LeverState {
-  const w = Math.round(Math.min(WIDTH_MAX_FT, Math.max(WIDTH_MIN_FT, Number(s?.attached?.maxWidthFt ?? 35))));
-  const share = Math.round(Math.min(1, Math.max(0, Number(s?.minLot?.share ?? 1))) * 20) / 20; // 5% steps
+  // Snapped (5 ft, 25%) so nearby slider positions share one computed state.
+  const w = Math.round(Math.min(WIDTH_MAX_FT, Math.max(WIDTH_MIN_FT, Number(s?.attached?.maxWidthFt ?? 35))) / 5) * 5;
+  const share = Math.round(Math.min(1, Math.max(0, Number(s?.minLot?.share ?? 1))) * 4) / 4;
   const parking: ParkingMode = s?.parking === "transit" || s?.parking === "none" ? s.parking : "current";
   return {
     attached: { on: !!s?.attached?.on, maxWidthFt: w },

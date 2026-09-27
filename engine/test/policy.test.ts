@@ -36,10 +36,11 @@ const ALL_ON = policy.parseKey("a50.m0.pn");
 describe("lever state keys", () => {
   it("round-trips and normalizes", () => {
     expect(policy.stateKey(policy.OFF)).toBe("base");
-    for (const k of ["a35", "m0", "m50", "pt", "pn", "a35.m0", "a35.m0.pn", "a42.m25.pt"]) expect(policy.stateKey(policy.parseKey(k))).toBe(k);
+    for (const k of ["a35", "m0", "m50", "pt", "pn", "a35.m0", "a35.m0.pn", "a40.m25.pt"]) expect(policy.stateKey(policy.parseKey(k))).toBe(k);
     // A lever set to "no change" is off.
     expect(policy.stateKey(policy.normalize({ minLot: { on: true, share: 1 } }))).toBe("base");
     expect(policy.stateKey(policy.normalize({ attached: { on: true, maxWidthFt: 99 } }))).toBe("a50");
+    expect(policy.stateKey(policy.normalize({ attached: { on: true, maxWidthFt: 37 }, minLot: { on: true, share: 0.4 } }))).toBe("a35.m50");
   });
 });
 
@@ -70,7 +71,7 @@ describe("each lever only touches eligible parcels", () => {
     expect(n.frontageFt).toBeLessThan(25); // through lot: width is not double counted
     expect(policy.eligibility(lp(n), policy.parseKey("a35"))).toEqual(["attached"]);
     expect(policy.eligibility({ ...lp(n), frontageFt: 40 }, policy.parseKey("a35"))).toEqual([]);
-    expect(policy.eligibility({ ...lp(n), frontageFt: 40 }, policy.parseKey("a45"))).toEqual(["attached"]);
+    expect(policy.eligibility({ ...lp(n), frontageFt: 40 }, policy.parseKey("a40"))).toEqual(["attached"]);
     // R2 already permits two units by right: not eligible.
     expect(policy.eligibility({ ...lp(f), frontageFt: 20 }, policy.parseKey("a35"))).toEqual([]);
     const r = policy.applyLevers(lp(n), policy.parseKey("a35")).rules!;

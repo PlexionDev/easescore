@@ -420,8 +420,12 @@ async function main() {
     // Poll for on-demand states requested from the page; one at a time.
     for (;;) {
       const q = await sql<Json[]>("select key from public.policy_states where status = 'queued' order by requested_at limit 1");
-      if (q.length) await runKeys([q[0]!.key]);
-      else await sleep(15000);
+      if (!q.length) { await sleep(15000); continue; }
+      const raw = String(q[0]!.key);
+      const norm = policy.stateKey(policy.parseKey(raw));
+      // Only canonical lever-state keys are computed; anything else is closed so the queue moves on.
+      if (norm !== raw || norm === "base") { await setState(raw, { status: "failed", error: `not a canonical lever state (use ${norm})` }); continue; }
+      await runKeys([raw]);
     }
   }
   await runKeys(arg("keys", policy.PRECOMPUTE_KEYS.join(",")).split(","));

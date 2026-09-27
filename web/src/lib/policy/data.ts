@@ -39,6 +39,12 @@ export async function policyState(key: string): Promise<PolicyState> {
   const rows = await get<PolicyState[]>(`policy_states?select=${STATE_COLS}&key=eq.${encodeURIComponent(key)}`);
   const st = rows?.[0];
   if (!st) return { key, status: "missing", done: 0, total: null, summary: null, computed_at: null, config_version: null };
+  if (st.status === "queued") {
+    // Queue position: states the background job will finish first.
+    const q = await get<{ key: string; status: string }[]>("policy_states?select=key,status&status=in.(queued,running)&order=requested_at");
+    const i = q ? q.findIndex((x) => x.key === key) : -1;
+    if (i >= 0) st.ahead = i;
+  }
   if (st.status !== "done" && st.status !== "queued") {
     const live = await rpc<Summary>("policy_summary", { p_key: key });
     if (live && live.eligible > 0) st.summary = { ...(st.summary ?? {}), ...live } as Summary;

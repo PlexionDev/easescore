@@ -43,6 +43,8 @@ export interface PolicyState {
   summary: Summary | null;
   computed_at: string | null;
   config_version: string | null;
+  /** Queued states only: how many states the background job runs first. */
+  ahead?: number;
 }
 
 export interface MillageRow { jurisdiction_type: string; code: string; name: string; mills: number | string; year: number; source_url: string }
