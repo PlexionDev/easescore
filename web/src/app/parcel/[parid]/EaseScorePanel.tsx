@@ -103,21 +103,45 @@ function FactorBar({ f, band, reportHref }: { f: score.FactorResult; band: strin
   );
 }
 
-/** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. The option is picked in BestOptions. */
-export function ScoreBlock({ selected }: { selected: Strategy }) {
+const HAZARD_WORD: Record<string, string> = {
+  landslideProne: "landslide-prone overlay", undermined: "undermined (old mines)", slopeMovementOnLot: "old slide area",
+  floodplain100yr: "floodplain", contaminationOnOrAdjacent: "cleanup site nearby", combinedSewer: "combined sewer",
+};
+/** Hazards found on the lot (F3 inputs), in plain words; null when there is no hazard data. */
+export function hazardWords(s: Strategy): string[] | null {
+  const f3 = s.factors.find((f) => f.id === "F3");
+  if (!f3 || f3.subscore == null) return null;
+  return Object.entries(HAZARD_WORD).filter(([k]) => (f3.inputs as Record<string, unknown>)[k] === true).map(([, w]) => w);
+}
+
+/** Why the score is what it is, in one line: the weakest factors (below 70) in plain words. */
+export function scoreSentence(s: Strategy): string | null {
+  if (!s.applicable || !s.band) return null;
+  const hz = hazardWords(s) ?? [];
+  const PHRASE: Record<score.FactorId, string | null> = {
+    F1: "zoning approvals needed", F2: "steep ground", F3: hz.length ? `mapped hazards (${hz.slice(0, 2).join(", ")})` : "mapped hazards",
+    F4: "limited street access or utilities", F5: "a long approval path", F6: "title or lot readiness issues", F7: "little recent building or sales nearby",
+  };
+  const weak = s.factors.filter((f) => f.subscore != null && f.subscore < 70).sort((a, b) => a.subscore! - b.subscore!).map((f) => PHRASE[f.id]).filter(Boolean).slice(0, 2);
+  const why = weak.length ? weak.join(" and ") : "no major site issues in our data";
+  return `${s.band}: ${why}.`;
+}
+
+/** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. */
+export function ScoreBlock({ selected, sentence }: { selected: Strategy; sentence?: string | null }) {
   const s = selected;
   const preliminary = s.labels.includes(score.PRELIMINARY);
   return (
     <section aria-label={"Ease Score"}>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{`Selected: ${score.OPTION_NAME[s.strategy]}`}</p>
       {s.applicable ? (
-        <div className="flex items-end gap-3">
+        <div className="flex items-center gap-3">
           <span className="text-5xl font-bold tabular-nums leading-none tracking-tight text-slate-900">{preliminary && s.range ? `${s.range[0]}–${s.range[1]}` : s.score ?? "—"}</span>
-          <div className="pb-0.5">
-            {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{BAND_WORD[s.band]}</span>}
-            <p className="mt-1 text-[11px] text-slate-500">
-              {"Ease Score out of 100"}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{BAND_WORD[s.band]}</span>}
+              <span className="text-[11px] text-slate-600">{`Ease Score · ${score.OPTION_NAME[s.strategy]}`}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}</span>
             </p>
+            {sentence && <p className="mt-1 text-[13px] leading-snug text-slate-800">{sentence}</p>}
           </div>
         </div>
       ) : (
@@ -145,25 +169,26 @@ export function FactorBars({ selected, reportHref }: { selected: Strategy; repor
 }
 
 /** 6. Red flags (red, rare) then "Review required" (amber); at most 3 visible, the rest behind "+N more". */
-export function Callouts({ selected }: { selected: Strategy }) {
+export function Callouts({ selected, max = 3, kinds = "all", compact = false }: { selected: Strategy; max?: number; kinds?: "all" | "red" | "review"; compact?: boolean }) {
   const items = [
-    ...selected.redFlags.map((x) => ({ id: x.id, tone: "red" as const, title: x.title, reason: x.reason })),
-    ...selected.reviewCallouts.map((c) => ({ id: c.id, tone: "amber" as const, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()), reason: c.reason })),
+    ...(kinds === "review" ? [] : selected.redFlags.map((x) => ({ id: x.id, tone: "red" as const, title: x.title, reason: x.reason }))),
+    ...(kinds === "red" ? [] : selected.reviewCallouts).map((c) => ({ id: c.id, tone: "amber" as const, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()), reason: c.reason })),
   ];
   if (!items.length) return null;
   const row = (c: (typeof items)[number]) => (
-    <li key={c.id} className={`rounded-lg border px-3 py-1.5 text-[13px] ${c.tone === "red" ? "border-red-300 bg-red-50 text-red-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
+    <li key={c.id} className={`rounded-lg border px-3 py-1.5 ${compact ? "line-clamp-2 text-[12px] leading-snug" : "text-[13px]"} ${c.tone === "red" ? "border-red-300 bg-red-50 text-red-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
       <span className="mr-1 text-[10px] font-bold uppercase tracking-wide">{c.tone === "red" ? "Red flag" : "Review required"}</span>
       <b>{c.title}.</b> <span className="opacity-80">{c.reason.split(". ")[0]!.replace(/\.$/, "")}.</span>
     </li>
   );
   return (
-    <section aria-label={"Red flags and review items"}>
-      <ul className="space-y-1.5">{items.slice(0, 3).map(row)}</ul>
-      {items.length > 3 && (
+    <section aria-label={kinds === "red" ? "Red flags" : kinds === "review" ? "Review items" : "Red flags and review items"}>
+      <ul className="space-y-1.5">{items.slice(0, max).map(row)}</ul>
+      {compact && items.length > max && <p className="mt-0.5 text-[11px] text-slate-600">{`+${items.length - max} more in Score details`}</p>}
+      {!compact && items.length > max && (
         <details className="mt-1.5">
-          <summary className="cursor-pointer text-xs font-semibold text-slate-600 underline decoration-dotted underline-offset-2">{`+${items.length - 3} more`}</summary>
-          <ul className="mt-1.5 space-y-1.5">{items.slice(3).map(row)}</ul>
+          <summary className="cursor-pointer text-xs font-semibold text-slate-600 underline decoration-dotted underline-offset-2">{`+${items.length - max} more`}</summary>
+          <ul className="mt-1.5 space-y-1.5">{items.slice(max).map(row)}</ul>
         </details>
       )}
     </section>

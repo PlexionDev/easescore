@@ -9,6 +9,7 @@
 import { useId } from "react";
 import { QF2_TYPES, STATUS_WORDS, type AppControls, type AppParking, type EdgeKind, type Scheme, type Typology } from "@/lib/qf2/core";
 import type { TypeSummary } from "@/lib/qf2/use-qf2";
+import { OpenDrawer } from "./Drawers";
 
 const PARKING: { v: AppParking; label: string }[] = [
   { v: "auto", label: "Best that works" }, { v: "tuck", label: "Tuck-under garage" }, { v: "pad", label: "Pad (alley or side drive)" }, { v: "none", label: "None" },
@@ -74,6 +75,10 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
               })}
             </div>
           </fieldset>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            <OpenDrawer id="options" className="min-h-6 font-semibold text-slate-900 underline decoration-dotted underline-offset-2 hover:text-slate-700">Best options and street precedent</OpenDrawer>
+            <OpenDrawer id="pencils" className="min-h-6 font-semibold text-slate-900 underline decoration-dotted underline-offset-2 hover:text-slate-700">Pencil calculator</OpenDrawer>
+          </div>
           {na && <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-950">{t.label} is not an option here by the score: {na}</p>}
 
           <div className="grid grid-cols-3 gap-2">
@@ -138,7 +143,7 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
             </div>
           )}
           <div className="flex items-center justify-between gap-2 text-[11px] text-slate-700">
-            <span>{ms ? `All 5 types solved in ${Math.round(ms.solve)} ms` : unavailable ?? "Waiting for the lot geometry…"}</span>
+            <span>{ms ? `All 5 types solved in ${Math.round(ms.solve)} ms` : unavailable ?? "Solving the lot…"}</span>
             <button type="button" onClick={onReset} disabled={isDefault}
               className="rounded-md px-2 py-1 font-semibold text-emerald-900 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 disabled:text-slate-500 disabled:hover:bg-transparent">Priced layout</button>
           </div>

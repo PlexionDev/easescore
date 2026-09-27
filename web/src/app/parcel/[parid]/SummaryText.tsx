@@ -26,7 +26,7 @@ export default function SummaryText({ input, template }: { input: narrative.Summ
     <section aria-label={"Summary"}>
       <p className="text-[15px] leading-snug text-slate-900">{r.sentences[0]} {r.sentences[1]}</p>
       <p className="mt-1.5 text-[11px] leading-snug text-slate-500">{narrative.SUMMARY_FINE_PRINT}</p>
-      {r.source === "ai" && <p className="text-[10px] text-slate-400">Worded by AI from the calculated results; every number checked against them.</p>}
+      {r.source === "ai" && <p className="text-[10px] text-slate-600">Worded by AI from the calculated results; every number checked against them.</p>}
     </section>
   );
 }

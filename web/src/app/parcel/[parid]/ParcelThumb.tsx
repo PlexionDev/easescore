@@ -16,7 +16,7 @@ type FC = { type: "FeatureCollection"; bbox: [number, number, number, number]; c
 
 let protocolAdded = false;
 
-export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData: FC | null }>; date: string }) {
+export default function ParcelThumb({ stage, date, compact = false }: { stage: Promise<{ mapData: FC | null }>; date: string; /** Half-width slot in the pane (photo fallback). */ compact?: boolean }) {
   const el = useRef<HTMLDivElement>(null);
   // The map data streams in after the pane; until then the frame stays empty (the pane never waits for it).
   const [data, setData] = useState<FC | null>(null);
@@ -98,16 +98,18 @@ export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData:
   }, [data, img]);
 
   return (
-    <figure className="m-0">
-      <div className="relative h-40 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+    <figure className="m-0 min-w-0">
+      <div className={`relative w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${compact ? "h-[132px]" : "h-40"}`}>
         {img
-          ? <img src={img} alt={"3D map view of the lot outlined in yellow, with nearby buildings and terrain"} className="h-full w-full object-cover" />
+          ? <img src={img} alt={"Illustrative 3D map (not a photo) of the lot outlined in yellow, with nearby buildings and terrain"} className="h-full w-full object-cover" />
           : <>
               {data && <PlanSvg data={data} />}
               {!failed && <div ref={el} className="absolute inset-0" aria-hidden />}
             </>}
       </div>
-      <figcaption className="mt-1 text-[11px] text-slate-500">{`Map view from EaseScore.AI data (county parcels, USGS lidar), ${date}`}</figcaption>
+      {compact
+        ? <figcaption className="mt-0.5 truncate text-[10px] text-slate-600" title={`Drawn from EaseScore.AI data (county parcels and buildings, USGS lidar), ${date}`}>Illustrative 3D map, not a photo</figcaption>
+        : <figcaption className="mt-1 text-[11px] text-slate-500">{`Map view from EaseScore.AI data (county parcels, USGS lidar), ${date}`}</figcaption>}
     </figure>
   );
 }

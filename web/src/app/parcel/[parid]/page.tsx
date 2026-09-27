@@ -7,21 +7,22 @@ import { readCostOverrides } from "@/lib/proforma";
 import { loadPane } from "@/lib/pane";
 import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
-import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
+import { Callouts, DetailsContent, FactorBars, ScoreBlock, hazardWords, scoreSentence } from "./EaseScorePanel";
 import BestOptions from "./BestOptions";
 import StreetPrecedent from "./StreetPrecedent";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
 import { overlayLabel } from "@/lib/report/describe";
-import ParcelThumb from "./ParcelThumb";
+import PanePhoto from "./PanePhoto";
+import SiteThumb from "./SiteThumb";
 import CopyParcelId from "./CopyParcelId";
 import SummaryText from "./SummaryText";
 import RentReceipt from "./RentReceipt";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
-import { OpenDrawer } from "./Drawers";
+import { OpenDrawer, OpenView } from "./Drawers";
 import { metricsOf } from "@/lib/quickfit-gen";
-import { QF2_TYPES } from "@/lib/qf2/core";
+import { QF2_TYPES, typologyForStrategy } from "@/lib/qf2/core";
 import { parcelPlan, reportQueryFor } from "@/lib/parcel-plan";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -189,8 +190,28 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   }
   const wantedRaw = typeof sp.strategy === "string" ? sp.strategy : null;
   const wanted = easeResult?.strategies.some((x) => x.strategy === wantedRaw) ? (wantedRaw as score.StrategyId) : null;
-  const defaultId = narrative.defaultStrategy(wanted, plans0?.byRight?.strategy ?? null, easeResult?.best ?? null);
-  const selected = easeResult
+  // "Best options for this lot": the money signal per option from the same pro forma as the summary
+  // (the selected option's own, with the visitor's edits); ease comes from the score. Never blended.
+  const pencilOf = (id: score.StrategyId, x: assumptions.ProFormaResult | null | undefined): score.PencilState => {
+    const rehab = id === "rehab_existing";
+    if (!x) return rehab ? "pricing" : "unknown";
+    if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown";
+    return x.verdict ?? "unknown";
+  };
+  // Options the page has priced itself (parcelPlan, the QuickFit v2 scheme) use that pro forma in the ranking.
+  const pagePf: Partial<Record<score.StrategyId, assumptions.ProFormaResult | null>> = {};
+  const rankWith = (pc: PlanComparison | null) => easeResult
+    ? score.rankOptions(easeResult, Object.fromEntries(easeResult.strategies.map((x) => {
+        if (x.strategy in pagePf) return [x.strategy, pencilOf(x.strategy, pagePf[x.strategy])];
+        const o = pc?.options.find((q) => q.strategy === x.strategy);
+        const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
+        return [x.strategy, o ? pencilOf(x.strategy, o.pf) : fit === "no_fit" ? "none" : pencilOf(x.strategy, null)];
+      })))
+    : [];
+  // The page (and QuickFit) open on the first row of that ranking; ?strategy= (a visitor's pick) wins.
+  const bestRanked = rankWith(plans0).find((r) => r.applicable)?.strategy ?? null;
+  const defaultId = narrative.defaultStrategy(wanted, bestRanked ?? plans0?.byRight?.strategy ?? null, easeResult?.best ?? null);
+  let selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === defaultId) ?? easeResult.strategies[0] ?? null
     : null;
   // One SelectedScheme for the selected option and its pro forma (lib/parcel-plan.ts, shared with the
@@ -198,7 +219,20 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // the map controls (qf_* keys), plus the program edits (pf_*) and hillside stepping on the lidar grid.
   // QuickFit v2 prices every new build on the lot geometry (already loading since the top of the render).
   const qfIn = await quickfitP.catch(() => null);
-  const plan = T.timeSync("proforma", () => parcelPlan({ P, sp, overrides, strategy: selected?.strategy ?? null, qf: qfIn }));
+  let plan = T.timeSync("proforma", () => parcelPlan({ P, sp, overrides, strategy: selected?.strategy ?? null, qf: qfIn }));
+  // The summary priced every option on the score's scheme; the page prices the selected one on the QuickFit v2
+  // scheme, which can change its verdict. When that moves another option to the top of the ranking, open on
+  // that one instead (one more pricing, kept when it still ranks first), so the pane, the ranking and QuickFit agree.
+  if (!wanted && selected && easeResult) {
+    pagePf[selected.strategy] = plan.pf;
+    const top = rankWith(plans0).find((r) => r.applicable)?.strategy ?? null;
+    const alt = top && top !== selected.strategy ? easeResult.strategies.find((x) => x.strategy === top) ?? null : null;
+    if (alt) {
+      const altPlan = T.timeSync("proforma_alt", () => parcelPlan({ P, sp, overrides, strategy: alt.strategy, qf: qfIn }));
+      pagePf[alt.strategy] = altPlan.pf;
+      if (rankWith(plans0).find((r) => r.applicable)?.strategy === alt.strategy) { selected = alt; plan = altPlan; }
+    }
+  }
   const { fin, isCity, genDefaults, urlControls, genTyp } = plan;
   const chosenScheme = plan.selected;
   const pf = plan.pf;
@@ -234,21 +268,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     }
   }
 
-  // "Best options for this lot": the money signal per option from the same pro forma as the summary
-  // (the selected option's own, with the visitor's edits); ease comes from the score. Never blended.
-  const pencilOf = (id: score.StrategyId, x: assumptions.ProFormaResult | null | undefined): score.PencilState => {
-    const rehab = id === "rehab_existing";
-    if (!x) return rehab ? "pricing" : "unknown";
-    if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown";
-    return x.verdict ?? "unknown";
-  };
-  const optionRows = easeResult
-    ? score.rankOptions(easeResult, Object.fromEntries(easeResult.strategies.map((x) => {
-        const o = plans?.options.find((q) => q.strategy === x.strategy);
-        const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
-        return [x.strategy, o ? pencilOf(x.strategy, o.pf) : fit === "no_fit" ? "none" : pencilOf(x.strategy, null)];
-      })))
-    : [];
+  const optionRows = rankWith(plans);
   // A rental with no "thin" threshold has no verdict: show its yield on cost instead of "can't tell".
   const pencilDetail: Partial<Record<score.StrategyId, string>> = {};
   for (const o of plans?.options ?? []) {
@@ -264,97 +284,94 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   // Query for the full report: same keys, with the report's names for the building type and tenure.
   const reportQuery = reportQueryFor(sp, selected?.strategy ?? null);
-  const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}download=0`;
   const reportHtml = `/parcel/${encodeURIComponent(parid)}/report${reportQuery ? `?${reportQuery}` : ""}`;
 
-  // Header: address, then the parcel ID, then neighborhood and zoning.
+  // 1. Header: address (or "No official address · near <street>"), then the parcel ID, then neighborhood and zoning.
   const place = (f.context?.neighborhood as string | undefined) ?? titleCase(f.context?.municipality ?? a?.municipality) ?? null;
-  const address = titleCase(a?.address) || `Parcel ${parid}`; // parcel_facts' address already has the house number
+  // parcel_facts' address already has the house number; a lot with none (or "0") reads "No official address · near <street>".
+  const rawAddr = (a?.address ?? "").trim();
+  const numbered = /^(\d+[A-Z]?)\s+(.*)$/i.exec(rawAddr);
+  const address = !rawAddr ? `Parcel ${parid}` : numbered && !/^0+$/.test(numbered[1]!) ? titleCase(rawAddr) : `No official address · near ${titleCase(numbered ? numbered[2]! : rawAddr)}`;
   const subline = [place, f.zoning?.code ? `Zoning ${f.zoning.code}` : "Zoning not in our data"].filter(Boolean).join(" · ");
 
-  // 3. Fact tiles.
+  // 5. General buildability: four fact tiles.
   const NR = "Not on record";
+  const HAZARD_TILE: Record<string, string> = { "landslide-prone overlay": "Landslide", "undermined (old mines)": "Undermined", "old slide area": "Old slide", floodplain: "Floodplain", "cleanup site nearby": "Cleanup site", "combined sewer": "Combined sewer" };
   const lotSf = (f.lot_area_sqft_gis as number | undefined) ?? a?.lot_area_sqft ?? null;
   const slope = (f.slope_1m ?? f.slope) as { mean_pct?: number; share_over_25?: number; steep_share?: number } | undefined;
   const over25 = slope?.share_over_25 ?? slope?.steep_share;
+  const hz = selected ? hazardWords(selected) : null;
   const tiles: [string, string, string | null][] = [
-    ["Year built", a?.year_built ? String(a.year_built) : NR, null],
-    ["House sq ft", a?.living_area_sqft ? Math.round(a.living_area_sqft).toLocaleString("en-US") : NR, null],
-    ["Lot sq ft", lotSf ? Math.round(lotSf).toLocaleString("en-US") : NR, null],
+    ["Lot size", lotSf ? `${Math.round(lotSf).toLocaleString("en-US")} sq ft` : NR, lotSf ? `${(lotSf / 43560).toFixed(2)} acre` : null],
     ["Average slope", slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? `${`${Math.round(Number(over25) * 100)}%`} over 25%` : null],
+    ["Hazards", hz == null ? "No data" : hz.length ? HAZARD_TILE[hz[0]!] ?? hz[0]! : "None mapped", hz && hz.length > 1 ? `+${hz.length - 1} more` : hz ? "in our data" : null],
+    ["Zoning", f.zoning?.code ?? "No data", f.zoning?.code ? (isCity ? "Pittsburgh" : titleCase(f.context?.municipality ?? a?.municipality) || null) : titleCase(f.context?.municipality ?? a?.municipality) || null],
   ];
-
-  // 8. "Pencils?" chip for the selected option.
-  let chip = "Pencils? Not computed for this option";
-  let chipTone = "border-slate-300 bg-white text-slate-700";
-  if (pf) {
-    const pctTxt = (x: number) => `${Math.round(x * 100)}%`;
-    const usdK = (x: number) => narrative.money(x);
-    const rg = pf.ranges;
-    const pctR = (x: { low: number; high: number } | null) => (x ? (x.low === x.high ? `${x.low}%` : `${x.low}% to ${x.high}%`) : null);
-    if (pf.plan.missing.length) chip = pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "Enter your rehab cost to price this" : "Pencils? Can't tell yet: an input is missing";
-    else if (pf.plan.tenure === "sale" && pf.sale.profit != null) {
-      const what = selected ? ` (${selected.strategyLabel.toLowerCase()})` : "";
-      if (pf.verdict === "no") { chip = rg.headline ? `${rg.headline} at market rate${what}` : `Gap of about ${usdK(-pf.sale.profit)} at market rate${what}`; chipTone = "border-red-200 bg-red-50 text-red-900"; }
-      else { chip = `Pencils at market rate${what}: ${pf.verdict === "thin" ? "barely" : "yes"}, about ${pctTxt(pf.sale.margin ?? 0)} margin${pctR(rg.sale.marginPct) && rg.sale.marginPct!.low !== rg.sale.marginPct!.high ? ` (range ${pctR(rg.sale.marginPct)})` : ""}`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
-    } else if (pf.plan.tenure === "rent" && pf.rent.noi != null) {
-      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: about ${pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost${pctR(rg.rent.yieldOnCostPct) && rg.rent.yieldOnCostPct!.low !== rg.rent.yieldOnCostPct!.high ? ` (range ${pctR(rg.rent.yieldOnCostPct)})` : ""}`;
-    }
-  }
+  // The best option in one line: its name, zoning path and money signal (never blended into one number).
+  const best = optionRows.find((r) => r.applicable) ?? null;
+  const PENCIL_WORDS: Record<score.PencilState, string> = {
+    yes: "pencils at market rate", thin: "tight margin", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
+  };
+  const bestLine = best
+    ? [best.name, best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, ""),
+        best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ")
+    : null;
+  // The site layout thumbnail shows the selected option when it is a new build, else the best new build.
+  const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
+  const thumbLabel = thumbTyp ? score.OPTION_NAME[QF2_TYPES.find((t) => t.id === thumbTyp)!.strategy] : null;
+  const detailsHint = selected ? `${selected.factors.length} factors and receipts` : "receipts";
 
   const pane = (
     <>
       {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
       <header>
-        <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
-        <div className="mt-1"><CopyParcelId parid={parid} /></div>
-        <p className="mt-0.5 text-xs text-slate-500">{subline}</p>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
+          <Link href="/#parcel-search" className="mt-1 shrink-0 text-xs font-medium text-slate-600 hover:text-slate-900">← New search</Link>
+        </div>
+        <div className="mt-0.5"><CopyParcelId parid={parid} /></div>
+        <p className="mt-0.5 text-xs text-slate-600">{subline}</p>
       </header>
-      <div className="flex items-center justify-between">
-        <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
-      </div>
-      {/* Best options for this lot: the ranked list is the one option switcher */}
-      {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} />}
-      {/* Street precedent: the block's pattern, §925.06 contextual setback, nearby ZBA outcomes */}
-      {<StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />}
-      {/* 2. Property image (streams in after the pane) */}
-      <ParcelThumb stage={stage} date={asOf} />
-      {/* 3. Fact row */}
-      <section aria-label={"Key facts"} className="grid grid-cols-4 gap-1.5">
-        {tiles.map(([k, v, sub]) => (
-          <div key={k} className="rounded-lg border border-slate-200 bg-white/70 px-1.5 py-1.5 text-center">
-            <p className="text-[10px] uppercase tracking-wide text-slate-500">{k}</p>
-            <p className={`tabular-nums ${v === NR ? "text-[11px] text-slate-400" : "text-sm font-semibold text-slate-900"}`}>{v}</p>
-            {sub && <p className="text-[10px] text-slate-500">{sub}</p>}
-          </div>
-        ))}
-      </section>
-      {/* 4-6. Score, factor bars, callouts */}
-      {easeResult && selected ? (
-        <>
-          <ScoreBlock selected={selected} />
-          <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} />
-          <Callouts selected={selected} />
-        </>
-      ) : (
-        <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now. The report and the process checklist still apply.</p>
-      )}
-      {/* 7. Two-sentence summary + fine print */}
-      {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
-      {/* 8. Pencils? */}
-      <OpenDrawer id="pencils" className={`w-full rounded-full border px-3 py-1.5 text-left text-sm font-semibold ${chipTone}`} label={"Open the pro forma"}>
-        {chip} <span aria-hidden className="float-right opacity-60">›</span>
-      </OpenDrawer>
-      {/* 9. Buttons */}
+      {/* 2-3. Photo (Street View or our illustrative map) beside the site layout thumbnail */}
       <div className="grid grid-cols-2 gap-2">
-        <a href={pdfHref} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open the full report</a>
-        <OpenDrawer id="plan" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-500">Change the plan</OpenDrawer>
+        <PanePhoto stage={stage} date={asOf} />
+        <SiteThumb scheme={genTyp ? plan.v2 : null} qf2={plan.qf2} controls={thumbTyp ? urlControls ?? genDefaults[thumbTyp] : null} label={thumbLabel} />
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-        <OpenDrawer id="process" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Process checklist</OpenDrawer>
-        <OpenDrawer id="details" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Details</OpenDrawer>
+      {/* Red flags stay above the score */}
+      {selected && selected.redFlags.length > 0 && <Callouts selected={selected} kinds="red" max={1} compact />}
+      {/* 4. Ease Score, band and one sentence */}
+      {easeResult && selected ? (
+        <ScoreBlock selected={selected} sentence={scoreSentence(selected)} />
+      ) : (
+        <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now (not enough evidence loaded). The report and the process checklist still apply.</p>
+      )}
+      {/* 5. General buildability: fact tiles, the best option, at most 2 review callouts */}
+      <section aria-labelledby="buildability-h">
+        <h2 id="buildability-h" className="sr-only">General buildability</h2>
+        <div className="grid grid-cols-4 gap-1.5">
+          {tiles.map(([k, v, sub]) => (
+            <div key={k} className="min-w-0 rounded-lg border border-slate-200 bg-white/70 px-1.5 py-1 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-slate-600">{k}</p>
+              <p className={`line-clamp-2 break-words leading-tight tabular-nums ${v === NR || v === "No data" ? "text-[11px] text-slate-600" : "text-[13px] font-semibold text-slate-900"}`} title={v}>{v}</p>
+              {sub && <p className="truncate text-[10px] text-slate-600">{sub}</p>}
+            </div>
+          ))}
+        </div>
+        {bestLine && <p className="mt-1.5 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
+        {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
+      </section>
+      {/* 6. Three buttons */}
+      <div className="grid grid-cols-3 gap-2">
+        <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>
+        <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pencil calculator</OpenDrawer>
+        <a href={reportHtml} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Full report<span className="sr-only"> (opens in a new tab)</span></a>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+        <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>
+        <OpenDrawer id="process" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900">Process checklist</OpenDrawer>
         <DownloadReport parid={parid} query={reportQuery} label={"Download the PDF"} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
       </div>
+      <p className="text-[11px] leading-snug text-slate-600">Decision support only: not legal, financial, zoning or engineering advice. Confirm with the permitting office and a professional.</p>
     </>
   );
 
@@ -423,6 +440,15 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   const details = (
     <>
+      {easeResult && selected && selected.applicable && (
+        <section aria-labelledby="factors-h">
+          <h3 id="factors-h" className="text-sm font-semibold text-slate-900">{`Ease Score factors · ${selected.strategyLabel}`}</h3>
+          <p className="text-[11px] text-slate-600">Each bar is one factor&apos;s sub-score out of 100; open its receipt for the inputs, the rule applied and the sources.</p>
+          <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} />
+        </section>
+      )}
+      {selected && <Callouts selected={selected} max={20} />}
+      {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
       {easeResult && selected
         ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} />
         : null}
@@ -459,9 +485,13 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pane={pane}
       planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Does it pencil?", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "pencils", title: "Pencil calculator", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
         { id: "process", title: "Process checklist", content: process },
-        { id: "details", title: "Details", content: details },
+        { id: "details", title: "Score details", content: details },
+        { id: "options", title: "Best options and street precedent", content: <>
+          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
+          <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
+        </> },
       ]}
       parid={parid} stage={stage} outline={P.outline} center={centerOf(f)}
       viewFacts={{
