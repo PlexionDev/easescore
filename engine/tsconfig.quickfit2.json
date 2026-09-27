@@ -1,6 +1,11 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noUncheckedIndexedAccess": false },
-  "include": ["src/quickfit2"],
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false,
+    "typeRoots": ["../web/node_modules/@types"],
+    "types": ["node"],
+    "paths": { "@/*": ["../web/src/*"] }
+  },
+  "include": ["src/quickfit2", "test/parcel-plan.test.ts"],
   "exclude": []
 }
