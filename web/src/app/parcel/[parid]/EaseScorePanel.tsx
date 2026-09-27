@@ -19,7 +19,6 @@ const BAND_STYLE: Record<string, string> = {
   "Very hard": "bg-red-100 text-red-800",
 };
 const BAR_STYLE: Record<string, string> = { Easy: "bg-emerald-500", Moderate: "bg-amber-500", Hard: "bg-orange-500", "Very hard": "bg-red-500" };
-const EVIDENCE_TEXT: Record<score.Evidence, string> = { complete: "Complete data", partial: "Partial data", missing: "No data" };
 
 const cfg = score.DEFAULT_CONFIG;
 const pctOf = (x: number) => `${Math.round(x * 100)}%`;
