@@ -37,7 +37,8 @@ export interface Summary {
 
 export interface PolicyState {
   key: string;
-  status: "queued" | "running" | "done" | "partial" | "failed" | "missing";
+  /** "cancelled" = taken off the demo queue (never computed); "missing" = nobody requested it. */
+  status: "queued" | "running" | "done" | "partial" | "failed" | "missing" | "cancelled";
   done: number;
   total: number | null;
   summary: Summary | null;
@@ -266,3 +267,12 @@ export const LEVER_METHOD = {
   contextual: `Contextual front setback: lots in R1D, R1A, R2, R3 and RM whose front setback is deeper than ${CONTEXTUAL_FRONT_FT} ft. We do not measure neighboring buildings; the engine's contextual-setback assumption (${CONTEXTUAL_FRONT_FT} ft, the same one every parcel page uses for §925.06) stands in for the neighbors' average and applies by right. Today's baseline already credits that setback where a lot needs it, so by-right gains are small; the lever mostly removes a step.`,
   height: `One more story: lots in R1D, R1A, R2, R3 and RM with a height limit get +${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft. The lot-fit test's building types top out at three stories (placeholder sizes), so where a district already allows three the lever cannot add homes in this model; the result is a floor.`,
 } as const;
+
+/**
+ * Lever states deliberately not computed for the demo, with why the result is expected to be about zero.
+ * Shown instead of a queue banner.
+ */
+export const NOT_COMPUTED_NOTE: Record<string, string> = {
+  cs: "Not computed for this demo (expected ~0 extra homes by right because today's baseline already credits the contextual front setback wherever a lot needs it, so the lever mostly removes a step, not a limit).",
+  h1: "Not computed for this demo (expected ~0 extra homes by right because the lot-fit test's building types top out at three stories and residential districts already allow three).",
+};

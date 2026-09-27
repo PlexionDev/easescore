@@ -13,7 +13,7 @@ import {
 } from "@/components/seats";
 import type { PolicyPoint, Who } from "@/lib/policy/data";
 import {
-  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
+  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, NOT_COMPUTED_NOTE, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
   type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario,
 } from "@/lib/policy/model";
 import { FiscalTab, MethodTab, WhereTab, WhoTab } from "./PolicyTabs";
@@ -104,7 +104,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         const s = (await r.json()) as PolicyState;
         if (id !== reqId.current) return;
         setFetched(s);
-        if (s.status !== "done" && key !== "base") timer = setTimeout(load, 8000);
+        if (!["done", "missing", "cancelled", "failed"].includes(s.status) && key !== "base") timer = setTimeout(load, 8000);
       } catch {
         if (id === reqId.current) timer = setTimeout(load, 15000);
       }
@@ -281,6 +281,10 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     </FilterRail>
   );
 
+  const doneKeys = new Set(allStates.filter((x) => x.status === "done").map((x) => x.key));
+  // Presets whose state is finished; while the batch is still finishing them, the five it precomputes.
+  const donePresets = PRESETS.filter((p) => doneKeys.has(p.value));
+  const computedPresets = donePresets.length ? donePresets : PRESETS.slice(0, 5);
   const h = summary ? homesRange(summary) : null;
   const nb = summary ? newlyRange(summary) : null;
 
@@ -298,9 +302,22 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
       <div className="pol-main">
         {key === "base" ? (
           <div className="pol-banner">Every lever is off: this is today’s code, so nothing changes. Turn on a lever to see what it unlocks.</div>
+        ) : st === placeholder ? (
+          <div className="pol-banner" role="status" aria-live="polite">Checking whether this combination is computed…</div>
+        ) : st.status === "missing" || st.status === "cancelled" || st.status === "failed" ? (
+          <div className="pol-banner" role="status" aria-live="polite">
+            {NOT_COMPUTED_NOTE[key]
+              ? <><strong>{NOT_COMPUTED_NOTE[key]}</strong> {key === "cs" ? LEVER_METHOD.contextual : key === "h1" ? LEVER_METHOD.height : ""}</>
+              : <strong>Not precomputed for this demo — try a preset.</strong>}
+            {computedPresets.length ? (
+              <span className="pol-presetlinks"> {donePresets.length ? "Computed" : "Precomputed scenarios"}: {computedPresets.map((p, i) => (
+                <span key={p.value}>{i ? " · " : ""}<button type="button" className="pol-linkbtn" onClick={() => onPreset(p.value)}>{p.label}</button></span>
+              ))}</span>
+            ) : null}
+          </div>
         ) : !finished ? (
           <div className="pol-banner" role="status" aria-live="polite">
-            {st.status === "queued" || st.status === "missing"
+            {st.status === "queued"
               ? <><strong>Queued: computing overnight (position {(st.ahead ?? 0) + 1}).</strong> This combination has not been computed yet; results appear here as parcels are done (a full City run takes a few hours). Precomputed now: Starter homes, each of the first three levers alone, and all three.</>
               : `Computing this combination in the background: ${st.done} of ${st.total ?? "?"} parcel batches (${pctDone}%). Numbers so far cover only the parcels done; they will grow.`}
             <span className="pol-progress" aria-hidden="true"><span style={{ width: `${pctDone}%` }} /></span>
@@ -340,7 +357,9 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           ))}
         </div>
         <div className="pol-panel" role="tabpanel" id={`pol-panel-${tab}`} aria-labelledby={`pol-tab-${tab}`}>
-          {!summary && key !== "base" ? <EmptyState title="Results are still being computed" tone="pending">The first parcels appear here within a minute or two.</EmptyState> : null}
+          {!summary && key !== "base" ? (["missing", "cancelled", "failed"].includes(st.status) && st !== placeholder
+            ? <EmptyState title="Not computed for this demo">Pick a precomputed scenario from the Scenario menu or the list above.</EmptyState>
+            : <EmptyState title="Results are still being computed" tone="pending">The first parcels appear here within a minute or two.</EmptyState>) : null}
           {summary && tab === "where" ? <WhereTab summary={summary} flags={flags} places={places} highlight={selection.neighborhood ?? null} /> : null}
           {tab === "who" ? <WhoTab flags={flags} who={who} computing={!finished} /> : null}
           {summary && tab === "fiscal" ? <FiscalTab summary={summary} fis={fis} meta={meta} /> : null}
