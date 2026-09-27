@@ -1,0 +1,30 @@
+/* Council packet: sober black on white, US Letter, 3 pages. Printed by /api/policy/packet. */
+@page{size:Letter;margin:0.65in 0.7in}
+.pk{font-family:var(--pk-sans),system-ui,sans-serif;color:#000;background:#fff;font-size:9.5pt;line-height:1.35;max-width:7.1in;margin:0 auto;padding:24px 0}
+.pk h1{font-size:17pt;font-weight:700;margin:0 0 3pt;line-height:1.2}
+.pk h2{font-size:11.5pt;font-weight:700;margin:9pt 0 4pt;border-bottom:0.75pt solid #000;padding-bottom:2pt}
+.pk p{margin:0 0 5pt}
+.pk .meta{font-size:9pt;color:#333}
+.pk table{width:100%;border-collapse:collapse;font-size:8.5pt;margin:3pt 0 6pt}
+.pk th,.pk td{border-bottom:0.5pt solid #999;padding:2pt 4pt;text-align:left;vertical-align:top}
+.pk thead th{font-weight:700;border-bottom:0.75pt solid #000}
+.pk .n{text-align:right;font-variant-numeric:tabular-nums}
+.pk tr.tot th,.pk tr.tot td{border-top:0.75pt solid #000;font-weight:700}
+.pk ul,.pk ol{margin:2pt 0 6pt;padding-left:14pt}
+.pk li{margin:0 0 1.5pt}
+.pk .p3{font-size:8.8pt}
+.pk .boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:0.75pt solid #000;margin:6pt 0 8pt}
+.pk .box{padding:6pt 7pt;border-right:0.5pt solid #999}
+.pk .box:last-child{border-right:0}
+.pk .box .l{font-size:8pt;color:#333;margin:0 0 2pt}
+.pk .box .v{font-size:13pt;font-weight:700;margin:0}
+.pk .box .s{font-size:7.5pt;color:#333;margin:2pt 0 0}
+.pk .fine{font-size:8pt;color:#333}
+.pk .lede{font-size:10.5pt}
+.pk .map{border:0.5pt solid #999;margin:4pt 0 4pt}
+.pk .page{break-after:page}
+.pk .page:last-child{break-after:auto}
+.pk .bar{display:inline-block;height:6pt;background:#000;vertical-align:middle}
+.pk .key{display:inline-flex;align-items:center;gap:4pt;margin-right:10pt;font-size:8pt}
+.pk .key i{display:inline-block;width:7pt;height:7pt;border-radius:50%}
+@media screen{.pk .page{border-bottom:1px dashed #999;padding-bottom:24px;margin-bottom:24px}}
