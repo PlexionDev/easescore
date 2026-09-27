@@ -263,13 +263,18 @@ export function proFormaRanges(
           basis = you ? "Your number" : `${rh.basis} (Assumption, edit me)`;
           break;
         }
-        source = baseUser || mineLine("hard_base") ? USER : badge("Pittsburgh builders (2026)", `${tier.costPerSf.sourceLabel} (${tier.label})`);
-        basis = baseUser || mineLine("hard_base") ? "Your number" : `${tier.label} range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (Pittsburgh builders)`;
+        const prod = tier.id === "production";
+        const tierBadge: SourceBadge = prod ? "NAHB 2024, national, excludes builder fee" : "Pittsburgh builders (2026)";
+        source = baseUser || mineLine("hard_base") ? USER : badge(tierBadge, `${tier.costPerSf.sourceLabel} (${tier.label})`);
+        basis = baseUser || mineLine("hard_base") ? "Your number" : `${tier.label} range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (${prod ? "NAHB 2024 cost share, checked by our backtest of completed Allegheny County homes" : "Pittsburgh builders"})`;
         if (plan.finishedSf) {
           const used = roundRange((lo ?? 0) / plan.finishedSf, (likely ?? 0) / plan.finishedSf, (hi ?? 0) / plan.finishedSf, 1);
           const nr = config.construction.nationalReference;
           const points: TriangulationPoint[] = [
-            { label: `Pittsburgh builders, ${tier.label}`, badge: "Pittsburgh builders (2026)", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Includes builder overhead and profit." },
+            prod
+              ? { label: `${tier.label} (NAHB 2024 share, backtested)`, badge: "NAHB 2024, national, excludes builder fee", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Construction cost before the builder's overhead and profit." }
+              : { label: `Pittsburgh builders, ${tier.label}`, badge: "Pittsburgh builders (2026)", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Includes builder overhead and profit." },
+            ...(prod ? [(() => { const bt = tierOf(config, "basic"); return { label: `Pittsburgh builders, ${bt.label}`, badge: "Pittsburgh builders (2026)" as SourceBadge, low: bt.costPerSf.range[0]!, high: bt.costPerSf.range[1]!, value: bt.costPerSf.value, note: "Published builder price to an owner; includes builder overhead and profit." }; })()] : []),
             { label: "NAHB national average", badge: "NAHB 2024, national, excludes builder fee", low: nr.value, high: nr.value, value: nr.value, note: "National production builders, construction only; excludes builder overhead and profit, so it sits below a builder's price." },
           ];
           if (perHomeSf) {

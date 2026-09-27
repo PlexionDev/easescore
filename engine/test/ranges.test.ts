@@ -70,15 +70,19 @@ describe("ranges: no false precision", () => {
       else expect(l.source.badge).toBeNull();
       expect(l.source.badge).not.toBe("ICC BVD Feb 2026, national, permit-fee average");
     }
-    expect(g.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Pittsburgh builders (2026)");
+    // Default Production (spec) tier: NAHB cost share (backtested); published tiers carry the Pittsburgh builders badge.
+    expect(g.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("NAHB 2024, national, excludes builder fee");
+    expect(pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Pittsburgh builders (2026)");
     expect(g.lines.find((l) => l.id === "slope_adder")!.source.badge).toBe("Assumption, edit me");
     expect(g.lines.find((l) => l.id === "contingency")!.source.badge).toBe("Assumption, edit me");
   });
 
   it("triangulates hard cost per SF against NAHB national and local project benchmarks", () => {
     const pts = g.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
-    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
-    expect(pts[1]!.value).toBe(162);
+    expect(pts.map((p) => p.badge)).toEqual(["NAHB 2024, national, excludes builder fee", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    expect(pts[2]!.value).toBe(162);
+    const good = pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
+    expect(good.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
     expect(g.lines.find((l) => l.id === "tdc")!.triangulation!.points[0]!.badge).toBe("Local project benchmark");
   });
 

@@ -89,12 +89,17 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
         aria-valuetext={`${t.label}, $${t.costPerSf.value} per sq ft`} className="mt-1 w-full accent-slate-900" list="pf-quality-stops" />
       <div className="grid text-[10px] text-slate-500" style={{ gridTemplateColumns: `repeat(${tiers.length}, minmax(0, 1fr))` }}>
         {tiers.map((x, k) => (
-          <button key={x.id} type="button" onClick={() => onTier(x.id)} className={`truncate ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
-            {x.label} ${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}
+          <button key={x.id} type="button" onClick={() => onTier(x.id)} className={`leading-tight ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
+            <span className="block">{x.label.replace(/ \(spec\)$/, "")}</span>
+            <span className="block tabular-nums">${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}</span>
           </button>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-500">{t.meaning}. Construction per finished sq ft{t.id === "production" ? "" : ", builder overhead and profit included"}; site adders are separate lines. Source: {t.costPerSf.sourceLabel} — {t.costPerSf.sourceNote}</p>
+      <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Construction per finished sq ft{t.id === "production" ? "" : ", builder overhead and profit included"}; site adders are separate lines.</p>
+      <details className="text-[11px] text-slate-500">
+        <summary className="cursor-pointer underline decoration-dotted underline-offset-2">Source: {t.costPerSf.sourceLabel}</summary>
+        <p className="mt-0.5">{t.costPerSf.sourceNote}</p>
+      </details>
     </div>
   );
 }
@@ -112,7 +117,8 @@ function LineEditor({ id, value, mine, onSet, onReset }: { id: string; value: nu
       <span className="flex items-center rounded border border-slate-300 bg-white px-1 focus-within:ring-2 focus-within:ring-slate-400">
         <span className="text-[11px] text-slate-400">$</span>
         <input aria-label={`Your number for ${id.replace(/_/g, " ")}`} inputMode="numeric" className="w-[5.5rem] bg-transparent px-0.5 py-0.5 text-right text-[12px] tabular-nums text-slate-900 outline-none"
-          value={draft ?? (value != null ? Math.round(value).toLocaleString("en-US") : "")} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+          placeholder={value != null ? Math.round(value).toLocaleString("en-US") : "enter"}
+          value={draft ?? (value != null ? Math.round(value).toLocaleString("en-US") : "")} onChange={(e) => setDraft(e.target.value)} onFocus={() => setDraft("")} onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") setDraft(null); }} />
       </span>
       {mine && <button type="button" onClick={() => onReset(id)} className="text-[10px] text-sky-800 underline" title="Back to the estimate">reset</button>}
