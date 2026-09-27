@@ -59,8 +59,10 @@ const PATHS: Record<string, AcquisitionPath> = {
 };
 
 /** The typical path for a lot from its agency and the City's status field. */
-export function acquisitionPath(agency: string | null, taxDelinquent: boolean | null, ownerClass: string | null): AcquisitionPath | null {
+export function acquisitionPath(agency: string | null, taxDelinquent: boolean | null, ownerClass: string | null, cityProgram?: string | null): AcquisitionPath | null {
   const a = (agency ?? "").toLowerCase();
+  // City inventory lots marked "URA Transfer" go through the URA.
+  if (/\bura\b/i.test(cityProgram ?? "")) return PATHS.ura!;
   if (a.includes("urban redevelopment") || a === "ura") return PATHS.ura!;
   if (a.includes("pittsburgh") || a.includes("land bank")) return PATHS.city!;
   if (ownerClass === "public") return PATHS.county!;

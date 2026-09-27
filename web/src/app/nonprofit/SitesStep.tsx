@@ -57,7 +57,7 @@ export default function SitesStep({ hood, result, loading, filters, onFilters, s
           {rows.map((s) => {
             const id = s.parid.trim();
             const on = selected.includes(id);
-            const path = acquisitionPath(s.agency, s.tax_delinquent, s.owner_class);
+            const path = acquisitionPath(s.agency, s.tax_delinquent, s.owner_class, s.city_program);
             const st = statusNote(s.agency_status);
             const flags = s.red_flags ?? [];
             return (
@@ -73,6 +73,7 @@ export default function SitesStep({ hood, result, loading, filters, onFilters, s
                   </div>
                   <p className="np-site-meta">
                     {s.agency ?? (s.owner_class === "public" ? "Public owner" : "Private owner")}
+                    {s.city_program ? ` · City program: ${s.city_program}` : ""}
                     {st ? <> · <span className={st.tone === "ok" ? "np-ok" : "np-warn"}>{st.text}</span></> : null}
                   </p>
                   <p className="np-site-facts">

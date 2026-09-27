@@ -128,7 +128,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
           </div>
         ) : <p>No lots chosen yet.</p>}
         {(() => {
-          const path = lots[0] ? acquisitionPath(lots[0].agency, lots[0].tax_delinquent, lots[0].owner_class) : null;
+          const path = lots[0] ? acquisitionPath(lots[0].agency, lots[0].tax_delinquent, lots[0].owner_class, lots[0].city_program) : null;
           return path ? (
             <div className="br-box">
               <p><b>How to get the lots (typical):</b> {path.title}. {path.steps.join(" → ")}. Typical time {path.typicalMonths[0]}–{path.typicalMonths[1]} months. {path.note}</p>

@@ -106,13 +106,13 @@ export async function lotsDetail(parids: string[]): Promise<import("./types").Si
   const [rows, po, oc] = await Promise.all([
     select<import("./types").Site>(`parcel_scores?select=parid,address,score,band,best_strategy,by_right_units,units_with_relief,months_to_permit,red_flag_count,red_flags,top_blocker,zoning,lot_sqft,vacant,owner_class,tax_delinquent,municipality,lon,lat,preliminary&parid=in.(${ids})`),
     select<{ parid: string; owner_category: string | null; status: string | null }>(`public_owned?select=parid,owner_category,status&parid=in.(${ids})`),
-    select<{ parid: string; agency_name: string | null; owner_class: string | null }>(`parcel_owner_class?select=parid,agency_name,owner_class&parid=in.(${ids})`),
+    select<{ parid: string; agency_name: string | null; owner_class: string | null; city_program: string | null }>(`parcel_owner_class?select=parid,agency_name,owner_class,city_program&parid=in.(${ids})`),
   ]);
   const poOf = new Map((po ?? []).map((r) => [r.parid.trim(), r]));
   const ocOf = new Map((oc ?? []).map((r) => [r.parid.trim(), r]));
   const byId = new Map((rows ?? []).map((r) => {
     const id = r.parid.trim();
-    return [id, { ...r, parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, geoid: null, qct: false, dda: false }];
+    return [id, { ...r, parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, city_program: ocOf.get(id)?.city_program ?? null, geoid: null, qct: false, dda: false }];
   }));
   return parids.map((p) => byId.get(p)).filter(Boolean) as import("./types").Site[];
 }
