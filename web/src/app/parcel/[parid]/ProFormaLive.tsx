@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assumptions, finance, rents, type score } from "@easescore/engine";
+import CompsMini from "./CompsMini";
 import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quickfit-gen";
 import type { quickfit } from "@easescore/engine";
 import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
@@ -36,7 +37,7 @@ const LINE_KEY = "pf_line_";
 
 type Comps = assumptions.DevelopmentPlan["valueComps"];
 
-function CompBlock({ comps, floor, newBuild }: { comps: Comps; floor: string | null; newBuild: boolean }) {
+function CompBlock({ comps, floor, newBuild, plan }: { comps: Comps; floor: string | null; newBuild: boolean; plan: assumptions.DevelopmentPlan }) {
   const c = comps as assumptions.CompSet | null;
   const title = newBuild ? "New-construction comps" : "Comparable sales";
   if (!c) return <p className="mt-1.5 text-[12px] text-slate-600"><b>{title}:</b> not available for this lot.{floor ? ` ${floor}` : ""}</p>;
@@ -60,12 +61,13 @@ function CompBlock({ comps, floor, newBuild }: { comps: Comps; floor: string | n
         </ul>
       )}
       {floor && <p className="text-[11px] text-amber-800">{floor}</p>}
-      {full && c.comps.length > 0 && (
+      {full && c.kind === "new_construction" && <CompsMini plan={plan} />}
+      {full && c.kind !== "new_construction" && c.comps.length > 0 && (
         <details className="text-[11px]">
           <summary className="cursor-pointer text-slate-500 underline decoration-dotted underline-offset-2">The sales</summary>
           <ul className="mt-0.5 max-h-40 overflow-auto">
             {c.comps.map((x) => (
-              <li key={`${x.parid}${x.saleDate}`}>{x.saleDate} · {usd(x.price)} · {x.livingAreaSqft.toLocaleString("en-US")} sq ft · {usd(x.pricePerSqft)}/SF{x.yearBuilt ? ` · built ${x.yearBuilt}` : ""} · {x.distanceMi} mi{x.address ? ` · ${x.address}` : ""}</li>
+              <li key={`${x.parid}${x.saleDate}`}>{x.saleDate} · {usd(x.price)} · {x.livingAreaSqft.toLocaleString("en-US")} sq ft · {usd(x.pricePerSqft)}/SF{x.yearBuilt ? ` · built ${x.yearBuilt}` : ""} · {x.distanceMi} mi{x.address ? ` · ${assumptions.blockLevelAddressOf(x.address)}` : ""}</li>
             ))}
           </ul>
           <p className="text-slate-500">{c.rule}</p>
@@ -327,7 +329,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
 
       {p.sizeWarning && <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-950">{p.sizeWarning}</p>}
       {p.priceCheck && <p className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[13px] text-sky-950">{p.priceCheck}</p>}
-      {sale && <CompBlock comps={p.valueComps} floor={p.floor?.text ?? null} newBuild={!rehab} />}
+      {sale && <CompBlock plan={p} comps={p.valueComps} floor={p.floor?.text ?? null} newBuild={!rehab} />}
 
       {r.sentences.length > 0 && (
         <ul className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-800">

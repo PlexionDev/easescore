@@ -5,6 +5,9 @@
 // and the sale value can never disagree. The grid only orders and trims the rows for display.
 
 import { blockLevelAddress } from "../rents";
+
+/** Block-level address for the screen ("1200 block of Smith St"); full addresses only in the PDF. */
+export const blockLevelAddressOf = blockLevelAddress;
 import type { CompRow, CompSet } from "./comps";
 import { COST_CONFIG } from "./config";
 
