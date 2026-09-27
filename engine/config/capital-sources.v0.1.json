@@ -20,7 +20,45 @@
     "opexPerUnitYear": { "value": 6500, "range": [5500, 7500], "sourceLabel": "Assumption, edit me", "sourceNote": "Operating cost per unit per year for small affordable rentals: management, maintenance, insurance, reserves, owner-paid common utilities." },
     "vacancyShare": { "value": 0.05, "sourceLabel": "Cost assumptions config (operating.vacancyShare)" }
   },
+  "forSale": {
+    "_note": "Affordable homeownership: the most a household can pay for a home when principal, interest, property tax, insurance, mortgage insurance and (over undermined ground) mine subsidence insurance take 30% of its income. Every figure below is labeled; the mortgage rate comes from FRED (MORTGAGE30US) when loaded.",
+    "amiLevels": [80, 100, 120],
+    "housingShare": { "value": 0.3, "sourceLabel": "HUD 30% housing-cost rule applied to the full monthly payment (principal, interest, taxes, insurance)" },
+    "householdSize": { "extraPersons": 1, "sourceLabel": "Household size = bedrooms + 1 (a common homebuyer-program convention; Assumption, edit me)" },
+    "rateFallback": { "value": 0.0675, "sourceLabel": "Assumption, edit me (used only when the FRED 30-year rate is not loaded)" },
+    "rateSpread": { "value": 0.005, "sourceLabel": "Assumption, edit me: ± half a point around the rate for the low / high price" },
+    "termYears": { "value": 30, "sourceLabel": "Standard 30-year fixed-rate mortgage" },
+    "downPaymentShare": { "value": 0.03, "sourceLabel": "Assumption, edit me (3% down, the minimum on common first-time-buyer loans)" },
+    "insurancePerYear": { "value": 1200, "sourceLabel": "Assumption, edit me (homeowner's insurance; replace with a quote)" },
+    "pmiAnnualShare": { "value": 0.005, "belowDownShare": 0.2, "sourceLabel": "Assumption, edit me (private mortgage insurance, 0.5% of the loan a year while less than 20% down)" },
+    "millsFallback": { "value": 27.0, "sourceLabel": "Assumption, edit me (used only when the lot's County + municipal + school millage is not loaded)" },
+    "assessedShareOfPrice": { "value": 1.0, "sourceLabel": "Assumption, edit me: taxed on the full price (the County sets the real assessment; often lower)" }
+  },
   "sources": [
+    {
+      "id": "hba",
+      "label": "Homebuyer assistance (down payment / closing cost)",
+      "short": "Buyer aid",
+      "kind": "grant",
+      "tenures": ["sale"],
+      "what": "Down payment and closing cost help for the buyer (for example PHFA's Keystone Advantage Assistance loan, URA and Allegheny County programs). It lets the buyer pay more, so less subsidy is needed per home.",
+      "amount": { "method": "perUnit", "perUnit": [5000, 10000, 20000], "sourceLabel": "Assumption, edit me (for scale: PHFA's Keystone Advantage Assistance is published as up to 4% of the price or $6,000; local programs vary)" },
+      "rules": { "maxAmiPct": 120, "programLimitNoteAbovePct": 80 },
+      "timing": "Applied for by each buyer through the lender at purchase; rolling.",
+      "governing": "PHFA homebuyer programs; URA / Allegheny County program guidelines"
+    },
+    {
+      "id": "clt",
+      "label": "Community land trust (land held in trust)",
+      "short": "Land trust",
+      "kind": "writedown",
+      "tenures": ["sale"],
+      "what": "A community land trust owns the land and leases it to the homeowner, so the buyer pays for the house only and a resale formula keeps it affordable for the next buyer. Pittsburgh-area examples include City of Bridges CLT and Lawrenceville Community Land Trust.",
+      "amount": { "method": "landTrust", "sourceLabel": "Land value from the pro forma (the trust carries the land). Whether a trust can fund it: Assumption, edit me" },
+      "rules": { "maxAmiPct": 120, "exclusiveWith": ["land"] },
+      "timing": "Partner agreement with the trust before sales start; ground lease signed at each closing.",
+      "governing": "Ground lease and resale formula of the land trust"
+    },
     {
       "id": "lihtc4",
       "label": "LIHTC 4% equity",

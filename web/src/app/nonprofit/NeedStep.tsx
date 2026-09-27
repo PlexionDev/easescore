@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import * as affordable from "@easescore/engine/src/affordable";
 import { EmptyState, ReceiptButton, Segmented, type Receipt } from "@/components/seats";
 import { EQUITY_NOTE, acsVintage, chasReceipt, ilReceipt, incomeReceipt, lihtcReceipt, qctReceipt, rentBurdenReceipt } from "@/lib/nonprofit/receipts";
-import { inTen, needSummary, usd, usdK, type NeedData } from "@/lib/nonprofit/types";
+import { inTen, needSummary, usd, usdK, type GeoLevel, type NeedData } from "@/lib/nonprofit/types";
 import { LAYER_STEPS, SCALE, type Layer } from "./AreaMap";
 
 const AreaMap = dynamic(() => import("./AreaMap"), { ssr: false, loading: () => <div className="np-map-skel" aria-hidden="true" /> });
@@ -17,9 +17,18 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 /** CHAS counts are rounded by HUD; show them to the nearest 10. */
 const about = (n: number) => fmt(Math.round(n / 10) * 10);
 
-export default function NeedStep({ need, tracts, layer, onLayer, household, onHousehold, onNext }: {
+export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, geoVintage, geoError, layer, onLayer, household, onHousehold, onNext }: {
   need: NeedData | null;
+  /** The neighborhood's need figures are being fetched. */
+  loading: boolean;
+  hoodName: string;
+  /** Map features for the chosen level (tracts or block groups); null while loading. */
   tracts: GeoJSON.FeatureCollection | null;
+  geo: GeoLevel;
+  onGeo: (g: GeoLevel) => void;
+  /** Block-group ACS vintage from the map payload. */
+  geoVintage: string | null;
+  geoError: boolean;
   layer: Layer;
   onLayer: (l: Layer) => void;
   household: number;
@@ -27,7 +36,7 @@ export default function NeedStep({ need, tracts, layer, onLayer, household, onHo
   onNext: () => void;
 }) {
   const area = need?.area ?? null;
-  const hood = area?.hood ?? "this area";
+  const hood = area?.hood ?? hoodName;
   const n = useMemo(() => needSummary(area), [area]);
   const il = useMemo(() => affordable.parseIncomeLimits(need?.il as affordable.IncomeLimitsRow | null), [need?.il]);
   const ladder = useMemo(() => (il ? affordable.incomeLadder(il, household) : null), [il, household]);
@@ -42,14 +51,30 @@ export default function NeedStep({ need, tracts, layer, onLayer, household, onHo
       <span>{steps.title}</span>
       <div className="np-legend-bar" aria-hidden="true">{(steps.reverse ? [...SCALE].reverse() : SCALE).map((c) => <i key={c} style={{ background: c }} />)}</div>
       <div className="np-legend-ends"><span>{steps.labels[0]}</span><span>{steps.labels[1]}</span></div>
-      <small>Census tracts · {acsVintage(n?.acsYear ?? null)} · dashed line: {hood}</small>
+      <small>
+        {geo === "bg" ? `Census block groups · ${geoVintage ?? acsVintage(n?.acsYear ?? null)}` : `Census tracts · ${acsVintage(n?.acsYear ?? null)}`} · dashed line: {hood}
+        {geo === "bg" ? <><br />Small areas: wide margins of error; grey = too few renters to estimate{layer === "poverty" ? "; poverty from table C17002" : ""}.</> : null}
+      </small>
+      {geo === "bg" && !tracts ? <small role="status">{geoError ? "Block groups could not be loaded; switch back to tracts." : "Loading block groups…"}</small> : null}
     </div>
   );
   const tools = (
-    <Segmented<Layer> label="Shade the map by" hideLabel tone="dark" size="sm" value={layer} onChange={onLayer}
-      options={[{ value: "rb30", label: "Renters paying 30%+" }, { value: "rb50", label: "50%+" }, { value: "income", label: "Median income" }, { value: "poverty", label: "Poverty" }]} />
+    <div className="np-maptools">
+      <Segmented<GeoLevel> label="Map level" hideLabel tone="dark" size="sm" value={geo} onChange={onGeo}
+        options={[{ value: "tract", label: "Tracts", title: "Census tracts (about 4,000 people each)" }, { value: "bg", label: "Block groups", title: "Census block groups (about 1,000 people each; noisier estimates)" }]} />
+      <Segmented<Layer> label="Shade the map by" hideLabel tone="dark" size="sm" value={layer} onChange={onLayer}
+        options={[{ value: "rb30", label: "Renters paying 30%+" }, { value: "rb50", label: "50%+" }, { value: "income", label: "Median income" }, { value: "poverty", label: "Poverty" }]} />
+    </div>
   );
 
+  if (!area && (loading || !need)) {
+    return (
+      <div className="np-pad">
+        <div className="np-loading" role="status"><span className="np-spin" aria-hidden="true" />Loading census figures for {hood}…</div>
+        <div className="np-map-skel" aria-hidden="true" />
+      </div>
+    );
+  }
   if (!area) {
     return (
       <div className="np-pad">
@@ -68,7 +93,7 @@ export default function NeedStep({ need, tracts, layer, onLayer, household, onHo
     <div className="np-grid">
       <div className="np-col">
         <div className="np-mapbox">
-          <AreaMap tracts={tracts} layer={layer} outline={area.outline} bbox={area.bbox} ariaLabel={`Map of census tracts around ${hood}, shaded by ${steps.title.toLowerCase()}`} legend={legend} tools={tools} />
+          <AreaMap tracts={tracts} layer={layer} outline={area.outline} bbox={area.bbox} ariaLabel={`Map of census ${geo === "bg" ? "block groups" : "tracts"} around ${hood}, shaded by ${steps.title.toLowerCase()}`} legend={legend} tools={tools} />
         </div>
 
         <section className="np-card" aria-labelledby="ladder-h">

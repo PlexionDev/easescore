@@ -145,6 +145,10 @@ export interface LotCost {
   land: { low: number; likely: number; high: number } | null;
   landSource: string | null;
   headline: string | null;
+  /** The same plan priced with for-sale tenure (cost only), or null when it could not be priced. */
+  sale: { tdc: { low: number; likely: number; high: number }; land: { low: number; likely: number; high: number } | null } | null;
+  /** The lot is over undermined ground (mine subsidence insurance applies to a homeowner). */
+  mine: boolean;
   notes: string[];
   /** row = precomputed parcel pane (site-fit layout); facts = standard program on the lot's facts. */
   source: "row" | "facts" | "error";
@@ -154,7 +158,11 @@ export interface ProjectCost {
   lots: LotCost[];
   tdc: { low: number; likely: number; high: number } | null;
   land: { low: number; likely: number; high: number } | null;
-  context: { qct: boolean; dda: boolean; allPublicLand: boolean; inCity: boolean; lots: number; millsTotal: number | null; millsSource: string | null };
+  /** The same lots priced with for-sale tenure. */
+  sale: { tdc: { low: number; likely: number; high: number } | null; land: { low: number; likely: number; high: number } | null } | null;
+  /** Latest FRED 30-year mortgage rate (decimal), or null when not loaded. */
+  mortgage: { rate: number; date: string; source: string } | null;
+  context: { qct: boolean; dda: boolean; allPublicLand: boolean; inCity: boolean; lots: number; millsTotal: number | null; millsSource: string | null; mineSubsidence: boolean };
   asOf: string;
   costConfig: string;
 }
@@ -272,9 +280,15 @@ export function shortParid(p: string): string {
 
 // ------------------------------------------------------------------------------ project state (URL)
 
+export type Tenure = "rent" | "sale";
+export type GeoLevel = "tract" | "bg";
+
 export interface ProjectState {
   hood: string;
   step: "need" | "sites" | "project";
+  tenure: Tenure;
+  /** Need map level: census tracts or block groups. */
+  geo: GeoLevel;
   lots: string[];
   /** Homes per lot. */
   perLot: number;
@@ -288,15 +302,21 @@ export interface ProjectState {
 }
 
 export const DEFAULT_SOURCES = ["lihtc4", "home", "land"];
+export const DEFAULT_SALE_SOURCES = ["hba", "land"];
+export const AMI_BY_TENURE: Record<Tenure, number[]> = { rent: [30, 50, 60, 80], sale: [80, 100, 120] };
+export const DEFAULT_MIX: Record<Tenure, Record<number, number>> = { rent: { 50: 3, 60: 3 }, sale: { 80: 6 } };
+const mixText = (m: Record<number, number>) => Object.entries(m).filter(([, n]) => n > 0).map(([a, n]) => `${a}:${n}`).join(",");
+export const defaultSources = (t: Tenure) => (t === "sale" ? DEFAULT_SALE_SOURCES : DEFAULT_SOURCES);
 
 const PARID = /^[0-9A-Z]{16}$/;
 
 export function parseState(q: URLSearchParams): ProjectState {
   const step = q.get("step");
+  const tenure: Tenure = q.get("ten") === "sale" ? "sale" : "rent";
   const mix: Record<number, number> = {};
-  for (const part of (q.get("mix") ?? "50:3,60:3").split(",")) {
+  for (const part of (q.get("mix") ?? mixText(DEFAULT_MIX[tenure])).split(",")) {
     const [a, n] = part.split(":").map(Number);
-    if ([30, 50, 60, 80].includes(a!) && Number.isInteger(n) && n! >= 0 && n! <= 60) mix[a!] = n!;
+    if (AMI_BY_TENURE[tenure].includes(a!) && Number.isInteger(n) && n! >= 0 && n! <= 60) mix[a!] = n!;
   }
   const clampInt = (v: string | null, lo: number, hi: number, d: number) => {
     const x = Number(v);
@@ -306,11 +326,13 @@ export function parseState(q: URLSearchParams): ProjectState {
   return {
     hood: (q.get("hood") ?? DEFAULT_HOOD).slice(0, 60),
     step: step === "sites" || step === "project" ? step : "need",
+    tenure,
+    geo: q.get("geo") === "bg" ? "bg" : "tract",
     lots: (q.get("lots") ?? "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => PARID.test(s)).slice(0, MAX_LOTS),
     perLot: clampInt(q.get("per"), 1, 4, 2),
     bedrooms: clampInt(q.get("br"), 0, 4, 2),
-    mix: Object.keys(mix).length ? mix : { 50: 3, 60: 3 },
-    sources: q.has("src") ? (q.get("src") ?? "").split(",").filter((s) => /^[a-z0-9]{2,14}$/.test(s)) : DEFAULT_SOURCES,
+    mix: Object.keys(mix).length ? mix : { ...DEFAULT_MIX[tenure] },
+    sources: q.has("src") ? (q.get("src") ?? "").split(",").filter((s) => /^[a-z0-9]{2,14}$/.test(s)) : defaultSources(tenure),
     household: clampInt(q.get("hh"), 1, 6, 3),
     layer: layer === "rb50" || layer === "income" || layer === "poverty" ? layer : "rb30",
     filters: {
@@ -326,12 +348,14 @@ export function stateToQuery(s: ProjectState): URLSearchParams {
   const q = new URLSearchParams();
   if (s.hood !== DEFAULT_HOOD) q.set("hood", s.hood);
   if (s.step !== "need") q.set("step", s.step);
+  if (s.tenure !== "rent") q.set("ten", s.tenure);
+  if (s.geo !== "tract") q.set("geo", s.geo);
   if (s.lots.length) q.set("lots", s.lots.join(","));
   if (s.perLot !== 2) q.set("per", String(s.perLot));
   if (s.bedrooms !== 2) q.set("br", String(s.bedrooms));
-  const mix = Object.entries(s.mix).filter(([, n]) => n > 0).map(([a, n]) => `${a}:${n}`).join(",");
-  if (mix && mix !== "50:3,60:3") q.set("mix", mix);
-  if (s.sources.join(",") !== DEFAULT_SOURCES.join(",")) q.set("src", s.sources.join(","));
+  const mix = mixText(s.mix);
+  if (mix && mix !== mixText(DEFAULT_MIX[s.tenure])) q.set("mix", mix);
+  if (s.sources.join(",") !== defaultSources(s.tenure).join(",")) q.set("src", s.sources.join(","));
   if (s.household !== 3) q.set("hh", String(s.household));
   if (s.layer !== "rb30") q.set("layer", s.layer);
   if (!s.filters.public) q.set("pub", "0");
@@ -360,4 +384,22 @@ export function suggestLots(rows: Site[], perLot: number): string[] {
   const ok = rows.filter((r) => (r.by_right_units ?? 0) >= perLot && (r.red_flag_count ?? 0) === 0);
   const avail = (r: Site) => (/available/i.test(r.agency_status ?? "") ? 0 : 1);
   return [...ok].sort((a, b) => avail(a) - avail(b)).slice(0, 3).map((r) => r.parid.trim());
+}
+
+/**
+ * The engine input for the chosen tenure: rental uses the rental pro forma; for-sale uses the same lots
+ * priced for sale, plus the homebuyer's mortgage rate (FRED), the lots' millage and mine subsidence.
+ * Shared by the page and the advocacy brief so both compute the same numbers.
+ */
+export function projectInput(cost: ProjectCost, tenure: Tenure, units: { count: number; bedrooms: number; amiPct: number }[]) {
+  const tdc = tenure === "sale" ? cost.sale?.tdc ?? null : cost.tdc;
+  if (!tdc || !units.length) return null;
+  return {
+    units, tdc,
+    land: tenure === "sale" ? cost.sale?.land ?? null : cost.land,
+    context: { ...cost.context, tenure },
+    sale: tenure === "sale"
+      ? { rate: cost.mortgage?.rate ?? null, rateSource: cost.mortgage?.source ?? null, mills: cost.context.millsTotal, millsSource: cost.context.millsSource, mineSubsidence: !!cost.context.mineSubsidence }
+      : undefined,
+  };
 }

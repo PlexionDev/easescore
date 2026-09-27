@@ -1,14 +1,14 @@
 import "server-only";
 
 // Development cost for a scattered-site project: the same pro forma as the parcel page, run once per
-// lot for the homes placed on it (rental tenure), then summed. Ranges come from the pro forma's own
+// lot for the homes placed on it (rental and for-sale tenure, both from one read), then summed. Ranges come from the pro forma's own
 // low / likely / high (assumptions.proFormaRanges). The funding gap is computed from these on the client.
 
 import { assumptions, score, type ParcelFacts } from "@easescore/engine";
 import { parcelFactsChecked } from "@/lib/data";
 import { primeRate, tapFeesPerHome } from "@/lib/proforma";
 import { fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
-import { pittsburghMills } from "./data";
+import { lotMills, mortgageRate } from "./data";
 import type { LotCost, ProjectCost } from "./types";
 
 // Homes per lot → building types to try, in order.
@@ -42,8 +42,25 @@ const TARGET_SF = [550, 700, 950, 1200, 1450];
 type Rng = { low: number; likely: number; high: number };
 const add = (a: Rng | null, b: Rng | null): Rng | null => (a && b ? { low: a.low + b.low, likely: a.likely + b.likely, high: a.high + b.high } : null);
 
+/** Mine subsidence applies (same test as the pro forma's site adders). */
+function mineOf(f: Record<string, unknown>): boolean {
+  const m = f.mines as { in_city_undermined?: boolean | null; in_mined_out?: boolean | null; msi_risk?: string | null } | null | undefined;
+  const ov = (f.overlays as { layer: string; share: number }[] | null | undefined) ?? [];
+  return m?.in_city_undermined === true || ov.some((x) => x.layer === "undermined_pgh" && x.share > 0) || m?.in_mined_out === true || m?.msi_risk === "confirmed";
+}
+
+/** The same plan priced for sale: cost only (the sale price comes from HUD limits in this seat). */
+function saleCost(plan: () => assumptions.DevelopmentPlan): LotCost["sale"] {
+  try {
+    const r = assumptions.evaluateDevelopment(plan()).ranges;
+    return r.tdc ? { tdc: r.tdc, land: r.land.range } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function lotCost(parid: string, units: number, bedrooms: number): Promise<LotCost> {
-  const base: LotCost = { parid, address: null, units, strategy: null, strategyLabel: null, needsRelief: false, finishedSf: null, sizeBasis: null, tier: null, tdc: null, land: null, landSource: null, headline: null, notes: [], source: "error" };
+  const base: LotCost = { parid, address: null, units, strategy: null, strategyLabel: null, needsRelief: false, finishedSf: null, sizeBasis: null, tier: null, tdc: null, land: null, landSource: null, headline: null, sale: null, mine: false, notes: [], source: "error" };
   // Only the precomputed pane row (one indexed read). Computing a pane live is heavy while the batches
   // run, so lots without a row use the standard program below (labeled).
   const row = await storedPane(parid);
@@ -78,15 +95,17 @@ async function lotCost(parid: string, units: number, bedrooms: number): Promise<
     // over the site-fit footprint as it takes to reach about the target.
     let plan = build({ tenure: "rent", units, bedrooms: beds });
     const fp = plan.program?.footprintPerUnitSf ?? null;
+    let floors: number | undefined;
     if (fp && fp > 0) {
       const target = TARGET_SF[Math.min(beds, 4)]!;
-      const floors = Math.min(3, Math.max(1, Math.ceil(target / (fp * 0.85) - 0.25)));
+      floors = Math.min(3, Math.max(1, Math.ceil(target / (fp * 0.85) - 0.25)));
       plan = build({ tenure: "rent", units, bedrooms: beds, storiesAboveGarage: floors });
     }
     const pf = assumptions.evaluateDevelopment(plan);
     const r = pf.ranges;
     return {
       ...base, source: loaded.source, strategy: pick.strategy, strategyLabel: pick.strategyLabel,
+      sale: saleCost(() => build({ tenure: "sale", units, bedrooms: beds, storiesAboveGarage: floors })), mine: mineOf(f),
       needsRelief: !easy(pick) || (pick.units ?? 0) < units,
       finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
       tdc: r.tdc, land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
@@ -129,15 +148,16 @@ async function standardProgram(base: LotCost, parid: string, units: number, bedr
   const isPgh = (f.assessment as { is_pittsburgh?: boolean } | undefined)?.is_pittsburgh === true;
   try {
     const [prime, tap] = await Promise.all([primeRate(), tapFeesPerHome(isPgh)]);
-    const plan = assumptions.buildDevelopmentInputs({
+    const mk = (tenure: "rent" | "sale") => assumptions.buildDevelopmentInputs({
       strategy, facts: f as assumptions.ProFormaFacts,
       scheme: { units, netFloorAreaSf: per * units, grossFloorAreaSf: Math.round((per * units) / 0.85), stories: 2, typologyLabel: `${units} homes, standard program` },
       comps: null, rents: null, primeRate: prime?.rate ?? null, primeRateDate: prime?.date ?? null, tapFeesPerUnit: tap,
-      overrides: { tenure: "rent" },
+      overrides: { tenure },
     });
+    const plan = mk("rent");
     const r = assumptions.evaluateDevelopment(plan).ranges;
     return {
-      ...base, source: "facts", strategy, strategyLabel: STRATEGY_LABEL[strategy] ?? null, finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
+      ...base, source: "facts", sale: saleCost(() => mk("sale")), mine: mineOf(f), strategy, strategyLabel: STRATEGY_LABEL[strategy] ?? null, finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
       tdc: r.tdc, land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
       notes: [`Sized as a standard ${units}-home program of about ${per.toLocaleString("en-US")} sq ft per home (this lot's site-fit layout is not precomputed yet).`],
     };
@@ -190,10 +210,11 @@ async function lotInfoRead(lots: string[]): Promise<Map<string, LotInfo>> {
 /** Cost of `perLot` homes on each lot, summed; plus the project context the eligibility rules read. */
 export async function projectCost(lots: string[], perLot: number, bedrooms: number): Promise<ProjectCost> {
   const asOf = new Date().toISOString().slice(0, 10);
-  const [costs, mills, info] = await Promise.all([
+  const [costs, mills, info, rate] = await Promise.all([
     Promise.all(lots.map((p) => lotCostCached(p, perLot, bedrooms, asOf))),
-    pittsburghMills(),
+    lotMills(lots),
     lotInfo(lots),
+    mortgageRate(),
   ]);
   for (const c of costs) c.address = info.get(c.parid)?.address ?? null;
   const known = lots.map((p) => info.get(p)).filter(Boolean);
@@ -201,16 +222,21 @@ export async function projectCost(lots: string[], perLot: number, bedrooms: numb
   const inCity = allKnown && known.every((s) => (s!.municipality ?? "").toUpperCase() === "PITTSBURGH");
   const tdc = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.tdc : add(t, c.tdc)), null);
   const land = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.land : add(t, c.land)), null);
+  const sTdc = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.sale?.tdc ?? null : add(t, c.sale?.tdc ?? null)), null);
+  const sLand = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.sale?.land ?? null : add(t, c.sale?.land ?? null)), null);
   return {
     lots: costs,
     tdc: costs.every((c) => c.tdc) ? tdc : null,
     land: costs.every((c) => c.land) ? land : null,
+    sale: costs.every((c) => c.sale?.tdc) ? { tdc: sTdc, land: costs.every((c) => c.sale?.land) ? sLand : null } : null,
+    mortgage: rate,
     context: {
       qct: known.some((s) => s!.qct), dda: known.some((s) => s!.dda),
       allPublicLand: allKnown && known.every((s) => s!.owner_class === "public"),
       inCity, lots: lots.length,
-      millsTotal: inCity && mills ? mills.total : null,
-      millsSource: inCity && mills ? `${mills.year} millage: ${mills.text} (Allegheny County Treasurer)` : null,
+      millsTotal: mills ? mills.total : null,
+      millsSource: mills ? mills.text : null,
+      mineSubsidence: costs.some((c) => c.mine),
     },
     asOf,
     costConfig: assumptions.COST_CONFIG.version,

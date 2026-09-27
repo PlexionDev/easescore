@@ -8,7 +8,7 @@ import { need as loadNeed, lotsDetail } from "@/lib/nonprofit/data";
 import { projectCost } from "@/lib/nonprofit/project";
 import { acquisitionPath, statusNote, TYPICAL_NOTE } from "@/lib/nonprofit/acquisition";
 import { EQUITY_NOTE, acsVintage } from "@/lib/nonprofit/receipts";
-import { inTen, needSummary, parseState, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
+import { inTen, needSummary, parseState, projectInput, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
 import "./brief.css";
 
 export const metadata: Metadata = { title: "Advocacy brief — EaseScore.AI", robots: { index: false } };
@@ -52,7 +52,9 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
   const chas = n?.chas ?? null;
   const total = (cost?.lots.length ?? 0) * s.perLot;
   const groups = unitGroups(s.mix, total, s.bedrooms);
-  const r = cost?.tdc && il && groups.length ? affordable.evaluateProject({ units: groups, tdc: cost.tdc, land: cost.land, context: { tenure: "rent", ...cost.context } }, il, s.sources) : null;
+  const input = cost && il ? projectInput(cost, s.tenure, groups) : null;
+  const r = input && il ? affordable.evaluateProject(input, il, s.sources) : null;
+  const sale = s.tenure === "sale";
   const lihtc = area?.lihtc ?? [];
   const bandKey = ["le30", "30_50", "50_80", "80_100", "gt100"] as const;
   const maxRent = Math.max(...(ladder ?? []).map((x) => x.affordableRent ?? 0), n?.rent ?? 0) * 1.08 || 1;
@@ -64,7 +66,8 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
         <h1>Affordable homes for {hood}: the need, the sites, and the gap to close</h1>
         <p className="br-lede">
           {n?.rb30 != null ? `${inTen(n.rb30)} renters in ${hood} pay more than 30% of their income on rent. ` : ""}
-          {r ? `A ${r.units}-home rental project on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; after a mortgage the restricted rents can carry, it needs ${rng(r.gapBefore)} from other sources, and ${rng(r.remaining)} remains after the sources below.` : ""}
+          {r && !sale ? `A ${r.units}-home rental project on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; after a mortgage the restricted rents can carry, it needs ${rng(r.gapBefore)} from other sources, and ${rng(r.remaining)} remains after the sources below.` : ""}
+          {r && sale ? `${r.units} homes for sale on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; the families they serve can pay ${rng(r.debt.loan)} in all, so each home needs about ${rng(r.subsidyPerUnit)} in subsidy (the local benchmark is ${usdK(r.benchmark.low)}–${usdK(r.benchmark.high)}), and ${rng(r.remaining)} remains after the sources below.` : ""}
         </p>
       </header>
 
@@ -138,7 +141,21 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
         })()}
 
         <h2>3. The project</h2>
-        {r && il ? (
+        {r && il && sale ? (
+          <>
+            <p>{r.units} homes for sale of {s.bedrooms} bedroom{s.bedrooms === 1 ? "" : "s"}, {s.perLot} per lot. Who they serve and what they can pay:</p>
+            <ul className="br-serves">
+              {r.sales.map((x) => (
+                <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> A family of {x.persons} at {x.amiPct}% AMI can afford about {usd(x.price.likely)} ({usd(x.price.low)}–{usd(x.price.high)}). They earn up to about {usd(x.income)} a year; 30% of it, {usd(x.budget)} a month, covers the mortgage, taxes and insurance.</li>
+              ))}
+            </ul>
+            <p className="br-small"><b>How the price is figured:</b> {r.saleAssumptions.map((a) => `${a.label} ${a.value}${a.assumption ? " (assumption)" : ""}`).join("; ")}.</p>
+            <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {usdK(r.tdc.likely)} ({usdK(r.tdc.likely / r.units)} per home).</p>
+            <ul className="br-small">
+              {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}{l.mine ? " (over undermined ground)" : ""}</li>)}
+            </ul>
+          </>
+        ) : r && il ? (
           <>
             <p>{r.units} rental homes of {s.bedrooms} bedroom{s.bedrooms === 1 ? "" : "s"}, {s.perLot} per lot. Who they serve:</p>
             <ul className="br-serves">
@@ -159,7 +176,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
           <h2>4. The funding gap and how to close it</h2>
           <div className="br-gap">
             <div><span>Total cost</span><b>{rng(r.tdc)}</b></div>
-            <div><span>Mortgage the rents can carry</span><b>{rng(r.debt.loan)}</b></div>
+            <div><span>{sale ? "What the buyers can pay" : "Mortgage the rents can carry"}</span><b>{rng(r.debt.loan)}</b></div>
             <div><span>Gap before other sources</span><b>{rng(r.gapBefore)}</b></div>
             <div className="hl"><span>Remaining gap with the sources marked “on”</span><b>{rng(r.remaining)}</b></div>
           </div>
@@ -181,7 +198,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               ))}
             </tbody>
           </table>
-          <p>Money needed beyond the mortgage is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.label.toLowerCase()}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}; {r.benchmark.note.toLowerCase()})</p>
+          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.label.toLowerCase()}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}; {r.benchmark.note.toLowerCase()})</p>
         </section>
       ) : null}
 
@@ -193,7 +210,9 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
           {il ? <li>Income limits and rents: HUD FY{il.year} Income Limits, {il.areaName} (Pittsburgh HMFA). Rents use the 30% rule and 1.5 persons per bedroom; they match PHFA&apos;s published LIHTC rent limits. Utility allowance is a placeholder (assumption).</li> : null}
           <li>Tax-credit properties: HUD LIHTC database (placed in service through 2019). QCT/DDA: HUD current designations.</li>
           <li>Lots, Ease Scores and owners: EaseScore.AI precomputed parcel results; owner shown only for public agencies.</li>
-          <li>Development cost: EaseScore.AI pro forma ({cost?.costConfig ?? "cost-assumptions"}), ranges from each input&apos;s documented range. Mortgage: restricted rents less vacancy and operating cost, sized at a debt-coverage ratio (assumptions in capital-sources.v0.1).</li>
+          <li>Development cost: EaseScore.AI pro forma ({cost?.costConfig ?? "cost-assumptions"}), ranges from each input&apos;s documented range. {sale
+            ? <>Affordable prices: 30% of the HUD income limit pays principal, interest, property tax ({cost?.context.millsSource ?? "assumed millage"}), insurance and mortgage insurance{cost?.context.mineSubsidence ? ", plus PA DEP mine subsidence insurance" : ""}; mortgage rate {cost?.mortgage ? cost.mortgage.source : "assumed (FRED rate not loaded)"}; other assumptions in capital-sources.v0.1 (forSale). 100% and 120% AMI limits are derived from HUD&apos;s 50% limit (2× and 2.4×).</>
+            : <>Mortgage: restricted rents less vacancy and operating cost, sized at a debt-coverage ratio (assumptions in capital-sources.v0.1).</>}</li>
           <li>Capital sources: typical ranges and rules in engine/config/capital-sources.v0.1.json; amounts marked “Assumption, edit me” have no public source yet.</li>
         </ul>
         <p className="br-small">{EQUITY_NOTE} Decision support only; not legal, financial or zoning advice. Confirm costs with local bids and funding with each program.</p>

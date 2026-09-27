@@ -50,6 +50,9 @@ export const area = (hood: string) => cached(`area:${hood.toLowerCase()}`, 600_0
 
 export const tractMap = () => cached("tractmap", 3_600_000, () => rpc<GeoJSON.FeatureCollection>("nonprofit_tract_map", {}, 15000));
 
+/** Block-group need map (migration 191): same properties as the tract map, plus the ACS vintage. */
+export const bgMap = () => cached("bgmap", 3_600_000, () => rpc<GeoJSON.FeatureCollection & { vintage?: string; acs_year?: number }>("nonprofit_bg_map", {}, 15000));
+
 export const incomeLimits = () =>
   cached("il", 3_600_000, async () => (await select<IncomeLimitsRowLite>("hud_income_limits?select=*&order=year.desc&limit=1"))?.[0] ?? null);
 
@@ -64,6 +67,48 @@ export const pittsburghMills = () =>
     const rows = await select<{ code: string; name: string; mills: string; year: number }>("millage?select=code,name,mills,year&rate_type=eq.general&code=in.(42003,CITY_PGH,sd:pittsburgh)");
     if (!rows || rows.length !== 3) return null;
     return { total: rows.reduce((t, r) => t + Number(r.mills), 0), year: rows[0]!.year, text: rows.map((r) => `${r.name} ${Number(r.mills)}`).join(" + ") };
+  });
+
+/** Same normalization as public.school_key() (migration 105), so parcel_geo school names match millage_rates. */
+export function schoolKey(n: string): string {
+  return n.toUpperCase().replace(/[^A-Z]/g, "").replace(/(CITY|BORO|TWP|TOWNSHIP|AREA)$/, "").replace("WESTJEFFERSONHILLS", "WESTJEFFERSON");
+}
+
+/**
+ * Total general millage (County + municipality + school district) for the chosen lots, from the
+ * millage_rates view: two small indexed reads. Averaged when lots differ; null when none resolves
+ * (e.g. split-rate cities with no general rate).
+ */
+export function lotMills(parids: string[]) {
+  return cached(`mills:${parids.join(",")}`, 3_600_000, async () => {
+    if (!parids.length) return null;
+    const geo = await select<{ parid: string; muni_code: string | null; school_district: string | null }>(`parcel_geo?select=parid,muni_code,school_district&parid=in.(${parids.join(",")})`);
+    if (!geo?.length) return null;
+    const munis = [...new Set(geo.map((g) => g.muni_code).filter(Boolean))] as string[];
+    const schools = [...new Set(geo.map((g) => (g.school_district ? schoolKey(g.school_district) : null)).filter(Boolean))] as string[];
+    const rows = await select<{ body_type: string; body_name: string; mills: string; year: number; muni_code: string | null; school_key: string | null }>(
+      `millage_rates?select=body_type,body_name,mills,year,muni_code,school_key&rate_type=eq.general&or=(body_type.eq.county${munis.length ? `,muni_code.in.(${munis.join(",")})` : ""}${schools.length ? `,school_key.in.(${schools.join(",")})` : ""})`,
+    );
+    if (!rows?.length) return null;
+    const county = rows.find((r) => r.body_type === "county");
+    const per = geo.map((g) => {
+      const m = rows.find((r) => r.body_type === "municipality" && r.muni_code === g.muni_code);
+      const sd = g.school_district ? rows.find((r) => r.body_type === "school_district" && r.school_key === schoolKey(g.school_district!)) : undefined;
+      return county && m && sd ? { total: Number(county.mills) + Number(m.mills) + Number(sd.mills), text: `${county.year} millage: ${[county, m, sd].map((r) => `${titleName(r.body_name)} ${Number(r.mills)}`).join(" + ")} (Allegheny County Treasurer millage tables)` } : null;
+    }).filter(Boolean) as { total: number; text: string }[];
+    if (!per.length) return null;
+    const texts = [...new Set(per.map((p) => p.text))];
+    return { total: Math.round((100 * per.reduce((t, p) => t + p.total, 0)) / per.length) / 100, text: texts.length === 1 ? texts[0]! : `Average of ${per.length} lots: ${texts.join("; ")}` };
+  });
+}
+const titleName = (n: string) => n.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+
+/** Latest FRED 30-year fixed mortgage average (MORTGAGE30US), or null when not loaded. */
+export const mortgageRate = () =>
+  cached("mortgage30", 3_600_000, async () => {
+    const r = (await select<{ value: string | number; date: string }>("market_series?select=value,date&series_id=eq.MORTGAGE30US&order=date.desc&limit=1"))?.[0];
+    const v = r ? Number(r.value) : NaN;
+    return r && Number.isFinite(v) ? { rate: v / 100, date: r.date, source: `FRED MORTGAGE30US (Freddie Mac 30-year fixed average), week of ${r.date}` } : null;
   });
 
 // ------------------------------------------------------------------------------ datasets being loaded

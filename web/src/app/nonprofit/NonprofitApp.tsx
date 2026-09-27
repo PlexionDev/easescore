@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DataDateFooter, ExportMenu, SeatHeader, SeatLayout, SeatSelect, setSelection, useSeatSelection } from "@/components/seats";
 import { acsVintage } from "@/lib/nonprofit/receipts";
-import { DEFAULT_HOOD, MAX_LOTS, needSummary, stateToQuery, suggestLots, type NeedData, type ProjectCost, type ProjectState, type SitesResult } from "@/lib/nonprofit/types";
+import { DEFAULT_HOOD, DEFAULT_MIX, MAX_LOTS, defaultSources, needSummary, stateToQuery, suggestLots, type NeedData, type ProjectCost, type ProjectState, type SitesResult, type Tenure } from "@/lib/nonprofit/types";
 import NeedStep from "./NeedStep";
 import SitesStep from "./SitesStep";
 import ProjectStep from "./ProjectStep";
@@ -47,6 +47,11 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
   const [sites, setSites] = useState<SitesResult | null>(initialSites);
   const [sitesLoading, setSitesLoading] = useState(false);
   const [tracts, setTracts] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [bgs, setBgs] = useState<(GeoJSON.FeatureCollection & { vintage?: string }) | null>(null);
+  const [bgError, setBgError] = useState(false);
+  const [needLoading, setNeedLoading] = useState(false);
+  // The "Try this" line shows on a fresh landing (no shared URL state) until the user moves on.
+  const [tryThis, setTryThis] = useState(!hoodFromUrl && initial.step === "need");
   // Cost result tagged with the request it answers; loading = the current request has no answer yet.
   const [costRes, setCostRes] = useState<{ key: string; data: ProjectCost | null; error: string | null } | null>(null);
   const first = useRef({ need: true, sites: true });
@@ -77,11 +82,23 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
     return () => ctrl.abort();
   }, []);
 
+  // Block-group map: fetched only when that level is chosen (about 700 KB, cached by the browser for an hour).
+  useEffect(() => {
+    if (s.geo !== "bg" || bgs) return;
+    const ctrl = new AbortController();
+    fetch("/api/nonprofit/blockgroups", { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((fc) => { setBgs(fc); setBgError(false); })
+      .catch(() => { if (!ctrl.signal.aborted) setBgError(true); });
+    return () => ctrl.abort();
+  }, [s.geo, bgs]);
+
   // Need for the neighborhood.
   useEffect(() => {
     if (first.current.need) { first.current.need = false; if (initialNeed && initialNeed.area?.hood.toLowerCase() === s.hood.toLowerCase()) return; }
     const ctrl = new AbortController();
-    fetch(`/api/nonprofit/need?hood=${encodeURIComponent(s.hood)}`, { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : null)).then((d) => setNeed(d)).catch(() => undefined);
+    setNeedLoading(true);
+    fetch(`/api/nonprofit/need?hood=${encodeURIComponent(s.hood)}`, { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : null)).then((d) => setNeed(d)).catch(() => undefined)
+      .finally(() => { if (!ctrl.signal.aborted) setNeedLoading(false); });
     return () => ctrl.abort();
   }, [s.hood]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -138,6 +155,21 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   };
 
+  const setTenure = (tenure: Tenure) => { if (tenure !== s.tenure) update({ tenure, mix: { ...DEFAULT_MIX[tenure] }, sources: defaultSources(tenure) }); };
+  const goStep = (step: ProjectState["step"]) => { setTryThis(false); update({ step }); };
+  // Arrow keys move between the step tabs (Home / End jump to the first / last).
+  const onStepKey = (e: React.KeyboardEvent<HTMLElement>) => {
+    const i = STEPS.findIndex((x) => x.id === s.step);
+    const n = e.key === "ArrowRight" ? (i + 1) % STEPS.length : e.key === "ArrowLeft" ? (i + STEPS.length - 1) % STEPS.length : e.key === "Home" ? 0 : e.key === "End" ? STEPS.length - 1 : -1;
+    if (n < 0) return;
+    e.preventDefault();
+    goStep(STEPS[n]!.id);
+    (e.currentTarget.querySelectorAll("button")[n] as HTMLButtonElement | undefined)?.focus();
+  };
+  // Need data shown only when it belongs to the chosen neighborhood.
+  const needShown = need && need.area?.hood.toLowerCase() !== s.hood.toLowerCase() && needLoading ? null : need;
+  const mapData = s.geo === "bg" ? bgs : tracts;
+
   const n = needSummary(need?.area ?? null);
   const header = (
     <SeatHeader
@@ -145,7 +177,7 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
       controls={<SeatSelect label="Neighborhood" hideLabel={false} value={s.hood} onChange={(v) => update({ hood: v, lots: [] })}
         options={(hoods.length ? hoods : [DEFAULT_HOOD]).map((h) => ({ value: h, label: h }))} />}
       actions={<ExportMenu label="Advocacy brief" actions={[
-        { id: "brief", label: "Advocacy brief", format: "PDF", description: s.lots.length ? `Need, ${s.lots.length} sites, project, gap, sources` : "Need and sources (pick lots for the project pages)", onSelect: exportBrief },
+        { id: "brief", label: "Advocacy brief", format: "PDF", description: s.lots.length ? `Need, ${s.lots.length} sites, ${s.tenure === "sale" ? "for-sale" : "rental"} project, gap, sources` : "Need and sources (pick lots for the project pages)", onSelect: exportBrief },
       ]} />}
     />
   );
@@ -153,28 +185,37 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
   return (
     <SeatLayout header={header} mainLabel="Plan affordable homes" footer={
       <DataDateFooter sources={[
-        { name: "Census ACS 5-year (rent burden, income, rent)", date: acsVintage(n?.acsYear ?? null) },
+        { name: `Census ACS 5-year (rent burden, income, rent${s.geo === "bg" ? "; block groups" : ""})`, date: acsVintage(n?.acsYear ?? null) },
         { name: "HUD Income Limits (Pittsburgh HMFA)", date: need?.il ? `FY${need.il.year}` : "not loaded" },
         { name: "HUD QCT / DDA", date: "current year" },
         { name: "Ease Scores and pro forma", date: cost?.asOf ?? "current engine" },
+        ...(s.tenure === "sale" ? [{ name: "30-year mortgage rate (FRED MORTGAGE30US)", date: cost?.mortgage?.date ?? "not loaded (assumption used)" }] : []),
         ...(need?.datasets ?? []).filter((d) => !d.loaded).map((d) => ({ name: d.name, date: "not loaded yet" })),
       ]} note="Typical ranges for funding sources are planning figures, not awards." />
     }>
-      <nav className="np-steps" aria-label="Steps">
+      <nav className="np-steps" aria-label="Steps (left and right arrow keys move between them)" onKeyDown={onStepKey}>
         {STEPS.map((st) => (
-          <button key={st.id} type="button" className={s.step === st.id ? "on" : ""} aria-current={s.step === st.id ? "step" : undefined} onClick={() => update({ step: st.id })}>
+          <button key={st.id} type="button" className={s.step === st.id ? "on" : ""} aria-current={s.step === st.id ? "step" : undefined} tabIndex={s.step === st.id ? 0 : -1} onClick={() => goStep(st.id)}>
             <i aria-hidden="true">{st.n}</i>{st.label}
           </button>
         ))}
       </nav>
+      {tryThis ? (
+        <div className="np-try" role="note">
+          <p><b>Try this:</b> {s.hood} is preselected. Read who needs homes here, then see the gap for {s.lots.length || 3} public lots as rentals or as for-sale homes at 80% of the area median.</p>
+          <button type="button" className="es-btn es-btn-primary" onClick={() => goStep("project")}>Show me the gap →</button>
+          <button type="button" className="es-btn np-try-x" aria-label="Hide this tip" onClick={() => setTryThis(false)}>×</button>
+        </div>
+      ) : null}
       <div className="np-body">
         {s.step === "need" ? (
-          <NeedStep need={need} tracts={tracts} layer={s.layer} onLayer={(layer) => update({ layer })} household={s.household} onHousehold={(household) => update({ household })} onNext={() => update({ step: "sites" })} />
+          <NeedStep need={needShown} loading={needLoading} hoodName={s.hood} tracts={mapData} geo={s.geo} onGeo={(geo) => update({ geo })} geoVintage={s.geo === "bg" ? bgs?.vintage ?? null : null} geoError={s.geo === "bg" && bgError}
+            layer={s.layer} onLayer={(layer) => update({ layer })} household={s.household} onHousehold={(household) => update({ household })} onNext={() => goStep("sites")} />
         ) : s.step === "sites" ? (
           <SitesStep hood={s.hood} result={sites} loading={sitesLoading} filters={s.filters} onFilters={(filters) => update({ filters })} selected={s.lots} onToggle={toggleLot}
-            perLot={s.perLot} onNext={() => update({ step: "project" })} tracts={tracts} layer={s.layer} outline={need?.area?.outline ?? null} bbox={need?.area?.bbox ?? null} />
+            perLot={s.perLot} onNext={() => goStep("project")} tracts={mapData} layer={s.layer} outline={need?.area?.outline ?? null} bbox={need?.area?.bbox ?? null} />
         ) : (
-          <ProjectStep need={need} lotCount={s.lots.length} cost={cost} costLoading={costLoading} costError={costError} perLot={s.perLot} onPerLot={(perLot) => update({ perLot })}
+          <ProjectStep need={need} lotCount={s.lots.length} cost={cost} costLoading={costLoading} costError={costError} tenure={s.tenure} onTenure={setTenure} perLot={s.perLot} onPerLot={(perLot) => update({ perLot })}
             bedrooms={s.bedrooms} onBedrooms={(bedrooms) => update({ bedrooms })} mix={s.mix} onMix={(mix) => update({ mix })} sources={s.sources} onSources={(sources) => update({ sources })} onExport={exportBrief} />
         )}
       </div>

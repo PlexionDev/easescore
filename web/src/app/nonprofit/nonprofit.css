@@ -139,3 +139,19 @@
 .np-block{display:block;font-size:11px}
 .np-gap-n{font-size:30px!important;letter-spacing:-.02em}
 .np-pid{font-weight:400;font-size:12px}
+
+/* For-sale tenure, block-group level, landing tip, keyboard focus (polish pass) */
+.np-steps button:focus-visible{outline:2px solid var(--es-green);outline-offset:-3px;border-radius:4px}
+.np-maptools{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:100%}
+.np-try{display:flex;align-items:center;gap:12px;margin:12px 20px 0;padding:10px 12px 10px 14px;background:#eef5f1;border:1px solid #cfe6da;border-radius:10px;font-size:13.5px}
+.np-try p{margin:0;flex:1}
+.np-try .np-try-x{padding:2px 9px;font-size:16px;line-height:1}
+.np-assumptions{margin-top:8px;font-size:13px}
+.np-assumptions summary{cursor:pointer;font-weight:600;color:var(--es-green)}
+.np-assumptions ul{margin:6px 0 0;padding-left:18px}
+.np-assumptions li{margin:3px 0}
+@media (max-width:600px){
+  .np-try{flex-wrap:wrap;margin:10px 12px 0}
+  .np-try p{flex-basis:100%}
+  .np-maptools{justify-content:flex-start}
+}

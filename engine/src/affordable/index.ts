@@ -4,3 +4,4 @@
 // read here or by the parcel score.
 export * from "./limits";
 export * from "./gap";
+export * from "./homeownership";

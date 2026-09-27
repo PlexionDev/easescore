@@ -1,36 +1,39 @@
 "use client";
 
 // Step 3 — "What would it cost, and what's the gap?": homes and who they serve (HUD FY limits, 30% rule),
-// development cost from the pro forma, supportable loan, funding gap, and a capital stack of typical
-// sources you switch on and off (instant: all math runs here from engine/src/affordable).
+// development cost from the pro forma, supportable loan (rental) or what buyers can pay (for-sale, PITI),
+// funding gap, and a capital stack of typical sources you switch on and off (instant: all math runs here
+// from engine/src/affordable; switching tenure needs no round trip, both are priced in one request).
 
 import { useMemo } from "react";
 import * as affordable from "@easescore/engine/src/affordable";
 import { EmptyState, RangeValue, ReceiptButton, Segmented, Switch, type Receipt } from "@/components/seats";
 import { ilReceipt } from "@/lib/nonprofit/receipts";
-import { usd, unitGroups, type NeedData, type ProjectCost } from "@/lib/nonprofit/types";
+import { AMI_BY_TENURE, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type Tenure } from "@/lib/nonprofit/types";
 
 const STACK_COLOR: Record<string, string> = {
   debt: "#6b7c75", lihtc4: "#2f7d63", lihtc9: "#1f6a52", home: "#5ea98a", cdbg: "#7fbfa4", phare: "#3e8c70", hof: "#4f9c80",
-  ahp: "#8ccab0", lerta: "#a9d7c3", land: "#9fcdb6", philanthropy: "#b9dccd",
+  ahp: "#8ccab0", lerta: "#a9d7c3", land: "#9fcdb6", philanthropy: "#b9dccd", hba: "#3e8c70", clt: "#2f7d63",
 };
-const AMIS = [30, 50, 60, 80];
 
-export function computeProject(cost: ProjectCost | null, il: affordable.IncomeLimits | null, mix: Record<number, number>, perLot: number, bedrooms: number, sources: string[]) {
-  if (!cost?.tdc || !il) return null;
-  const total = cost.lots.length * perLot;
-  const units = unitGroups(mix, total, bedrooms);
-  if (!units.length) return null;
-  return affordable.evaluateProject({ units, tdc: cost.tdc, land: cost.land, context: { tenure: "rent", ...cost.context } }, il, sources);
+export function computeProject(cost: ProjectCost | null, il: affordable.IncomeLimits | null, mix: Record<number, number>, perLot: number, bedrooms: number, sources: string[], tenure: Tenure) {
+  if (!cost || !il) return null;
+  const input = projectInput(cost, tenure, unitGroups(mix, cost.lots.length * perLot, bedrooms));
+  return input ? affordable.evaluateProject(input, il, sources) : null;
 }
 
-export default function ProjectStep({ need, lotCount, cost, costLoading, costError, perLot, onPerLot, bedrooms, onBedrooms, mix, onMix, sources, onSources, onExport }: {
+/** Sources that count the same money: switching one on switches the other off. */
+const EXCLUSIVE: Record<string, string[]> = { clt: ["land"], land: ["clt"] };
+
+export default function ProjectStep({ need, lotCount, cost, costLoading, costError, tenure, onTenure, perLot, onPerLot, bedrooms, onBedrooms, mix, onMix, sources, onSources, onExport }: {
   need: NeedData | null;
   /** Lots chosen in step 2 (known before the cost arrives). */
   lotCount: number;
   cost: ProjectCost | null;
   costLoading: boolean;
   costError: string | null;
+  tenure: Tenure;
+  onTenure: (t: Tenure) => void;
   perLot: number;
   onPerLot: (n: number) => void;
   bedrooms: number;
@@ -45,8 +48,11 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
   const lots = lotCount;
   const total = lots * perLot;
   const groups = useMemo(() => unitGroups(mix, total, bedrooms), [mix, total, bedrooms]);
-  const r = useMemo(() => computeProject(cost, il, mix, perLot, bedrooms, sources), [cost, il, mix, perLot, bedrooms, sources]);
+  const r = useMemo(() => computeProject(cost, il, mix, perLot, bedrooms, sources, tenure), [cost, il, mix, perLot, bedrooms, sources, tenure]);
   const hood = need?.area?.hood ?? "the area";
+  const sale = tenure === "sale";
+  const AMIS = AMI_BY_TENURE[tenure];
+  const tdcShown = sale ? cost?.sale?.tdc ?? null : cost?.tdc ?? null;
 
   const setCount = (ami: number, delta: number) => {
     // Edit the scaled counts the user sees, then store them as the new mix.
@@ -55,14 +61,14 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
     if (Object.values(next).reduce((t, x) => t + x, 0) === 0) return;
     onMix(next);
   };
-  const toggle = (id: string, on: boolean) => onSources(on ? [...sources.filter((s) => s !== id), id] : sources.filter((s) => s !== id));
+  const toggle = (id: string, on: boolean) => onSources(on ? [...sources.filter((s) => s !== id && !(EXCLUSIVE[id] ?? []).includes(s)), id] : sources.filter((s) => s !== id));
 
-  const costReceipt: Receipt | null = cost?.tdc ? {
+  const costReceipt: Receipt | null = cost && tdcShown ? {
     label: "Total development cost",
-    value: `${usd(cost.tdc.low)}–${usd(cost.tdc.high)}, likely ${usd(cost.tdc.likely)}`,
+    value: `${usd(tdcShown.low)}–${usd(tdcShown.high)}, likely ${usd(tdcShown.likely)}`,
     source: `EaseScore.AI pro forma (${cost.costConfig}), the same model as the parcel page`,
     date: cost.asOf,
-    method: <>Each lot priced for {perLot} rental home{perLot > 1 ? "s" : ""} of {bedrooms} bedroom{bedrooms === 1 ? "" : "s"}, then summed:<ul>{cost.lots.map((l) => <li key={l.parid}>{l.address ?? l.parid}: {l.strategyLabel ?? "—"}{l.finishedSf ? `, about ${Math.round(l.finishedSf / Math.max(1, l.units)).toLocaleString("en-US")} sq ft per home` : ""} — {l.headline ?? "not priced"}{l.needsRelief ? " (needs zoning relief)" : ""}</li>)}</ul>Low and high come from each input&apos;s documented range (construction tier, site adders, soft-cost shares, land).</>,
+    method: <>Each lot priced for {perLot} {sale ? "for-sale" : "rental"} home{perLot > 1 ? "s" : ""} of {bedrooms} bedroom{bedrooms === 1 ? "" : "s"}, then summed:<ul>{cost.lots.map((l) => <li key={l.parid}>{l.address ?? l.parid}: {l.strategyLabel ?? "—"}{l.finishedSf ? `, about ${Math.round(l.finishedSf / Math.max(1, l.units)).toLocaleString("en-US")} sq ft per home` : ""} — {l.headline ?? "not priced"}{l.needsRelief ? " (needs zoning relief)" : ""}</li>)}</ul>Low and high come from each input&apos;s documented range (construction tier, site adders, soft-cost shares, land).</>,
     kind: "data",
     notes: cost.lots.flatMap((l) => l.notes).join(" ") || "Construction costs are estimates; confirm with local bids.",
   } : null;
@@ -73,7 +79,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
         <section className="np-card" aria-labelledby="homes-h">
           <div className="np-card-head"><h3 id="homes-h">Homes and who they serve</h3></div>
           <div className="np-controls">
-            <Segmented<string> label="Tenure" size="sm" value="rent" onChange={() => undefined} options={[{ value: "rent", label: "Rental" }, { value: "sale", label: "For-sale (not modeled yet)", title: "For-sale affordability is not modeled in this seat yet" }]} />
+            <Segmented<Tenure> label="Tenure" size="sm" value={tenure} onChange={onTenure} options={[{ value: "rent", label: "Rental" }, { value: "sale", label: "For-sale", title: "Affordable homeownership at 80–120% of the area median" }]} />
             <Segmented<string> label="Homes per lot" size="sm" value={String(perLot)} onChange={(v) => onPerLot(Number(v))} options={[1, 2, 3, 4].map((k) => ({ value: String(k), label: String(k) }))} />
             <Segmented<string> label="Bedrooms" size="sm" value={String(bedrooms)} onChange={(v) => onBedrooms(Number(v))} options={[1, 2, 3].map((k) => ({ value: String(k), label: `${k} BR` }))} />
           </div>
@@ -91,7 +97,26 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
               );
             })}
           </div>
-          {il && r ? (
+          {il && r && sale ? (
+            <>
+              <ul className="np-serves">
+                {r.sales.map((x) => (
+                  <li key={x.amiPct}>
+                    <p><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% AMI.</b> A family of {x.persons} at {x.amiPct}% AMI can afford about <b>{usd(x.price.likely)}</b> <span className="np-muted">({usd(x.price.low)}–{usd(x.price.high)} as the rate moves half a point)</span>. They earn up to about {usd(x.income)} a year; 30% of that is {usd(x.budget)} a month for the mortgage, taxes and insurance.</p>
+                    <ReceiptButton receipt={{ ...ilReceipt(il.year, il.areaName, `${x.amiPct}% AMI affordable price, ${x.bedrooms} bedrooms`, `${x.incomeBasis}. ${x.formula}`), value: `${usd(x.price.low)}–${usd(x.price.high)}, likely ${usd(x.price.likely)}`, kind: "assumption", notes: "Mortgage rate from FRED when loaded; down payment, insurance, mortgage insurance and household size are editable assumptions (engine/config/capital-sources.v0.1.json → forSale)." }} />
+                  </li>
+                ))}
+              </ul>
+              <details className="np-assumptions">
+                <summary>How the price is figured (every assumption labeled)</summary>
+                <ul>
+                  {r.saleAssumptions.map((a) => (
+                    <li key={a.id}><b>{a.label}:</b> {a.value} <span className={a.assumption ? "np-assume" : "np-muted"}>({a.source})</span></li>
+                  ))}
+                </ul>
+              </details>
+            </>
+          ) : il && r ? (
             <ul className="np-serves">
               {r.rents.map((x) => {
                 const size = Math.max(1, Math.round(x.persons));
@@ -115,13 +140,13 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
             <EmptyState tone="error" title="The cost could not be computed right now">{costError}</EmptyState>
           ) : !cost ? (
             <EmptyState tone="empty" title="No lots chosen yet">Pick lots in step 2.</EmptyState>
-          ) : !cost.tdc ? (
-            <EmptyState tone="error" title="Some lots could not be priced">{cost.lots.filter((l) => !l.tdc).map((l) => `${l.address ?? l.parid}: ${l.notes.join(" ")}`).join(" ")}</EmptyState>
+          ) : !tdcShown ? (
+            <EmptyState tone="error" title={`Some lots could not be priced${sale ? " for sale" : ""}`}>{cost.lots.filter((l) => !(sale ? l.sale?.tdc : l.tdc)).map((l) => `${l.address ?? l.parid}: ${l.notes.join(" ") || "no cost from the pro forma."}`).join(" ")}</EmptyState>
           ) : (
             <>
               <div className="np-row2">
-                <div><span className="np-lbl">Total cost, {total} homes on {lots} lots</span><RangeValue value={cost.tdc} format="money" size="lg" label="Total development cost" /></div>
-                <div><span className="np-lbl">Per home</span><RangeValue value={{ low: cost.tdc.low / total, likely: cost.tdc.likely / total, high: cost.tdc.high / total }} format="money" size="md" label="Cost per home" /></div>
+                <div><span className="np-lbl">Total cost, {total} {sale ? "for-sale " : ""}homes on {lots} lots</span><RangeValue value={tdcShown} format="money" size="lg" label="Total development cost" /></div>
+                <div><span className="np-lbl">Per home</span><RangeValue value={{ low: tdcShown.low / total, likely: tdcShown.likely / total, high: tdcShown.high / total }} format="money" size="md" label="Cost per home" /></div>
               </div>
               {cost.lots.some((l) => l.needsRelief) ? <p className="np-warn">Some lots need zoning relief for {perLot} homes; see the receipt.</p> : null}
             </>
@@ -140,19 +165,21 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
               <span className="np-gap-lbl" id="gap-h">Remaining funding gap</span>
               <p className="np-gap-val"><RangeValue value={r.remaining} format="money" size="lg" label="Remaining funding gap" /></p>
               <p>
-                about <b>{usd(r.remainingPerUnit.low)}–{usd(r.remainingPerUnit.high)}</b> per home, after a {usd(r.debt.loan.low)}–{usd(r.debt.loan.high)} mortgage
+                about <b>{usd(r.remainingPerUnit.low)}–{usd(r.remainingPerUnit.high)}</b> per home, after {sale ? `${usd(r.debt.loan.low)}–${usd(r.debt.loan.high)} from home sales at affordable prices` : `a ${usd(r.debt.loan.low)}–${usd(r.debt.loan.high)} mortgage`}
                 {r.enabled.length ? ` and ${r.enabled.map((id) => r.sources.find((s) => s.id === id)!.short).join(", ")}` : " (no other sources switched on)"}.
               </p>
               <ReceiptButton className="np-rc-light" receipts={[
-                { label: "Funding gap before sources", value: `${usd(r.gapBefore.low)}–${usd(r.gapBefore.high)}`, source: "Pro forma cost − supportable loan", date: cost?.asOf ?? "", method: r.receipts.gap, kind: "data" },
-                { label: "Supportable permanent loan", value: `${usd(r.debt.loan.low)}–${usd(r.debt.loan.high)}`, source: "engine/config/capital-sources.v0.1.json (debt)", date: "2026-09-26", method: r.debt.basis, kind: "assumption", notes: "Rate, term, debt coverage and operating cost are editable assumptions." },
+                { label: "Funding gap before sources", value: `${usd(r.gapBefore.low)}–${usd(r.gapBefore.high)}`, source: sale ? "Pro forma cost − affordable sale prices" : "Pro forma cost − supportable loan", date: cost?.asOf ?? "", method: r.receipts.gap, kind: "data" },
+                sale
+                  ? { label: "What the buyers can pay (all homes)", value: `${usd(r.debt.loan.low)}–${usd(r.debt.loan.high)}`, source: "HUD income limits; FRED 30-year rate; lot millage; engine/config/capital-sources.v0.1.json (forSale)", date: cost?.mortgage?.date ?? "2026-09-26", method: r.debt.basis, kind: "assumption", notes: r.debt.sources.join(" · ") }
+                  : { label: "Supportable permanent loan", value: `${usd(r.debt.loan.low)}–${usd(r.debt.loan.high)}`, source: "engine/config/capital-sources.v0.1.json (debt)", date: "2026-09-26", method: r.debt.basis, kind: "assumption", notes: "Rate, term, debt coverage and operating cost are editable assumptions." },
                 { label: "Remaining gap", value: `${usd(r.remaining.low)}–${usd(r.remaining.high)}`, source: "Capital sources, typical ranges (not awards)", date: "2026-09-26", method: r.receipts.remaining, kind: "assumption" },
               ]} />
             </section>
 
             <section className="np-card" aria-labelledby="stack-h">
               <div className="np-card-head"><h3 id="stack-h">Capital stack</h3><span className="np-typical">Typical, not an award</span></div>
-              <p className="np-muted">Cost {usd(r.tdc.likely)} (likely) · Loan {usd(r.debt.loan.likely)} · Gap before sources {usd(r.gapBefore.low)}–{usd(r.gapBefore.high)}</p>
+              <p className="np-muted">Cost {usd(r.tdc.likely)} (likely) · {sale ? "Home sales" : "Loan"} {usd(r.debt.loan.likely)} · Gap before sources {usd(r.gapBefore.low)}–{usd(r.gapBefore.high)}</p>
               <div className="np-stack" role="img" aria-label={`Likely case: ${r.stack.map((p) => `${p.short} ${usd(p.applied)}`).join(", ")}`}>
                 {r.stack.filter((p) => p.applied > 0).map((p) => (
                   <i key={p.id} className={p.id === "gap" ? "is-gap" : ""} style={{ flex: p.applied, background: p.id === "gap" ? undefined : STACK_COLOR[p.id] ?? "#5ea98a" }} title={`${p.short}: ${usd(p.applied)}`}>
@@ -185,8 +212,9 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
 
             <section className="np-card" aria-labelledby="per-h">
               <div className="np-card-head"><h3 id="per-h">Subsidy per home vs. a local benchmark</h3></div>
-              <p>Money needed beyond the mortgage: <b>{usd(r.subsidyPerUnit.low)}–{usd(r.subsidyPerUnit.high)}</b> per home. {r.benchmark.label}: <b>{usd(r.benchmark.low)}–{usd(r.benchmark.high)}</b> ({r.benchmark.source}). {r.benchmark.note}</p>
-              <p className="np-muted">Serves {r.units} households at {[...new Set(r.rents.map((x) => x.amiPct))].join("% and ")}% of the area median in {hood}, where {need?.area?.tracts[0]?.rent_burden_30_pct != null ? `${Math.round(Number(need.area.tracts[0].rent_burden_30_pct))}% of renters are cost-burdened (census tract ${need.area.tracts[0].name})` : "renter cost burden is shown in step 1"}.</p>
+              <p>{sale ? "Subsidy gap per home (cost − affordable price)" : "Money needed beyond the mortgage"}: <b>{usd(r.subsidyPerUnit.low)}–{usd(r.subsidyPerUnit.high)}</b> per home. {r.benchmark.label}: <b>{usd(r.benchmark.low)}–{usd(r.benchmark.high)}</b> ({r.benchmark.source}). {r.benchmark.note}</p>
+              {sale ? <p className="np-muted">{r.subsidyPerUnit.high < r.benchmark.low ? "Below the local benchmark range." : r.subsidyPerUnit.low > r.benchmark.high ? "Above the local benchmark range." : "Overlaps the local benchmark range."}{cost?.context.mineSubsidence ? " Prices include mine subsidence insurance (a lot is over undermined ground)." : ""}</p> : null}
+              <p className="np-muted">Serves {r.units} households at {[...new Set((sale ? r.sales : r.rents).map((x) => x.amiPct))].join("% and ")}% of the area median in {hood}, where {need?.area?.tracts[0]?.rent_burden_30_pct != null ? `${Math.round(Number(need.area.tracts[0].rent_burden_30_pct))}% of renters are cost-burdened (census tract ${need.area.tracts[0].name})` : "renter cost burden is shown in step 1"}.</p>
               <button type="button" className="es-btn es-btn-primary" onClick={onExport}>Download the advocacy brief (PDF)</button>
             </section>
           </>

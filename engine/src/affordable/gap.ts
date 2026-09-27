@@ -5,6 +5,7 @@
 
 import { COST_CONFIG } from "../assumptions/config";
 import { CAPITAL_CONFIG, rentLimit, type CapitalConfig, type IncomeLimits, type RentLimit } from "./limits";
+import { homeownerAssumptions, homeownerPrice, type Assumption, type HomeownerInputs, type HomeownerPrice } from "./homeownership";
 
 export interface MoneyRange {
   low: number;
@@ -41,6 +42,8 @@ export interface ProjectInput {
   /** The land line inside the total (for the write-down); null when not priced. */
   land: MoneyRange | null;
   context: ProjectContext;
+  /** For-sale tenure: mortgage rate, millage and mine subsidence for the homebuyer's payment. */
+  sale?: HomeownerInputs;
 }
 
 export type EligibilityStatus = "ok" | "caution" | "no";
@@ -84,8 +87,13 @@ export interface StackPiece {
 }
 
 export interface ProjectResult {
+  tenure: "rent" | "sale";
   units: number;
   rents: (RentLimit & { count: number })[];
+  /** For-sale tenure: the price each household can afford (empty for rentals). */
+  sales: (HomeownerPrice & { count: number })[];
+  /** For-sale tenure: every assumption behind the prices, labeled. */
+  saleAssumptions: Assumption[];
   tdc: MoneyRange;
   debt: DebtResult;
   gapBefore: MoneyRange;
@@ -176,7 +184,7 @@ export function eligibility(src: SourceCfg, p: Pick<ProjectInput, "units" | "con
     case "ahp": {
       const share = units ? at50 / units : 0;
       if (c.tenure === "rent") out.push(share >= (rules.minShareAt50 as number) ? { status: "ok", text: `${at50} of ${units} homes at or below 50% AMI (needs 20%)` } : { status: "no", text: "Rental projects need at least 20% of homes at or below 50% AMI" });
-      else out.push({ status: "ok", text: "Homebuyers at or below 80% AMI" });
+      else out.push(maxAmi <= 80 ? { status: "ok", text: "Homebuyers at or below 80% AMI" } : { status: "no", text: "Homebuyers must be at or below 80% AMI" });
       break;
     }
     case "lerta":
@@ -187,6 +195,16 @@ export function eligibility(src: SourceCfg, p: Pick<ProjectInput, "units" | "con
       break;
     case "philanthropy":
       out.push({ status: "caution", text: "Depends on funder relationships" });
+      break;
+    case "hba":
+      if (c.tenure !== "sale") { out.push({ status: "no", text: "Helps homebuyers; for-sale homes only" }); break; }
+      out.push(maxAmi <= (rules.maxAmiPct as number) ? { status: "ok", text: `Buyers at or below ${rules.maxAmiPct}% AMI` } : { status: "no", text: `Buyers above ${rules.maxAmiPct}% AMI rarely qualify` });
+      if (maxAmi > (rules.programLimitNoteAbovePct as number) && maxAmi <= (rules.maxAmiPct as number)) out.push({ status: "caution", text: `Each program sets its own income limit; above ${rules.programLimitNoteAbovePct}% AMI check the program (Assumption, edit me)` });
+      break;
+    case "clt":
+      if (c.tenure !== "sale") { out.push({ status: "no", text: "Modeled for for-sale homes only" }); break; }
+      out.push(maxAmi <= (rules.maxAmiPct as number) ? { status: "ok", text: "Buyer pays for the house; the trust keeps the land and the price stays affordable on resale" } : { status: "no", text: `Buyers above ${rules.maxAmiPct}% AMI` });
+      out.push({ status: "caution", text: "Counts the land, like the public-land write-down: only one of the two is counted" });
       break;
   }
   return out;
@@ -232,6 +250,10 @@ export function sourceAmount(src: SourceCfg, p: ProjectInput): { amount: MoneyRa
         basis: `(cost − land, as a stand-in for new assessed value) × ${p.context.millsTotal.toFixed(2)} mills × ${Math.round(share * 100)}% for ${years} years, present value at ${disc * 100}%`,
       };
     }
+    case "landTrust": {
+      if (!p.land) return { amount: { low: 0, likely: 0, high: 0 }, basis: "Land not priced in the pro forma" };
+      return { amount: ordered(p.land.low, p.land.likely, p.land.high, 1_000), basis: "Land value in the pro forma, carried by the trust instead of the buyer" };
+    }
     case "land": {
       if (!p.land) return { amount: { low: 0, likely: 0, high: 0 }, basis: "Land not priced in the pro forma" };
       const nominal = (a.nominalPerLot as number) * p.context.lots;
@@ -244,15 +266,36 @@ export function sourceAmount(src: SourceCfg, p: ProjectInput): { amount: MoneyRa
   return { amount: { low: 0, likely: 0, high: 0 }, basis: "Not modeled" };
 }
 
-/** The whole project: rents, debt, gap, every source with its checks, and the remaining gap for the enabled set. */
+/** For-sale tenure: the homebuyers' prices stand where the permanent loan stands for a rental. */
+export function saleProceeds(sales: (HomeownerPrice & { count: number })[], a: ReturnType<typeof homeownerAssumptions>): DebtResult {
+  const sum = (k: keyof MoneyRange) => sales.reduce((t, x) => t + x.price[k] * x.count, 0);
+  const pct = (x: number) => `${+(x * 100).toFixed(2)}%`;
+  return {
+    monthlyRent: 0,
+    noi: { low: 0, likely: 0, high: 0 },
+    loan: ordered(sum("low"), sum("likely"), sum("high"), 1_000),
+    basis: `Each home sells at the most its buyer can afford: 30% of the HUD income limit (household size = bedrooms + 1) pays principal and interest at ${pct(a.rate - a.spread)}–${pct(a.rate + a.spread)} over ${a.years} years with ${+(a.down * 100).toFixed(1)}% down, property tax at ${+a.mills.toFixed(2)} mills, insurance${a.pmi ? ", mortgage insurance" : ""}${a.msi ? " and mine subsidence insurance" : ""}. Sum of the prices × homes.`,
+    sources: a.list.map((x) => `${x.label}: ${x.source}`),
+  };
+}
+
+/** The whole project: rents (or sale prices), debt (or sales), gap, every source with its checks, and the remaining gap for the enabled set. */
 export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: string[], cfg: CapitalConfig = CAPITAL_CONFIG): ProjectResult {
   const units = p.units.reduce((t, u) => t + u.count, 0);
-  const rents = p.units.map((u) => ({ ...rentLimit(il, u.amiPct, u.bedrooms, cfg), count: u.count }));
-  const debt = supportableDebt(rents, cfg);
+  const sale = p.context.tenure === "sale";
+  const saleIn: HomeownerInputs = p.sale ?? { rate: null, mills: p.context.millsTotal, mineSubsidence: false };
+  const ha = sale ? homeownerAssumptions(saleIn, cfg) : null;
+  const rents = sale ? [] : p.units.map((u) => ({ ...rentLimit(il, u.amiPct, u.bedrooms, cfg), count: u.count }));
+  const sales = sale ? p.units.map((u) => ({ ...homeownerPrice(il, u.amiPct, u.bedrooms, saleIn, cfg), count: u.count })) : [];
+  const debt = sale ? saleProceeds(sales, ha!) : supportableDebt(rents, cfg);
   const tdc = ordered(p.tdc.low, p.tdc.likely, p.tdc.high);
   const gapBefore = clamp0(ordered(tdc.low - debt.loan.high, tdc.likely - debt.loan.likely, tdc.high - debt.loan.low));
 
-  const sources: SourceResult[] = cfg.sources.map((s) => {
+  const fits = (s: SourceCfg) => {
+    const t = (s as { tenures?: string[] }).tenures;
+    return !t || t.includes(p.context.tenure);
+  };
+  const sources: SourceResult[] = cfg.sources.filter(fits).map((s) => {
     const checks = eligibility(s, p);
     const { amount, basis } = sourceAmount(s, p);
     return {
@@ -260,11 +303,18 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
       amount, amountBasis: basis, amountSource: (s.amount as { sourceLabel: string }).sourceLabel, checks, status: worst(checks), label2: TYPICAL_LABEL,
     };
   });
-  const on = sources.filter((s) => enabled.includes(s.id) && s.status !== "no");
+  // Sources that count the same money (land trust vs. land write-down): the first one switched on in config order wins.
+  const exclusive = (id: string) => ((cfg.sources.find((x) => x.id === id)?.rules as { exclusiveWith?: string[] } | undefined)?.exclusiveWith ?? []);
+  const on: SourceResult[] = [];
+  for (const s of sources) {
+    if (!enabled.includes(s.id) || s.status === "no") continue;
+    if (on.some((o) => exclusive(s.id).includes(o.id) || exclusive(o.id).includes(s.id))) continue;
+    on.push(s);
+  }
   const sum = (k: keyof MoneyRange) => on.reduce((t, s) => t + s.amount[k], 0);
   const remaining = clamp0(ordered(gapBefore.low - sum("high"), gapBefore.likely - sum("likely"), gapBefore.high - sum("low")));
 
-  const stack: StackPiece[] = [{ id: "debt", short: "Loan", applied: debt.loan.likely }];
+  const stack: StackPiece[] = [{ id: "debt", short: sale ? "Home sales" : "Loan", applied: debt.loan.likely }];
   let left = gapBefore.likely;
   for (const s of on) {
     const x = Math.max(0, Math.min(left, s.amount.likely));
@@ -277,14 +327,17 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
   const hbc = COST_CONFIG.benchmarks.homeownershipSubsidy;
   const hb = { low: hbc.range[0]!, high: hbc.range[1]! };
   return {
-    units, rents, tdc, debt, gapBefore, sources, enabled: on.map((s) => s.id), remaining, stack,
+    tenure: sale ? "sale" : "rent",
+    units, rents, sales, saleAssumptions: ha?.list ?? [], tdc, debt, gapBefore, sources, enabled: on.map((s) => s.id), remaining, stack,
     subsidyPerUnit: per(gapBefore), remainingPerUnit: per(remaining),
     benchmark: {
       label: "Subsidy per affordable for-sale home in Pittsburgh", ...hb, source: hbc.sourceLabel,
-      note: "A for-sale benchmark; rental subsidy needs differ.",
+      note: sale ? "The same kind of home: a direct comparison." : "A for-sale benchmark; rental subsidy needs differ.",
     },
     receipts: {
-      gap: `Total development cost (pro forma) − permanent loan the restricted rents support = money needed from other sources. Low = low cost − high loan; high = high cost − low loan.`,
+      gap: sale
+        ? `Total development cost (pro forma) − what the buyers can pay (sum of the affordable prices) = subsidy needed. Low = low cost − high prices; high = high cost − low prices.`
+        : `Total development cost (pro forma) − permanent loan the restricted rents support = money needed from other sources. Low = low cost − high loan; high = high cost − low loan.`,
       remaining: `Gap before sources − the typical amounts of the sources switched on (${on.map((s) => s.short).join(", ") || "none"}). Low uses each source's high end; high uses each source's low end.`,
     },
   };
