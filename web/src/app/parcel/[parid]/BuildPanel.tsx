@@ -20,7 +20,7 @@ const TONE: Record<Scheme["status"], string> = {
 const SB: { k: EdgeKind; label: string }[] = [{ k: "front", label: "Front" }, { k: "side", label: "Side" }, { k: "rear", label: "Rear" }, { k: "streetSide", label: "Street side" }];
 const FIELD = "w-full rounded-md border border-slate-400 bg-white px-2 py-1 text-[13px] tabular-nums text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600";
 
-export default function BuildPanel({ controls, onChange, onReset, isDefault, code, scheme, all, ms, open, onToggle, notApplicable, edges }: {
+export default function BuildPanel({ controls, onChange, onReset, isDefault, code, scheme, all, ms, unavailable, open, onToggle, notApplicable, edges }: {
   controls: AppControls;
   onChange: (c: AppControls) => void;
   onReset: () => void;
@@ -31,6 +31,8 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
   scheme: Scheme | null;
   all: TypeSummary[];
   ms: { solve: number; finance: number; roundTrip: number } | null;
+  /** Why the solver cannot run on this lot (no zoning rules / no outline); null when it can. */
+  unavailable?: string | null;
   open: boolean;
   onToggle: () => void;
   /** Building types the score says are not options here, with the reason. */
@@ -136,7 +138,7 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
             </div>
           )}
           <div className="flex items-center justify-between gap-2 text-[11px] text-slate-700">
-            <span>{ms ? `All 5 types solved in ${Math.round(ms.solve)} ms` : "Waiting for the lot geometry…"}</span>
+            <span>{ms ? `All 5 types solved in ${Math.round(ms.solve)} ms` : unavailable ?? "Waiting for the lot geometry…"}</span>
             <button type="button" onClick={onReset} disabled={isDefault}
               className="rounded-md px-2 py-1 font-semibold text-emerald-900 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 disabled:text-slate-500 disabled:hover:bg-transparent">Priced layout</button>
           </div>

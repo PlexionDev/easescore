@@ -128,10 +128,17 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const toLonLat = (p: [number, number]): [number, number] =>
     a ? [a.lon0 + a.lon_per_x * p[0] + a.lon_per_y * p[1], a.lat0 + a.lat_per_x * p[0] + a.lat_per_y * p[1]] : p;
 
+  // The site-fit solver needs a lot outline and the zoning rules, which we have for City of Pittsburgh parcels
+  // only; elsewhere "Build it in 3D" cannot place a building, so the page opens in 3D Terrain and says why.
+  const canSolve = !!(gen.qf2?.rules && gen.qf2.zoneCode);
+  const noSolveNote = gen.qf2
+    ? "This municipality's zoning rules are not in our data (City of Pittsburgh only), so Build it in 3D cannot place a building here."
+    : "The lot outline is not in our data, so Build it in 3D cannot place a building here.";
+
   // View mode: kept in the URL hash (#view=build|photoreal|terrain|analysis). "Build it in 3D" (clay model) first.
-  const [mode, setMode] = useState<ViewMode>("build");
+  const [mode, setMode] = useState<ViewMode>(canSolve ? "build" : "terrain");
   const [clayMode, setClayMode] = useState<ClayMode>("3d");
-  const [stageMounted, setStageMounted] = useState(false);
+  const [stageMounted, setStageMounted] = useState(!canSolve);
   useEffect(() => {
     const read = () => {
       const m = /view=(\w+)/.exec(window.location.hash)?.[1] as ViewMode | undefined;
@@ -331,6 +338,15 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
     <div className="fixed inset-0 overflow-hidden bg-slate-100">
       <section aria-label="Map and 3D view" className="absolute inset-0">
       {!loaded && mode !== "build" && <StagePlaceholder outline={outline} />}
+      {mode === "build" && !canSolve && (
+        <div className="absolute inset-0 z-10 grid place-items-center p-4 md:pl-[472px]">
+          <div role="status" className="max-w-sm rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-900 shadow-xl">
+            <p>{noSolveNote}</p>
+            <button type="button" onClick={() => choose("terrain")}
+              className="mt-3 rounded-lg bg-slate-900 px-3 py-2 font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600">Show 3D Terrain</button>
+          </div>
+        </div>
+      )}
       {mode === "build" && (
         <Clay3D scheme={scheme} input={input} terrain={qf2?.terrain ?? null} neighbors={neighbors} streetName={streetName}
           onPickFront={(i) => change({ ...shownControls, frontEdgeIndex: i })} mode={clayMode} onModeChange={setClayMode}
@@ -361,7 +377,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
       {(data || mapData) && overlaysOn && mode !== "analysis" && (
         <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
           <BuildPanel controls={shownControls} onChange={change} onReset={() => { touched.current = true; setControls(gen.defaults[shownControls.typology]); }}
-            isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} scheme={scheme} all={run.all} ms={run.ms}
+            isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} scheme={scheme} all={run.all} ms={run.ms} unavailable={canSolve ? null : noSolveNote}
             open={buildOpen} onToggle={() => setBuildOpen(!buildOpen)} notApplicable={gen.notApplicable}
             edges={((scheme as unknown as { debug?: { edges?: { i: number; kind: string; lengthFt: number }[] } } | null)?.debug?.edges ?? []).map((e) => ({ i: e.i, kind: e.kind, lengthFt: e.lengthFt }))} />
         </div>
