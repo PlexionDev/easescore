@@ -394,8 +394,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {/* 6. Three buttons */}
       <div className={`grid gap-2 ${canSolve ? "grid-cols-3" : "grid-cols-2"}`}>
         {canSolve && <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>}
-        <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pencil calculator</OpenDrawer>
-        <a href={reportHtml} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Full report<span className="sr-only"> (opens in a new tab)</span></a>
+        <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pro forma</OpenDrawer>
+        <a href={reportHtml} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></a>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
         <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>
@@ -516,7 +516,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pane={pane}
       planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Pencil calculator", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "pencils", title: "Pro forma", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Score details", content: details },
         { id: "options", title: "Best options and street precedent", content: <>

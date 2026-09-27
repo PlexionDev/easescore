@@ -79,7 +79,7 @@ export default function DeveloperFilters({ f, options, set, reset, total, onPick
         <CheckboxField label="Private" checked={f.owner === "private"} onChange={(c) => set({ owner: c ? "private" : undefined })} />
       </FilterSection>
 
-      <FilterSection title="What zoning allows" hint="Homes by right from our lot-fit test of each building type (single-family, duplex, 3–4 units, townhouse row) under the zoning rules">
+      <FilterSection title="What zoning allows" hint="By-right yield from our lot-fit test of each building type (single-family, duplex, 3–4 units, townhouse row) under the zoning rules">
         <label className="es-field-label">
           Homes allowed by right
           <select className="pl-multi" value={f.byRightMin ?? ""} onChange={(e) => set({ byRightMin: e.target.value ? Number(e.target.value) : undefined })}>
@@ -94,7 +94,7 @@ export default function DeveloperFilters({ f, options, set, reset, total, onPick
         <CheckboxField label="Skip steep lots" hint="Leaves out lots where a quarter or more of the land is steeper than 25% (lidar). The stored scores keep this share, not an average slope." checked={!!f.xSteep} onChange={(c) => set({ xSteep: c || undefined })} />
       </FilterSection>
 
-      <p className="es-fsec-hint dv-railnote">Whether a lot pencils (margin, residual land value) is priced per lot in the quick view&apos;s Pencil calculator; it is not stored for every lot, so there is no filter for it.</p>
+      <p className="es-fsec-hint dv-railnote">Whether a lot pencils (margin, residual land value) is priced per lot in the quick view&apos;s Pro forma; it is not stored for every lot, so there is no filter for it.</p>
     </FilterRail>
   );
 }

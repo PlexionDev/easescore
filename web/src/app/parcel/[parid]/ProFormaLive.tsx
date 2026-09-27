@@ -217,7 +217,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
   };
 
   return (
-    <section aria-label="Pencil calculator" className="rounded-xl border border-slate-200 bg-white/80 p-3">
+    <section aria-label="Pro forma" className="rounded-xl border border-slate-200 bg-white/80 p-3">
       <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
       {rehab ? (
         p.rehab && (
@@ -266,7 +266,10 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       )}
       <div className="mt-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">Budget estimate</h3>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Development budget</h3>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Hard costs · soft costs · financing</p>
+          </div>
           {anyEdits && <button type="button" onClick={resetAll} className="text-[11px] text-slate-600 underline">Reset all to the estimate</button>}
         </div>
         <p className="text-[11px] text-slate-500">A budget, not an invoice: every line is prefilled from the sources shown, low–likely–high. Type your own number on any line; it is marked &ldquo;Your number&rdquo; and everything recomputes.</p>

@@ -119,7 +119,7 @@ function Wave({ points, view }: { points: PolicyPoint[]; view: MapView }) {
         <div className="pol-tip" style={{ left: tip.x + 12, top: tip.y + 12 }} role="status">
           <strong>{tip.parid}</strong>
           <br />Unlocked by: {tip.lever}
-          <br />Homes by right: {tip.before} → {tip.after} (+{tip.delta})
+          <br />By-right yield: {tip.before} → {tip.after} (+{tip.delta})
           {tip.newly ? <><br />Newly buildable by right</> : null}
         </div>
       ) : null}

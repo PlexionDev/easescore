@@ -13,7 +13,7 @@ const TEXT: Record<string, string> = {
   "ex.e3a": "The summary is written",
   "ex.e3b": "from the numbers.",
   "ex.e3": "Two sentences on what the lot allows today and what could be possible with approval. Every figure in them comes from the calculation, never from guesswork.",
-  "ex.e4a": "The full report is",
+  "ex.e4a": "The feasibility study is",
   "ex.e4b": "ready to share.",
   "ex.e4": "Site, zoning, process, market, costs, returns and risks in one cited document you can print or save as a PDF.",
   "ex.fact.steep": "Steeper than 25%",

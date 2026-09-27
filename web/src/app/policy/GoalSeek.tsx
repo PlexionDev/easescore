@@ -38,7 +38,7 @@ export default function GoalSeek({ states, onClose, onApply, rank }: {
               <li key={o.key}>
                 <p><strong>{o.changes} change{o.changes === 1 ? "" : "s"}:</strong> {leverSentence(o.levers)}</p>
                 <p className="pol-goal-nums">
-                  <span>Homes by right <RangeValue value={o.homes} size="sm" signed /></span>
+                  <span>By-right yield <RangeValue value={o.homes} size="sm" signed /></span>
                   <span>Pencil <RangeValue value={o.pencil} size="sm" /></span>
                   <span>{o.summary.newly_buildable.toLocaleString()} parcels newly buildable</span>
                 </p>
@@ -47,7 +47,7 @@ export default function GoalSeek({ states, onClose, onApply, rank }: {
             ))}
           </ol>
         ) : (
-          <p className="pol-empty-goal">No computed combination reaches {goal.toLocaleString()} {measure === "homes" ? "homes by right" : "homes that pencil"}. Try a smaller goal, or turn on more levers: new combinations are computed in the background.</p>
+          <p className="pol-empty-goal">No computed combination reaches {goal.toLocaleString()} {measure === "homes" ? "by-right yield" : "homes that pencil"}. Try a smaller goal, or turn on more levers: new combinations are computed in the background.</p>
         )}
         <div className="pol-dialog-foot"><SeatButton variant="primary" onClick={() => ref.current?.close()}>Close</SeatButton></div>
       </div>

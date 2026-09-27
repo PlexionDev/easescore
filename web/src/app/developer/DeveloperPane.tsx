@@ -134,8 +134,8 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
       ) : null}
       <div className="dv-actions">
         {r?.band === "Partial" ? null : <Link className="es-btn es-btn-primary" href={`${href}#view=build`}>Open QuickFit</Link>}
-        <Link className="es-btn" href={`${href}#drawer=pencils`}>Pencil calculator</Link>
-        <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Full report<span className="es-sr"> (opens in a new tab)</span></a>
+        <Link className="es-btn" href={`${href}#drawer=pencils`}>Pro forma</Link>
+        <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Feasibility study<span className="es-sr"> (opens in a new tab)</span></a>
       </div>
       <div className="dv-actions2">
         {r ? <SeatButton onClick={() => onPin(r)} disabled={!pinned && !canPin} title={!pinned && !canPin ? "My lots holds 10" : undefined}>{pinned ? "Remove from My lots" : "Pin to My lots"}</SeatButton> : null}

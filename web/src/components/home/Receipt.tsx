@@ -85,7 +85,7 @@ export function ExampleReportLink() {
   };
   return (
     <a className="report-link" href="#example-parcel" onClick={onClick}>
-      {"Open the full report"} <span aria-hidden="true">↗</span>
+      {"Open the feasibility study"} <span aria-hidden="true">↗</span>
     </a>
   );
 }

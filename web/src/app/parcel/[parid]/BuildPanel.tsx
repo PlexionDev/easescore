@@ -53,7 +53,10 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
       <h2 className="m-0">
         <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${id}-body`}
           className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600">
-          <span className="whitespace-nowrap font-semibold">QuickFit 3D</span>
+          <span className="flex flex-col leading-tight">
+            <span className="whitespace-nowrap font-semibold">QuickFit 3D</span>
+            <span className="text-[10px] font-normal text-slate-500">Site test fit</span>
+          </span>
           <span className="truncate text-xs text-slate-700">{open ? "Hide controls" : `${t.short}${s ? ` · ${s.units.length} home${s.units.length === 1 ? "" : "s"} · ${s.stories} st` : ""}`}</span>
         </button>
       </h2>
@@ -77,7 +80,7 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
           </fieldset>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
             <OpenDrawer id="options" className="min-h-6 font-semibold text-slate-900 underline decoration-dotted underline-offset-2 hover:text-slate-700">Best options and street precedent</OpenDrawer>
-            <OpenDrawer id="pencils" className="min-h-6 font-semibold text-slate-900 underline decoration-dotted underline-offset-2 hover:text-slate-700">Pencil calculator</OpenDrawer>
+            <OpenDrawer id="pencils" className="min-h-6 font-semibold text-slate-900 underline decoration-dotted underline-offset-2 hover:text-slate-700">Pro forma</OpenDrawer>
           </div>
           {na && <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-950">{t.label} is not an option here by the score: {na}</p>}
 

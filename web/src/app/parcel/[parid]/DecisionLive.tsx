@@ -72,7 +72,7 @@ export default function DecisionLive({ result }: { result: assumptions.ProFormaR
     <section aria-labelledby="decision-h" className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
       <h3 id="decision-h" className="text-sm font-semibold text-slate-900">Decision box: what can you pay for the land, and what must it sell for?</h3>
       <fieldset className="mt-1">
-        <legend className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Investment criteria (editable)</legend>
+        <legend className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Returns &amp; investment criteria (editable)</legend>
         <div className="mt-0.5 flex flex-wrap gap-3">
           <PctInput label="Target profit, % of cost" value={c.targetMargin} min={0} max={100} onChange={set("targetMargin")} />
           <PctInput label="Min. contingency, % of hard" value={c.minContingency} min={0} max={50} onChange={set("minContingency")} />

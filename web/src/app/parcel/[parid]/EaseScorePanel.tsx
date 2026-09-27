@@ -89,7 +89,7 @@ function FactorBar({ f, band, reportHref }: { f: score.FactorResult; band: strin
             <ul className="mt-0.5 list-disc pl-4">
               {sources.map((s) => <li key={s}><span>{s}</span><span className="text-slate-500"> · {f.dates[s] ? `data date ${f.dates[s]!}` : "no data date recorded"}</span></li>)}
             </ul>
-            <a href={reportHref} target="_blank" rel="noopener" className="mt-3 inline-block text-[12px] font-semibold text-slate-800 underline">See this factor in the full report</a>
+            <a href={reportHref} target="_blank" rel="noopener" className="mt-3 inline-block text-[12px] font-semibold text-slate-800 underline">See this factor in the feasibility study</a>
           </SheetButton>
         </span>
       </div>

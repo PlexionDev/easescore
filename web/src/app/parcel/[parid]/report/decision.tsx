@@ -20,7 +20,7 @@ export function DecisionBlock(x: Ctx) {
   const tCrit = x.tab();
   const criteria = (
     <>
-      <div className="tcap">Table {tCrit}. Investment criteria (editable){fn(x, "cost_config")}</div>
+      <div className="tcap">Table {tCrit}. Returns &amp; investment criteria (editable){fn(x, "cost_config")}</div>
       <table>
         <thead><tr><th style={{ width: "38%" }}>Criterion</th><th className="num" style={{ width: "8%" }}>Value</th><th>This project</th></tr></thead>
         <tbody>
@@ -30,7 +30,7 @@ export function DecisionBlock(x: Ctx) {
         </tbody>
       </table>
       <p className="small muted">
-        Defaults are assumptions ({assumptions.DECISION_CONFIG.targetMarginOnCost.sourceLabel}). Change them in the Pencil calculator; the report link carries them
+        Defaults are assumptions ({assumptions.DECISION_CONFIG.targetMarginOnCost.sourceLabel}). Change them in the Pro forma; the report link carries them
         (dc_margin, dc_cont, dc_ltc){d.edited ? ". This report uses edited criteria." : "."}
       </p>
     </>

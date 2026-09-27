@@ -110,7 +110,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
   }, null);
 
   return (
-    <section aria-label="Does it pencil?" className="rounded-xl border border-slate-200 bg-white/80 p-3">
+    <section aria-label="Pro forma" className="rounded-xl border border-slate-200 bg-white/80 p-3">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>

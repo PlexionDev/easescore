@@ -44,8 +44,8 @@ export default function BestOptions({ parid, rows, detail, selected, sp, partial
   return (
     <section aria-labelledby="best-options-h">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="best-options-h" className="text-sm font-semibold text-slate-900">Best options for this lot</h2>
-        <span className="hidden text-[10px] text-slate-500 sm:inline">Ease Score · zoning · money, kept separate</span>
+        <h2 id="best-options-h" className="text-sm font-semibold text-slate-900">Highest and best use (screening)</h2>
+        <span className="hidden text-[10px] text-slate-500 sm:inline">What works best on this lot</span>
       </div>
       <ol className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white/80">
         {rows.map((r) => {

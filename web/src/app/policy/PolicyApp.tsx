@@ -168,7 +168,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   // ------------------------------------------------------------------------------ receipts
   const dates = meta?.sales_window ? `${meta.sales_window.earliest} to ${meta.sales_window.latest}` : "not loaded";
   const rHomes: Receipt[] = [{
-    label: "Additional homes allowed by right", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
+    label: "Additional by-right yield", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "data",
     method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. Likely: the low end plus the homes that need that extra step on lots where the scheme pencils at high prices (high-quartile nearby new-construction prices, low costs), i.e. where a split could pay off at all. High end: every home the fit test finds. Lots the fit test could not finish in time are not counted.",
     notes: "Capacity is not production: it says what the rules would allow, not what will be built or when.",

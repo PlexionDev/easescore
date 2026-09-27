@@ -22,10 +22,10 @@ const MAX_LOTS = 10;
 const LOTS_KEY = "easescore.developer.lots";
 const SORTS: { value: Sort; label: string }[] = [
   { value: "score", label: "Ease Score" },
-  { value: "by_right_units", label: "Homes by right" },
+  { value: "by_right_units", label: "By-right yield" },
   { value: "lot", label: "Lot size" },
 ];
-const SORT_TEXT: Partial<Record<Sort, string>> = { score: "Ease Score", by_right_units: "homes by right", lot: "lot size" };
+const SORT_TEXT: Partial<Record<Sort, string>> = { score: "Ease Score", by_right_units: "by-right yield", lot: "lot size" };
 
 function queryString(f: Filters, sort: Sort, dir: Dir, page: number, parcel: string | null) {
   const q = filtersToQuery(f);
@@ -223,7 +223,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
                   <th scope="col">Owner type</th>
                   <th scope="col">Ease Score</th>
                   <th scope="col">Best option</th>
-                  <th scope="col" className="num">Homes by right</th>
+                  <th scope="col" className="num">By-right yield</th>
                   <th scope="col">My lots</th>
                 </tr>
               </thead>
@@ -260,7 +260,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
             <SeatButton variant="ghost" disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</SeatButton>
             <SeatButton variant="ghost" disabled={to >= total || loading} onClick={() => setPage((p) => p + 1)}>Next</SeatButton>
           </div>
-          <p className="pl-note">Ease Score (measures barriers to building, not whether it's a good investment) is precomputed for the best option that adds homes; where a municipality's zoning is not loaded the lot reads Partial, has no score and sorts last (score config v{(options?.config_versions ?? []).join(", v") || "—"}). Homes by right come from our lot-fit test under the zoning rules. Money columns (margin, residual land value) are not stored per lot; open a lot and use its Pencil calculator. Decision support only.</p>
+          <p className="pl-note">Ease Score (measures barriers to building, not whether it's a good investment) is precomputed for the best option that adds homes; where a municipality's zoning is not loaded the lot reads Partial, has no score and sorts last (score config v{(options?.config_versions ?? []).join(", v") || "—"}). Homes by right come from our lot-fit test under the zoning rules. Money columns (margin, residual land value) are not stored per lot; open a lot and use its Pro forma. Decision support only.</p>
         </section>
       </div>
     </SeatLayout>
@@ -284,7 +284,7 @@ function MyLots({ lots, onOpen, onRemove, onClear }: { lots: PlannerRow[]; onOpe
           <table className="pl-table dv-compare">
             <caption className="es-sr">My lots compared side by side</caption>
             <thead>
-              <tr><th scope="col">Lot</th><th scope="col">Ease Score</th><th scope="col">Best option</th><th scope="col" className="num">Homes by right</th><th scope="col" className="num">Lot sq ft</th><th scope="col">Zoning</th><th scope="col">Owner type</th><th scope="col"><span className="es-sr">Actions</span></th></tr>
+              <tr><th scope="col">Lot</th><th scope="col">Ease Score</th><th scope="col">Best option</th><th scope="col" className="num">By-right yield</th><th scope="col" className="num">Lot sq ft</th><th scope="col">Zoning</th><th scope="col">Owner type</th><th scope="col"><span className="es-sr">Actions</span></th></tr>
             </thead>
             <tbody>
               {lots.map((r) => {
@@ -304,7 +304,7 @@ function MyLots({ lots, onOpen, onRemove, onClear }: { lots: PlannerRow[]; onOpe
               })}
             </tbody>
           </table>
-          <p className="pl-note">Margin and residual land value are priced per lot in each lot&apos;s Pencil calculator; they are not stored, so they are not compared here.</p>
+          <p className="pl-note">Margin and residual land value are priced per lot in each lot&apos;s Pro forma; they are not stored, so they are not compared here.</p>
         </div>
       ) : null}
     </section>
