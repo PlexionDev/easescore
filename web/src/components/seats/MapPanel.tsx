@@ -115,6 +115,9 @@ export default function MapPanel({
       setFailed(true);
       return;
     }
+    // The canvas takes keyboard focus: MapLibre's arrows pan and + / - zoom. Say so in its name.
+    m.getCanvas().setAttribute("aria-label", `${ariaLabel}. Arrow keys pan, plus and minus zoom.`);
+    m.getCanvas().classList.add("es-map-focus");
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     m.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
     m.on("load", () => {

@@ -168,3 +168,13 @@
 .np-own-field small{font-size:11px}
 .np-mine{color:var(--es-green);font-weight:600}
 @media (max-width:600px){.np-own-grid{grid-template-columns:1fr}}
+.np-viewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.np-viewbar .es-seg-wrap{display:flex;align-items:center;gap:8px}
+.np-tablewrap{max-height:460px;overflow:auto;border:1px solid var(--es-line,#dfe4e2);border-radius:12px;background:#fff}
+.np-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.np-table caption{text-align:left;padding:10px 12px;font-weight:600;font-size:13px}
+.np-table th,.np-table td{padding:6px 10px;border-top:1px solid var(--es-line,#dfe4e2);white-space:nowrap}
+.np-table thead th{position:sticky;top:0;background:#f6f8f7;font-weight:600;font-size:12px}
+.np-table tbody th{font-weight:600;text-align:left}
+.np-tablewrap .np-foot{padding:8px 12px}
+.np-tablewrap:focus-visible{outline:2px solid var(--es-focus,#156b54);outline-offset:2px}

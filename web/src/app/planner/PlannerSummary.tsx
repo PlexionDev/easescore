@@ -46,7 +46,7 @@ export default function PlannerSummary({ s, f, set, loading }: {
     <div className="pl-sum" aria-busy={loading || undefined}>
       <section aria-label="Matching parcels">
         <p className="pl-card-label" style={{ fontSize: 12, color: "var(--es-muted)" }}>Matching parcels</p>
-        <p className="pl-count" aria-live="polite">{s.total.toLocaleString("en-US")}</p>
+        <p className="pl-count">{s.total.toLocaleString("en-US")}</p>
         <div className="pl-bandbar" role="img" aria-label={bands.map((x) => `${x.n} ${x.b.toLowerCase()}`).join(", ")}>
           {bands.map((x) => <span key={x.b} style={{ width: `${(100 * x.n) / s.total}%`, background: BAND_COLOR[x.b] ?? NO_BAND_COLOR }} />)}
         </div>

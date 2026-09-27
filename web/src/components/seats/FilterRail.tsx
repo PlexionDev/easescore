@@ -171,7 +171,18 @@ export function RangeSlider(props: SliderCommon & ({ value: number; onChange: (v
     <div className={`es-slider${disabled ? " is-disabled" : ""}${dual ? " is-dual" : ""}`}>
       <div className="es-slider-head">
         <span id={`${id}-l`} className="es-field-label">{label}</span>
-        <output htmlFor={dual ? `${id}-a ${id}-b` : `${id}-b`} className="es-slider-out" aria-live="off">{shown}</output>
+        {dual ? (
+          <output htmlFor={`${id}-a ${id}-b`} className="es-slider-out" aria-live="off">{shown}</output>
+        ) : (
+          // Non-drag alternative (WCAG 2.5.7): step buttons beside the value, 24 px or larger.
+          <span className="es-slider-step">
+            <button type="button" aria-label={`Decrease ${label}`} disabled={disabled || hi <= min}
+              onClick={() => (props.onChange as (v: number) => void)(Math.max(min, +(hi - step).toFixed(6)))}>−</button>
+            <output htmlFor={`${id}-b`} className="es-slider-out" aria-live="off">{shown}</output>
+            <button type="button" aria-label={`Increase ${label}`} disabled={disabled || hi >= max}
+              onClick={() => (props.onChange as (v: number) => void)(Math.min(max, +(hi + step).toFixed(6)))}>+</button>
+          </span>
+        )}
       </div>
       {hint ? <p className="es-fsec-hint">{hint}</p> : null}
       <div className="es-slider-track">

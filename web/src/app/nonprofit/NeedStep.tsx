@@ -4,7 +4,7 @@
 // (households by income band vs. the rent they can afford vs. the median rent here), and context.
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import * as affordable from "@easescore/engine/src/affordable";
 import { EmptyState, ReceiptButton, Segmented, type Receipt } from "@/components/seats";
 import { EQUITY_NOTE, acsVintage, chasReceipt, ilReceipt, incomeReceipt, lihtcReceipt, qctReceipt, rentBurdenReceipt } from "@/lib/nonprofit/receipts";
@@ -45,6 +45,7 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
   const lihtc = area?.lihtc ?? [];
   const lihtcUnits = lihtc.reduce((t, l) => t + (l.li_units ?? 0), 0);
   const steps = LAYER_STEPS[layer];
+  const [tableView, setTableView] = useState(false);
 
   const legend = (
     <div className="np-legend">
@@ -93,9 +94,18 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
     <div className="np-grid">
       <div className="np-col">
         <h2 className="es-sr">Map and income ladder for {hood}</h2>
-        <div className="np-mapbox">
-          <AreaMap tracts={tracts} layer={layer} outline={area.outline} bbox={area.bbox} ariaLabel={`Map of census ${geo === "bg" ? "block groups" : "tracts"} around ${hood}, shaded by ${steps.title.toLowerCase()}`} legend={legend} tools={tools} />
+        <div className="np-viewbar">
+          <Segmented<"map" | "table"> label="View" size="sm" value={tableView ? "table" : "map"} onChange={(v) => setTableView(v === "table")}
+            options={[{ value: "map", label: "Map" }, { value: "table", label: "Table view" }]} />
+          <span className="np-muted">The table lists the same {geo === "bg" ? "block groups" : "tracts"} as the map, with every value as text.</span>
         </div>
+        {tableView ? (
+          <AreaTable features={tracts} bbox={area.bbox} layer={layer} geo={geo} hood={hood} />
+        ) : (
+          <div className="np-mapbox">
+            <AreaMap tracts={tracts} layer={layer} outline={area.outline} bbox={area.bbox} ariaLabel={`Map of census ${geo === "bg" ? "block groups" : "tracts"} around ${hood}, shaded by ${steps.title.toLowerCase()}`} legend={legend} tools={tools} />
+          </div>
+        )}
 
         <section className="np-card" aria-labelledby="ladder-h">
           <div className="np-card-head">
@@ -225,4 +235,50 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
 function titleCase(s: string | null): string {
   if (!s) return "A property";
   return s.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase()).replace(/\bPh\b/g, "Phase");
+}
+
+type AreaProps = { geoid?: string; name?: string; rb30?: number | null; rb50?: number | null; income?: number | null; poverty?: number | null; rent?: number | null; qct?: boolean };
+
+/** Centroid of a polygon's outer ring(s) (plain average of the vertices; enough to place it in or out of the map area). */
+function roughCenter(g: GeoJSON.Geometry | null): [number, number] | null {
+  const pts = g?.type === "Polygon" ? g.coordinates[0] : g?.type === "MultiPolygon" ? g.coordinates.flatMap((p) => p[0] ?? []) : null;
+  if (!pts?.length) return null;
+  return [pts.reduce((t, p) => t + p[0]!, 0) / pts.length, pts.reduce((t, p) => t + p[1]!, 0) / pts.length];
+}
+
+/** Table equal of the need map: the census areas in the map's view, sorted by the shading the map uses. */
+function AreaTable({ features, bbox, layer, geo, hood }: { features: GeoJSON.FeatureCollection | null; bbox: [number, number, number, number] | null; layer: Layer; geo: GeoLevel; hood: string }) {
+  const rows = useMemo(() => {
+    if (!features || !bbox) return [];
+    const [w, s, e, n] = [bbox[0] - 0.01, bbox[1] - 0.006, bbox[2] + 0.01, bbox[3] + 0.006];
+    const inView = features.features.filter((f) => { const c = roughCenter(f.geometry); return c && c[0] >= w && c[0] <= e && c[1] >= s && c[1] <= n; });
+    const v = (f: GeoJSON.Feature) => (f.properties as AreaProps)[layer] ?? null;
+    const dir = layer === "income" ? 1 : -1;
+    return inView.sort((a, b) => (v(a) == null ? 1 : v(b) == null ? -1 : dir * ((v(a) as number) - (v(b) as number)))).map((f) => f.properties as AreaProps);
+  }, [features, bbox, layer]);
+  const unit = geo === "bg" ? "Block group" : "Tract";
+  const p = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x)}%`);
+  if (!features) return <p className="np-muted" role="status">Loading the census areas…</p>;
+  return (
+    <div className="np-tablewrap" tabIndex={0} role="region" aria-label={`Census ${geo === "bg" ? "block groups" : "tracts"} table (scrolls sideways on small screens)`}>
+      <table className="np-table">
+        <caption>Census {geo === "bg" ? "block groups" : "tracts"} in and around {hood} (the map&apos;s area), sorted by {LAYER_STEPS[layer].title.toLowerCase().replace(/ \(darker = lower\)/, "")}{layer === "income" ? ", lowest first" : ", highest first"}</caption>
+        <thead><tr>
+          <th scope="col">{unit}</th><th scope="col" className="np-r">Renters paying 30%+</th><th scope="col" className="np-r">50%+</th>
+          <th scope="col" className="np-r">Median income</th><th scope="col" className="np-r">Poverty</th><th scope="col" className="np-r">Median rent</th><th scope="col">Qualified Census Tract</th>
+        </tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.geoid ?? i}>
+              <th scope="row">{r.name ?? r.geoid ?? "—"}</th>
+              <td className="np-r">{p(r.rb30)}</td><td className="np-r">{p(r.rb50)}</td>
+              <td className="np-r">{r.income != null ? usdK(r.income) : "—"}</td><td className="np-r">{p(r.poverty)}</td>
+              <td className="np-r">{r.rent != null ? usd(r.rent) : "—"}</td><td>{r.qct ? "Yes" : "No"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="np-foot">&ldquo;—&rdquo; = too few renters or households to estimate. Source: U.S. Census Bureau ACS 5-year estimates; QCT: HUD.</p>
+    </div>
+  );
 }
