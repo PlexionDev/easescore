@@ -127,7 +127,18 @@ function Wave({ points, view }: { points: PolicyPoint[]; view: MapView }) {
   );
 }
 
-export default function PolicyMap({ points, loading, levers }: { points: PolicyPoint[]; loading: boolean; levers: string[] }) {
+export default function PolicyMap({ points, loading, levers, total = null, uncomputed = false }: {
+  points: PolicyPoint[]; loading: boolean; levers: string[];
+  /** Parcels that gain homes in the summary; when the map carries fewer points it says so. */
+  total?: number | null;
+  /** The lever state has no results for this submission: say so instead of "0 parcels". */
+  uncomputed?: boolean;
+}) {
+  const n = points.length;
+  const title = uncomputed ? "Not computed for this submission"
+    : loading ? "Loading parcels…"
+    : total != null && total > n ? `Showing ${n.toLocaleString()} of ${total.toLocaleString()} parcels that gain homes (evenly sampled)`
+    : `${n.toLocaleString()} parcels gain homes`;
   const [view, setView] = useState<MapView>("difference");
   const legend = view === "difference"
     ? Object.entries(LEVER_COLOR).filter(([k]) => levers.includes(k)).map(([k, c]) => ({ color: c, label: `Unlocked by ${leverComboLabel(k).toLowerCase()}` }))
@@ -145,7 +156,7 @@ export default function PolicyMap({ points, loading, levers }: { points: PolicyP
           value={view} onChange={setView}
         />
       }
-      legend={<MapLegend title={loading ? "Loading parcels…" : `${points.length.toLocaleString()} parcels gain homes`} items={legend} />}
+      legend={<MapLegend title={title} items={uncomputed ? [] : legend} />}
     >
       <Wave points={points} view={view} />
     </MapPanel>

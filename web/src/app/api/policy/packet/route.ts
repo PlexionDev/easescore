@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     return new Response(Buffer.from(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${q.get("download") === "0" ? "inline" : "attachment"}; filename="EaseScore-council-packet-${key}-${date}.pdf"`,
+        "Content-Disposition": `${q.get("download") === "0" ? "inline" : "attachment"}; filename="EaseScore-council-packet-${(name.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").slice(0, 60)) || key}-${date}.pdf"`,
         "Cache-Control": "no-store",
       },
     });

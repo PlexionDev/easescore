@@ -66,3 +66,8 @@
 .pol-viewbar .es-seg-wrap{display:flex;align-items:center;gap:8px}
 .pol-viewnote{font-size:12.5px;color:var(--es-muted)}
 .pol-panel:focus{outline:none}
+.pol-fixed p { margin: 0; font-size: 13px; color: #111b1a; }
+.pol-fixed .es-fsec-hint { margin-top: 4px; }
+.pol-nc { color: #596563; font-weight: 600; }
+.pol-pad0 { margin: 0; }
+.pol-lever .es-seg button:disabled { color: #8a9491; cursor: not-allowed; text-decoration: line-through; }

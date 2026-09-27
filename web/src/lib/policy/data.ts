@@ -59,7 +59,40 @@ export async function policyStates(): Promise<PolicyState[]> {
 export const requestState = (key: string, levers: unknown) => rpc<{ key: string; status: string }>("policy_request", { p_key: key, p_levers: levers });
 
 export type PolicyPoint = [string, number, number, number, string, boolean, boolean | null, number];
-export const policyPoints = async (key: string) => (await rpc<PolicyPoint[]>("policy_points", { p_key: key, p_limit: 40000 })) ?? [];
+/** policy_points returns at most this many rows (ordered by homes added, then parcel ID). */
+const RPC_CAP = 60000;
+type PointRow = { parid: string; lon: number; lat: number; units_delta: number; touched: string[] | null; units_before: number | null; pencils_likely: boolean | null };
+/** The rows policy_points leaves out past its cap, in the same order, read page by page from policy_results. */
+async function pointsAfter(key: string, last: PolicyPoint): Promise<PolicyPoint[]> {
+  const [lastParid, , , lastDelta] = last;
+  const path = `policy_results?select=parid,lon,lat,units_delta,touched,units_before,pencils_likely&key=eq.${encodeURIComponent(key)}`
+    + `&units_delta=gt.0&lon=not.is.null&or=(units_delta.lt.${lastDelta},and(units_delta.eq.${lastDelta},parid.gt.${encodeURIComponent(lastParid)}))`
+    + "&order=units_delta.desc,parid";
+  const out: PolicyPoint[] = [];
+  for (let from = 0, page = 0; page < 100; page++) {
+    const rows = await get<PointRow[]>(path, { Range: `${from}-${from + 999}`, "Range-Unit": "items" });
+    if (!rows?.length) break;
+    for (const r of rows) out.push([r.parid, r.lon, r.lat, r.units_delta, (r.touched ?? []).join("+"), (r.units_before ?? 0) === 0, r.pencils_likely, r.units_before ?? 0]);
+    from += rows.length;
+    if (rows.length < 1000) break;
+  }
+  return out;
+}
+
+/** Most points a map carries (browser and packet). */
+export const MAX_POINTS = 40000;
+/**
+ * Map points for every parcel that gains homes. When there are more than MAX_POINTS, keep an even sample
+ * across the whole list (every k-th parcel), never the first N by parcel ID (that drops whole wards); the
+ * map legend and packet caption say "showing N of M".
+ */
+export const policyPoints = async (key: string): Promise<PolicyPoint[]> => {
+  const all = (await rpc<PolicyPoint[]>("policy_points", { p_key: key, p_limit: RPC_CAP })) ?? [];
+  if (all.length === RPC_CAP) all.push(...(await pointsAfter(key, all[all.length - 1]!)));
+  if (all.length <= MAX_POINTS) return all;
+  const step = all.length / MAX_POINTS;
+  return Array.from({ length: MAX_POINTS }, (_, i) => all[Math.floor(i * step)]!);
+};
 
 export interface ResultRow {
   parid: string; touched: string[]; units_before: number | null; units_after: number | null; units_delta: number;

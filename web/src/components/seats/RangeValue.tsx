@@ -6,11 +6,13 @@ import "./seats.css";
  * by default (one step for the whole range), always ordered low ≤ likely ≤ high. `null` shows a dash with
  * a screen-reader "not available".
  */
-export default function RangeValue({ value, format = "count", sig = 2, signed = false, size = "md", showLikely = true, unit, label }: {
+export default function RangeValue({ value, format = "count", sig = 2, each = false, signed = false, size = "md", showLikely = true, unit, label }: {
   value: Range | null | undefined;
   format?: RangeFormat;
   /** Significant figures; false = show as given. */
   sig?: number | false;
+  /** Round each value to `sig` figures on its own instead of one step for the whole range. */
+  each?: boolean;
   /** Prefix "+" on positive values (deltas like "+2,900 homes"). */
   signed?: boolean;
   /** sm = table cell, md = card, lg = headline number. */
@@ -24,7 +26,7 @@ export default function RangeValue({ value, format = "count", sig = 2, signed = 
   if (!value) {
     return <span className={`es-range es-range-${size} is-na`}><span aria-hidden="true">—</span><span className="es-sr">{label ? `${label}: ` : ""}not available</span></span>;
   }
-  const r = sig === false ? (([low, likely, high]) => ({ low, likely, high }))(orderRange(value)) : roundRange(value, sig);
+  const r = sig === false ? (([low, likely, high]) => ({ low, likely, high }))(orderRange(value)) : roundRange(value, sig, each);
   const f = formatter(format);
   const s = (n: number) => (signed && n > 0 ? `+${f(n)}` : f(n));
   const single = r.low === r.high;

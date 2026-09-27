@@ -5,14 +5,18 @@
 
 import { EmptyState, RangeValue, ReceiptButton, formatRange, fmtMoney } from "@/components/seats";
 import {
-  concentration, leverSentence, LEVER_METHOD, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary,
+  concentration, leverSentence, LEVER_METHOD, PARKING_NOTE, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary,
 } from "@/lib/policy/model";
 import type { Who } from "@/lib/policy/data";
 import type { DataFlags } from "./PolicyApp";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function WhereTab({ summary, flags, places, highlight }: { summary: Summary; flags: DataFlags; places: Places | null; highlight: string | null }) {
+export function WhereTab({ summary, flags, places, highlight, adu = false }: { summary: Summary; flags: DataFlags; places: Places | null; highlight: string | null; adu?: boolean }) {
+  // Tables carry the two ends of the headline range: the low end (no extra step) where stored per
+  // neighborhood, and the upper bound (every home the fit test finds). A likely count per area is not stored.
+  const lowWord = adu ? "footprint check passes" : "no lot split";
+  const highWord = adu ? "every eligible lot" : "assumes lot splits";
   const rows = [...summary.by_neighborhood].sort((a, b) => b.homes - a.homes);
   const total = rows.reduce((t, r) => t + r.homes, 0);
   const { top, share } = concentration(summary);
@@ -32,10 +36,10 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
       </p>
       <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Neighborhood table (scrolls sideways on small screens)">
         <table className="pol-table">
-          <caption className="es-sr">Homes added by right, by neighborhood</caption>
+          <caption className="es-sr">Homes added by right, by neighborhood: low end and upper bound</caption>
           <thead>
             <tr><th scope="col">Neighborhood</th><th scope="col" className="num">Parcels gaining</th><th scope="col" className="num">Newly buildable</th>
-              <th scope="col" className="num">Homes added</th><th scope="col" className="num">Share</th><th scope="col" className="num">Pencil (likely)</th><th scope="col" className="num">Pencil (high prices)</th><th scope="col"><span className="es-sr">Bar</span></th></tr>
+              <th scope="col" className="num">Homes added, low end ({lowWord})</th><th scope="col" className="num">Homes added, upper bound ({highWord})</th><th scope="col" className="num">Share of upper bound</th><th scope="col" className="num">Pencil (likely)</th><th scope="col" className="num">Pencil (high prices)</th><th scope="col"><span className="es-sr">Bar</span></th></tr>
           </thead>
           <tbody>
             {rows.slice(0, 40).map((r) => (
@@ -43,6 +47,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
                 <th scope="row">{r.neighborhood}</th>
                 <td className="num">{r.parcels.toLocaleString()}</td>
                 <td className="num">{r.newly.toLocaleString()}</td>
+                <td className="num">{r.homes_no_split != null ? r.homes_no_split.toLocaleString() : "—"}</td>
                 <td className="num">{r.homes.toLocaleString()}</td>
                 <td className="num">{total ? pct(r.homes / total) : "—"}</td>
                 <td className="num">{(r.homes_pencil ?? 0).toLocaleString()}</td>
@@ -60,9 +65,9 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
       ) : places?.by_district?.length ? (
         <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Council district table (scrolls sideways on small screens)">
           <table className="pol-table">
-            <caption className="es-sr">Homes added by right, by City Council district</caption>
+            <caption className="es-sr">Homes added by right, by City Council district: upper bound</caption>
             <thead><tr><th scope="col">Council district</th><th scope="col" className="num">Parcels gaining</th><th scope="col" className="num">Newly buildable</th>
-              <th scope="col" className="num">Homes added</th><th scope="col" className="num">Share</th><th scope="col"><span className="es-sr">Bar</span></th></tr></thead>
+              <th scope="col" className="num">Homes added, upper bound ({highWord})</th><th scope="col" className="num">Share of upper bound</th><th scope="col"><span className="es-sr">Bar</span></th></tr></thead>
             <tbody>
               {[...places.by_district].sort((a, b) => (a.district ?? 99) - (b.district ?? 99)).map((d) => (
                 <tr key={d.district ?? "none"}>
@@ -74,10 +79,14 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
               ))}
             </tbody>
           </table>
-          <p className="pol-muted">City Council districts, 2022 map (parcel centroid in district).</p>
+          <p className="pol-muted">City Council districts, 2022 map (parcel centroid in district). Only the upper bound is stored per district; the citywide likely figure is {Math.round((100 * (summary.homes_mid ?? summary.homes)) / Math.max(1, summary.homes))}% of the upper bound, and districts can differ from that share.</p>
         </div>
       ) : <p className="pol-muted">Loading districts…</p>}
-      <p className="pol-muted">Counts are exact model counts per neighborhood; the headline shows them as ranges. Neighborhood = City of Pittsburgh neighborhood the parcel sits in.</p>
+      <p className="pol-muted">
+        These are the ends of the headline range, not the likely figure. Upper bound = every home the fit test finds{adu ? " (one ADU on every eligible lot)" : ", including townhouse rows that need a lot split (subdivision) first"}; it sums to {summary.homes.toLocaleString()}.
+        {" "}Low end = {adu ? "only lots where the ADU footprint check passes" : "only homes that need no lot split"}; it sums to {(summary.homes_no_split ?? summary.homes).toLocaleString()}.
+        {" "}The headline likely figure ({(summary.homes_mid ?? summary.homes).toLocaleString()}) is not stored per neighborhood or district. Neighborhood = City of Pittsburgh neighborhood the parcel sits in.
+      </p>
     </div>
   );
 }
@@ -140,7 +149,7 @@ export function WhoTab({ flags, who, computing }: { flags: DataFlags; who: Who |
 
 export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fiscal | null; meta: PolicyMeta | null }) {
   if (!fis) return <EmptyState dataset="Millage rates (County Treasurer)" />;
-  const money = (r: { low: number; likely: number; high: number }) => <RangeValue value={r} format="money" size="sm" />;
+  const money = (r: { low: number; likely: number; high: number }) => <RangeValue value={r} format="money" size="sm" each />;
   return (
     <div className="pol-fiscal">
       <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Fiscal ledger table (scrolls sideways on small screens)">
@@ -163,7 +172,7 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
             ))}
             <tr className="pol-total">
               <th scope="row">All bodies</th>
-              <td className="num">{Math.round(fis.totalMills * 100) / 100} mills<span className="pol-muted"> (City + PPS)</span></td>
+              <td className="num">{Math.round(fis.totalMills * 100) / 100} mills<span className="pol-muted"> ({fis.millsParts})</span></td>
               <td className="num">{money(summary.av_delta)}</td>
               <td className="num">{money(fis.total)}</td>
               <td className="num">{fis.abatement ? money(fis.abatementTotal) : "none"}</td>
@@ -186,13 +195,13 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
         Millage from the County Treasurer’s published rates ({fis.rows.map((r) => `${r.body.name} ${r.body.year}`).join(", ")}). New assessed value assumes every home that pencils
         is built, crediting only the added homes: their share of the scheme’s sale value × assessment ratio {meta?.ratio.p50 ?? "—"} (median of {meta?.ratio.n ?? "—"} recent new-construction sales), less the existing building on lots that had no by-right home before.
         {fis.abatement ? ` Abatement: ${Math.round(fis.abatement.share * 100)}% of the tax on the added value for ${fis.abatement.years} years (illustrative LERTA-style terms, not a verified program). Break-even is the year cumulative collected tax covers the forgone tax.` : ""}
-        {" "}Range: {formatRange(fis.total, { format: "money" })} per year.
+        {" "}Range: {formatRange(fis.total, { format: "money", each: true, likely: true })} per year.
       </p>
     </div>
   );
 }
 
-export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; levers: LeverState; summary: Summary | null }) {
+export function MethodTab({ meta, levers, summary, earlier = null }: { meta: PolicyMeta | null; levers: LeverState; summary: Summary | null; earlier?: string | null }) {
   return (
     <div className="pol-method">
       <h3>What this tests</h3>
@@ -206,6 +215,7 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
         {levers.matchBlock ? <li><strong>Match the block.</strong> {LEVER_METHOD.matchBlock}</li> : null}
         {levers.height ? <li><strong>Height.</strong> {LEVER_METHOD.height}</li> : null}
         <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance. The headline range: <em>low</em> = only homes that need no lot split (townhouse rows need a subdivision plan first; for ADUs, only lots where the footprint check passes); <em>likely</em> = low plus the homes that need a split on lots where the scheme pencils at high prices (the split could pay off); <em>high</em> = every home the fit test finds.</li>
+        <li><strong>Parking.</strong> {PARKING_NOTE}</li>
         <li><strong>Pencil test.</strong> For parcels that gain homes, the by-right scheme is tested against nearby new-construction prices and the cost defaults, in a low, likely and high scenario.</li>
         <li><strong>Fiscal.</strong> Added assessed value × millage per taxing body, for homes that pencil.</li>
       </ol>
@@ -222,7 +232,8 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
       <ul>
         <li>New-construction sales: {meta ? `${meta.sales_window.earliest} to ${meta.sales_window.latest} (${meta.citywide.n} City sales)` : "not loaded"}.</li>
         <li>Millage: {meta?.millage?.length ? meta.millage.map((m) => `${m.name} ${m.mills} (${m.year})`).join("; ") : "not loaded"}.</li>
-        <li>Results computed: {summary?.computed_at?.slice(0, 16).replace("T", " ") ?? "in progress"} UTC · {meta?.policy_version ?? ""}.</li>
+        <li>Results computed: {summary?.computed_at?.slice(0, 16).replace("T", " ") ?? "in progress"} UTC · {meta?.policy_version ?? ""}{summary?.parcels_seen ? ` · ${summary.parcels_seen.toLocaleString()} parcels fit-tested (${summary.buckets ?? ""})` : ""}.</li>
+        {earlier ? <li><strong>Run note.</strong> {earlier}</li> : null}
       </ul>
     </div>
   );

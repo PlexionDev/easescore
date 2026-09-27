@@ -16,8 +16,11 @@ export function roundSig(n: number, sig = 2): number {
  * Round a whole range with ONE step, set by its largest magnitude, so low/likely/high stay comparable
  * ("2,900 to 3,600", never "2,940 to 3,600"). Returns the values ordered low ≤ likely ≤ high.
  */
-export function roundRange(r: Range, sig = 2): Range {
+export function roundRange(r: Range, sig = 2, each = false): Range {
   const [low, likely, high] = orderRange(r);
+  // each = round every value to `sig` significant figures on its own (fiscal notes: a wide range must not
+  // turn a likely $66M into "$100M").
+  if (each) return { low: roundSig(low, sig), likely: roundSig(likely, sig), high: roundSig(high, sig) };
   const top = Math.max(Math.abs(low), Math.abs(likely), Math.abs(high));
   if (top === 0) return { low: 0, likely: 0, high: 0 };
   const step = Math.pow(10, Math.max(0, Math.floor(Math.log10(top)) - sig + 1));
@@ -72,13 +75,15 @@ export function formatter(f: RangeFormat = "count"): (n: number) => string {
  * Plain-text range: "2,900 to 3,600". Collapses to one value when low == high. `signed` prefixes "+"
  * on positive values (for "more homes" deltas).
  */
-export function formatRange(r: Range, opts: { format?: RangeFormat; sig?: number | false; signed?: boolean } = {}): string {
-  const rr = opts.sig === false ? toRange(orderRange(r)) : roundRange(r, opts.sig ?? 2);
+export function formatRange(r: Range, opts: { format?: RangeFormat; sig?: number | false; signed?: boolean; each?: boolean; likely?: boolean } = {}): string {
+  const rr = opts.sig === false ? toRange(orderRange(r)) : roundRange(r, opts.sig ?? 2, opts.each);
   const f = formatter(opts.format);
   const s = (n: number) => (opts.signed && n > 0 ? `+${f(n)}` : f(n));
   if (rr.low === rr.high) return s(rr.likely);
   // Money reads fine with an en dash ("$3.1M–$4.4M"); counts read better with "to".
-  return typeof opts.format === "string" && opts.format === "money" ? `${s(rr.low)}–${f(rr.high)}` : `${s(rr.low)} to ${f(rr.high)}`;
+  const range = typeof opts.format === "string" && opts.format === "money" ? `${s(rr.low)}–${f(rr.high)}` : `${s(rr.low)} to ${f(rr.high)}`;
+  // likely = append the central estimate: "2,000 to 22,000 (likely 4,300)".
+  return opts.likely ? `${range} (likely ${f(rr.likely)})` : range;
 }
 
 function toRange([low, likely, high]: [number, number, number]): Range {

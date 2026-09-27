@@ -13,7 +13,7 @@ import {
 } from "@/components/seats";
 import type { PolicyPoint, Who } from "@/lib/policy/data";
 import {
-  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, MATCH_BLOCK, NOT_COMPUTED_NOTE, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
+  ADU_RULES, ATTACHED_ALONE_NOTE, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, MATCH_BLOCK, NOT_COMPUTED_NOTE, PARKING_NOTE, activeLevers, earlierRunNote, fullRunSize, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
   type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario,
 } from "@/lib/policy/model";
 import { FiscalTab, MethodTab, WhereTab, WhoTab } from "./PolicyTabs";
@@ -51,6 +51,20 @@ const PRESETS: { value: string; label: string }[] = [
 
 interface Saved { name: string; q: string }
 
+/** Fetch a file from an API route and save it under `filename` (the caller shows a busy state meanwhile). */
+async function fetchDownload(href: string, filename: string) {
+  const r = await fetch(href);
+  if (!r.ok) throw new Error(await r.text());
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 /** Start a file download from an API route (the response is an attachment, so the page stays). */
 function download(href: string) {
   const a = document.createElement("a");
@@ -80,6 +94,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const savedRaw = useSyncExternalStore(subscribeStorage, readSavedRaw, () => "[]");
   const saved = useMemo(() => savedLocal ?? parseSaved(savedRaw), [savedLocal, savedRaw]);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [packetMsg, setPacketMsg] = useState<string | null>(null);
   const [allStates, setAllStates] = useState<PolicyState[]>(states);
   const selection = useSeatSelection();
   const key = stateKey(sc.levers);
@@ -134,6 +149,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const setLevers = useCallback((l: Partial<LeverState>) => setSc((s) => ({ ...s, levers: normalize({ ...s.levers, ...l }) })), []);
   const summary = st.key === key ? st.summary : null;
   const fis = useMemo(() => (summary ? fiscal(summary, meta, sc.abatement, places) : null), [summary, meta, sc.abatement, places]);
+  const earlier = earlierRunNote(summary, fullRunSize(allStates));
   const active = activeLevers(sc.levers);
   const pctDone = st.total ? Math.round((100 * st.done) / st.total) : 0;
   const finished = st.status === "done";
@@ -171,7 +187,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     label: "Additional by-right yield", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "data",
     method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. Likely: the low end plus the homes that need that extra step on lots where the scheme pencils at high prices (high-quartile nearby new-construction prices, low costs), i.e. where a split could pay off at all. High end: every home the fit test finds. Lots the fit test could not finish in time are not counted.",
-    notes: "Capacity is not production: it says what the rules would allow, not what will be built or when.",
+    notes: `Capacity is not production: it says what the rules would allow, not what will be built or when.${sc.levers.parking !== "current" ? ` ${PARKING_NOTE}` : ""}${earlier ? ` ${earlier}` : ""}`,
   }, ...(sc.levers.adu ? [{
     label: "ADUs by right (scenario ADU rules)", source: "EaseScore.AI policy lever; county assessment use and building footprint; zoning table setbacks",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "assumption" as const,
@@ -202,6 +218,30 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     notes: "Assumes every home that pencils is built. Earned income, wage and other taxes are not counted.",
   }] : [];
 
+  // ------------------------------------------------------------------------------ which settings have results
+  // Only finished states have results; nothing is computed on demand for this submission. A control whose
+  // result is not computed is shown disabled with "Not computed for this submission" (turning a lever off
+  // always stays possible).
+  const doneKeys = new Set(allStates.filter((x) => x.status === "done").map((x) => x.key));
+  const computed = (k: string) => k === "base" || doneKeys.has(k);
+  const keyWith = (l: Partial<LeverState>) => stateKey(normalize({ ...sc.levers, ...l }));
+  const NC = "Not computed for this submission.";
+  const widthStops = [25, 30, 35, 40, 45, 50].filter((w) => computed(keyWith({ attached: { on: true, maxWidthFt: w } })));
+  const shareStops = [0, 25, 50, 75].filter((v) => computed(keyWith({ minLot: { on: true, share: v / 100 } })));
+  const ncHint = (on: boolean, l: Partial<LeverState>) => (!on && !computed(keyWith(l)) ? <> · <b>{NC}</b>{activeLevers(sc.levers).length ? " (with the levers now on)" : ""}</> : null);
+  const presetLabel = PRESETS.find((p) => p.value === key)?.label ?? "";
+  /** A lever setting with no computed result: a fixed readout plus the stops that do have results. */
+  const fixedStops = (label: string, stops: number[], cur: number, fmt: (v: number) => string, pick: (v: number) => void) => (
+    <div className="pol-fixed">
+      <p><span className="es-field-label">{label}</span> <strong>{fmt(cur)}</strong>{stops.includes(cur) ? null : <span className="pol-nc"> · {NC}</span>}</p>
+      <p className="es-fsec-hint">
+        {stops.length
+          ? <>Computed for this submission: {stops.map((v, i) => <span key={v}>{i ? ", " : ""}{v === cur ? fmt(v) : <button type="button" className="pol-linkbtn" onClick={() => pick(v)}>{fmt(v)}</button>}</span>)}. Other settings are not computed for this submission.</>
+          : <>No setting of this lever is computed together with the levers now on.</>}
+      </p>
+    </div>
+  );
+
   // ------------------------------------------------------------------------------ render
   const header = (
     <SeatHeader
@@ -214,7 +254,9 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           ]} />
           <SeatSelect label="Scenario" value={PRESETS.some((p) => p.value === key) ? key : ""} onChange={onPreset} options={[
             { value: "", label: "Scenario: custom" },
-            ...PRESETS.map((p) => ({ value: p.value, label: `Scenario: ${p.label}` })),
+            ...PRESETS.map((p) => (computed(p.value)
+              ? { value: p.value, label: `Scenario: ${p.label}` }
+              : { value: p.value, label: `Scenario: ${p.label} (not computed for this submission)`, disabled: true })),
             ...saved.map((s) => ({ value: `saved:${s.name}`, label: `Saved: ${s.name}` })),
           ]} />
         </>
@@ -224,9 +266,20 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           <SeatButton onClick={openGoal}>Goal seek</SeatButton>
           <SeatButton onClick={save}>Save</SeatButton>
           <ExportMenu label="Council packet" actions={[
-            { id: "packet", label: "Council packet (3 pages)", format: "PDF", description: "Fiscal note, housing outcome with map, assumptions and sources",
-              disabled: !summary || key === "base", disabledReason: "Turn on a lever first",
-              onSelect: () => { download(`/api/policy/packet?${exportQ()}`); } },
+            { id: "packet", label: "Council packet (3 pages)", format: "PDF", description: "Fiscal note, housing outcome with map, assumptions and sources. Takes about 20 seconds.",
+              disabled: !summary || key === "base", disabledReason: summary ? "Turn on a lever first" : "Not computed for this submission",
+              onSelect: async () => {
+                setPacketMsg("Preparing the council packet… about 20 seconds.");
+                const slug = (name.trim() || presetLabel || key).replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || key;
+                try {
+                  const pq = new URLSearchParams(exportQ());
+                  if (!pq.get("name") && presetLabel) pq.set("name", presetLabel);
+                  await fetchDownload(`/api/policy/packet?${pq.toString()}`, `EaseScore-council-packet-${slug}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                  setPacketMsg("Council packet downloaded.");
+                } catch {
+                  setPacketMsg("The council packet could not be prepared. Try again in a minute.");
+                }
+              } },
             { id: "csv", label: "Parcels that gain homes", format: "CSV", description: "Each parcel that gains homes by right: before and after, pencils, added assessed value",
               disabled: key === "base", disabledReason: "Turn on a lever first",
               onSelect: () => { download(`/api/policy/csv?${exportQ()}`); } },
@@ -248,37 +301,59 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
       </label>
       <div className={`pol-lever${sc.levers.attached.on ? " is-on" : ""}`}>
         <Switch label="Attached homes by right" checked={sc.levers.attached.on} onChange={(v) => setLevers({ attached: { ...sc.levers.attached, on: v } })}
-          hint="Two homes sharing a wall on one narrow lot, in single-unit districts (R1D, R1A)" />
-        <RangeSlider label="On lots up to" min={25} max={50} step={5} value={sc.levers.attached.maxWidthFt}
-          format={(v) => `${v} ft`} ends={["25 ft", "50 ft"]} disabled={!sc.levers.attached.on}
-          onChange={(v: number) => setLevers({ attached: { on: true, maxWidthFt: v } })} />
+          disabled={!sc.levers.attached.on && !computed(keyWith({ attached: { ...sc.levers.attached, on: true } }))}
+          hint={<>Two homes sharing a wall on one narrow lot, in single-unit districts (R1D, R1A){!sc.levers.attached.on && !computed(keyWith({ attached: { ...sc.levers.attached, on: true } })) ? <> · <b>{NC}</b> (with the levers now on)</> : null}</>} />
+        {sc.levers.attached.on && widthStops.length > 1 ? (
+          <RangeSlider label="On lots up to" min={25} max={50} step={5} value={sc.levers.attached.maxWidthFt}
+            format={(v) => `${v} ft`} ends={["25 ft", "50 ft"]}
+            onChange={(v: number) => setLevers({ attached: { on: true, maxWidthFt: v } })} />
+        ) : sc.levers.attached.on
+          ? fixedStops("On lots up to", widthStops, sc.levers.attached.maxWidthFt, (v) => `${v} ft`, (v) => setLevers({ attached: { on: true, maxWidthFt: v } }))
+          : <p className="es-fsec-hint pol-pad0">Lot width: 35 ft (the only width computed for this submission).</p>}
       </div>
       <div className={`pol-lever${sc.levers.minLot.on ? " is-on" : ""}`}>
         <Switch label="Minimum lot size" checked={sc.levers.minLot.on} onChange={(v) => setLevers({ minLot: { on: v, share: v ? 0 : 1 } })}
-          hint="Minimum lot size and lot area per unit, from today's code down to none" />
-        <RangeSlider label="Share of today's minimum" min={0} max={75} step={25} value={Math.round(sc.levers.minLot.share * 100)}
-          format={(v) => (v === 0 ? "None" : `${v}%`)} ends={["None", "75% of today"]} disabled={!sc.levers.minLot.on}
-          onChange={(v: number) => setLevers({ minLot: { on: true, share: v / 100 } })} />
+          disabled={!sc.levers.minLot.on && !computed(keyWith({ minLot: { on: true, share: 0 } }))}
+          hint={<>Minimum lot size and lot area per unit, from today&apos;s code down to none{!sc.levers.minLot.on && !computed(keyWith({ minLot: { on: true, share: 0 } })) ? <> · <b>{NC}</b> (with the levers now on)</> : null}</>} />
+        {sc.levers.minLot.on && shareStops.length > 1 ? (
+          <RangeSlider label="Share of today's minimum" min={0} max={75} step={25} value={Math.round(sc.levers.minLot.share * 100)}
+            format={(v) => (v === 0 ? "None" : `${v}% of today's`)} ends={["None", "75% of today"]}
+            onChange={(v: number) => setLevers({ minLot: { on: true, share: v / 100 } })} />
+        ) : sc.levers.minLot.on
+          ? fixedStops("Share of today's minimum", shareStops, Math.round(sc.levers.minLot.share * 100), (v) => (v === 0 ? "None" : `${v}% of today's`), (v) => setLevers({ minLot: { on: true, share: v / 100 } }))
+          : <p className="es-fsec-hint pol-pad0">Setting: no minimum (the only setting computed for this submission).</p>}
       </div>
       <div className={`pol-lever${sc.levers.parking !== "current" ? " is-on" : ""}`}>
         <Segmented label="Parking minimums" size="sm" value={sc.levers.parking} onChange={(v) => setLevers({ parking: v })}
-          options={[{ value: "current", label: "Current" }, { value: "transit", label: "None near transit", title: "No minimum within ¼ mile of a frequent-transit stop" }, { value: "none", label: "Eliminated" }]} />
+          options={([
+            { value: "current", label: "Current" },
+            { value: "transit", label: "None near transit", title: "No minimum within ¼ mile of a frequent-transit stop" },
+            { value: "none", label: "Eliminated", title: "No parking minimums anywhere" },
+          ] as const).map((o) => (o.value === sc.levers.parking || o.value === "current" || computed(keyWith({ parking: o.value }))
+            ? o : { ...o, disabled: true, title: `${o.title} · ${NC}` }))} />
+        {(["transit", "none"] as const).some((v) => v !== sc.levers.parking && !computed(keyWith({ parking: v })))
+          ? <p className="es-fsec-hint">Greyed options are not computed for this submission with the levers now on.</p> : null}
+        <p className="es-fsec-hint">{PARKING_NOTE}</p>
       </div>
       <div className={`pol-lever${sc.levers.adu ? " is-on" : ""}`}>
         <Switch label="ADUs by right" checked={sc.levers.adu} onChange={(v) => setLevers({ adu: v })}
-          hint={`One backyard home up to ${ADU_RULES.maxFloorAreaSf} sq ft beside a detached house (R1D, R1A, R2, R3, RM). Scenario ADU rules; our zoning table has none.`} />
+          disabled={!sc.levers.adu && !computed(keyWith({ adu: true }))}
+          hint={<>{`One backyard home up to ${ADU_RULES.maxFloorAreaSf} sq ft beside a detached house (R1D, R1A, R2, R3, RM). Scenario ADU rules; our zoning table has none.`}{ncHint(sc.levers.adu, { adu: true })}</>} />
       </div>
       <div className={`pol-lever${sc.levers.contextual ? " is-on" : ""}`}>
         <Switch label="Contextual front setback" checked={sc.levers.contextual} onChange={(v) => setLevers({ contextual: v })}
-          hint={`Front setback = the neighbors' average, by right (assumed ${CONTEXTUAL_FRONT_FT} ft; neighbors are not measured)`} />
+          disabled={!sc.levers.contextual && !computed(keyWith({ contextual: true }))}
+          hint={<>{`Front setback = the neighbors' average, by right (assumed ${CONTEXTUAL_FRONT_FT} ft; neighbors are not measured)`}{ncHint(sc.levers.contextual, { contextual: true })}</>} />
       </div>
       <div className={`pol-lever${sc.levers.height ? " is-on" : ""}`}>
         <Switch label="One more story" checked={sc.levers.height} onChange={(v) => setLevers({ height: v })}
-          hint={`+${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft on today's height limit in residential districts`} />
+          disabled={!sc.levers.height && !computed(keyWith({ height: true }))}
+          hint={<>{`+${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft on today's height limit in residential districts`}{ncHint(sc.levers.height, { height: true })}</>} />
       </div>
       <div className={`pol-lever${sc.levers.matchBlock ? " is-on" : ""}`}>
         <Switch label="Match the block" checked={!!sc.levers.matchBlock} onChange={(v) => setLevers({ matchBlock: v })}
-          hint={`New buildings matching the block's measured pattern (front line within ${MATCH_BLOCK.frontToleranceFt} ft, side yards, lot size) approved administratively`} />
+          disabled={!sc.levers.matchBlock && !computed(keyWith({ matchBlock: true }))}
+          hint={<>{`New buildings matching the block's measured pattern (front line within ${MATCH_BLOCK.frontToleranceFt} ft, side yards, lot size) approved administratively`}{ncHint(!!sc.levers.matchBlock, { matchBlock: true })}</>} />
       </div>
       <div className={`pol-lever${sc.abatement.on ? " is-on" : ""}`}>
         <Switch label="Tax abatement for new homes" checked={sc.abatement.on} onChange={(v) => setSc((s) => ({ ...s, abatement: { ...s.abatement, on: v } }))}
@@ -294,7 +369,6 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     </FilterRail>
   );
 
-  const doneKeys = new Set(allStates.filter((x) => x.status === "done").map((x) => x.key));
   // Presets whose state is finished; while the batch is still finishing them, the five it precomputes.
   const donePresets = PRESETS.filter((p) => doneKeys.has(p.value));
   const computedPresets = donePresets.length ? donePresets : PRESETS.slice(0, 5);
@@ -321,7 +395,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           <div className="pol-banner" role="status" aria-live="polite">
             {NOT_COMPUTED_NOTE[key]
               ? <><strong>{NOT_COMPUTED_NOTE[key]}</strong> {key === "cs" ? LEVER_METHOD.contextual : key === "h1" ? LEVER_METHOD.height : key === "mb" ? <MatchBlockScreen /> : ""}</>
-              : <strong>Not precomputed for this demo — try a preset.</strong>}
+              : <strong>Not computed for this submission — pick a computed scenario.</strong>}
             {computedPresets.length ? (
               <span className="pol-presetlinks"> {donePresets.length ? "Computed" : "Precomputed scenarios"}: {computedPresets.map((p, i) => (
                 <span key={p.value}>{i ? " · " : ""}<button type="button" className="pol-linkbtn" onClick={() => onPreset(p.value)}>{p.label}</button></span>
@@ -337,23 +411,27 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           </div>
         ) : null}
 
+        {packetMsg ? <p className="pol-banner pol-packet-msg" role="status" aria-live="polite">{packetMsg}</p> : null}
+        {earlier ? <p className="pol-banner pol-earlier"><strong>Run note.</strong> {earlier}</p> : null}
+        {finished && summary && summary.homes === 0 && sc.levers.attached.on && active.length === 1 ? <p className="pol-banner"><strong>This lever alone adds no homes at 35 ft.</strong> {ATTACHED_ALONE_NOTE}</p> : null}
+
         <section className="pol-headline" aria-label="Outcome">
           <StatCard variant="band" label="More homes allowed by right" receipt={<ReceiptButton receipts={rHomes} />}
-            value={h ? <RangeValue value={h} size="lg" signed /> : <span className="pol-dash">—</span>}
+            value={h ? <RangeValue value={h} size="lg" signed each /> : <span className="pol-dash">—</span>}
             sub={active.length ? "vs. today’s code" : "no rule change"} />
           <StatCard variant="band" label="Parcels newly buildable by right" receipt={<ReceiptButton receipts={rNewly} />}
-            value={nb ? <RangeValue value={nb} size="lg" /> : <span className="pol-dash">—</span>}
+            value={nb ? <RangeValue value={nb} size="lg" each /> : <span className="pol-dash">—</span>}
             sub={summary ? `of ${summary.eligible.toLocaleString()} parcels a lever applies to` : " "} />
           <StatCard variant="band" label="Likely to pencil at today’s prices" receipt={rPencil.length ? <ReceiptButton receipts={rPencil} /> : undefined}
-            value={summary ? <RangeValue value={summary.homes_pencil} size="lg" /> : <span className="pol-dash">—</span>}
+            value={summary ? <RangeValue value={summary.homes_pencil} size="lg" each /> : <span className="pol-dash">—</span>}
             sub="homes · capacity is not production" />
           <StatCard variant="band" label="New tax revenue at build-out" receipt={rTax.length ? <ReceiptButton receipts={rTax} /> : undefined}
-            value={fis ? <RangeValue value={fis.total} format="money" size="lg" /> : summary ? <span className="pol-dash">Millage not loaded</span> : <span className="pol-dash">—</span>}
-            sub={fis ? <>{fis.abatement ? `per year after the abatement; ${formatRange(fis.abatementTotal, { format: "money" })}/yr forgone while it runs` : "per year, all taxing bodies"}{hiddenLikely(fis.total) ? ` · likely about ${fmtMoney(roundSig(fis.total.likely))}` : ""}</> : " "} />
+            value={fis ? <RangeValue value={fis.total} format="money" size="lg" each /> : summary ? <span className="pol-dash">Millage not loaded</span> : <span className="pol-dash">—</span>}
+            sub={fis ? <>{fis.abatement ? `per year after the abatement; ${formatRange(fis.abatementTotal, { format: "money", each: true, likely: true })}/yr forgone while it runs` : "per year, all taxing bodies"}{hiddenLikely(fis.total) ? ` · likely about ${fmtMoney(roundSig(fis.total.likely))}` : ""}</> : " "} />
         </section>
 
         {/* One polite announcement per result change (lever, slider or scenario), read from the headline numbers. */}
-        <p className="es-sr" role="status">{summary && h && nb ? `Results updated. More homes allowed by right: ${formatRange(h)}. Parcels newly buildable: ${formatRange(nb)}. Likely to pencil: ${formatRange(summary.homes_pencil)} homes.` : ""}</p>
+        <p className="es-sr" role="status">{summary && h && nb ? `Results updated. More homes allowed by right: ${formatRange(h, { each: true, likely: true })}. Parcels newly buildable: ${formatRange(nb, { each: true, likely: true })}. Likely to pencil: ${formatRange(summary.homes_pencil, { each: true, likely: true })} homes.` : ""}</p>
 
         <div className="pol-viewbar">
           <Segmented<"map" | "table"> label="View" size="sm" value={tableView ? "table" : "map"}
@@ -363,7 +441,8 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         </div>
         {tableView ? null : (
           <div className="pol-mapwrap">
-            <PolicyMap points={points} loading={key !== "base" && pts?.key !== key} levers={[...new Set(points.map((p) => p[4]))]} />
+            <PolicyMap points={points} loading={key !== "base" && pts?.key !== key} levers={[...new Set(points.map((p) => p[4]))]}
+              total={summary?.parcels_gaining ?? null} uncomputed={key !== "base" && !summary && st !== placeholder && st.status !== "running"} />
           </div>
         )}
 
@@ -383,12 +462,12 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         <div className="pol-panel" role="tabpanel" id={`pol-panel-${tab}`} aria-labelledby={`pol-tab-${tab}`} tabIndex={-1}>
           <h2 className="es-sr">{TABS.find((t) => t.id === tab)?.label}</h2>
           {!summary && key !== "base" ? (["missing", "cancelled", "failed"].includes(st.status) && st !== placeholder
-            ? <EmptyState title="Not computed for this demo">Pick a precomputed scenario from the Scenario menu or the list above.</EmptyState>
+            ? <EmptyState title="Not computed for this submission">Pick a computed scenario from the Scenario menu or the list above.</EmptyState>
             : <EmptyState title="Results are still being computed" tone="pending">The first parcels appear here within a minute or two.</EmptyState>) : null}
-          {summary && tab === "where" ? <WhereTab summary={summary} flags={flags} places={places} highlight={selection.neighborhood ?? null} /> : null}
+          {summary && tab === "where" ? <WhereTab summary={summary} flags={flags} places={places} highlight={selection.neighborhood ?? null} adu={sc.levers.adu} /> : null}
           {tab === "who" ? <WhoTab flags={flags} who={who} computing={!finished} /> : null}
           {summary && tab === "fiscal" ? <FiscalTab summary={summary} fis={fis} meta={meta} /> : null}
-          {tab === "method" ? <MethodTab meta={meta} levers={sc.levers} summary={summary} /> : null}
+          {tab === "method" ? <MethodTab meta={meta} levers={sc.levers} summary={summary} earlier={earlier} /> : null}
         </div>
       </div>
       {goalOpen ? (

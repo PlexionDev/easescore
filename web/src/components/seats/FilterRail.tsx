@@ -92,7 +92,7 @@ export function Switch({ label, checked, onChange, hint, disabled, hideLabel = f
  */
 export function Segmented<T extends string>({ label, options, value, onChange, hideLabel = false, size = "md", tone = "light" }: {
   label: string;
-  options: readonly { value: T; label: ReactNode; title?: string }[];
+  options: readonly { value: T; label: ReactNode; title?: string; disabled?: boolean }[];
   value: T;
   onChange: (v: T) => void;
   hideLabel?: boolean;
@@ -111,6 +111,10 @@ export function Segmented<T extends string>({ label, options, value, onChange, h
     else if (e.key === "End") n = options.length - 1;
     if (n < 0) return;
     e.preventDefault();
+    // Skip disabled options in the arrow direction.
+    const dir = e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "End" ? -1 : 1;
+    for (let k = 0; k < options.length && options[n]?.disabled; k++) n = (n + dir + options.length) % options.length;
+    if (options[n]?.disabled || n === idx) return;
     onChange(options[n]!.value);
     refs.current[n]?.focus();
   };
@@ -129,8 +133,9 @@ export function Segmented<T extends string>({ label, options, value, onChange, h
               aria-checked={on}
               tabIndex={on ? 0 : -1}
               title={o.title}
+              disabled={o.disabled}
               className={on ? "on" : undefined}
-              onClick={() => onChange(o.value)}
+              onClick={() => { if (!o.disabled) onChange(o.value); }}
             >
               {o.label}
             </button>

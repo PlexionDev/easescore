@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { formatRange, fmtMoney } from "@/components/seats/format";
-import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
+import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, policyStates, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
 import {
-  concentration, fiscal, homesRange, leverSentence, leverComboLabel, LEVER_METHOD, newlyRange, scenarioFromQuery, stateKey, TRANSIT_M,
+  ATTACHED_ALONE_NOTE, activeLevers, concentration, earlierRunNote, fiscal, fullRunSize, homesRange, leverSentence, leverComboLabel, LEVER_METHOD, newlyRange, PARKING_NOTE, scenarioFromQuery, stateKey, TRANSIT_M,
 } from "@/lib/policy/model";
 import "./packet.css";
 
@@ -46,7 +46,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
   const key = stateKey(sc.levers);
   const name = typeof sp.name === "string" ? sp.name.slice(0, 80) : "";
   const date = typeof sp.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : new Date().toISOString().slice(0, 10);
-  const [meta, st, points, outline, places] = await Promise.all([policyMeta(), policyState(key), policyPoints(key), hoodOutlines(), storedContext(key).then((c) => c?.places ?? policyPlaces(key))]);
+  const [meta, st, points, outline, places, states] = await Promise.all([policyMeta(), policyState(key), policyPoints(key), hoodOutlines(), storedContext(key).then((c) => c?.places ?? policyPlaces(key)), policyStates()]);
   const s = st.summary;
   const title = name || "Rule change";
   if (!s) {
@@ -59,7 +59,12 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
   }
   const fis = fiscal(s, meta, sc.abatement, places);
   const h = homesRange(s), nb = newlyRange(s);
-  const fr = (r: { low: number; likely: number; high: number }, money = false) => formatRange(r, { format: money ? "money" : "count" });
+  // Every range carries its central estimate, each value rounded to two significant figures on its own.
+  const fr = (r: { low: number; likely: number; high: number }, money = false) => formatRange(r, { format: money ? "money" : "count", each: true, likely: true });
+  const fr1 = (r: { low: number; likely: number; high: number }, money = false) => formatRange(r, { format: money ? "money" : "count", each: true });
+  const likelyOf = (r: { low: number; likely: number; high: number }, money = false) => formatRange({ low: r.likely, likely: r.likely, high: r.likely }, { format: money ? "money" : "count", each: true });
+  const earlier = earlierRunNote(s, fullRunSize(states));
+  const adu = sc.levers.adu;
   const conc = concentration(s);
   const hoods = [...s.by_neighborhood].sort((a, b) => b.homes - a.homes);
   const maxHomes = Math.max(1, ...hoods.map((x) => x.homes));
@@ -73,11 +78,18 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
         <h1>{title}</h1>
         <p className="lede"><b>Proposed change:</b> {leverSentence(sc.levers)}.</p>
         {partial ? <p><b>Partial results:</b> computed for {st.done} of {st.total} parcel batches when this packet was made; totals will grow.</p> : null}
+        {earlier ? <p><b>Run note:</b> {earlier}</p> : null}
         <p className="lede">
-          The change would allow about <b>{fr(h)}</b> more homes by right on <b>{fr(nb)}</b> parcels that cannot take a home by right today
-          (and more on lots that already can). Of the added homes, <b>{fr(s.homes_pencil)}</b> plausibly pencil at today’s prices.
-          At full build-out of homes that pencil, the taxing bodies would collect <b>{fis ? fr(fis.total, true) : "—"}</b> more per year.
+          The change would allow <b>likely {likelyOf(h)}</b> more homes by right (range {fr1(h)}) on up to <b>{s.parcels_gaining.toLocaleString()}</b> parcels that gain capacity.
+          Most of those parcels can already take a home by right today; <b>{fr(nb)}</b> of them cannot and would become buildable by right.
+          Of the added homes, <b>likely {likelyOf(s.homes_pencil)}</b> (range {fr1(s.homes_pencil)}) plausibly pencil at today’s prices.
+          At full build-out of homes that pencil, the taxing bodies would collect <b>likely {fis ? likelyOf(fis.total, true) : "—"}</b> more per year (range {fis ? fr1(fis.total, true) : "—"}).
         </p>
+        <p className="fine">
+          Why the ranges are wide: the high end of homes counts every home the fit test finds, {adu ? "one ADU on every eligible lot, even where the footprint check fails" : "including townhouse rows that need a lot split (subdivision) first"}; the low end counts {adu ? "only lots that pass the footprint check" : "only homes that need no split"}; likely adds split homes only where the scheme pencils at high prices.
+          Pencils and revenue run from low-quartile prices with high costs (low) to high-quartile prices with low costs (high).
+        </p>
+        {s.homes === 0 && sc.levers.attached.on && activeLevers(sc.levers).length === 1 ? <p><b>This lever alone adds no homes at 35 ft.</b> {ATTACHED_ALONE_NOTE}</p> : null}
         <h2>New annual revenue by taxing body</h2>
         {fis ? (
           <table>
@@ -90,7 +102,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
                   <td className="n">{fis.abatement ? (r.breakEvenYear ? `year ${r.breakEvenYear}` : "—") : "n/a"}</td>
                 </tr>
               ))}
-              <tr className="tot"><td>All bodies</td><td className="n">{Math.round(fis.totalMills * 100) / 100}</td><td className="n">{fr(s.av_delta, true)}</td><td className="n">{fr(fis.total, true)}</td><td className="n">{fis.abatement ? fr(fis.abatementTotal, true) : "none"}</td><td /></tr>
+              <tr className="tot"><td>All bodies</td><td className="n">{Math.round(fis.totalMills * 100) / 100} ({fis.millsParts})</td><td className="n">{fr(s.av_delta, true)}</td><td className="n">{fr(fis.total, true)}</td><td className="n">{fis.abatement ? fr(fis.abatementTotal, true) : "none"}</td><td /></tr>
               <tr><td>Doing nothing</td><td className="n" colSpan={2}>lots keep today’s assessed value</td><td className="n">$0 new</td><td className="n" colSpan={2}>{fmtMoney(fis.doingNothing)}/yr paid today on these lots</td></tr>
             </tbody>
           </table>
@@ -118,20 +130,24 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
         <DotMap outline={outline} points={points} />
         <p className="fine">
           {Object.entries(DOT).filter(([k]) => points.some((p) => p[4] === k)).map(([k, c]) => <span key={k} className="key"><i style={{ background: c }} />{leverComboLabel(k)}</span>)}
-          One dot per parcel that gains homes ({points.length.toLocaleString()}); larger dots gain more. Lines are City neighborhood boundaries.
+          {points.length < s.parcels_gaining
+            ? `Showing ${points.length.toLocaleString()} of ${s.parcels_gaining.toLocaleString()} parcels that gain homes (an even sample across the City); larger dots gain more.`
+            : `One dot per parcel that gains homes (${points.length.toLocaleString()}); larger dots gain more.`} Lines are City neighborhood boundaries.
         </p>
         <h2>Where the new capacity lands</h2>
         {conc.top.length >= 5 ? <p>{Math.round(conc.share * 100)}% of the new capacity falls in 5 neighborhoods: {conc.top.map((x) => x.neighborhood).join(", ")}.</p> : null}
         <table>
-          <thead><tr><th>Neighborhood</th><th className="n">Parcels gaining</th><th className="n">Newly buildable</th><th className="n">Homes added</th><th className="n">Pencil (likely)</th><th className="n">Pencil (high prices)</th><th style={{ width: "22%" }}>&nbsp;</th></tr></thead>
+          <thead><tr><th>Neighborhood</th><th className="n">Parcels gaining</th><th className="n">Newly buildable</th><th className="n">Homes, low end ({adu ? "footprint passes" : "no lot split"})</th><th className="n">Homes, upper bound ({adu ? "every eligible lot" : "assumes lot splits"})</th><th className="n">Pencil (likely)</th><th className="n">Pencil (high prices)</th><th style={{ width: "22%" }}>&nbsp;</th></tr></thead>
           <tbody>
             {hoods.slice(0, 10).map((x) => (
-              <tr key={x.neighborhood}><td>{x.neighborhood}</td><td className="n">{x.parcels.toLocaleString()}</td><td className="n">{x.newly.toLocaleString()}</td><td className="n">{x.homes.toLocaleString()}</td><td className="n">{(x.homes_pencil ?? 0).toLocaleString()}</td><td className="n">{x.homes_pencil_high != null ? x.homes_pencil_high.toLocaleString() : "—"}</td>
+              <tr key={x.neighborhood}><td>{x.neighborhood}</td><td className="n">{x.parcels.toLocaleString()}</td><td className="n">{x.newly.toLocaleString()}</td><td className="n">{x.homes_no_split != null ? x.homes_no_split.toLocaleString() : "—"}</td><td className="n">{x.homes.toLocaleString()}</td><td className="n">{(x.homes_pencil ?? 0).toLocaleString()}</td><td className="n">{x.homes_pencil_high != null ? x.homes_pencil_high.toLocaleString() : "—"}</td>
                 <td><span className="bar" style={{ width: `${(100 * x.homes) / maxHomes}%` }} /></td></tr>
             ))}
           </tbody>
         </table>
-        {hoods.length > 10 ? <p className="fine">Top 10 of {hoods.length} neighborhoods. The CSV export lists every parcel that gains homes.</p> : null}
+        <p className="fine">
+          {hoods.length > 10 ? `Top 10 of ${hoods.length} neighborhoods. ` : ""}These columns are the two ends of the headline range, not the likely figure: the upper bound sums to {s.homes.toLocaleString()}, the low end to {(s.homes_no_split ?? s.homes).toLocaleString()}; the likely figure ({(s.homes_mid ?? s.homes).toLocaleString()}) is not stored per neighborhood. The CSV export lists every parcel that gains homes.
+        </p>
       </section>
 
       {/* ------------------------------------------------------------ page 3: assumptions, sources, limits */}
@@ -145,6 +161,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
           {sc.levers.height ? <li><b>Height.</b> {LEVER_METHOD.height}</li> : null}
           <li><b>Capacity.</b> The lot-fit test (QuickFit) reruns with the changed rules for single-family, duplex, 3–4 unit and townhouse-row options; homes allowed by right = the most homes an option fits with the use permitted and no variance. Range: low counts only homes that need no lot split (for ADUs, only lots that pass the footprint check); likely adds homes that need a split where the scheme pencils at high prices; high is every home the fit test finds.</li>
           <li><b>Pencil test.</b> Sale value = nearby new-construction price per finished sq ft × finished area. Cost = ${meta?.cost_basis.costPsf.high}–${meta?.cost_basis.costPsf.low} per sq ft construction × gross area × (1 + soft costs + {Math.round((meta?.cost_basis.contingencyShare ?? 0) * 100)}% contingency) + the lot at assessed value. Pencils at a margin of at least {Math.round((meta?.cost_basis.minMargin ?? 0) * 100)}% after {Math.round((meta?.cost_basis.brokerShare ?? 0) * 100)}% selling costs.</li>
+          <li><b>Parking.</b> {PARKING_NOTE}</li>
           <li><b>Fiscal.</b> Added assessed value × millage for each taxing body, at full build-out of homes that pencil.</li>
         </ol>
         <h2>Sources and data dates</h2>
@@ -157,7 +174,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
             <tr><td>Construction and soft costs</td><td>EaseScore.AI cost assumptions v0.1 (Pittsburgh builder published ranges; labeled assumptions)</td><td>2026</td></tr>
             <tr><td>Millage</td><td>Allegheny County Treasurer published millage listings ({(meta?.millage ?? []).map((m) => `${m.name.replace(/^PITTSBURGH$/, "Pittsburgh Public Schools")} ${m.mills}`).join("; ")})</td><td>{meta?.millage?.[0]?.year ?? "—"}</td></tr>
             <tr><td>Frequent transit</td><td>Pittsburgh Regional Transit GTFS (weekday 7–9 am)</td><td>current feed</td></tr>
-            <tr><td>Results</td><td>EaseScore.AI policy batch ({meta?.policy_version})</td><td>{s.computed_at?.slice(0, 10) ?? "—"}</td></tr>
+            <tr><td>Results</td><td>EaseScore.AI policy batch ({st.config_version ?? meta?.policy_version}{s.parcels_seen ? `; ${s.parcels_seen.toLocaleString()} parcels fit-tested` : ""}{earlier ? "; earlier partial run" : ""})</td><td>{s.computed_at?.slice(0, 10) ?? "—"}</td></tr>
           </tbody>
         </table>
         <h2>Limitations</h2>

@@ -145,6 +145,8 @@ export interface Fiscal {
   /** Tax the lots that gain homes pay today on their current assessed value (per year, all bodies). */
   doingNothing: number;
   totalMills: number;
+  /** What totalMills adds up, e.g. "Allegheny County 6.43 + City of Pittsburgh 9.67 + Pittsburgh Public Schools 10.25". */
+  millsParts: string;
   abatement: Abatement | null;
 }
 
@@ -180,9 +182,11 @@ export function fiscal(s: Summary, meta: PolicyMeta | null, abate: Scenario["aba
   });
   const mainSchool = schoolRows[0]?.body.mills ?? bodies.find((b) => b.id === "school")?.mills ?? 0;
   const totalMills = general.reduce((t, b) => t + b.mills, 0) + mainSchool;
+  const mainSchoolName = schoolRows[0]?.body.name ?? bodies.find((b) => b.id === "school")?.name;
+  const millsParts = [...general.map((b) => `${b.name} ${b.mills}`), ...(mainSchoolName ? [`${mainSchoolName} ${mainSchool}`] : [])].join(" + ");
   return {
     rows, av, total: sum((r) => r.revenue), abatementTotal: sum((r) => r.abatementPerYear),
-    doingNothing: annualTax(s.av_before_gaining, totalMills), totalMills, abatement: ab,
+    doingNothing: annualTax(s.av_before_gaining, totalMills), totalMills, millsParts, abatement: ab,
   };
 }
 
@@ -273,11 +277,37 @@ export const LEVER_METHOD = {
 } as const;
 
 /**
- * Lever states deliberately not computed for the demo, with why the result is expected to be about zero.
+ * Lever states deliberately not computed for this submission, with why the result is expected to be about zero.
  * Shown instead of a queue banner.
  */
 export const NOT_COMPUTED_NOTE: Record<string, string> = {
-  cs: "Not computed for this demo (expected ~0 extra homes by right because today's baseline already credits the contextual front setback wherever a lot needs it, so the lever mostly removes a step, not a limit).",
-  mb: "Not precomputed for this demo: homes unlocked need the rescoring batch (about 4 hours on the shared database).",
-  h1: "Not computed for this demo (expected ~0 extra homes by right because the lot-fit test's building types top out at three stories and residential districts already allow three).",
+  cs: "Not computed for this submission (expected ~0 extra homes by right because today's baseline already credits the contextual front setback wherever a lot needs it, so the lever mostly removes a step, not a limit).",
+  mb: "Not computed for this submission: homes unlocked need the rescoring batch (about 4 hours on the shared database).",
+  h1: "Not computed for this submission (expected ~0 extra homes by right because the lot-fit test's building types top out at three stories and residential districts already allow three).",
 };
+
+/**
+ * Why "Attached on narrow lots" (a35) alone adds no homes. Counts are from the stored a35 results
+ * (policy_results, 35,057 parcels): 25,297 fit no new home by right under today's lot-size rules and the
+ * other 9,760 fit one house but not the lot area per unit for a second. Today's code already permits
+ * single-unit attached homes by right on R1D lots up to 35 ft (engine/src/quickfit/rules.ts) and in R1A.
+ */
+export const ATTACHED_ALONE_NOTE =
+  "Why zero: on the narrow lots this lever reaches, the building type is not what limits homes. Today’s code already allows single-unit attached homes by right on R1D lots up to 35 ft wide (and in R1A); the minimum lot size and lot area per unit are the binding limits. Of the 35,057 lots it applies to, 25,297 fit no new home by right today and 9,760 fit one house but not the lot area for a second. Paired with no minimum lot size (the Starter homes scenario), attached homes add homes on about 510 parcels. This does not mean attached homes add nothing; it means this lever alone, at 35 ft, changes no limit that binds.";
+
+/** Parking is modeled as geometry only (Method tab, receipts, packet). */
+export const PARKING_NOTE =
+  "Parking is modeled only as whether the building and its required spaces fit on the lot, not as a cost: the pencil test carries no parking construction or land cost. Parking reform mostly works through cost and feasibility, so the effect shown is a lower bound.";
+
+/**
+ * Runs made before the full-City policy batch fit-tested far fewer parcels (the Starter homes state came from
+ * an earlier run: 36 batches, 21,497 parcels fit-tested vs 118,960 in the other scenarios). Returns a label,
+ * or null when this state's run matches the others. `ref` = the most parcels any computed state fit-tested.
+ */
+export function earlierRunNote(s: Summary | null, ref: number): string | null {
+  if (!s?.parcels_seen || !ref || s.parcels_seen >= 0.9 * ref) return null;
+  return `From an earlier partial run: ${s.parcels_seen.toLocaleString("en-US")} parcels fit-tested (${s.buckets ?? "batches"}), vs ${ref.toLocaleString("en-US")} in the other scenarios. Compare with them with care.`;
+}
+
+/** Most parcels any finished state fit-tested (reference for earlierRunNote). */
+export const fullRunSize = (states: PolicyState[]) => Math.max(0, ...states.filter((x) => x.status === "done").map((x) => x.summary?.parcels_seen ?? 0));
