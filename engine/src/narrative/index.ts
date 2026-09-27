@@ -13,6 +13,6 @@ export {
 } from "./summary";
 export { classifyPlan, pickPlans, defaultStrategy, type PlanPath } from "./plans";
 export {
-  buildApprovalsRecord, reconcileRequirements, countNoun, schemePhrase,
+  buildApprovalsRecord, reconcileRequirements, countNoun, schemePhrase, rawUseCode,
   type ApprovalsRecord, type ApprovalItem, type ApprovalType, type ApprovalTopic, type ApprovalPath, type ApprovalSchemeLike,
 } from "./approvals";

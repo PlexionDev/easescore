@@ -15,7 +15,7 @@ export type UsePath =
   | "unknown";
 
 /** How the building fits the dimensional rules (setbacks, height, lot size). */
-export type DimensionalFit = "fits" | "contextual" | "variance" | "unknown";
+export type DimensionalFit = "fits" | "contextual" | "variance" | "no_fit" | "unknown";
 
 export interface CostRange {
   low: number;

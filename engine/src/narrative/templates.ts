@@ -31,7 +31,13 @@ function costText(c: CostRange | null | undefined): string | null {
 
 function varianceText(items: string[] | undefined): string {
   const names = items && items.length ? items : ["size or setback rules"];
-  return `the ${list(names)} ${names.length > 1 ? "need" : "needs"} a ${term("variance")}`;
+  const plural = names.length > 1 || !(items && items.length);
+  return `the ${list(names)} ${plural ? "need" : "needs"} a ${term("variance")}`;
+}
+
+/** Nothing fits the lot under the size and setback rules (not the same as "needs a variance"). */
+function noFitText(): string {
+  return `no building fits this lot under the size and ${term("setback")} rules; a ${term("variance")} could be explored, but it is not a clear path`;
 }
 
 function grantText(f: NarrativeFacts): string {
@@ -55,13 +61,14 @@ export function canBuildSentence(f: NarrativeFacts): string {
     return `No, not as things stand: ${labels}, so ${use} is blocked unless that is resolved.`;
   }
 
-  const andVar = z.dimensional === "variance" ? `, and ${varianceText(z.varianceItems)}` : "";
+  const andVar = z.dimensional === "variance" ? `, and ${varianceText(z.varianceItems)}` : z.dimensional === "no_fit" ? `, and ${noFitText()}` : "";
   switch (z.use) {
     case "by_right": {
       const lead = `Yes, ${use} is allowed ${term("by right")}`;
       if (z.dimensional === "fits") return `${lead} and fits the lot's size and ${term("setback")} rules${tail}.`;
       if (z.dimensional === "contextual") return `${lead} if you use the ${term("contextual setback", "line-up-with-the-neighbors front setback")}${tail}.`;
       if (z.dimensional === "variance") return `${lead}, but ${varianceText(z.varianceItems)}${tail}.`;
+      if (z.dimensional === "no_fit") return `The use is allowed, but no building of this type fits after ${term("setback", "setbacks")}; a ${term("variance")} could be explored, but it is not a clear path.`;
       return `${lead}, but we could not check the size and ${term("setback")} rules${tail}.`;
     }
     case "special_exception":
@@ -199,6 +206,9 @@ export function barrierLines(f: NarrativeFacts): string[] {
       const names = z.varianceItems && z.varianceItems.length ? list(z.varianceItems) : "size or setback rules";
       out.push({ key: "zoning:variance", tier: 2, weight: 1, text: `A ${term("variance")} is needed for the ${names}${grantText(f)}.` });
     }
+    if (z.dimensional === "no_fit") {
+      out.push({ key: "zoning:no_fit", tier: 0, weight: 0, text: `No building fits the lot's size and ${term("setback")} rules; a ${term("variance")} could be explored, but it is not a clear path.` });
+    }
   }
 
   for (const r of f.requirements) {
@@ -245,6 +255,9 @@ export function nextStepLines(f: NarrativeFacts): string[] {
       const names = z.varianceItems && z.varianceItems.length ? list(z.varianceItems) : "size or setback rules";
       steps.push(`Apply to the Zoning Board for a ${term("variance")} on the ${names}.`);
     }
+    if (z.dimensional === "no_fit") {
+      steps.push(`Before paying for any design, ask City Planning whether a ${term("variance")} or combining with a neighboring lot could make a building fit; as the lot stands, there is no clear path.`);
+    }
   }
 
   // Decisive items only, ranked by decision impact (can it kill the project, how much can it cost);
@@ -254,6 +267,7 @@ export function nextStepLines(f: NarrativeFacts): string[] {
     if (r.status !== "REQUIRED" && r.status !== "LIKELY") continue;
     const impact = DECISION_IMPACT[r.id];
     if (impact === undefined || ROUTINE_REQUIREMENTS.has(r.id)) continue;
+    if (r.id === "variance" && z.dimensional === "no_fit") continue; // covered by the no-fit step above, which does not promise a variance
     const detail = [r.weeks != null ? weeks(r.weeks) : null, costText(r.cost)].filter(Boolean).join(", ");
     const from = r.issuer ? ` from ${r.issuer}` : "";
     ranked.push({ impact, cost: r.cost?.high ?? 0, key: r.id, text: `Get the ${maybeTerm(lc(trimDot(r.item)))}${from}${detail ? `: ${detail}` : ""}.` });

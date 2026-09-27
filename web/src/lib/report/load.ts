@@ -422,7 +422,20 @@ export async function loadReportHead(parid: string, sp: SP): Promise<ReportHead 
       });
       bestId = paneBestOf(res, plans) ?? bestId;
       // Sentence 1 describes the parcel page's best option (the option the study opens on).
-      const led = bestId && bestId !== plans.byRight?.strategy ? withSelected(plans, bestId, plans.options.find((o) => o.strategy === bestId)?.pf ?? null, true) : plans;
+      // One pro forma everywhere: the led option is priced by the page's full cost builder, as Section 9 and the Pro forma drawer are.
+      let pf = plans.options.find((o) => o.strategy === bestId)?.pf ?? null;
+      if (bestId) {
+        try {
+          const psp = pageQueryFromReport(sp);
+          const t = str(sp, "tenure");
+          const ov = { ...(t === "sale" || t === "rent" ? { tenure: t as "sale" | "rent" } : {}), ...readCostOverrides(psp) };
+          const pp = parcelPlan({ P, sp: psp, overrides: ov, strategy: bestId, qf: ((await quickfitFor(parid)) as never) ?? null });
+          if (pp.pf && pp.scheme) pf = pp.pf;
+        } catch {
+          // keep the comparison's own pro forma
+        }
+      }
+      const led = bestId ? withSelected(plans, bestId, pf, bestId !== plans.byRight?.strategy) : plans;
       summary = [...led.summary.sentences];
     } catch {
       summary = [];
@@ -600,6 +613,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     rulesCitation: facts.zoning?.rules?.citation?.split(";")[0]?.trim() || null,
     scheme: studied,
     closest: !scheme && !!closest,
+    useTable: (facts.zoning?.rules as Record<string, unknown> | null | undefined) ?? null,
   });
   const requirements = narrative.reconcileRequirements(evaluateRequirements(facts as unknown as ParcelFacts, project), approvals);
 
@@ -680,6 +694,8 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     }));
     // The summary's first sentence describes the studied option (the page's best option or the visitor's pick).
     plans = pagePlan && !ubPlan?.pf && cmp.byRight?.strategy !== pagePlan.strategy ? withSelected(cmp, pagePlan.strategy as easeEngine.StrategyId, pagePlan.pf, true) : cmp;
+    // One pro forma for the studied option in every section (summary, Table 4, Sections 7-9): the full cost builder above.
+    if (!ubPlan?.pf && scheme && plans.options.find((o) => o.strategy === proForma.plan.strategy)?.pf !== proForma) plans = withSelected(plans as typeof cmp, proForma.plan.strategy, proForma, false);
     // Same ranking as the parcel page: the pro forma's verdict per option (the page's own for the studied one).
     const pc = plans;
     const verdictOf = (x: assumptions.ProFormaResult | null | undefined, rehab: boolean): easeEngine.PencilState =>

@@ -95,7 +95,9 @@ export function zoningFromFit(
       ? "fits"
       : fit.status === "contextual"
         ? "contextual"
-        : "variance";
+        : fit.status === "no_fit"
+          ? "no_fit"
+          : "variance";
   return {
     district: opts.district ?? null,
     useLabel: opts.useLabel,

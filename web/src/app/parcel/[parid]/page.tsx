@@ -73,15 +73,18 @@ const USE_LABEL: Record<score.StrategyId, string> = {
 type Zba = { by_relief?: Record<string, score.ZbaReliefCounts> } | null;
 
 /** The zoning part of the four answers, read from the F1 factor the engine already computed. */
-function narrativeZoning(s: score.StrategyResult, district: string | null, municipality: string | null, zba: Zba): narrative.NarrativeZoning {
+function narrativeZoning(s: score.StrategyResult, district: string | null, municipality: string | null, zba: Zba, useTable?: Record<string, unknown> | null): narrative.NarrativeZoning {
   const f1 = s.factors.find((f) => f.id === "F1");
   const inp = (f1?.inputs ?? {}) as { lotOfRecordPath?: boolean; nonconforming?: boolean; permissionCode?: string | null; fitStatus?: string | null; varianceRules?: string[]; grantRate?: number };
   const base = { district, useLabel: USE_LABEL[s.strategy], units: s.units, municipality: municipality ?? "the municipality" };
   if (!f1 || f1.subscore == null) return { ...base, use: "unknown", dimensional: "unknown", municipality: district ? "City zoning staff" : base.municipality };
-  const use: narrative.UsePath = inp.lotOfRecordPath ? "administrator_exception" : inp.nonconforming ? "by_right" : narrative.usePathFromPermission(inp.permissionCode as Parameters<typeof narrative.usePathFromPermission>[0]);
+  const use0: narrative.UsePath = inp.lotOfRecordPath ? "administrator_exception" : inp.nonconforming ? "by_right" : narrative.usePathFromPermission(inp.permissionCode as Parameters<typeof narrative.usePathFromPermission>[0]);
+  // The zoning table's "A" (administrator exception, no hearing) reaches the solver as "S": read it back.
+  const typology = s.strategy === "new_sf" ? "single_family" : s.strategy === "duplex" || s.strategy === "townhouse_row" ? s.strategy : undefined;
+  const use: narrative.UsePath = use0 === "special_exception" && narrative.rawUseCode(useTable, typology) === "A" ? "administrator_exception" : use0;
   const fit = inp.fitStatus ?? null;
   const dimensional: narrative.DimensionalFit = inp.lotOfRecordPath || fit === "existing" || fit === "by_right" ? "fits"
-    : fit === "contextual" ? "contextual" : fit === "variance" || fit === "no_fit" ? "variance" : "unknown";
+    : fit === "contextual" ? "contextual" : fit === "variance" ? "variance" : fit === "no_fit" ? "no_fit" : "unknown";
   // Quote the Zoning Board record only when the engine used it (enough decided cases), never the default rate.
   const c = zba?.by_relief?.[score.DEFAULT_CONFIG.f1.zba.dimensionalReliefType];
   const decided = (c?.granted ?? 0) + (c?.denied ?? 0);
@@ -305,7 +308,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         parid, proForma: pf?.narrative ?? null, requirements: reqs,
         // Callout titles read "Review required: X"; the answers list X alone.
         result: { ...selected, reviewCallouts: selected.reviewCallouts.map((c) => ({ ...c, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()) })) },
-        zoning: narrativeZoning(selected, score.isCityParcel(f) ? f.zoning?.code ?? null : null, f.context?.municipality ?? f.assessment?.municipality ?? null, zba),
+        zoning: narrativeZoning(selected, score.isCityParcel(f) ? f.zoning?.code ?? null : null, f.context?.municipality ?? f.assessment?.municipality ?? null, zba, (f.zoning?.rules as Record<string, unknown> | null | undefined) ?? null),
       }));
     } catch {
       answers = null;
@@ -343,6 +346,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const results = narrative.reconcileRequirements(evaluateRequirements(f, checklistProject), narrative.buildApprovalsRecord({
     zoningLoaded: score.zoningLoaded(f) && !ubPlan?.pf, municipality: f.assessment?.municipality ?? null, district: f.zoning?.code ?? null,
     rulesCitation: f.zoning?.rules?.citation?.split(";")[0]?.trim() || null, scheme: plan?.scheme ?? null,
+    useTable: (f.zoning?.rules as Record<string, unknown> | null | undefined) ?? null,
   }));
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   // County recorded lot area vs the mapped parcel outline: more than 25% apart is a survey question first.

@@ -126,7 +126,10 @@ export function scoreSentence(s: Strategy): string | null {
     F1: "zoning approvals needed", F2: "steep ground", F3: hz.length ? `mapped hazards (${hz.slice(0, 2).join(", ")})` : "mapped hazards",
     F4: "limited street access or utilities", F5: "a long approval path", F6: "title or lot readiness issues", F7: null,
   };
-  const weak = s.factors.filter((f) => f.id !== "F7" && f.subscore != null && f.subscore < 70).sort((a, b) => a.subscore! - b.subscore!).map((f) => PHRASE[f.id]).filter(Boolean).slice(0, 2);
+  // Nothing fits the lot (even with setback relief): that is the real constraint, not "approvals needed".
+  const noFit = (s.factors.find((f) => f.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus === "no_fit";
+  const weak = s.factors.filter((f) => f.id !== "F7" && !(noFit && f.id === "F1") && f.subscore != null && f.subscore < 70).sort((a, b) => a.subscore! - b.subscore!).map((f) => PHRASE[f.id]).filter(Boolean).slice(0, 2);
+  if (noFit) return `No building fits the lot's size and setbacks.${weak.length ? ` Also: ${weak.join(" and ")}.` : ""}`;
   return weak.length ? `Main constraint${weak.length > 1 ? "s" : ""}: ${weak.join(" and ")}.` : "No major site constraints in our data.";
 }
 

@@ -6,6 +6,8 @@
 /** The scheme fields the record reads (QuickFit v1 scheme shape, which the v2 adapter also emits). */
 export interface ApprovalSchemeLike {
   typologyLabel: string;
+  /** QuickFit typology id (single_family, duplex, townhouse_row, stacked_3), to read the raw use table. */
+  typology?: string;
   units: number;
   byRight: boolean;
   permission: { code: string | null; use: string };
@@ -137,6 +139,14 @@ function joinAnd(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
+/** The zoning table's own code for a typology's use (the solver has no "A" and reads it as "S"). */
+export function rawUseCode(t: Record<string, unknown> | null | undefined, typology: string | undefined): string | null {
+  if (!t || !typology) return null;
+  if (typology === "townhouse_row") return t.single_unit_attached === "A" || (t.single_unit_attached !== "S" && t.attached_wider_lot_permission === "A") ? "A" : null;
+  const col = typology === "single_family" ? "single_unit_detached" : typology === "duplex" ? "two_unit" : typology === "stacked_3" ? "three_unit" : null;
+  return col && typeof t[col] === "string" ? (t[col] as string) : null;
+}
+
 export function buildApprovalsRecord(a: {
   zoningLoaded: boolean;
   municipality?: string | null;
@@ -146,6 +156,8 @@ export function buildApprovalsRecord(a: {
   scheme: ApprovalSchemeLike | null;
   /** True when `scheme` is the closest layout tried (nothing fit as studied). */
   closest?: boolean;
+  /** The raw zoning_rules row: its "A" (administrator exception) reaches the solver as "S", so it is read back here. */
+  useTable?: Record<string, unknown> | null;
 }): ApprovalsRecord {
   const district = a.district ?? null;
   const municipality = a.municipality ?? null;
@@ -178,7 +190,7 @@ export function buildApprovalsRecord(a: {
     };
   }
 
-  const code = s.permission.code;
+  const code = s.permission.code === "S" && rawUseCode(a.useTable, s.typology) === "A" ? "A" : s.permission.code;
   const items: ApprovalItem[] = [];
   const ui = useItem(code, s.permission.use);
   if (ui) items.push(ui);
@@ -212,11 +224,15 @@ export function buildApprovalsRecord(a: {
 
   const lead = a.closest ? `No layout fits as studied; the closest one tried (${phrase})` : `The studied layout (${phrase})`;
   const fit = dimensional.length
-    ? `Not without relief. ${lead} breaks the ${joinAnd([...new Set(dimensional.map((d) => TOPIC_WORD[d.topic]))])} rule${dimensional.length === 1 ? "" : "s"}.`
+    ? a.closest
+      ? `No. No building fits this lot under the size and setback rules as studied; the closest layout tried (${phrase}) breaks the ${joinAnd([...new Set(dimensional.map((d) => TOPIC_WORD[d.topic]))])} rule${dimensional.length === 1 ? "" : "s"}.`
+      : `Not without relief. ${lead} breaks the ${joinAnd([...new Set(dimensional.map((d) => TOPIC_WORD[d.topic]))])} rule${dimensional.length === 1 ? "" : "s"}.`
     : a.closest ? `No. ${lead} still needs relief for the use.`
       : `Yes. ${lead} fits the setbacks, height, lot-size and parking rules.`;
 
-  const approval = items.length
+  const approval = a.closest && dimensional.length
+    ? `No clear path: ${joinAnd(items.map((i) => (i.type === "variance" ? `a variance for ${TOPIC_WORD[i.topic]}` : i.type === "special_exception" ? "a special exception for the use" : TYPE_NOUN[i.type])))} could be explored for the closest layout, but it is not a clear path.`
+    : items.length
     ? `${cap(joinAnd(items.map((i) => (i.type === "variance" ? `a variance for ${TOPIC_WORD[i.topic]}` : i.type === "special_exception" ? "a special exception for the use" : TYPE_NOUN[i.type]))))}${items.some((i) => i.body.startsWith("Zoning Board")) ? ", decided at a Zoning Board of Adjustment hearing" : ""}.`
     : "None for zoning: it is allowed by right. Building and other permits are still needed (Section 5).";
 
@@ -263,7 +279,9 @@ export function reconcileRequirements<R extends RequirementLike>(reqs: R[], rec:
     }
     if (r.id === "special_exception") {
       const v = rec.items.filter((i) => i.type === "special_exception" || i.type === "admin_exception");
-      if (v.length) return { ...r, status: v.some((i) => i.type === "special_exception") ? "REQUIRED" : "LIKELY", reasons: req(v).map((x, k) => ({ ...x, status: v[k]!.type === "special_exception" ? "REQUIRED" : "LIKELY" })) };
+      // An administrator exception alone is the Zoning Administrator's call (no hearing), not the Zoning Board's.
+      const adminOnly = v.length > 0 && v.every((i) => i.type === "admin_exception");
+      if (v.length) return { ...r, ...(adminOnly ? { item: "Administrator exception", issuer: "Zoning Administrator (no hearing)" } : {}), status: v.some((i) => i.type === "special_exception") ? "REQUIRED" : "LIKELY", reasons: req(v).map((x, k) => ({ ...x, status: v[k]!.type === "special_exception" ? "REQUIRED" : "LIKELY" })) };
       if (r.status !== "NOT_NEEDED" && !rec.closest) return { ...r, status: "NOT_NEEDED", reasons: notNeeded("The studied use does not need a special exception here.") };
       return r;
     }
