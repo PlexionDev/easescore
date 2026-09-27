@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   page.set("sort", sort);
   page.set("dir", parseDir(q.get("dir"), sort));
   if (shortlist.length) page.set("shortlist", shortlist.join(","));
+  if (q.get("pinned") === "1") page.set("pinned", "1");
   const date = new Date().toISOString().slice(0, 10);
   page.set("date", date);
   try {

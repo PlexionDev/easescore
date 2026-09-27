@@ -169,7 +169,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
   const to = Math.min(total, (page + 1) * PAGE_SIZE);
   const qsNoPage = queryString(filters, sort, dir);
   const shortlist = pinned.length ? pinned.map((p) => p.trim()) : rows.slice(0, 10).map((r) => r.parid.trim());
-  const memoUrl = `/api/planner/memo?${qsNoPage}${qsNoPage ? "&" : ""}shortlist=${shortlist.join(",")}`;
+  const memoUrl = `/api/planner/memo?${qsNoPage}${qsNoPage ? "&" : ""}shortlist=${shortlist.join(",")}${pinned.length ? "&pinned=1" : ""}`;
   const csvUrl = `/api/planner/export?${qsNoPage}`;
 
   const exportActions: ExportAction[] = [

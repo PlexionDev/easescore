@@ -36,8 +36,8 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
           <p>Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${bandLabel(r.rehab_band)})` : r.band === "Partial" ? (r.vacant ? "no building on the lot" : "not scored (zoning not loaded)") : "no building on the lot"}.</p>
         </div>
         <div>
-          <div className="kv"><span>Homes by right</span><b>{r.by_right_units ?? "not computed"}</b></div>
-          <div className="kv"><span>Homes with typical relief</span><b>{r.units_with_relief ?? "not computed"}</b></div>
+          <div className="kv"><span>By-right yield</span><b>{r.by_right_units ?? "not computed"}</b></div>
+          <div className="kv"><span>Yield with approvals</span><b>{r.units_with_relief ?? "not computed"}</b></div>
           <div className="kv"><span>Months to a building permit (estimate)</span><b>{r.months_to_permit != null ? `about ${r.months_to_permit}` : "—"}</b></div>
           <div className="kv"><span>Frequent transit</span><b>{r.transit_m != null ? `${n(Math.round((r.transit_m * FT_PER_M) / 10) * 10)} ft` : "—"}</b></div>
           {r.owner_class === "public" ? <div className="kv"><span>Tax-delinquent</span><b>{r.tax_delinquent == null ? "unknown" : r.tax_delinquent ? "yes" : "no"}</b></div> : null}
@@ -112,8 +112,8 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
             {sum.bands.Partial ? <div className="kv"><span>Partial (zoning not loaded, no score)</span><b>{n(sum.bands.Partial)}</b></div> : null}
           </div>
           <div>
-            <div className="kv"><span>Homes by right</span><b>{n(sum.capacity.by_right_clean)} to {n(sum.capacity.by_right)}</b></div>
-            <div className="kv"><span>Homes with typical relief</span><b>{n(sum.capacity.relief_clean)} to {n(sum.capacity.relief)}</b></div>
+            <div className="kv"><span>By-right yield</span><b>{n(sum.capacity.by_right_clean)} to {n(sum.capacity.by_right)}</b></div>
+            <div className="kv"><span>Yield with approvals</span><b>{n(sum.capacity.relief_clean)} to {n(sum.capacity.relief)}</b></div>
             <div className="kv"><span>Publicly owned lots</span><b>{n(sum.public_land.count)} ({sum.public_land.acres} acres)</b></div>
             <div className="kv"><span>Buildable public lots</span><b>{n(sum.public_land.buildable_count)} ({sum.public_land.buildable_acres} acres)</b></div>
           </div>
@@ -127,7 +127,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
         </table>
 
         <h2>Shortlist</h2>
-        <p className="meta">{shortlist.length ? "Parcels pinned by staff." : "The top 10 by the table's sort order."}</p>
+        <p className="meta">{shortlist.length && q.get("pinned") === "1" ? "Parcels pinned by staff." : `Top ${rows.length} by ${sort === "score" ? "score" : "the table's sort order"} (none pinned).`}</p>
         <table>
           <thead><tr><th>#</th><th>Parcel</th><th>Neighborhood</th><th>Zoning</th><th className="n">Score</th><th>Top blocker</th><th className="n">By right</th><th className="n">Relief</th><th className="n">Months</th></tr></thead>
           <tbody>
