@@ -17,6 +17,8 @@ export type MapFC = { type: "FeatureCollection"; bbox: number[]; center: [number
 export type Massing = { rings: Ring[]; heightFt: number } | null;
 export type Envelope = { rings: Ring[]; heightFt: number } | null;
 export type Insets = { left: number; bottom: number };
+/** Where the lot is, known from the pane before the map data streams in: enough to aim the camera and start tiles. */
+export type Early = { lon: number; lat: number; radiusM: number };
 
 const SETTLE_S = 1.2; // short settle from the slightly wider opening framing (none under reduced motion)
 const LIFT_M = 0.4; // lines ride just above the lidar ground so they don't flicker against the mesh
@@ -101,8 +103,43 @@ async function groundLine(C: typeof CesiumNS, r: Ring, closed: boolean, fallback
 
 type Status = { phase: "engine" | "tiles" | "ready" } | { phase: "error"; error: TileError };
 
-export default function Photoreal3D({ parcelKey, data, massing, envelope, insets, onFallback }: {
-  parcelKey: string; data: MapFC; massing: Massing; envelope: Envelope; insets: Insets; onFallback: () => void;
+/** Fixed early-afternoon sun, soft shadows, sky; camera inputs on. */
+function applyLook(s: Shared) {
+  const { C, viewer } = s;
+  viewer.clock.shouldAnimate = false;
+  viewer.clock.currentTime = sunTime(C);
+  viewer.shadows = true;
+  viewer.shadowMap.softShadows = true;
+  viewer.shadowMap.size = 2048;
+  viewer.shadowMap.maximumDistance = 1500;
+  viewer.scene.globe.show = false;
+  viewer.scene.screenSpaceCameraController.enableInputs = true;
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = true;
+}
+
+/** Resolves once this view's tiles are in: the tileset's first full load, a later full load, requests draining back
+ *  to zero, or the quiet frames after a fully cached view; after `fallbackMs`, whatever has loaded is shown. */
+function viewLoaded(s: Shared, ts: CesiumNS.Cesium3DTileset, cleanups: (() => void)[], onPending: (n: number) => void, fallbackMs = 6000) {
+  const scene = s.viewer.scene;
+  let inFlight = -1;
+  const unProgress = ts.loadProgress.addEventListener((p: number, q: number) => { inFlight = p + q; onPending(p + q); });
+  cleanups.push(unProgress);
+  const stats = (ts as unknown as { statistics: { numberOfCommands: number } }).statistics;
+  return new Promise<void>((resolve) => {
+    let frames = 0, fin = false;
+    const t = setTimeout(done, fallbackMs);
+    const un = [
+      ts.initialTilesLoaded.addEventListener(done),
+      ts.allTilesLoaded.addEventListener(done),
+      scene.postRender.addEventListener(() => { if (++frames > 5 && (ts.tilesLoaded || inFlight === 0) && stats.numberOfCommands > 0) done(); }),
+    ];
+    function done() { if (fin) return; fin = true; clearTimeout(t); un.forEach((u) => u()); resolve(); }
+    cleanups.push(done);
+  });
+}
+
+export default function Photoreal3D({ parcelKey, data, early, massing, envelope, insets, onFallback }: {
+  parcelKey: string; data: MapFC; early?: Early | null; massing: Massing; envelope: Envelope; insets: Insets; onFallback: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const sh = useRef<Shared | null>(null);
@@ -125,6 +162,12 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
   const [panelOpen, setPanelOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [capturing, setCapturing] = useState(false);
   const me = useMemo(() => Symbol("parcel3d"), []);
+  // Early start (before the map data): the camera the early effect placed, whether the view is already showing,
+  // whether the full parcel effect has taken over, and whether the visitor has moved the camera.
+  const earlyCam = useRef(false);
+  const revealed = useRef(false);
+  const mainStarted = useRef(false);
+  const userMoved = useRef(false);
 
   const parcelRings = useMemo(() => data.features.filter((f) => f.properties.kind === "parcel").flatMap((f) => polysOf(f.geometry).map((p) => open(p[0] ?? []))).filter((r) => r.length >= 3), [data]);
   const present = useMemo(() => {
@@ -147,6 +190,66 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
     if (s) { s.steady = orbit; s.refreshQuality(); }
   }, [orbit]);
   useEffect(() => { insetsRef.current = insets; }, [insets]);
+  const ringsRef = useRef<Ring[]>([]);
+  useEffect(() => { ringsRef.current = parcelRings; }, [parcelRings]);
+
+  // Early start: as soon as the pane knows where the lot is, aim the camera there and stream tiles, so the live view
+  // can show while the map data (lot lines, overlays) is still on its way. The parcel effect below takes over.
+  const eLon = early?.lon, eLat = early?.lat, eR = early?.radiusM;
+  useEffect(() => {
+    if (eLon == null || eLat == null || !host.current) return;
+    let dead = false, mine = false;
+    const cleanups: (() => void)[] = [];
+    (async () => {
+      let s: Shared;
+      try { s = await acquire(host.current!, me); } catch (e) { if (!dead) setStatus({ phase: "error", error: tileErrorOf(e) }); return; }
+      const [h] = await groundHeights([[eLon, eLat]]);
+      // Map data already here (or a remembered view): the parcel effect frames the lot itself.
+      if (dead || mainStarted.current || ringsRef.current.length || lastView.has(parcelKey)) return;
+      mine = true;
+      sh.current = s;
+      const { C, viewer } = s;
+      setStatus({ phase: "tiles" });
+      s.loading = true;
+      s.steady = false;
+      s.refreshQuality();
+      applyLook(s);
+      // A square of the lot's size around its centroid frames the same as the lot itself, within a few metres.
+      const m = { x: 111320 * Math.cos((eLat * Math.PI) / 180), y: 110950 };
+      const r = Math.max(eR ?? 20, 6) / Math.SQRT2;
+      const ring: Ring = [[-r, -r], [r, -r], [r, r], [-r, r]].map(([x, y]) => [eLon + x! / m.x, eLat + y! / m.y]);
+      const f = frameParcel([ring], viewer.canvas.clientWidth, viewer.canvas.clientHeight, insetsRef.current, prefersReducedMotion() ? 1 : START_RANGE);
+      const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(eLon, eLat, h ?? 300));
+      viewer.camera.setView({ destination: C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(...f.cam), new C.Cartesian3()), orientation: { heading: f.heading, pitch: f.pitch, roll: 0 } });
+      earlyCam.current = true;
+      const moved = () => { userMoved.current = true; };
+      for (const ev of ["pointerdown", "wheel", "touchstart"] as const) {
+        viewer.canvas.addEventListener(ev, moved, { passive: true });
+        cleanups.push(() => viewer.canvas.removeEventListener(ev, moved));
+      }
+      let ts: CesiumNS.Cesium3DTileset;
+      try { ts = await s.tileset; } catch (e) { if (!dead) setStatus({ phase: "error", error: tileErrorOf(e) }); return; }
+      if (dead) return;
+      await viewLoaded(s, ts, cleanups, setPending);
+      if (dead || revealed.current) return;
+      revealed.current = true;
+      s.loading = false;
+      s.refreshQuality();
+      setStatus({ phase: "ready" });
+    })();
+    return () => {
+      dead = true;
+      for (const c of cleanups.reverse()) { try { c(); } catch { /* viewer already gone */ } }
+      if (mine && !mainStarted.current) {
+        earlyCam.current = false;
+        revealed.current = false;
+        userMoved.current = false;
+        setStatus({ phase: "tiles" });
+        release(sh.current, me);
+        sh.current = null;
+      }
+    };
+  }, [eLon, eLat, eR, me]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ground heights for the parcel ring, from our lidar DEM.
   useEffect(() => {
@@ -168,6 +271,8 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
     // Wait for this parcel's heights (after client-side navigation the previous parcel's are still in state).
     if (!ground || ground.rings !== parcelRings || !host.current) return;
     let dead = false;
+    const hostEl = host.current;
+    mainStarted.current = true;
     const cleanups: (() => void)[] = [];
     (async () => {
       let s: Shared;
@@ -176,23 +281,15 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       sh.current = s;
       const { C, viewer } = s;
       const scene = viewer.scene;
-      setStatus({ phase: "tiles" });
-      // A new place is streaming in: load-time detail until it is revealed.
-      s.loading = true;
+      if (!revealed.current) {
+        setStatus({ phase: "tiles" });
+        // A new place is streaming in: load-time detail until it is revealed.
+        s.loading = true;
+      }
       s.steady = false;
       s.refreshQuality();
       cleanups.push(() => { s.steady = false; s.refreshQuality(); });
-
-      // Look: fixed early-afternoon sun, soft shadows, sky.
-      viewer.clock.shouldAnimate = false;
-      viewer.clock.currentTime = sunTime(C);
-      viewer.shadows = true;
-      viewer.shadowMap.softShadows = true;
-      viewer.shadowMap.size = 2048;
-      viewer.shadowMap.maximumDistance = 1500;
-      scene.globe.show = false;
-      scene.screenSpaceCameraController.enableInputs = true;
-      scene.screenSpaceCameraController.enableCollisionDetection = true;
+      applyLook(s);
 
       // Parcel + overlay entities.
       const src = new C.CustomDataSource("easescore-parcel");
@@ -291,9 +388,12 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       home.current = view(1);
       const remembered = lastView.get(parcelKey);
       const reduced = prefersReducedMotion();
+      // Already aimed by the early start: keep that camera (the settle below moves it to the exact framing).
+      const fromEarly = earlyCam.current && !remembered;
       if (remembered) viewer.camera.setView({ destination: remembered.position, orientation: remembered });
-      else viewer.camera.setView(reduced ? home.current : view(START_RANGE)); // reduced motion: a jump cut, no settle
-      let arrived = !!remembered || reduced; // don't remember a half-finished settle
+      else if (reduced) viewer.camera.setView(home.current); // reduced motion: a jump cut, no settle
+      else if (!fromEarly) viewer.camera.setView(view(START_RANGE));
+      let arrived = !!remembered || reduced || userMoved.current; // don't remember a half-finished settle
       cleanups.push(() => {
         const c = viewer.camera;
         if (!arrived) return;
@@ -311,7 +411,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         last = now;
         if (orbitRef.current && pivot.current) rotateAround(C, viewer.camera, pivot.current, -dt * 0.00007);
       }));
-      const stop = () => setOrbit(false);
+      const stop = () => { userMoved.current = true; setOrbit(false); };
       for (const ev of ["pointerdown", "wheel", "touchstart"] as const) {
         viewer.canvas.addEventListener(ev, stop, { passive: true });
         cleanups.push(() => viewer.canvas.removeEventListener(ev, stop));
@@ -351,37 +451,48 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       });
 
       // The shared tileset is warmed before the camera reaches this parcel, so its one-time initialTilesLoaded event
-      // has usually fired already; reveal instead when this view's requests drain (pending back to 0).
-      let inFlight = -1;
-      const onProgress = (p: number, q: number) => { inFlight = p + q; setPending(p + q); };
-      cleanups.push(ts.loadProgress.addEventListener(onProgress));
-      // Reveal (crossfade over the still) once this view's tiles are in: the tileset's first full load, any later
-      // full load, or, when everything needed is already cached, the first quiet frames.
-      const stats = (ts as unknown as { statistics: { numberOfCommands: number } }).statistics;
-      await new Promise<void>((resolve) => {
-        let frames = 0, fin = false;
-        const t = setTimeout(done, 6000); // fallback: show whatever has loaded rather than hold the still
-        const un = [
-          ts.initialTilesLoaded.addEventListener(done),
-          ts.allTilesLoaded.addEventListener(done),
-          scene.postRender.addEventListener(() => { if (++frames > 5 && (ts.tilesLoaded || inFlight === 0) && stats.numberOfCommands > 0) done(); }),
-        ];
-        function done() { if (fin) return; fin = true; clearTimeout(t); un.forEach((u) => u()); resolve(); }
-        cleanups.push(done);
-      });
+      // has usually fired already; reveal when this view's requests drain (skipped if the early start already showed it).
+      if (!revealed.current) await viewLoaded(s, ts, cleanups, setPending);
       if (dead) return;
       if (s.failedTiles > 20 && !ts.tilesLoaded) { setStatus({ phase: "error", error: { kind: "network" } }); return; }
+      revealed.current = true;
       s.loading = false;
       s.refreshQuality();
       setStatus({ phase: "ready" });
       setReady(true);
-      if (!remembered && !reduced) {
+      // Settled: camera at rest at full detail and every tile for it loaded. Marked for measurement
+      // (performance mark "es3d-settled", data-settled on the view) and only then does the slow orbit start,
+      // after a short pause, so it doesn't keep tiles streaming while the first view finishes.
+      const settle = () => {
+        const t0 = performance.now();
+        let since = 0;
+        const un = scene.postRender.addEventListener(() => {
+          const now = performance.now();
+          if (now - t0 < 700) return; // let the idle switch to full detail happen first
+          since = ts.tilesLoaded ? since || now : 0;
+          if (!(since && now - since > 500) && now - t0 < 20000) return;
+          un();
+          performance.mark("es3d-settled");
+          hostEl.setAttribute("data-settled", "1");
+          if (!reduced) {
+            const t = setTimeout(() => { if (!dead && !userMoved.current) setOrbit(true); }, 2500);
+            cleanups.push(() => clearTimeout(t));
+          }
+        });
+        cleanups.push(un);
+      };
+      if (!remembered && !reduced && !userMoved.current) {
         viewer.camera.flyTo({ ...home.current, duration: SETTLE_S, easingFunction: C.EasingFunction.QUADRATIC_IN_OUT,
-          complete: () => { arrived = true; if (!dead) setOrbit(true); }, cancel: () => { arrived = true; } });
-      } else if (!reduced) setOrbit(true); // auto-orbit on load; any user input stops it
+          complete: () => { arrived = true; if (!dead) settle(); }, cancel: () => { arrived = true; } });
+      } else settle();
     })();
     return () => {
       dead = true;
+      mainStarted.current = false;
+      revealed.current = false;
+      earlyCam.current = false;
+      userMoved.current = false;
+      hostEl.removeAttribute("data-settled");
       setReady(false);
       setStatus({ phase: "tiles" }); // hide the canvas; the still for the next place shows until its tiles are in
       for (const c of cleanups.reverse()) { try { c(); } catch { /* viewer already gone */ } }

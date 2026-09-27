@@ -55,6 +55,8 @@ export type Shared = {
 // Detail while the camera moves or tiles first stream in, and at rest. Google tiles look right at SSE 8;
 // 16 loads roughly a quarter of the tiles, so it is used only when nobody is looking closely.
 const SSE_MOVING = 16, SSE_REST = 8, IDLE_MS = 600, MOVING_DPR_CAP = 1.5;
+// The very first view of the session (until the tileset's first full load) may stream coarser still.
+const SSE_FIRST = 16;
 
 let sharedP: Promise<Shared> | null = null;
 let owner: symbol | null = null;
@@ -125,13 +127,13 @@ async function create(): Promise<Shared> {
 
   // Load fast, finish sharp: SSE 16 and at most 1.5x pixel density while tiles first stream in or the camera
   // moves; SSE 8 at full devicePixelRatio once the first view has loaded and the camera has been still ~600 ms.
-  let idle = true, timer: ReturnType<typeof setTimeout> | undefined;
+  let idle = true, first = true, timer: ReturnType<typeof setTimeout> | undefined;
   let tsRef: CesiumNS.Cesium3DTileset | null = null;
   const apply = () => {
     const rest = !shared.loading && (idle || shared.steady);
     const dpr = window.devicePixelRatio || 1;
     const scale = rest ? 1 : Math.min(dpr, MOVING_DPR_CAP) / dpr;
-    if (tsRef) tsRef.maximumScreenSpaceError = rest ? SSE_REST : SSE_MOVING;
+    if (tsRef) tsRef.maximumScreenSpaceError = rest ? SSE_REST : first ? SSE_FIRST : SSE_MOVING;
     if (viewer.resolutionScale !== scale) viewer.resolutionScale = scale;
   };
   shared.refreshQuality = apply;
@@ -145,14 +147,14 @@ async function create(): Promise<Shared> {
     // No geocoder is attached to this viewer, so there is nothing non-Google to mix with the tiles.
     { key: GOOGLE_KEY, onlyUsingWithGoogleGeocoder: true },
     {
-      maximumScreenSpaceError: SSE_MOVING, showCreditsOnScreen: true,
+      maximumScreenSpaceError: SSE_FIRST, showCreditsOnScreen: true,
       dynamicScreenSpaceError: true, foveatedScreenSpaceError: true, preloadFlightDestinations: true,
     },
   ).then((ts) => {
     // Having a listener also stops Cesium from logging failed tile URLs (which include the key).
     ts.tileFailed.addEventListener(() => { shared.failedTiles++; });
     tsRef = ts;
-    ts.initialTilesLoaded.addEventListener(() => { shared.loading = false; apply(); });
+    ts.initialTilesLoaded.addEventListener(() => { first = false; shared.loading = false; apply(); });
     s.primitives.add(ts);
     return ts;
   }, (e) => { throw tileErrorOf(e); });
