@@ -272,9 +272,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     else if (pf.plan.tenure === "sale" && pf.sale.profit != null) {
       const what = selected ? ` (${selected.strategyLabel.toLowerCase()})` : "";
       if (pf.verdict === "no") { chip = rg.headline ? `${rg.headline} at market rate${what}` : `Gap of about ${usdK(-pf.sale.profit)} at market rate${what}`; chipTone = "border-red-200 bg-red-50 text-red-900"; }
-      else { chip = `Pencils at market rate${what}: ${pf.verdict === "thin" ? "barely" : "yes"}, ${pctR(rg.sale.marginPct) ? `${pctR(rg.sale.marginPct)} margin` : `about ${pctTxt(pf.sale.margin ?? 0)} margin`}`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
+      else { chip = `Pencils at market rate${what}: ${pf.verdict === "thin" ? "barely" : "yes"}, about ${pctTxt(pf.sale.margin ?? 0)} margin${pctR(rg.sale.marginPct) && rg.sale.marginPct!.low !== rg.sale.marginPct!.high ? ` (range ${pctR(rg.sale.marginPct)})` : ""}`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
     } else if (pf.plan.tenure === "rent" && pf.rent.noi != null) {
-      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: ${pctR(rg.rent.yieldOnCostPct) ?? pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost`;
+      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: about ${pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost${pctR(rg.rent.yieldOnCostPct) && rg.rent.yieldOnCostPct!.low !== rg.rent.yieldOnCostPct!.high ? ` (range ${pctR(rg.rent.yieldOnCostPct)})` : ""}`;
     }
   }
 
