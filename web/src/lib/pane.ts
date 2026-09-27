@@ -7,7 +7,7 @@ import "server-only";
 import { assumptions, score } from "@easescore/engine";
 import { easeInputs, parcelFactsChecked, permitTimes, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newConstructionSalesNear, primeRate, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
-import { buildPane, PANE_VERSION, type PanePayload } from "@/lib/pane-core";
+import { buildPane, fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
 import type { Timing } from "@/lib/timing";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -25,8 +25,8 @@ async function readRow(parid: string): Promise<PanePayload | null> {
       headers: { apikey: KEY }, cache: "no-store", signal: AbortSignal.timeout(3000),
     });
     if (!r.ok) return null;
-    const rows = (await r.json()) as { payload: PanePayload }[];
-    return rows[0]?.payload ?? null;
+    const rows = (await r.json()) as { payload: StoredPane }[];
+    return rows[0]?.payload ? fromStored(rows[0].payload) : null;
   } catch {
     return null;
   }

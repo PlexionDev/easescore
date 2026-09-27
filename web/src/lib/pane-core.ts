@@ -5,8 +5,16 @@
 
 import { assumptions, score, type ParcelFacts } from "@easescore/engine";
 
+/** FNV-1a hash of a JSON value (so any edit to a config, not only its version label, changes the key). */
+function hash(v: unknown): string {
+  let h = 0x811c9dc5;
+  const s = JSON.stringify(v);
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(36);
+}
+
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. */
-export const PANE_VERSION = `pane.1|score.${score.DEFAULT_CONFIG.version}|${assumptions.COST_CONFIG.version}`;
+export const PANE_VERSION = `pane.1|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -48,6 +56,39 @@ export interface PanePayload {
   score: score.EaseScoreResult | null;
   newComps: Partial<Record<score.StrategyId, assumptions.CompSet | null>>;
   rehabComps: assumptions.CompSet | null;
+}
+
+/**
+ * Stored form of the payload (parcel_pane.payload): new-construction comps kept once per kind (every new
+ * build except a townhouse row uses the single-family set) and the single-family comps left out when
+ * they are the parcel's own sales comps.
+ */
+export interface StoredPane extends Omit<PanePayload, "newComps" | "sfComps"> {
+  newCompsSf: assumptions.CompSet | null;
+  newCompsTownhouse: assumptions.CompSet | null;
+  sfComps: assumptions.SalesCompsLike | null | "sales";
+}
+
+export function toStored(p: PanePayload): StoredPane {
+  const { newComps, sfComps, ...rest } = p;
+  const sfKey = (Object.keys(newComps) as score.StrategyId[]).find((k) => k !== "townhouse_row");
+  return {
+    ...rest,
+    newCompsSf: sfKey ? newComps[sfKey] ?? null : null,
+    newCompsTownhouse: newComps.townhouse_row ?? null,
+    sfComps: sfComps && sfComps === p.sales ? "sales" : sfComps,
+  };
+}
+
+export function fromStored(s: StoredPane): PanePayload {
+  const { newCompsSf, newCompsTownhouse, sfComps, ...rest } = s;
+  const newComps: PanePayload["newComps"] = {};
+  for (const x of s.score?.strategies ?? []) {
+    if (x.strategy === "rehab_existing") continue;
+    const set = x.strategy === "townhouse_row" ? newCompsTownhouse : newCompsSf;
+    if (set) newComps[x.strategy] = set;
+  }
+  return { ...rest, newComps, sfComps: sfComps === "sales" ? (s.sales as assumptions.SalesCompsLike | null) : sfComps };
 }
 
 export function buildPane(i: PaneInputs): PanePayload {
