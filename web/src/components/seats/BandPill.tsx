@@ -13,7 +13,7 @@ export default function BandPill({ band, score }: { band: string | null | undefi
   const known = band && band in CLASS ? (band as Band) : null;
   const partial = band === es.PARTIAL;
   return (
-    <span className={`es-band es-band-${known ? CLASS[known] : "none"}`} title={partial ? "Zoning not available for this municipality: partial screen, no numeric score" : undefined}>
+    <span className={`es-band es-band-${known ? CLASS[known] : "none"}`} title={partial ? "Partial screen, no numeric score: zoning not loaded here, or the score did not see a building on the lot" : undefined}>
       {score != null ? <span className="es-sr">Score {score}, </span> : null}
       {known ? es.bandLabel(known) : partial ? "Partial" : "No score"}
     </span>

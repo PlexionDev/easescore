@@ -106,6 +106,10 @@ export function loadEaseScore(input: EaseScoreInput): EaseScoreView {
     const f = input.facts as unknown as { context?: { municipality?: string | null } | null; assessment?: { municipality?: string | null } | null };
     return { status: "pending", partial: true, reason: `${ease.partialHeadline(f.context?.municipality ?? f.assessment?.municipality ?? null)}. No Ease Score: we have zoning rules for the City of Pittsburgh only. This study reports the known facts (lot, slope, hazards, existing building, market). ${ease.SCORE_CAPTION}` };
   }
+  const built = ease.buildingUnscored(input.facts);
+  if (built) {
+    return { status: "pending", partial: true, reason: `${ease.partialText("use", { use: built })}. No Ease Score: a new-build score here would ignore what already stands on the lot. This study reports the known facts. ${ease.SCORE_CAPTION}` };
+  }
   let res: ReturnType<typeof ease.scoreParcel>;
   try {
     res = input.result ?? ease.scoreParcel(input.facts, {

@@ -6,7 +6,7 @@
 // The same filter semantics exist twice on purpose: filtersToDb() feeds planner_rows() in SQL, and
 // matchRow() is its TypeScript mirror, used by the unit tests and to check exports against the table.
 
-import { bandLabel, relabelBands } from "@easescore/engine/src/score/bands";
+import { bandLabel, partialText, relabelBands } from "@easescore/engine/src/score/bands";
 
 export type Band = "Easy" | "Moderate" | "Hard" | "Very hard";
 export const BANDS: Band[] = ["Easy", "Moderate", "Hard", "Very hard"];
@@ -93,6 +93,10 @@ export interface PlannerRow {
   score: number | null;
   /** "Partial": zoning not loaded for the municipality (no numeric score; migration 145). */
   band: Band | "Partial" | null;
+  /** Why a Partial row has no score: zoning not loaded, or a built-on parcel the score treated as empty (migration 146). */
+  partial_reason?: "zoning" | "use" | "footprint" | "not_lot" | null;
+  /** The County land use behind partial_reason "use" / "not_lot". */
+  partial_use?: string | null;
   range_lo: number | null;
   range_hi: number | null;
   preliminary: boolean;
@@ -412,8 +416,15 @@ export function approvalTag(r: Pick<PlannerRow, "by_right_units" | "blockers">):
 }
 
 /** "Best option: [type] ([by right / needs administrator exception / needs variance])" (§4.1). */
-export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers"> & { band?: PlannerRow["band"] }): string {
-  if (r.band === "Partial") return "Best option: can't determine; zoning not loaded";
+/** The partial-screen headline for a row (one wording, engine/src/score/bands.ts). */
+export const partialNote = (r: Pick<PlannerRow, "municipality"> & { partial_reason?: string | null; partial_use?: string | null }) =>
+  partialText(r.partial_reason ?? "zoning", { municipality: r.municipality, use: r.partial_use });
+/** "Best option" for a Partial row. */
+export const partialBest = (r: { partial_reason?: string | null }) =>
+  r.partial_reason && r.partial_reason !== "zoning" ? "Can't determine; the score did not see what is on this lot" : "Can't determine; zoning not loaded";
+
+export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers"> & { band?: PlannerRow["band"]; partial_reason?: string | null }): string {
+  if (r.band === "Partial") return `Best option: ${partialBest(r).replace(/^C/, "c")}`;
   if (!r.best_strategy) return "Best option: none scored";
   const type = STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy;
   return `Best option: ${type} (${approvalTag(r)})`;

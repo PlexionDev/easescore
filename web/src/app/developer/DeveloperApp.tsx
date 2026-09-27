@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { BandPill, SeatButton, SeatHeader, SeatLayout, SeatSelect, Segmented, setSelection, useSeatLayout } from "@/components/seats";
 import {
   CITY, DEFAULT_DIR, PAGE_SIZE, STRATEGY_TEXT, clean, describeFilters, filtersToQuery, ownerShort, parcelLabel, titleCase,
-  type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
+  partialBest, type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
 } from "@/lib/planner";
 import DeveloperFilters from "./DeveloperFilters";
 import DeveloperPane from "./DeveloperPane";
@@ -36,7 +36,7 @@ function queryString(f: Filters, sort: Sort, dir: Dir, page: number, parcel: str
   return q.toString();
 }
 
-const bestText = (r: PlannerRow) => (r.band === "Partial" ? "Can't determine; zoning not loaded" : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—");
+const bestText = (r: PlannerRow) => (r.band === "Partial" ? partialBest(r) : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—");
 
 /** Opens the pane's sheet on phones when a parcel is picked (must sit inside SeatLayout). */
 function SheetOnPick({ parid }: { parid: string | null }) {

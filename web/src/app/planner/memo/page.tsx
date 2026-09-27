@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { bandLabel, partialHeadline, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
+import { bandLabel, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
 import {
   BADGE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
-  parseFilters, parseSort, plannerOptions, plannerQuery, titleCase, type PlannerRow,
+  parseFilters, parseSort, partialBest, partialNote, plannerOptions, plannerQuery, titleCase, type PlannerRow,
 } from "@/lib/planner";
 import "./memo.css";
 
@@ -28,11 +28,11 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
       <h2>Development Ease Score</h2>
       <div className="grid">
         <div>
-          <p className="big">{r.score ?? "—"} <span style={{ fontSize: "12pt", fontWeight: 600 }}>{r.band === "Partial" ? partialHeadline(r.municipality) : bandLabel(r.band)}</span></p>
+          <p className="big">{r.score ?? "—"} <span style={{ fontSize: "12pt", fontWeight: 600 }}>{r.band === "Partial" ? partialNote(r) : bandLabel(r.band)}</span></p>
           {r.score != null ? <p className="fine">{SCORE_CAPTION}</p> : null}
           {r.range_lo != null ? <p>{r.preliminary ? "Preliminary: m" : "M"}issing data puts it between {r.range_lo} and {r.range_hi}.</p> : null}
           {!r.zoning ? <p>Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded; confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
-          <p>Best option that adds homes: {r.band === "Partial" ? "can't determine; zoning not loaded" : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}.</p>
+          <p>Best option that adds homes: {r.band === "Partial" ? partialBest(r).toLowerCase() : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}.</p>
           <p>Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${bandLabel(r.rehab_band)})` : r.band === "Partial" ? (r.vacant ? "no building on the lot" : "not scored (zoning not loaded)") : "no building on the lot"}.</p>
         </div>
         <div>

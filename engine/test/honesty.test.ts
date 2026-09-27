@@ -36,3 +36,19 @@ describe("market signal", () => {
     expect(m.rule).toMatch(/Strong: 5 or more/);
   });
 });
+
+describe("built-on parcels the score treated as empty", () => {
+  it("flags a County building use with no building value, year or footprint", () => {
+    expect(score.buildingUnscored({ assessment: { use: "OFFICE-ELEVATOR -3 + STORIES", fmv_building: 0, year_built: null } })).toBe("OFFICE-ELEVATOR -3 + STORIES");
+    expect(score.buildingUnscored({ assessment: { use: "CONDOMINIUM UNIT", fmv_building: 0 } })).toBe("CONDOMINIUM UNIT");
+    expect(score.buildingUnscored({ assessment: { use: "VACANT COMMERCIAL LAND", fmv_building: 0 } })).toBeNull();
+    expect(score.buildingUnscored({ assessment: { use: "RES AUX BUILDING (NO HOUSE)", fmv_building: 0 } })).toBeNull();
+    expect(score.buildingUnscored({ assessment: { use: "PARKING GARAGE/LOTS", fmv_building: 0 } })).toBeNull();
+    expect(score.buildingUnscored({ assessment: { use: "SINGLE FAMILY", fmv_building: 90000 } })).toBeNull();
+  });
+  it("partial text by reason", () => {
+    expect(score.partialText("zoning", { municipality: "WILKINSBURG" })).toBe("Partial screen: zoning not available for Wilkinsburg");
+    expect(score.partialText("use", { use: "CONDOMINIUM UNIT" })).toMatch(/existing building \(condominium unit\)/);
+    expect(score.partialText("not_lot", { use: "AIR RIGHTS" })).toMatch(/air rights, not a lot/);
+  });
+});

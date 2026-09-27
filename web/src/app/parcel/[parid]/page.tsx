@@ -152,6 +152,10 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const T = new Timing("parcel", parid);
   // Map data and lot geometry stream to the browser after the pane (never awaited here).
   const quickfitP = quickfitInput(parid);
+  // Built-on parcels the stored score treated as empty (migration 146 lookup); null when not listed or on any error.
+  const unscoredP = fetch(`${SB_URL}/rest/v1/planner_building_unscored?select=reason,use_desc&parid=eq.${encodeURIComponent(parid)}`, {
+    headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
+  }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string; use_desc: string | null }[]) => x[0] ?? null).catch(() => null);
   // One retry for the map (a busy database can time a call out).
   const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid).then((m) => m ?? parcelMap(parid))), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
   stage.catch(() => undefined);
@@ -311,21 +315,26 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   ];
   // The best option in one line: its name, zoning path and money signal (never blended into one number).
   // Zoning not loaded (outside the City, or no district): a partial screen, no numeric score.
-  const partial = !score.zoningLoaded(f);
+  // No numeric score: zoning not loaded (outside the City, or no district), or the score treated a built-on lot as empty.
+  const unscored = await unscoredP;
+  const useBuilt = score.buildingUnscored(f);
+  const partialReason: score.PartialReason | null = !score.zoningLoaded(f) ? "zoning" : (unscored?.reason as score.PartialReason | undefined) ?? (useBuilt ? "use" : null);
+  const partial = partialReason != null;
   const muniName = (f.context?.municipality ?? a?.municipality ?? null) as string | null;
-  const best = optionRows.find((r) => r.evaluable) ?? null;
+  const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
+  const best = partial ? null : optionRows.find((r) => r.evaluable) ?? null;
   const PENCIL_WORDS: Record<score.PencilState, string> = {
     yes: "pencils at market rate", thin: "tight margin", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
   };
   const bestLine = !best
-    ? (optionRows.some((r) => r.applicable) ? (partial ? "Can't determine; zoning not loaded" : "Can't determine yet: no option can be sized and priced") : null)
+    ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partial ? "Can't determine; the score did not see what is on this lot" : "Can't determine yet: no option can be sized and priced") : null)
     : [best.name, best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, ""),
         best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
   // Market strength beside the score: the new-construction comp set the pro forma prices from.
   const marketSet = (selected && P.newComps[selected.strategy]) ?? P.newComps.new_sf ?? Object.values(P.newComps).find(Boolean) ?? null;
   const market = assumptions.marketSignal(marketSet);
   // Existing building, from the County assessment.
-  const hasBuilding = !!a?.year_built || Number(a?.fmv_building ?? 0) > 0;
+  const hasBuilding = !!a?.year_built || Number(a?.fmv_building ?? 0) > 0 || partialReason === "use" || partialReason === "footprint";
   const buildingLine = hasBuilding
     ? `${a?.use ? String(a.use).toLowerCase().replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
     : "None on record (County assessment)";
@@ -360,7 +369,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {selected && selected.redFlags.length > 0 && <Callouts selected={selected} kinds="red" max={1} compact />}
       {/* 4. Ease Score, band and one sentence */}
       {partial ? (
-        <PartialBlock municipality={muniName} market={market} />
+        <PartialBlock headline={partialLine!} zoning={partialReason === "zoning"} market={market} />
       ) : easeResult && selected ? (
         <ScoreBlock selected={selected} sentence={scoreSentence(selected)} market={market} pencilsNo={pf?.verdict === "no"} />
       ) : (

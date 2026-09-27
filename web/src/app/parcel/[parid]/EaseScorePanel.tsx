@@ -150,12 +150,14 @@ export function MarketLine({ market }: { market: assumptions.MarketSignal }) {
 }
 
 /** No numeric Ease Score where the municipality's zoning is not loaded: the known facts only. */
-export function PartialBlock({ municipality, market }: { municipality: string | null; market: assumptions.MarketSignal | null }) {
+export function PartialBlock({ headline, zoning, market }: { headline: string; /** Zoning not loaded (else: a built-on lot the score treated as empty). */ zoning: boolean; market: assumptions.MarketSignal | null }) {
   return (
     <section aria-label="Partial screen">
       <p className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2">
-        <span className="block text-base font-semibold leading-snug text-slate-900">{score.partialHeadline(municipality)}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-slate-700">No Ease Score: zoning is a quarter of the score, and we have zoning rules for the City of Pittsburgh only. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality.</span>
+        <span className="block text-base font-semibold leading-snug text-slate-900">{headline}</span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-slate-700">{zoning
+          ? "No Ease Score: zoning is a quarter of the score, and we have zoning rules for the City of Pittsburgh only. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality."
+          : "No Ease Score: a new-build score here would ignore what already stands on the lot. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm what is on the lot before planning."}</span>
       </p>
       {market && <MarketLine market={market} />}
     </section>

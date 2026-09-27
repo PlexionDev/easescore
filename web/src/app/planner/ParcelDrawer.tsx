@@ -6,8 +6,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
-import { partialHeadline, relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
-import { bandLabel,
+import { relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
+import { bandLabel, partialNote,
   BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, approvalNeeded, bestOptionHeadline, monthsRangeText, ownerLabel, parcelLabel, titleCase,
   type PlannerRow,
 } from "@/lib/planner";
@@ -41,7 +41,7 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
               <b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />
               {r.range_lo != null ? <span className="pl-hint">{r.preliminary ? "Preliminary: " : "Range with missing data: "}{r.range_lo} to {r.range_hi}</span> : null}
             </div>
-            {r.band === "Partial" ? <p className="pl-callout amber">{partialHeadline(r.municipality)}. No Ease Score: we have zoning rules for the City of Pittsburgh only. The known facts (lot, hazards, existing building) still apply. Confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
+            {r.band === "Partial" ? <p className="pl-callout amber">{partialNote(r)}. No Ease Score{r.partial_reason && r.partial_reason !== "zoning" ? "; open the parcel and confirm what stands on it" : `: we have zoning rules for the City of Pittsburgh only. Confirm zoning with ${titleCase(r.municipality) || "the municipality"}`}. The known facts (lot, hazards) still apply.</p> : null}
             {r.score != null ? <p className="pl-hint">{SCORE_CAPTION}</p> : null}
             <p className="pl-hint" style={{ marginTop: -10 }}>
               {bestOptionHeadline(r)}.
