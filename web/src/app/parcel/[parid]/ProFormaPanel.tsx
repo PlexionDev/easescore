@@ -190,7 +190,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
 
       <details open className="mt-2 text-sm">
         <summary className="cursor-pointer text-xs font-semibold text-slate-700 underline decoration-dotted underline-offset-2">Cost lines, ranges and sources</summary>
-        <p className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">Badges: <SourceBadge s={{ kind: "badge", badge: "Pittsburgh builders (2026)", label: "Pittsburgh builders (2026)", asOf: null }} /> published local source · <SourceBadge s={{ kind: "data", badge: null, label: "Public data (dated)", asOf: null }} /> dataset · <SourceBadge s={{ kind: "badge", badge: "Assumption, edit me", label: "Assumption, edit me", asOf: null }} /> our assumption: edit it under &ldquo;Change the assumptions&rdquo;</p>
+        <p className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">Badges: <SourceBadge s={{ kind: "badge", badge: "Pittsburgh builders (2026)", label: "Pittsburgh builders (2026)", asOf: null }} /> published local source · <SourceBadge s={{ kind: "data", badge: null, label: "Public data (dated)", asOf: null }} /> dataset · <SourceBadge s={{ kind: "badge", badge: "Assumption, edit me", label: "Assumption, edit me", asOf: null }} /> our assumption: edit it under &ldquo;Change the plan&rdquo;</p>
         <table className="mt-1 w-full text-left text-[12px]">
           <tbody>
             {groups.map((g) => {
@@ -270,7 +270,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
       </details>
 
       <OpenDrawer id="plan" className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-500">
-        Change the assumptions
+        Change the plan
       </OpenDrawer>
 
       <details className="mt-2 text-[12px]">

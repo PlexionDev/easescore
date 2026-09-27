@@ -18,7 +18,7 @@ import SiteThumb from "./SiteThumb";
 import CopyParcelId from "./CopyParcelId";
 import SummaryText from "./SummaryText";
 import RentReceipt from "./RentReceipt";
-import DownloadReport from "./report/DownloadReport";
+import DownloadReport, { ReportLink } from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
 import { OpenDrawer, OpenView } from "./Drawers";
 import { metricsOf } from "@/lib/quickfit-gen";
@@ -395,7 +395,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       <div className={`grid gap-2 ${canSolve ? "grid-cols-3" : "grid-cols-2"}`}>
         {canSolve && <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>}
         <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pro forma</OpenDrawer>
-        <a href={reportHtml} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></a>
+        <ReportLink parid={parid} query={reportQuery} className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
         <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>

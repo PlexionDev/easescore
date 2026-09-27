@@ -13,6 +13,7 @@ import type { quickfit } from "@easescore/engine";
 import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
 import { CommunityMedian, ScenarioShare, useCommunity } from "@/components/scenarios/ScenarioShare";
 import DecisionLive from "./DecisionLive";
+import { OpenDrawer } from "./Drawers";
 
 export interface LiveInputs {
   fin: FinanceInputs;
@@ -244,6 +245,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
 
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
       <DecisionLive result={r} />
+      <p className="mt-1 text-[11px] text-slate-600">Sale price, land price, loan rate and loan-to-cost: <OpenDrawer id="plan" className="min-h-6 font-semibold underline decoration-dotted underline-offset-2 hover:text-slate-900">Change the plan</OpenDrawer>. Budget lines: type your own number below.</p>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500">Total cost</p>
@@ -362,7 +364,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
           <ul className="mt-0.5 space-y-0.5">
             {p.exclusions.map((e) => <li key={e.id}>{e.text}. <span className="text-amber-800">{e.reason}.</span></li>)}
           </ul>
-          <p className="mt-1 text-[11px] text-amber-900/80">Enter a cost under &ldquo;Change the assumptions&rdquo; to include it.</p>
+          <p className="mt-1 text-[11px] text-amber-900/80">Type a cost on its budget line below, or under &ldquo;Change the plan&rdquo;, to include it.</p>
         </div>
       )}
       {p.outliers.length > 0 && (

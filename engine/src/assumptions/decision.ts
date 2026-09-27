@@ -175,7 +175,7 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
   const above = levered && ltc0 > c.maxLtc + 1e-9;
   const ltc = {
     planLtc: ltc0, maxLtc: c.maxLtc, above, loanAtMax, equityAtMax,
-    text: `${loanAtMax != null ? `At your ${pct0(c.maxLtc)} maximum loan-to-cost the loan is about ${usd(loanAtMax)} and the equity needed about ${equityAtMax != null ? usd(equityAtMax) : "—"}.` : ""}${above ? ` The budget's loan assumption (${pct0(ltc0)} of cost) is above your maximum; lower it under "Change the assumptions" to match.` : ""}`.trim(),
+    text: `${loanAtMax != null ? `At your ${pct0(c.maxLtc)} maximum loan-to-cost the loan is about ${usd(loanAtMax)} and the equity needed about ${equityAtMax != null ? usd(equityAtMax) : "—"}.` : ""}${above ? ` The budget's loan assumption (${pct0(ltc0)} of cost) is above your maximum; lower "Loan-to-cost" under "Change the plan" on the parcel page to match.` : ""}`.trim(),
   };
 
   const empty = (why: string): DecisionBox => ({
@@ -210,7 +210,9 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
   const t0 = tdcAtLand(p.forSale, feeShare, L0);
   const t1 = tdcAtLand(p.forSale, feeShare, L0 + step);
   const slope = t0 != null && t1 != null ? (t1 - t0) / step : null;
-  const rlv = slope != null && slope > 0 ? L0 + (maxCost - tdc) / slope : null;
+  // Solve from the unrounded TDC at L0 (t0), not the budget's $1,000-rounded total, so the residual does not
+  // drift when only the land price changes (TDC is linear in land, so the solution is independent of L0).
+  const rlv = slope != null && slope > 0 && t0 != null ? L0 + (maxCost - t0) / slope : null;
   const costExLand = rlv != null ? maxCost - rlv : null;
   const targetProfit = maxCost * m;
 

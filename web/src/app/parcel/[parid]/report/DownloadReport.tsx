@@ -3,6 +3,37 @@
 import { useState } from "react";
 
 /**
+ * The report query with the Pro forma edits made since the page loaded: budget lines, tier and tenure
+ * (pf_*) and decision-box criteria (dc_*) live in the page URL (history.replaceState), so the server-built
+ * query can be stale. The page URL's pf_* / dc_* replace the query's.
+ */
+export function liveReportQuery(query: string): string {
+  const qp = new URLSearchParams(query.replace(/^\?/, ""));
+  try {
+    const cur = new URL(window.location.href).searchParams;
+    for (const k of [...qp.keys()]) if (k.startsWith("pf_") || k.startsWith("dc_")) qp.delete(k);
+    for (const [k, v] of cur) if (k.startsWith("pf_") || k.startsWith("dc_")) qp.set(k, v);
+    const t = cur.get("pf_tenure");
+    if (t === "sale" || t === "rent") qp.set("tenure", t);
+  } catch { /* no window URL */ }
+  return qp.toString();
+}
+
+/** "Feasibility study" link that opens the report with the current Pro forma edits (see liveReportQuery). */
+export function ReportLink({ parid, query, className, children }: { parid: string; query: string; className?: string; children: React.ReactNode }) {
+  const base = `/parcel/${encodeURIComponent(parid)}/report`;
+  const fresh = (e: React.SyntheticEvent<HTMLAnchorElement>) => {
+    const q = liveReportQuery(query);
+    e.currentTarget.href = `${base}${q ? `?${q}` : ""}`;
+  };
+  return (
+    <a href={`${base}${query ? `?${query}` : ""}`} target="_blank" rel="noopener" className={className} onClick={fresh} onAuxClick={fresh} onFocus={fresh} onMouseEnter={fresh} onContextMenu={fresh}>
+      {children}
+    </a>
+  );
+}
+
+/**
  * "Download Feasibility Study (PDF)" button.
  *
  * - `query`: the parcel page's scenario query string (same keys the report reads: type, units,
@@ -34,12 +65,7 @@ export default function DownloadReport({
     setBusy(true);
     setError(null);
     try {
-      // Decision-box criteria edited in the Pencil calculator live in the page URL (dc_*): carry them.
-      const qp = new URLSearchParams(query.replace(/^\?/, ""));
-      try {
-        for (const [k, v] of new URL(window.location.href).searchParams) if (k.startsWith("dc_")) qp.set(k, v);
-      } catch { /* no window URL */ }
-      const q = qp.toString();
+      const q = liveReportQuery(query);
       const url = `/api/report/${encodeURIComponent(parid)}${q ? `?${q}` : ""}`;
       const images = getImages ? await getImages() : undefined;
       const res = images
