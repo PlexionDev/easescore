@@ -36,7 +36,7 @@ function queryString(f: Filters, sort: Sort, dir: Dir, page: number, parcel: str
   return q.toString();
 }
 
-const bestText = (r: PlannerRow) => (r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—");
+const bestText = (r: PlannerRow) => (r.band === "Partial" ? "Can't determine; zoning not loaded" : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—");
 
 /** Opens the pane's sheet on phones when a parcel is picked (must sit inside SeatLayout). */
 function SheetOnPick({ parid }: { parid: string | null }) {
@@ -260,7 +260,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
             <SeatButton variant="ghost" disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</SeatButton>
             <SeatButton variant="ghost" disabled={to >= total || loading} onClick={() => setPage((p) => p + 1)}>Next</SeatButton>
           </div>
-          <p className="pl-note">Ease Score is precomputed for the best option that adds homes (score config v{(options?.config_versions ?? []).join(", v") || "—"}). Homes by right come from our lot-fit test under the zoning rules. Money columns (margin, residual land value) are not stored per lot; open a lot and use its Pencil calculator. Decision support only.</p>
+          <p className="pl-note">Ease Score (measures barriers to building, not whether it's a good investment) is precomputed for the best option that adds homes; where a municipality's zoning is not loaded the lot reads Partial, has no score and sorts last (score config v{(options?.config_versions ?? []).join(", v") || "—"}). Homes by right come from our lot-fit test under the zoning rules. Money columns (margin, residual land value) are not stored per lot; open a lot and use its Pencil calculator. Decision support only.</p>
         </section>
       </div>
     </SeatLayout>

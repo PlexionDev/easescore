@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckboxField, FilterRail, FilterSection, SeatButton } from "@/components/seats";
-import { BANDS, BLOCK_NC, DELINQUENT_PUBLIC_NOTE, ONLY_BLOCKED_BY, OWNER_TYPES, publicOnlyIfDelinquent, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
+import { BANDS, BLOCK_NC, bandLabel, DELINQUENT_PUBLIC_NOTE, ONLY_BLOCKED_BY, OWNER_TYPES, publicOnlyIfDelinquent, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
 
 const TRANSIT_FT = [500, 1000, 1500, 2640];
 
@@ -111,7 +111,7 @@ export default function PlannerFilters({ f, options, set, reset, counts }: {
         <CheckboxField label="Exclude slope ≥25%" hint="A quarter or more of the lot steeper than 25%" checked={!!f.xSteep} onChange={(c) => set({ xSteep: c || undefined })} />
         <span className="es-field-label" style={{ marginTop: 8 }}>Score band</span>
         {BANDS.map((b) => (
-          <CheckboxField key={b} label={b} checked={!!f.bands?.includes(b)}
+          <CheckboxField key={b} label={bandLabel(b)} checked={!!f.bands?.includes(b)}
             onChange={(c) => set({ bands: c ? [...(f.bands ?? []), b] : (f.bands ?? []).filter((x): x is Band => x !== b) })} />
         ))}
         <span className="es-field-label" style={{ marginTop: 8 }}>Homes by right, at least</span>

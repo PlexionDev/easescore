@@ -6,8 +6,12 @@
 // The same filter semantics exist twice on purpose: filtersToDb() feeds planner_rows() in SQL, and
 // matchRow() is its TypeScript mirror, used by the unit tests and to check exports against the table.
 
+import { bandLabel, relabelBands } from "@easescore/engine/src/score/bands";
+
 export type Band = "Easy" | "Moderate" | "Hard" | "Very hard";
 export const BANDS: Band[] = ["Easy", "Moderate", "Hard", "Very hard"];
+/** Stored band code → the words people see ("Few barriers" … "Major barriers"; "Partial" stays). */
+export { bandLabel };
 /** Band colors from the seat tokens (green to red). */
 export const BAND_COLOR: Record<string, string> = {
   Easy: "#156b54",
@@ -16,6 +20,9 @@ export const BAND_COLOR: Record<string, string> = {
   "Very hard": "#d9776a",
 };
 export const NO_BAND_COLOR = "#c9d1cd";
+/** Partial screen (zoning not loaded, no numeric score): a hatched-looking slate, distinct from "No score". */
+export const PARTIAL_COLOR = "#8e9aab";
+BAND_COLOR.Partial = PARTIAL_COLOR;
 export const FACTORS: { id: string; label: string; weight: number }[] = [
   { id: "F1", label: "Zoning permission", weight: 25 },
   { id: "F2", label: "Terrain", weight: 20 },
@@ -84,7 +91,8 @@ export interface PlannerRow {
   parid: string;
   address: string | null;
   score: number | null;
-  band: Band | null;
+  /** "Partial": zoning not loaded for the municipality (no numeric score; migration 145). */
+  band: Band | "Partial" | null;
   range_lo: number | null;
   range_hi: number | null;
   preliminary: boolean;
@@ -368,7 +376,7 @@ export function describeFilters(f: Filters): string[] {
   if (f.delinquent) out.push("Tax-delinquent (publicly owned only)");
   if (f.lotMin != null || f.lotMax != null)
     out.push(`Lot size ${f.lotMin != null ? `${f.lotMin.toLocaleString("en-US")} sq ft` : "any"} to ${f.lotMax != null ? `${f.lotMax.toLocaleString("en-US")} sq ft` : "any"}`);
-  if (f.bands?.length) out.push(`Score band: ${f.bands.join(", ")}`);
+  if (f.bands?.length) out.push(`Score band: ${f.bands.map((b) => bandLabel(b)).join(", ")}`);
   if (f.clean) out.push("No red flags");
   const x = [f.xFloodway && "floodway", f.xLandslide && "landslide-prone", f.xUndermined && "undermined", f.xSteep && "a quarter or more of the lot steeper than 25%"].filter(Boolean);
   if (x.length) out.push(`Excluding ${x.join(", ")}`);
@@ -508,11 +516,11 @@ function cell(v: unknown): string {
 export function csvLine(r: PlannerRow, rank: number, origin: string): string {
   const vals: unknown[] = [
     rank, r.parid.trim(), r.address, r.municipality, r.neighborhood, r.council_district, r.zoning, r.lot_sqft, r.vacant, ownerLabel(r),
-    shownDelinquent(r), r.score, r.band, r.range_lo, r.range_hi, r.preliminary, r.cap_label, r.red_flag_count, r.red_flags.map((f) => f.title).join("; "),
+    shownDelinquent(r), r.score, r.band ? bandLabel(r.band) : null, r.range_lo, r.range_hi, r.preliminary, r.cap_label ? relabelBands(r.cap_label) : null, r.red_flag_count, r.red_flags.map((f) => f.title).join("; "),
     r.top_blocker, r.blockers.join("; "), r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : null,
     r.by_right_units, r.units_with_relief, r.months_to_permit,
     r.transit_m != null ? Math.round(r.transit_m * FT_PER_M) : null, r.hz_floodway, r.hz_landslide, r.hz_undermined, r.steep_share,
-    r.rehab_score, r.rehab_band, r.planning_badge, BADGE_NOTE, r.badge_score,
+    r.rehab_score, r.rehab_band ? bandLabel(r.rehab_band) : null, r.planning_badge, BADGE_NOTE, r.badge_score,
     ...FACTORS.map((f) => r.factor_scores?.[f.id] ?? null),
     ...CSV_DATE_SOURCES.map(([, src]) => r.data_dates?.[src] ?? null), r.config_version, r.computed_at, r.note,
     `${origin}/parcel/${encodeURIComponent(r.parid.trim())}`,

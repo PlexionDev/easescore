@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as maplibregl from "maplibre-gl";
 import MapPanel, { MapLegend, PGH_BOUNDS, motionOK, useMapPanel } from "@/components/seats/MapPanel";
-import { BAND_COLOR, BANDS, NO_BAND_COLOR, type PlannerPoint } from "@/lib/planner";
+import { BAND_COLOR, BANDS, NO_BAND_COLOR, PARTIAL_COLOR, bandLabel, type PlannerPoint } from "@/lib/planner";
 import { briefs, type Brief } from "@/lib/parcel-brief";
 
 const SRC = "dv-sites";
@@ -42,7 +42,7 @@ function Layers({ points, selected, pinned, onSelect, onHover, fitKey }: {
     map.addLayer({ id: "dv-cluster-count", type: "symbol", source: SRC, filter: ["has", "point_count"],
       layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 11, "text-font": ["Noto Sans Medium"] }, paint: { "text-color": "#fff" } });
     map.addLayer({ id: "dv-points", type: "circle", source: SRC, filter: ["!", ["has", "point_count"]], paint: {
-      "circle-color": ["match", ["get", "band"], "Easy", BAND_COLOR.Easy!, "Moderate", BAND_COLOR.Moderate!, "Hard", BAND_COLOR.Hard!, "Very hard", BAND_COLOR["Very hard"]!, NO_BAND_COLOR] as unknown as maplibregl.ExpressionSpecification,
+      "circle-color": ["match", ["get", "band"], "Easy", BAND_COLOR.Easy!, "Moderate", BAND_COLOR.Moderate!, "Hard", BAND_COLOR.Hard!, "Very hard", BAND_COLOR["Very hard"]!, "Partial", PARTIAL_COLOR, NO_BAND_COLOR] as unknown as maplibregl.ExpressionSpecification,
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, ["case", ["boolean", ["feature-state", "sel"], false], 8, 3.5], 15, ["case", ["boolean", ["feature-state", "sel"], false], 10, 5], 18, ["case", ["boolean", ["feature-state", "sel"], false], 13, 8]],
       "circle-stroke-color": ["case", ["boolean", ["feature-state", "sel"], false], "#111b1a", ["boolean", ["feature-state", "pin"], false], "#1d4f86", "#ffffff"],
       "circle-stroke-width": ["case", ["boolean", ["feature-state", "sel"], false], 2.5, ["boolean", ["feature-state", "pin"], false], 2.5, 0.8],
@@ -147,7 +147,7 @@ export default function DeveloperMap({ points, total, selected, pinned, onSelect
       bounds={PGH_BOUNDS}
       basemap="light"
       minHeight={260}
-      legend={<MapLegend items={BANDS.map((x) => ({ color: BAND_COLOR[x]!, label: x }))} title="Ease Score band" />}
+      legend={<MapLegend items={[...BANDS.map((x) => ({ color: BAND_COLOR[x]!, label: bandLabel(x) })), { color: PARTIAL_COLOR, label: "Partial (zoning not loaded)" }]} title="Ease Score band" />}
     >
       <Layers points={points} selected={selected} pinned={pinned} onSelect={onSelect} onHover={setHover} fitKey={fitKey} />
       <p className="pl-mapnote dv-mapnote">
@@ -159,7 +159,7 @@ export default function DeveloperMap({ points, total, selected, pinned, onSelect
           <strong>{b?.address ?? "Parcel"}</strong>
           <span className="dv-mono">Parcel {hover.parid.trim()}</span>
           <span className="pl-muted" style={{ display: "block" }}>
-            {[b ? (b.zoning ? `Zoning ${b.zoning}` : "Zoning not in our data") : "…", b?.owner ?? null, hover.score != null ? `Score ${hover.score} · ${hover.band}` : null].filter(Boolean).join(" · ")}
+            {[b ? (b.zoning ? `Zoning ${b.zoning}` : "Zoning not in our data") : "…", b?.owner ?? null, hover.score != null ? `Score ${hover.score} · ${bandLabel(hover.band)}` : hover.band === "Partial" ? "Partial screen: zoning not loaded" : null].filter(Boolean).join(" · ")}
           </span>
         </div>
       ) : null}

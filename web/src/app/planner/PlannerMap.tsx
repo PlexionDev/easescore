@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type * as maplibregl from "maplibre-gl";
 import MapPanel, { MapLegend, PGH_BOUNDS, motionOK, useMapPanel } from "@/components/seats/MapPanel";
 import { Segmented } from "@/components/seats";
-import { BAND_COLOR, BANDS, NO_BAND_COLOR, parcelLabel, type PlannerPoint } from "@/lib/planner";
+import { BAND_COLOR, BANDS, NO_BAND_COLOR, PARTIAL_COLOR, bandLabel, parcelLabel, type PlannerPoint } from "@/lib/planner";
 
 export type ColorBy = "band" | "blocker" | "blocks";
 const BLOCKER_PALETTE = ["#1d4f86", "#a86514", "#7a3e9d", "#156b54", "#b42318", "#556619", "#2f7f8f", "#8a5a44"];
@@ -133,7 +133,7 @@ function Sites({ points, colorBy, blockers, hover, selected, pinned, onHover, on
     if (!map || !ready || !map.getLayer("pl-points")) return;
     if (colorBy === "blocks") return;
     const color = (colorBy === "band"
-      ? ["match", ["get", "band"], "Easy", BAND_COLOR.Easy!, "Moderate", BAND_COLOR.Moderate!, "Hard", BAND_COLOR.Hard!, "Very hard", BAND_COLOR["Very hard"]!, NO_BAND_COLOR]
+      ? ["match", ["get", "band"], "Easy", BAND_COLOR.Easy!, "Moderate", BAND_COLOR.Moderate!, "Hard", BAND_COLOR.Hard!, "Very hard", BAND_COLOR["Very hard"]!, "Partial", PARTIAL_COLOR, NO_BAND_COLOR]
       : ["match", ["get", "blk"], ...BLOCKER_PALETTE.flatMap((c, i) => [i, c]), "#9aa6a1"]) as unknown as maplibregl.ExpressionSpecification;
     map.setPaintProperty("pl-points", "circle-color", color);
   }, [map, ready, colorBy]);
@@ -189,7 +189,7 @@ export default function PlannerMap({ points, total, blockers, hover, selected, p
   const legend = colorBy === "blocks"
     ? BLOCK_STEPS.map((b) => ({ color: b.color, label: b.label }))
     : colorBy === "band"
-    ? BANDS.map((b) => ({ color: BAND_COLOR[b]!, label: b }))
+    ? [...BANDS.map((b) => ({ color: BAND_COLOR[b]!, label: bandLabel(b) })), { color: PARTIAL_COLOR, label: "Partial (zoning not loaded)" }]
     : [...topBlockers.map((b, i) => ({ color: BLOCKER_PALETTE[i]!, label: b })), { color: "#9aa6a1", label: "Other or none" }];
   const p = card ? byId.get(card.parid) : undefined;
   return (
@@ -218,7 +218,7 @@ export default function PlannerMap({ points, total, blockers, hover, selected, p
       {card && p ? (
         <div className="pl-hover" style={{ left: card.x + 14, top: card.y + 14 }}>
           <strong>{parcelLabel({ address: p[6], parid: p[0] })}</strong>
-          <span>{p[3] ?? "—"} · {p[4] ?? "No score"}{p[5] ? ` · top blocker: ${p[5].toLowerCase()}` : ""}</span>
+          <span>{p[3] ?? "—"} · {bandLabel(p[4])}{p[5] ? ` · top blocker: ${p[5].toLowerCase()}` : ""}</span>
           <span className="pl-muted" style={{ display: "block" }}>{p[7] ?? "—"} home{p[7] === 1 ? "" : "s"} by right, {p[8] ?? "—"} with relief</span>
         </div>
       ) : null}

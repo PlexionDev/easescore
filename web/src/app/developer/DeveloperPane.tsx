@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
+import { partialHeadline, relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import { STRATEGY_TEXT, ownerLabel, titleCase, type PlannerResult, type PlannerRow } from "@/lib/planner";
 import { addressLine, briefs, type Brief } from "@/lib/parcel-brief";
 import PanePhoto from "../parcel/[parid]/PanePhoto";
@@ -28,10 +29,10 @@ function mapStage(parid: string): Promise<{ mapData: FC | null }> {
 }
 
 const SENTENCE: Record<string, string> = {
-  Easy: "Few obstacles: the best option that adds homes looks straightforward on the data we have.",
-  Moderate: "Workable, with a few things to resolve first.",
-  Hard: "Several obstacles; expect approvals, site work or both.",
-  "Very hard": "Major obstacles on the data we have.",
+  Easy: "Few barriers to building the best option that adds homes, on the data we have.",
+  Moderate: "Some barriers to resolve first.",
+  Hard: "Significant barriers; expect approvals, site work or both.",
+  "Very hard": "Major barriers on the data we have.",
 };
 
 export function useParcelRow(parid: string | null, known: PlannerRow | null): { row: PlannerRow | null; state: "loading" | "ok" | "none" | "error" } {
@@ -117,7 +118,8 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
             <b>{r.score ?? "—"}</b>
             <div>
               <BandPill band={r.band} score={r.score} />
-              <p>{r.band ? SENTENCE[r.band] : "Not enough evidence to score this lot."}{r.range_lo != null ? ` Range with missing data: ${r.range_lo} to ${r.range_hi}.` : ""}</p>
+              <p>{r.band === "Partial" ? `${partialHeadline(r.municipality)}. Only the known facts below (lot, slope, hazards, existing building) apply.` : r.band ? SENTENCE[r.band] : "Not enough evidence to score this lot."}{r.range_lo != null ? ` Range with missing data: ${r.range_lo} to ${r.range_hi}.` : ""}</p>
+              {r.band !== "Partial" && r.score != null ? <p className="dv-hint">{SCORE_CAPTION}</p> : null}
             </div>
           </div>
           <div className="dv-tiles">
@@ -125,13 +127,13 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
               <div key={k} className="dv-tile"><span>{k}</span><b title={v}>{v}</b>{sub ? <small>{sub}</small> : null}</div>
             ))}
           </div>
-          <p className="dv-best"><b>Best option:</b> {best ? `${best}, ${r.by_right_units ?? "—"} home${r.by_right_units === 1 ? "" : "s"} by right${r.units_with_relief != null && r.units_with_relief !== r.by_right_units ? `, ${r.units_with_relief} with relief` : ""}` : "none scored"}{r.top_blocker ? `. Top blocker: ${r.top_blocker.toLowerCase()}` : ""}.</p>
-          {r.cap_label ? <p className="pl-callout amber">{r.cap_label}</p> : null}
+          <p className="dv-best"><b>Best option:</b> {r.band === "Partial" ? "Can't determine; zoning not loaded" : best ? `${best}, ${r.by_right_units ?? "—"} home${r.by_right_units === 1 ? "" : "s"} by right${r.units_with_relief != null && r.units_with_relief !== r.by_right_units ? `, ${r.units_with_relief} with relief` : ""}` : "none scored"}{r.top_blocker ? `. Top blocker: ${r.top_blocker.toLowerCase()}` : ""}.</p>
+          {r.cap_label ? <p className="pl-callout amber">{relabelBands(r.cap_label)}</p> : null}
           {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
         </>
       ) : null}
       <div className="dv-actions">
-        <Link className="es-btn es-btn-primary" href={`${href}#view=build`}>Open QuickFit</Link>
+        {r?.band === "Partial" ? null : <Link className="es-btn es-btn-primary" href={`${href}#view=build`}>Open QuickFit</Link>}
         <Link className="es-btn" href={`${href}#drawer=pencils`}>Pencil calculator</Link>
         <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Full report<span className="es-sr"> (opens in a new tab)</span></a>
       </div>

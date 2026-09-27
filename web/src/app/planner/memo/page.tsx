@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { bandLabel, partialHeadline, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
 import {
   BADGE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
@@ -27,11 +28,12 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
       <h2>Development Ease Score</h2>
       <div className="grid">
         <div>
-          <p className="big">{r.score ?? "—"} <span style={{ fontSize: "12pt", fontWeight: 600 }}>{r.band ?? "No score"}</span></p>
+          <p className="big">{r.score ?? "—"} <span style={{ fontSize: "12pt", fontWeight: 600 }}>{r.band === "Partial" ? partialHeadline(r.municipality) : bandLabel(r.band)}</span></p>
+          {r.score != null ? <p className="fine">{SCORE_CAPTION}</p> : null}
           {r.range_lo != null ? <p>{r.preliminary ? "Preliminary: m" : "M"}issing data puts it between {r.range_lo} and {r.range_hi}.</p> : null}
           {!r.zoning ? <p>Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded; confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
-          <p>Best option that adds homes: {r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}.</p>
-          <p>Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "no building on the lot"}.</p>
+          <p>Best option that adds homes: {r.band === "Partial" ? "can't determine; zoning not loaded" : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}.</p>
+          <p>Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${bandLabel(r.rehab_band)})` : r.band === "Partial" ? (r.vacant ? "no building on the lot" : "not scored (zoning not loaded)") : "no building on the lot"}.</p>
         </div>
         <div>
           <div className="kv"><span>Homes by right</span><b>{r.by_right_units ?? "not computed"}</b></div>
@@ -97,7 +99,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
       <section className="page">
         <p className="meta">EaseScore.AI · Staff memo · {new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { dateStyle: "long", timeZone: "UTC" })}</p>
         <h1>Candidate housing sites</h1>
-        <p>This memo lists sites that match the criteria below, ranked by the Development Ease Score (0-100, higher means easier to get housing built). It is decision support, not a zoning determination.</p>
+        <p>This memo lists sites that match the criteria below, ranked by the Development Ease Score (0-100, higher means fewer barriers to getting housing built; it measures barriers to building, not whether it's a good investment). Parcels where the municipality's zoning is not loaded read "Partial", have no score and are listed after every scored parcel. It is decision support, not a zoning determination.</p>
 
         <h2>Criteria</h2>
         <p>{describeFilters(f).join(" · ")}</p>
@@ -106,7 +108,8 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
         <div className="grid">
           <div>
             <div className="kv"><span>Matching parcels</span><b>{n(sum.total)}</b></div>
-            {(["Easy", "Moderate", "Hard", "Very hard"] as const).map((b) => <div key={b} className="kv"><span>{b}</span><b>{n(sum.bands[b] ?? 0)}</b></div>)}
+            {(["Easy", "Moderate", "Hard", "Very hard"] as const).map((b) => <div key={b} className="kv"><span>{bandLabel(b)}</span><b>{n(sum.bands[b] ?? 0)}</b></div>)}
+            {sum.bands.Partial ? <div className="kv"><span>Partial (zoning not loaded, no score)</span><b>{n(sum.bands.Partial)}</b></div> : null}
           </div>
           <div>
             <div className="kv"><span>Homes by right</span><b>{n(sum.capacity.by_right_clean)} to {n(sum.capacity.by_right)}</b></div>
@@ -131,7 +134,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
             {rows.map((r, i) => (
               <tr key={r.parid}>
                 <td>{i + 1}</td><td>{parcelLabel(r)}</td><td>{r.neighborhood ?? "—"}</td><td>{r.zoning ?? "not loaded"}</td>
-                <td className="n">{r.score ?? "—"} {r.band ?? ""}</td><td>{r.top_blocker ?? "none major"}</td>
+                <td className="n">{r.score ?? "—"} {r.band ? bandLabel(r.band) : ""}</td><td>{r.top_blocker ?? "none major"}</td>
                 <td className="n">{r.by_right_units ?? "—"}</td><td className="n">{r.units_with_relief ?? "—"}</td><td className="n">{r.months_to_permit ?? "—"}</td>
               </tr>
             ))}
