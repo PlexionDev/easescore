@@ -3,39 +3,83 @@
 // With every lever off the row is returned untouched, so the score equals the baseline exactly.
 //
 // Levers (see .planning DECISIONS for the modelling choices):
-//  1. attached  — two attached homes (a side-by-side pair) by right on existing lots up to W ft wide in
-//                 single-unit districts (R1D, R1A); in R1D the townhouse-row width limit also rises to W
-//                 when W is above the current 35 ft.
-//  2. minLot    — minimum lot size and lot area per unit set to a share of the current number (0 = none).
-//  3. parking   — minimum parking: current, none within 1/4 mile of frequent transit, or none anywhere.
+//  1. attached   — two attached homes (a side-by-side pair) by right on existing lots up to W ft wide in
+//                  single-unit districts (R1D, R1A); in R1D the townhouse-row width limit also rises to W
+//                  when W is above the current 35 ft.
+//  2. minLot     — minimum lot size and lot area per unit set to a share of the current number (0 = none).
+//  3. parking    — minimum parking: current, none within 1/4 mile of frequent transit, or none anywhere.
+//  4. adu        — one accessory dwelling unit by right on a lot with a detached single-family house in a
+//                  residential district. Our zoning table has no ADU rules, so this lever supplies them for
+//                  the scenario (ADU_RULES below); the ADU is counted beside the house, not rescored.
+//  5. contextual — front setback = the average of the neighbors, by right, in residential districts. We do
+//                  not measure neighbors: the engine's own contextual-setback assumption stands in for it.
+//  6. height     — one more story (and 10 ft more height) in residential districts.
 
-import { solverRules } from "../score/strategies";
+import { DEFAULT_CONFIG } from "../score/adapter";
+import { existingUseColumn, solverRules } from "../score/strategies";
 import type { QuickFitRules } from "../quickfit/types";
 
 export type ParkingMode = "current" | "transit" | "none";
-export type LeverId = "attached" | "minLot" | "parking";
+export type LeverId = "attached" | "minLot" | "parking" | "adu" | "contextual" | "height";
 
 export interface LeverState {
   attached: { on: boolean; maxWidthFt: number };
   minLot: { on: boolean; share: number };
   parking: ParkingMode;
+  /** One ADU by right beside a detached single-family house (residential districts). */
+  adu: boolean;
+  /** Contextual front setback by right (residential districts). */
+  contextual: boolean;
+  /** +1 story and +10 ft height (residential districts). */
+  height: boolean;
 }
 
 export const LEVER_LABEL: Record<LeverId, string> = {
   attached: "Attached homes by right on narrow lots",
   minLot: "Minimum lot size",
   parking: "Parking minimums",
+  adu: "ADUs by right",
+  contextual: "Contextual front setback",
+  height: "One more story",
 };
 
 /** Frequent-transit distance for the parking lever: a quarter mile, the Ease Score's own transit test. */
 export const TRANSIT_M = 400;
 export const ATTACHED_DISTRICTS = /^(R1D|R1A)-/;
+/** Residential districts for the ADU, contextual-setback and height levers (not H, mixed-use or special districts). */
+export const RESIDENTIAL_DISTRICTS = /^(R1D|R1A|R2|R3|RM)-/;
 /** Not housing districts, so no lever applies: P (parks and open space). */
 export const EXCLUDED_DISTRICTS = new Set(["P"]);
 export const WIDTH_MIN_FT = 25;
 export const WIDTH_MAX_FT = 50;
 
-export const OFF: LeverState = { attached: { on: false, maxWidthFt: 35 }, minLot: { on: false, share: 1 }, parking: "current" };
+/**
+ * ADU rules this lever supplies (scenario settings, not code): our zoning table has no ADU rules.
+ * Footprint sizes and the separation are the same placeholders as the parcel page's ADU preset
+ * (web/src/lib/quickfit-gen.ts): 14-24 ft wide, 16-28 ft deep, 1-2 stories, 10 ft from the house.
+ */
+export const ADU_RULES = {
+  /** Size cap: finished floor area of the ADU, gross sq ft. */
+  maxFloorAreaSf: 800,
+  /** Smallest ADU footprint the fit check requires, ft. */
+  minWidthFt: 14,
+  minDepthFt: 16,
+  /** Clear distance from the main house, ft. */
+  separationFt: 10,
+  /** Net (livable) / gross floor area, for the sale-value side of the pencil test. */
+  netShare: 0.85,
+  /** Eligible: a detached single-family house on the lot (county use code), in a residential district. */
+  eligibleUse: "SINGLE FAMILY (detached; not rowhouse or townhouse)",
+} as const;
+
+/** The engine's contextual front-setback assumption (Ease Score config f1.contextualFrontSetbackFt), ft. */
+export const CONTEXTUAL_FRONT_FT: number = DEFAULT_CONFIG.f1.contextualFrontSetbackFt;
+/** Height lever: stories and feet added to the district's limits. */
+export const HEIGHT_ADD = { stories: 1, ft: 10 } as const;
+
+export const OFF: LeverState = {
+  attached: { on: false, maxWidthFt: 35 }, minLot: { on: false, share: 1 }, parking: "current", adu: false, contextual: false, height: false,
+};
 
 /** Clamp and snap a lever state so equal policies get equal keys. A lever that changes nothing is off. */
 export function normalize(s: Partial<LeverState> | null | undefined): LeverState {
@@ -47,12 +91,16 @@ export function normalize(s: Partial<LeverState> | null | undefined): LeverState
     attached: { on: !!s?.attached?.on, maxWidthFt: w },
     minLot: { on: !!s?.minLot?.on && share < 1, share: s?.minLot?.on && share < 1 ? share : 1 },
     parking,
+    adu: s?.adu === true,
+    contextual: s?.contextual === true,
+    height: s?.height === true,
   };
 }
 
 /**
  * Stable key for a lever state ("base" when every lever is off), used as policy_results.lever_state_hash.
- * Readable on purpose: a37.m0.pn = attached up to 37 ft, no minimum lot size, no parking minimum.
+ * Readable on purpose: a37.m0.pn = attached up to 37 ft, no minimum lot size, no parking minimum;
+ * then adu (ADUs by right), cs (contextual setback), h1 (+1 story), in that order.
  */
 export function stateKey(s: LeverState): string {
   const n = normalize(s);
@@ -60,6 +108,9 @@ export function stateKey(s: LeverState): string {
   if (n.attached.on) parts.push(`a${n.attached.maxWidthFt}`);
   if (n.minLot.on) parts.push(`m${Math.round(n.minLot.share * 100)}`);
   if (n.parking !== "current") parts.push(n.parking === "transit" ? "pt" : "pn");
+  if (n.adu) parts.push("adu");
+  if (n.contextual) parts.push("cs");
+  if (n.height) parts.push("h1");
   return parts.length ? parts.join(".") : "base";
 }
 
@@ -70,13 +121,19 @@ export function parseKey(key: string): LeverState {
     else if (/^m\d+$/.test(p)) s.minLot = { on: true, share: Number(p.slice(1)) / 100 };
     else if (p === "pt") s.parking = "transit";
     else if (p === "pn") s.parking = "none";
+    else if (p === "adu") s.adu = true;
+    else if (p === "cs") s.contextual = true;
+    else if (p === "h1") s.height = true;
   }
   return normalize(s);
 }
 
 export const activeLevers = (s: LeverState): LeverId[] => {
   const n = normalize(s);
-  return [...(n.attached.on ? ["attached" as const] : []), ...(n.minLot.on ? ["minLot" as const] : []), ...(n.parking !== "current" ? ["parking" as const] : [])];
+  return [
+    ...(n.attached.on ? ["attached" as const] : []), ...(n.minLot.on ? ["minLot" as const] : []), ...(n.parking !== "current" ? ["parking" as const] : []),
+    ...(n.adu ? ["adu" as const] : []), ...(n.contextual ? ["contextual" as const] : []), ...(n.height ? ["height" as const] : []),
+  ];
 };
 
 /** What the lever needs to know about one parcel. All from the score inputs; nothing demographic. */
@@ -90,33 +147,47 @@ export interface LeverParcel {
   frontageFt: number | null;
   /** Distance to the nearest frequent-transit stop, meters. */
   transitM: number | null;
+  /** County assessment use (e.g. "SINGLE FAMILY"); the ADU lever needs a detached house on the lot. */
+  use?: string | null;
+  /** Lot area from the parcel outline, sq ft (ADU fit check). */
+  lotAreaSf?: number | null;
+  /** Existing building footprint on the lot, sq ft (ADU fit check). */
+  footprintSf?: number | null;
 }
 
 export interface LeverApplication {
-  /** Rules row to score with. The same object as the input when nothing applies. */
+  /** Rules row to score with. The same object as the input when no rules lever applies. */
   rules: QuickFitRules | null;
-  /** Levers that changed this parcel's rules (its eligibility under this state). */
+  /** Levers that apply to this parcel (its eligibility under this state). */
   touched: LeverId[];
 }
 
 const pos = (x: number | null | undefined) => x != null && x > 0;
 
+/** Levers that change the zoning-rules row (the ADU is counted beside the house instead). */
+export const RULES_LEVERS: LeverId[] = ["attached", "minLot", "parking", "contextual", "height"];
+
 /** Which levers of `s` apply to this parcel. Pure; used both for the batch filter and the rules rewrite. */
 export function eligibility(p: LeverParcel, s: LeverState): LeverId[] {
   const n = normalize(s);
   if (!p.pgh || !p.zoneCode || !p.rules || EXCLUDED_DISTRICTS.has(p.zoneCode.toUpperCase())) return [];
+  const zc = p.zoneCode.toUpperCase();
   const eff = solverRules(p.zoneCode, p.rules);
   const out: LeverId[] = [];
   if (n.attached.on) {
     const narrow = p.frontageFt != null && p.frontageFt <= n.attached.maxWidthFt + 1e-9;
     const pairAllowed = eff.two_unit === "P";
-    const rowWider = /^R1D-/.test(p.zoneCode.toUpperCase()) && (eff.attached_by_right_max_lot_width_ft ?? Infinity) < n.attached.maxWidthFt;
-    if (ATTACHED_DISTRICTS.test(p.zoneCode.toUpperCase()) && ((narrow && !pairAllowed) || rowWider)) out.push("attached");
+    const rowWider = /^R1D-/.test(zc) && (eff.attached_by_right_max_lot_width_ft ?? Infinity) < n.attached.maxWidthFt;
+    if (ATTACHED_DISTRICTS.test(zc) && ((narrow && !pairAllowed) || rowWider)) out.push("attached");
   }
   if (n.minLot.on && (pos(eff.min_lot_area_sqft) || pos(eff.min_lot_area_per_unit_sqft))) out.push("minLot");
   if (n.parking !== "current" && (pos(eff.parking_per_unit) || pos(eff.attached_parking_per_unit))) {
     if (n.parking === "none" || (p.transitM != null && p.transitM <= TRANSIT_M)) out.push("parking");
   }
+  const residential = RESIDENTIAL_DISTRICTS.test(zc);
+  if (n.adu && residential && existingUseColumn(p.use) === "single_unit_detached") out.push("adu");
+  if (n.contextual && residential && (eff.min_front_setback_ft ?? 0) > CONTEXTUAL_FRONT_FT) out.push("contextual");
+  if (n.height && residential && (pos(eff.max_height_stories) || pos(eff.max_height_ft))) out.push("height");
   return out;
 }
 
@@ -124,6 +195,7 @@ export function eligibility(p: LeverParcel, s: LeverState): LeverId[] {
 export function applyLevers(p: LeverParcel, s: LeverState): LeverApplication {
   const touched = eligibility(p, s);
   if (!touched.length || !p.rules || !p.zoneCode) return { rules: p.rules, touched: [] };
+  if (!touched.some((t) => RULES_LEVERS.includes(t))) return { rules: p.rules, touched };
   const n = normalize(s);
   const eff = solverRules(p.zoneCode, p.rules);
   const r: QuickFitRules = { ...p.rules };
@@ -142,7 +214,28 @@ export function applyLevers(p: LeverParcel, s: LeverState): LeverApplication {
     r.parking_per_unit = eff.parking_per_unit == null ? null : 0;
     r.attached_parking_per_unit = 0;
   }
+  if (touched.includes("contextual")) r.min_front_setback_ft = CONTEXTUAL_FRONT_FT;
+  if (touched.includes("height")) {
+    if (pos(eff.max_height_stories)) r.max_height_stories = eff.max_height_stories! + HEIGHT_ADD.stories;
+    if (pos(eff.max_height_ft)) r.max_height_ft = eff.max_height_ft! + HEIGHT_ADD.ft;
+  }
   return { rules: r, touched };
+}
+
+/**
+ * Whether the smallest ADU plausibly fits behind the house (the low end of the ADU range). An area proxy,
+ * not a drawn fit: the engine's lot-fit test has no priced ADU path. The open area behind the front yard
+ * (lot area - house footprint - frontage x front setback) must hold the smallest ADU with the district's
+ * side yards on both sides and the 10 ft separation plus the rear yard in depth, and the lot must be wide
+ * enough for that ADU between the side yards. Lots with no house footprint or no outline do not count.
+ */
+export function aduFits(p: LeverParcel, rules: QuickFitRules | null): boolean {
+  if (!rules || !pos(p.footprintSf) || !pos(p.lotAreaSf) || !pos(p.frontageFt)) return false;
+  const side = rules.min_side_setback_ft ?? 0, rear = rules.min_rear_setback_ft ?? 0, front = rules.min_front_setback_ft ?? 0;
+  const w = ADU_RULES.minWidthFt + 2 * side;
+  if (p.frontageFt! < w) return false;
+  const open = p.lotAreaSf! - p.footprintSf! - p.frontageFt! * front;
+  return open >= w * (ADU_RULES.minDepthFt + ADU_RULES.separationFt + rear);
 }
 
 /** Single levers and "all three on", the states the background job precomputes. */
@@ -155,6 +248,9 @@ export function restrict(s: LeverState, keep: LeverId[]): LeverState {
     attached: keep.includes("attached") ? n.attached : { on: false, maxWidthFt: 35 },
     minLot: keep.includes("minLot") ? n.minLot : { on: false, share: 1 },
     parking: keep.includes("parking") ? n.parking : "current",
+    adu: keep.includes("adu") && n.adu,
+    contextual: keep.includes("contextual") && n.contextual,
+    height: keep.includes("height") && n.height,
   });
 }
 

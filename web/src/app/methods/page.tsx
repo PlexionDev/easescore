@@ -336,7 +336,7 @@ export default function MethodsPage() {
             <h2 id="policy-h">Policy levers</h2>
             <p>
               A lever never changes the engine. It rewrites the zoning-rules row a parcel is scored with, only for the parcels it
-              applies to; with every lever off, a parcel scores exactly as it does on its own parcel page. Three levers, defined
+              applies to; with every lever off, a parcel scores exactly as it does on its own parcel page. Six levers, defined
               exactly as the code applies them:
             </p>
             <ul>
@@ -352,6 +352,26 @@ export default function MethodsPage() {
               <li>
                 <strong>Parking minimums.</strong> Off, none within a quarter mile of a frequent-transit stop (the Ease Score&apos;s own
                 transit test), or none anywhere.
+              </li>
+              <li>
+                <strong>ADUs by right.</strong> One accessory dwelling unit (up to 800 sq ft, a scenario setting: our zoning table has
+                no ADU rules) beside a detached single-family house in R1D, R1A, R2, R3 and RM. It is counted as one more home per
+                eligible lot, not rescored. The low end counts only lots where an area check (lot area minus the house footprint and
+                the front yard) holds the smallest ADU, 14 &times; 16 ft, with the district&apos;s side and rear yards and 10 ft from
+                the house &mdash; a labeled proxy, since the lot-fit test has no priced ADU path. Its pencil test prices 800 sq ft at
+                nearby new-construction prices with no land cost. When another lever also adds homes on the lot, the path with more
+                homes counts, never both.
+              </li>
+              <li>
+                <strong>Contextual front setback.</strong> In the same residential districts, the front setback becomes the
+                neighbors&apos; average by right. Neighboring buildings are not measured; the engine&apos;s own contextual-setback
+                assumption (5 ft, the value every parcel page uses for &sect;925.06) stands in for it. Because the baseline already
+                credits that setback where a lot needs it, by-right gains are small.
+              </li>
+              <li>
+                <strong>One more story.</strong> In the same residential districts, the height limit rises by one story and 10 ft.
+                The lot-fit test&apos;s building types top out at three stories (placeholder sizes), so where a district already allows
+                three this lever cannot add homes in the model; its result is a floor.
               </li>
             </ul>
             <p>

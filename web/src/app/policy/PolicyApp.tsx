@@ -8,12 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import {
-  DataDateFooter, EmptyState, ExportMenu, FilterRail, FilterSection, RangeSlider, RangeValue, ReceiptButton, Segmented, SeatButton,
+  DataDateFooter, EmptyState, ExportMenu, FilterRail, RangeSlider, RangeValue, ReceiptButton, Segmented, SeatButton,
   SeatHeader, SeatLayout, SeatSelect, StatCard, Switch, fmtMoney, formatRange, roundRange, roundSig, useSeatSelection, type Receipt,
 } from "@/components/seats";
 import type { PolicyPoint, Who } from "@/lib/policy/data";
 import {
-  DEFAULT_ABATEMENT, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
+  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
   type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario,
 } from "@/lib/policy/model";
 import { FiscalTab, MethodTab, WhereTab, WhoTab } from "./PolicyTabs";
@@ -44,6 +44,9 @@ const PRESETS: { value: string; label: string }[] = [
   { value: "m0", label: "No minimum lot size" },
   { value: "pt", label: "Transit parking" },
   { value: "a35.m0.pn", label: "All three levers" },
+  { value: "adu", label: "ADUs by right" },
+  { value: "cs", label: "Contextual front setback" },
+  { value: "h1", label: "One more story" },
 ];
 
 interface Saved { name: string; q: string }
@@ -166,9 +169,20 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const rHomes: Receipt[] = [{
     label: "Additional homes allowed by right", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "data",
-    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan). High end: adds lots the fit test could not finish in time, at the average gain per lot tested.",
+    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. High end: adds lots the fit test could not finish in time, at the average gain per lot tested.",
     notes: "Capacity is not production: it says what the rules would allow, not what will be built or when.",
-  }];
+  }, ...(sc.levers.adu ? [{
+    label: "ADUs by right (scenario ADU rules)", source: "EaseScore.AI policy lever; county assessment use and building footprint; zoning table setbacks",
+    date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "assumption" as const,
+    method: LEVER_METHOD.adu,
+    notes: `ADU rules are a scenario setting (size cap ${ADU_RULES.maxFloorAreaSf} sq ft; footprint ${ADU_RULES.minWidthFt} × ${ADU_RULES.minDepthFt} ft minimum; ${ADU_RULES.separationFt} ft from the house), not Pittsburgh code.`,
+  }] : []), ...(sc.levers.contextual ? [{
+    label: "Contextual front setback", source: `Ease Score config v0.2 contextual front setback assumption (${CONTEXTUAL_FRONT_FT} ft); Pittsburgh Zoning Code §925.06`,
+    date: "config v0.2", kind: "assumption" as const, method: LEVER_METHOD.contextual,
+  }] : []), ...(sc.levers.height ? [{
+    label: "One more story", source: "EaseScore.AI zoning table (max stories and height per district)",
+    date: "config v0.2", kind: "assumption" as const, method: LEVER_METHOD.height,
+  }] : [])];
   const rPencil: Receipt[] = meta ? [{
     label: "Homes that plausibly pencil at today's prices", source: "Allegheny County sales and assessments (new-construction sales); cost assumptions v0.1 (Pittsburgh builder published ranges)",
     date: dates, kind: "assumption",
@@ -241,6 +255,18 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         <Segmented label="Parking minimums" size="sm" value={sc.levers.parking} onChange={(v) => setLevers({ parking: v })}
           options={[{ value: "current", label: "Current" }, { value: "transit", label: "None near transit", title: "No minimum within ¼ mile of a frequent-transit stop" }, { value: "none", label: "Eliminated" }]} />
       </div>
+      <div className={`pol-lever${sc.levers.adu ? " is-on" : ""}`}>
+        <Switch label="ADUs by right" checked={sc.levers.adu} onChange={(v) => setLevers({ adu: v })}
+          hint={`One backyard home up to ${ADU_RULES.maxFloorAreaSf} sq ft beside a detached house (R1D, R1A, R2, R3, RM). Scenario ADU rules; our zoning table has none.`} />
+      </div>
+      <div className={`pol-lever${sc.levers.contextual ? " is-on" : ""}`}>
+        <Switch label="Contextual front setback" checked={sc.levers.contextual} onChange={(v) => setLevers({ contextual: v })}
+          hint={`Front setback = the neighbors' average, by right (assumed ${CONTEXTUAL_FRONT_FT} ft; neighbors are not measured)`} />
+      </div>
+      <div className={`pol-lever${sc.levers.height ? " is-on" : ""}`}>
+        <Switch label="One more story" checked={sc.levers.height} onChange={(v) => setLevers({ height: v })}
+          hint={`+${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft on today's height limit in residential districts`} />
+      </div>
       <div className={`pol-lever${sc.abatement.on ? " is-on" : ""}`}>
         <Switch label="Tax abatement for new homes" checked={sc.abatement.on} onChange={(v) => setSc((s) => ({ ...s, abatement: { ...s.abatement, on: v } }))}
           hint="LERTA-style phase-in of the added value (illustrative terms). Changes the fiscal ledger only." />
@@ -250,9 +276,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           format={(v) => `${v} yr`} onChange={(v: number) => setSc((s) => ({ ...s, abatement: { ...s.abatement, years: v } }))} />
       </div>
       </div>
-      <FilterSection title="More levers" collapsible defaultOpen={false} hint="Not modeled yet">
-        <p className="pol-muted">ADUs by right, contextual front setback, +1 story and inclusionary share are next. They are not shown as results until they are computed from the engine.</p>
-      </FilterSection>
+
       <p className="pol-muted pol-try pol-pad">Try this: attached homes on lots up to 35 ft plus no minimum lot size (the “Starter homes” scenario), then open the Fiscal ledger.</p>
     </FilterRail>
   );
@@ -277,7 +301,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         ) : !finished ? (
           <div className="pol-banner" role="status" aria-live="polite">
             {st.status === "queued" || st.status === "missing"
-              ? `This combination has not been computed yet. It is queued for the background job${st.ahead ? ` behind ${st.ahead} other${st.ahead === 1 ? "" : "s"}` : ""}; results appear here as parcels are done (a full City run takes a few hours). Precomputed now: Starter homes, each lever alone, and all three.`
+              ? <><strong>Queued: computing overnight (position {(st.ahead ?? 0) + 1}).</strong> This combination has not been computed yet; results appear here as parcels are done (a full City run takes a few hours). Precomputed now: Starter homes, each of the first three levers alone, and all three.</>
               : `Computing this combination in the background: ${st.done} of ${st.total ?? "?"} parcel batches (${pctDone}%). Numbers so far cover only the parcels done; they will grow.`}
             <span className="pol-progress" aria-hidden="true"><span style={{ width: `${pctDone}%` }} /></span>
           </div>

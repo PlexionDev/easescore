@@ -27,20 +27,20 @@ function parcelOf(fx: Fixture, over: Partial<policy.PolicyParcel> = {}): policy.
     ...over,
   };
 }
-const lp = (p: policy.PolicyParcel): policy.LeverParcel => ({
-  pgh: p.facts.assessment?.is_pittsburgh === true, zoneCode: p.facts.zoning?.code ?? null, rules: p.facts.zoning?.rules ?? null,
-  frontageFt: p.frontageFt, transitM: p.facts.transit?.nearest_frequent_stop_m ?? null,
-});
-const ALL_ON = policy.parseKey("a50.m0.pn");
+const lp = (p: policy.PolicyParcel): policy.LeverParcel => policy.leverParcel(p);
+const ALL_ON = policy.parseKey("a50.m0.pn.adu.cs.h1");
 
 describe("lever state keys", () => {
   it("round-trips and normalizes", () => {
     expect(policy.stateKey(policy.OFF)).toBe("base");
-    for (const k of ["a35", "m0", "m50", "pt", "pn", "a35.m0", "a35.m0.pn", "a40.m25.pt"]) expect(policy.stateKey(policy.parseKey(k))).toBe(k);
+    for (const k of ["a35", "m0", "m50", "pt", "pn", "a35.m0", "a35.m0.pn", "a40.m25.pt", "adu", "cs", "h1", "adu.cs.h1", "a35.m0.pn.adu.cs.h1"]) expect(policy.stateKey(policy.parseKey(k))).toBe(k);
     // A lever set to "no change" is off.
     expect(policy.stateKey(policy.normalize({ minLot: { on: true, share: 1 } }))).toBe("base");
     expect(policy.stateKey(policy.normalize({ attached: { on: true, maxWidthFt: 99 } }))).toBe("a50");
     expect(policy.stateKey(policy.normalize({ attached: { on: true, maxWidthFt: 37 }, minLot: { on: true, share: 0.4 } }))).toBe("a35.m50");
+    // New levers keep a fixed order whatever order the key lists them in.
+    expect(policy.stateKey(policy.parseKey("h1.cs.adu.m0"))).toBe("m0.adu.cs.h1");
+    expect(policy.activeLevers(policy.parseKey("adu.cs.h1"))).toEqual(["adu", "contextual", "height"]);
   });
 });
 
@@ -131,6 +131,101 @@ describe("each lever only touches eligible parcels", () => {
       const o = policy.evaluateParcel(p, policy.parseKey("m0"), policy.scoreWith(p));
       expect(o.unitsDelta).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+describe("ADUs by right, contextual front setback, +1 story", () => {
+  const n = parcelOf(narrow as Fixture);
+  const f = parcelOf(flat as Fixture);
+  const u = parcelOf(ura as Fixture);
+  // A detached house on the flat R2-H lot (synthetic use and footprint; the outline is the fixture's).
+  const house = parcelOf(flat as Fixture);
+  Object.assign(house.facts.assessment!, { use: "SINGLE FAMILY" });
+  (house.facts as any).building_footprint_sqft = 1100;
+  const orig = (p: policy.PolicyParcel) => p.facts.zoning!.rules as unknown as Record<string, unknown>;
+
+  it("all three off == baseline: the same row object, nothing touched", () => {
+    for (const p of [n, f, u, house]) {
+      const app = policy.applyLevers(lp(p), policy.parseKey("a35.m0.pn"));
+      const app2 = policy.applyLevers(lp(p), policy.OFF);
+      expect(app2.rules).toBe(p.facts.zoning!.rules);
+      expect(app.touched.some((t) => ["adu", "contextual", "height"].includes(t))).toBe(false);
+    }
+  });
+
+  it("ADU: only a detached single-family house in a residential district", () => {
+    expect(policy.eligibility(lp(n), policy.parseKey("adu"))).toEqual(["adu"]); // SINGLE FAMILY, R1D-H
+    expect(policy.eligibility(lp(house), policy.parseKey("adu"))).toEqual(["adu"]);
+    expect(policy.eligibility(lp(f), policy.parseKey("adu"))).toEqual([]); // vacant land
+    expect(policy.eligibility(lp(u), policy.parseKey("adu"))).toEqual([]); // no house
+    expect(policy.eligibility({ ...lp(house), use: "ROWHOUSE" }, policy.parseKey("adu"))).toEqual([]);
+    expect(policy.eligibility({ ...lp(house), use: "TWO FAMILY" }, policy.parseKey("adu"))).toEqual([]);
+    expect(policy.eligibility({ ...lp(house), zoneCode: "GT-A" }, policy.parseKey("adu"))).toEqual([]); // not residential
+    expect(policy.eligibility({ ...lp(house), zoneCode: "H" }, policy.parseKey("adu"))).toEqual([]);
+    // The ADU never rewrites the rules row.
+    expect(policy.applyLevers(lp(house), policy.parseKey("adu")).rules).toBe(house.facts.zoning!.rules);
+  });
+
+  it("ADU: +1 home per eligible lot; the low end only where the footprint proxy fits", () => {
+    expect(n.frontageFt!).toBeLessThan(24); // 14 ft ADU + two 5 ft side yards does not fit
+    expect(policy.aduFits(lp(n), n.facts.zoning!.rules as any)).toBe(false);
+    expect(policy.aduFits(lp(house), house.facts.zoning!.rules as any)).toBe(true);
+    expect(policy.aduFits({ ...lp(house), footprintSf: null }, house.facts.zoning!.rules as any)).toBe(false); // no house on record
+    for (const [p, fits] of [[n, false], [house, true]] as const) {
+      const base = policy.scoreWith(p);
+      const o = policy.evaluateParcel(p, policy.parseKey("adu"), base);
+      expect(o.touched).toEqual(["adu"]);
+      expect(o.unitsDelta).toBe(1);
+      expect(o.after.units).toBe((o.before.units ?? 0) + 1);
+      expect(o.after.strategy).toBe(fits ? "adu" : "adu_unsized");
+      expect(o.after.score).toBe(o.before.score); // not rescored
+      if (!fits) expect(o.pencils!.low).toBe(false);
+      if (o.pencils!.low) expect(o.pencils!.likely).toBe(true);
+      if (o.pencils!.likely) expect(o.pencils!.high).toBe(true);
+      expect(o.avDelta.low).toBeLessThanOrEqual(o.avDelta.likely);
+      expect(o.avDelta.likely).toBeLessThanOrEqual(o.avDelta.high);
+    }
+  });
+
+  it("ADU with a rebuild lever: the path with more homes wins, never both", () => {
+    const base = policy.scoreWith(house);
+    const both = policy.evaluateParcel(house, policy.parseKey("m0.adu"), base);
+    const m0 = policy.evaluateParcel(house, policy.parseKey("m0"), base);
+    expect(both.unitsDelta).toBe(Math.max(1, m0.unitsDelta));
+  });
+
+  it("contextual setback: residential districts whose front setback is deeper than the assumption; only that field moves", () => {
+    expect(policy.CONTEXTUAL_FRONT_FT).toBe(5);
+    expect(policy.eligibility(lp(n), policy.parseKey("cs"))).toEqual(["contextual"]); // R1D-H: 15 ft
+    expect(policy.eligibility({ ...lp(n), rules: { ...(orig(n) as any), min_front_setback_ft: 5 } }, policy.parseKey("cs"))).toEqual([]);
+    expect(policy.eligibility({ ...lp(n), zoneCode: "LNC" }, policy.parseKey("cs"))).toEqual([]);
+    const r = policy.applyLevers(lp(n), policy.parseKey("cs")).rules as unknown as Record<string, unknown>;
+    expect(r.min_front_setback_ft).toBe(5);
+    for (const k of Object.keys(orig(n))) if (k !== "min_front_setback_ft") expect(r[k]).toEqual(orig(n)[k]);
+    const o = policy.evaluateParcel(n, policy.parseKey("cs"), policy.scoreWith(n));
+    expect(o.unitsDelta).toBeGreaterThanOrEqual(0);
+  });
+
+  it("+1 story: residential districts with a height limit; stories +1 and height +10 ft, nothing else", () => {
+    expect(policy.eligibility(lp(u), policy.parseKey("h1"))).toEqual(["height"]); // RM-M
+    expect(policy.eligibility({ ...lp(u), zoneCode: "UPR-B" }, policy.parseKey("h1"))).toEqual([]);
+    expect(policy.eligibility({ ...lp(u), rules: { ...(orig(u) as any), max_height_ft: null, max_height_stories: null } }, policy.parseKey("h1"))).toEqual([]);
+    const r = policy.applyLevers(lp(u), policy.parseKey("h1")).rules as unknown as Record<string, unknown>;
+    expect(r.max_height_stories).toBe((orig(u).max_height_stories as number) + 1);
+    expect(r.max_height_ft).toBe((orig(u).max_height_ft as number) + 10);
+    for (const k of Object.keys(orig(u))) if (k !== "max_height_stories" && k !== "max_height_ft") expect(r[k]).toEqual(orig(u)[k]);
+    for (const [, fx] of FIXTURES) {
+      const p = parcelOf(fx);
+      expect(policy.evaluateParcel(p, policy.parseKey("h1"), policy.scoreWith(p)).unitsDelta).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("an outcome depends only on the levers that apply (memo key used by the batch)", () => {
+    const s = policy.parseKey("a35.adu.cs.h1");
+    const base = policy.scoreWith(house);
+    const touched = policy.eligibility(lp(house), s);
+    expect(touched).toEqual(["adu", "contextual", "height"]); // R2-H is not an attached-lever district
+    expect(policy.evaluateParcel(house, s, base)).toEqual(policy.evaluateParcel(house, policy.restrict(s, touched), base));
   });
 });
 

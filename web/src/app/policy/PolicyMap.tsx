@@ -10,7 +10,7 @@ import type * as maplibregl from "maplibre-gl";
 import MapPanel, { GeoJSONLayer, MapLegend, motionOK, useMapPanel } from "@/components/seats/MapPanel";
 import { Segmented } from "@/components/seats";
 import type { PolicyPoint } from "@/lib/policy/data";
-import { LEVERS_CODE_LABEL } from "@/lib/policy/model";
+import { leverComboLabel } from "@/lib/policy/model";
 
 export type MapView = "before" | "after" | "difference";
 
@@ -22,6 +22,9 @@ const LEVER_COLOR: Record<string, string> = {
   "minLot+parking": "#8f9f3a",
   "attached+parking": "#7a6a1e",
   "attached+minLot+parking": "#3d7d2f",
+  adu: "#2f6fb0",
+  contextual: "#8a4fa3",
+  height: "#b5543a",
 };
 const CENTER: [number, number] = [-80.0, 40.44];
 
@@ -87,7 +90,7 @@ function Wave({ points, view }: { points: PolicyPoint[]; view: MapView }) {
       if (!f) return;
       const p = f.properties as Record<string, unknown>;
       map.getCanvas().style.cursor = "pointer";
-      const lever = LEVERS_CODE_LABEL[String(p.levers)] ?? String(p.levers);
+      const lever = leverComboLabel(String(p.levers));
       setTip({ x: e.point.x, y: e.point.y, parid: String(p.parid), lever, before: Number(p.before), after: Number(p.after), delta: Number(p.delta), newly: !!p.newly });
     };
     const leave = () => { map.getCanvas().style.cursor = ""; setTip(null); };
@@ -127,7 +130,7 @@ function Wave({ points, view }: { points: PolicyPoint[]; view: MapView }) {
 export default function PolicyMap({ points, loading, levers }: { points: PolicyPoint[]; loading: boolean; levers: string[] }) {
   const [view, setView] = useState<MapView>("difference");
   const legend = view === "difference"
-    ? Object.entries(LEVER_COLOR).filter(([k]) => levers.includes(k)).map(([k, c]) => ({ color: c, label: `Unlocked by ${LEVERS_CODE_LABEL[k]?.toLowerCase() ?? k}` }))
+    ? Object.entries(LEVER_COLOR).filter(([k]) => levers.includes(k)).map(([k, c]) => ({ color: c, label: `Unlocked by ${leverComboLabel(k).toLowerCase()}` }))
     : view === "after"
       ? [{ color: "#7cc4a4", label: "1 home by right" }, { color: "#3aa37a", label: "2" }, { color: "#156b54", label: "3–4" }, { color: "#0b3f31", label: "5 or more" }]
       : [{ color: "#ffffff", label: "No home by right today" }, { color: "#c9d1ce", label: "1 today" }, { color: "#9aa5a1", label: "2 today" }, { color: "#6b7773", label: "3 or more today" }];

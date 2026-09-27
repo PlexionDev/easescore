@@ -8,7 +8,7 @@ import { NEW_BUILD, type QuickFitParcelInput } from "../score/strategies";
 import type { EaseScoreResult, StrategyId } from "../score/types";
 import type { ParcelFacts } from "../types";
 import type { QuickFitRules } from "../quickfit/types";
-import { applyLevers, type LeverId, type LeverState } from "./levers";
+import { ADU_RULES, aduFits, applyLevers, type LeverId, type LeverParcel, type LeverState } from "./levers";
 import { assessedValueDelta } from "./fiscal";
 import { costBasis, pencilTest, SCENARIOS, type CostBasis, type Triple, type ValueBand } from "./pencil";
 
@@ -31,7 +31,8 @@ export interface PolicyParcel {
 export interface Capacity {
   /** Most homes any new-build option fits by right (same rule as parcel_scores.by_right_units). */
   units: number | null;
-  strategy: StrategyId | null;
+  /** Best by-right option; "adu" / "adu_unsized" when the ADU lever's home beside the house is counted. */
+  strategy: StrategyId | "adu_unsized" | null;
   score: number | null;
   band: string | null;
 }
@@ -78,20 +79,57 @@ export interface ParcelOutcome {
 
 const ZERO: Triple = { low: 0, likely: 0, high: 0 };
 
+/** The lever inputs for one parcel, from its score inputs (nothing demographic). */
+export function leverParcel(p: PolicyParcel): LeverParcel {
+  const z = p.facts.zoning ?? null;
+  const pgh = p.facts.assessment?.is_pittsburgh === true || /^1(0[1-9]|[12][0-9]|3[0-2])$/.test(String(p.facts.assessment?.municode ?? ""));
+  return {
+    pgh, zoneCode: z?.code ?? null, rules: (z?.rules as QuickFitRules | null | undefined) ?? null, frontageFt: p.frontageFt,
+    transitM: p.facts.transit?.nearest_frequent_stop_m ?? null,
+    use: p.facts.assessment?.use ?? null, lotAreaSf: p.facts.lot_area_sqft_gis ?? null, footprintSf: p.facts.building_footprint_sqft ?? null,
+  };
+}
+
+/**
+ * The ADU lever's home: one accessory dwelling beside the existing house (the house stays). Priced with
+ * the same quick pencil test at the ADU size cap, with no land cost (the owner already holds the lot)
+ * and nothing replaced. Low end: only lots where the ADU fit proxy passes (aduFits); on other lots the
+ * low scenario never pencils, so the ranges stay ordered.
+ */
+function aduOutcome(p: PolicyParcel, lp: LeverParcel, rules: QuickFitRules | null, basis: CostBasis) {
+  const fits = aduFits(lp, rules);
+  if (!p.value) return { fits, pencils: null, saleValue: null, avDelta: ZERO };
+  const t = pencilTest({
+    units: 1, netSf: Math.round(ADU_RULES.maxFloorAreaSf * ADU_RULES.netShare), grossSf: ADU_RULES.maxFloorAreaSf, acquisition: 0, value: p.value,
+  }, basis);
+  const pencils = { ...t.pencils, low: t.pencils.low && fits };
+  const avDelta = {} as Triple;
+  for (const s of SCENARIOS) avDelta[s] = pencils[s] && p.assessmentRatio != null ? Math.round(assessedValueDelta(t.saleValue[s], p.assessmentRatio, 0)) : 0;
+  return { fits, pencils, saleValue: t.saleValue, avDelta };
+}
+
 /** Evaluate one parcel under a lever state, given its baseline (result or capacity, computed once per parcel). */
 export function evaluateParcel(p: PolicyParcel, state: LeverState, baseline: EaseScoreResult | Capacity, basis: CostBasis = costBasis()): ParcelOutcome {
   const before = "strategies" in baseline ? byRightCapacity(baseline) : baseline;
-  const z = p.facts.zoning ?? null;
-  const pgh = p.facts.assessment?.is_pittsburgh === true || /^1(0[1-9]|[12][0-9]|3[0-2])$/.test(String(p.facts.assessment?.municode ?? ""));
-  const app = applyLevers({
-    pgh, zoneCode: z?.code ?? null, rules: (z?.rules as QuickFitRules | null | undefined) ?? null, frontageFt: p.frontageFt,
-    transitM: p.facts.transit?.nearest_frequent_stop_m ?? null,
-  }, state);
+  const lp = leverParcel(p);
+  const app = applyLevers(lp, state);
   if (!app.touched.length) return { touched: [], before, after: before, unitsDelta: 0, pencils: null, saleValue: null, avDelta: ZERO };
+  const rulesOut = app.rules === lp.rules ? { touched: app.touched, before, after: before, unitsDelta: 0, pencils: null, saleValue: null, avDelta: ZERO } : evaluateRules(p, app, before, basis);
+  if (!app.touched.includes("adu")) return rulesOut;
+  // An ADU beside the house and a rebuild under the other levers are alternatives, not additive: keep
+  // the path with more homes; at a tie the ADU (the existing house stays).
+  if (rulesOut.unitsDelta > 1) return rulesOut;
+  const a = aduOutcome(p, lp, app.rules, basis);
+  const after: Capacity = { units: (before.units ?? 0) + 1, strategy: a.fits ? "adu" : "adu_unsized", score: rulesOut.after.score, band: rulesOut.after.band };
+  return { touched: app.touched, before, after, unitsDelta: 1, pencils: a.pencils, saleValue: a.saleValue, avDelta: a.avDelta };
+}
+
+/** Rescore with the rewritten rules row and price the homes the change adds. */
+function evaluateRules(p: PolicyParcel, app: { rules: QuickFitRules | null; touched: LeverId[] }, before: Capacity, basis: CostBasis): ParcelOutcome {
   const res = scoreWith(p, app.rules);
   const after = byRightCapacity(res);
   const unitsDelta = (after.units ?? 0) - (before.units ?? 0);
-  if (unitsDelta <= 0 || !after.strategy) return { touched: app.touched, before, after, unitsDelta, pencils: null, saleValue: null, avDelta: ZERO };
+  if (unitsDelta <= 0 || !after.strategy || after.strategy === "adu_unsized") return { touched: app.touched, before, after, unitsDelta, pencils: null, saleValue: null, avDelta: ZERO };
   const scheme = res.schemes?.[after.strategy] ?? null;
   if (!scheme || !p.value) return { touched: app.touched, before, after, unitsDelta, pencils: null, saleValue: null, avDelta: ZERO };
   const t = pencilTest({

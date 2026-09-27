@@ -108,18 +108,14 @@ if (!isMainThread) {
     try {
       const p = toParcel(structuredClone(m.item), sh, ps);
       const states = m.keys.map((k) => [k, policy.parseKey(k)] as const);
-      const pgh = p.facts.assessment?.is_pittsburgh === true;
-      const lp = {
-        pgh, zoneCode: p.facts.zoning?.code ?? null, rules: p.facts.zoning?.rules ?? null, frontageFt: p.frontageFt,
-        transitM: p.facts.transit?.nearest_frequent_stop_m ?? null,
-      };
+      const lp = policy.leverParcel(p);
       const rows: Json[] = [];
       // A parcel's result depends only on the levers that apply to it, so each distinct restricted
       // state is scored once (e.g. an R2 lot gets the same row for "m0" and "a35.m0").
       const memo = new Map<string, policy.ParcelOutcome>(Object.entries(m.cached?.eff ?? {}));
       let baseline: policy.Capacity | null = m.cached?.before ?? null;
       for (const [key, s] of states) {
-        const touched = policy.eligibility(lp as policy.LeverParcel, s);
+        const touched = policy.eligibility(lp, s);
         if (!touched.length) continue;
         const eff = policy.stateKey(policy.restrict(s, touched));
         let o = memo.get(eff);
@@ -301,7 +297,8 @@ function leverDistricts(rules: Record<string, Json>): string[] {
     const eff = score.solverRules(code, r);
     const anyP = ["single_unit_detached", "two_unit", "three_unit", "multi_unit", "single_unit_attached"].some((k) => (eff as Json)[k] === "P");
     const lever = (eff.min_lot_area_sqft ?? 0) > 0 || (eff.min_lot_area_per_unit_sqft ?? 0) > 0 || (eff.parking_per_unit ?? 0) > 0
-      || (eff.attached_parking_per_unit ?? 0) > 0 || policy.ATTACHED_DISTRICTS.test(code.toUpperCase());
+      || (eff.attached_parking_per_unit ?? 0) > 0 || policy.ATTACHED_DISTRICTS.test(code.toUpperCase())
+      || policy.RESIDENTIAL_DISTRICTS.test(code.toUpperCase());
     return anyP && lever && !policy.EXCLUDED_DISTRICTS.has(code.toUpperCase());
   }).map(([c]) => c).sort();
 }

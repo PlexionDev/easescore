@@ -5,7 +5,7 @@
 
 import { EmptyState, RangeValue, ReceiptButton, formatRange, fmtMoney } from "@/components/seats";
 import {
-  concentration, leverSentence, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary,
+  concentration, leverSentence, LEVER_METHOD, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary,
 } from "@/lib/policy/model";
 import type { Who } from "@/lib/policy/data";
 import type { DataFlags } from "./PolicyApp";
@@ -196,6 +196,9 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
       <ol>
         <li><strong>Baseline</strong> is today’s code as transcribed in our zoning table, scored by the same engine as every parcel page (Ease Score config v0.2). With every lever off the results equal the baseline exactly.</li>
         <li><strong>Which parcels.</strong> Each lever has an eligibility rule: <em>attached homes</em> applies to lots in R1D and R1A no wider than the slider (street frontage from the lot outline) where a two-unit building is not already permitted; <em>minimum lot size</em> applies wherever the district has a minimum lot size or lot area per unit; <em>parking</em> applies wherever a parking minimum exists (within {TRANSIT_M} m of a frequent-transit stop for the transit option). Parks (P) and districts that permit no housing type are left out. Only those parcels are recomputed.</li>
+        {levers.adu ? <li><strong>ADUs.</strong> {LEVER_METHOD.adu}</li> : null}
+        {levers.contextual ? <li><strong>Front setback.</strong> {LEVER_METHOD.contextual}</li> : null}
+        {levers.height ? <li><strong>Height.</strong> {LEVER_METHOD.height}</li> : null}
         <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance.</li>
         <li><strong>Pencil test.</strong> For parcels that gain homes, the by-right scheme is tested against nearby new-construction prices and the cost defaults, in a low, likely and high scenario.</li>
         <li><strong>Fiscal.</strong> Added assessed value × millage per taxing body, for homes that pencil.</li>
@@ -206,6 +209,7 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
         <li>The Zoning Code text is summarized from our transcription; overlays, residential compatibility standards and site-specific conditions are not modeled. Check the code before relying on a count.</li>
         <li>The pencil test is simpler than the parcel pro forma: no financing detail or site adders; land at assessed value (a base-year level that often understates price).</li>
         <li>Large or irregular lots whose fit test runs out of time are not counted in the likely value (they widen the high end).{summary?.skipped ? ` ${summary.skipped.toLocaleString()} lots in this run.` : ""}</li>
+        <li>An inclusionary-share lever is not modeled.</li>
         <li>Census and demographic data are never inputs to capacity, pencils or scores.</li>
       </ul>
       <h3>Data dates</h3>

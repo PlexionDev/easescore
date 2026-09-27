@@ -4,11 +4,11 @@
 // value traces to a row, a stored input or a labeled assumption.
 
 import {
-  annualTax, ledger, normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M,
+  annualTax, ledger, normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD,
   type Abatement, type LedgerRow, type LeverState, type TaxBody, type Triple,
 } from "@easescore/engine/src/policy/index";
 
-export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, type LeverState, type Triple };
+export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, type LeverState, type Triple };
 
 export interface HoodRow { neighborhood: string; parcels: number; homes: number; newly: number; homes_pencil: number | null }
 
@@ -98,7 +98,8 @@ const ord = (a: number, b: number, c: number): Triple => {
 
 /**
  * Additional homes allowed by right, as a range.
- * low    = homes that need no lot split (townhouse rows need a subdivision plan first);
+ * low    = homes that need no lot split (townhouse rows need a subdivision plan first) and, for ADUs,
+ *          only lots where the ADU footprint check passes;
  * likely = every home the fit test finds;
  * high   = likely plus the lots the fit test could not finish in time, at the average gain per lot tested.
  */
@@ -200,7 +201,8 @@ export interface GoalOption { key: string; levers: LeverState; changes: number; 
 /** How far a state moves the rules, for ordering options with the same number of levers. */
 function intensity(l: LeverState): number {
   const n = normalize(l);
-  return (n.attached.on ? (n.attached.maxWidthFt - 25) / 25 : 0) + (n.minLot.on ? 1 - n.minLot.share : 0) + (n.parking === "none" ? 1 : n.parking === "transit" ? 0.5 : 0);
+  return (n.attached.on ? (n.attached.maxWidthFt - 25) / 25 : 0) + (n.minLot.on ? 1 - n.minLot.share : 0) + (n.parking === "none" ? 1 : n.parking === "transit" ? 0.5 : 0)
+    + (n.adu ? 0.5 : 0) + (n.contextual ? 0.5 : 0) + (n.height ? 0.5 : 0);
 }
 
 /**
@@ -231,6 +233,9 @@ export function leverSentence(l: LeverState): string {
   if (n.minLot.on) parts.push(n.minLot.share === 0 ? "no minimum lot size or lot area per unit" : `minimum lot size and lot area per unit cut to ${Math.round(n.minLot.share * 100)}% of today's`);
   if (n.parking === "transit") parts.push(`no parking minimum within ¼ mile (${TRANSIT_M} m) of frequent transit`);
   if (n.parking === "none") parts.push("no parking minimums anywhere");
+  if (n.adu) parts.push(`one accessory dwelling unit (up to ${ADU_RULES.maxFloorAreaSf} sq ft) by right beside a detached single-family house (R1D, R1A, R2, R3, RM)`);
+  if (n.contextual) parts.push(`front setback matching the neighbors by right (assumed ${CONTEXTUAL_FRONT_FT} ft; R1D, R1A, R2, R3, RM)`);
+  if (n.height) parts.push(`one more story and ${HEIGHT_ADD.ft} ft more height (R1D, R1A, R2, R3, RM)`);
   return parts.length ? parts.join("; ") : "today's rules (no change)";
 }
 
@@ -242,4 +247,22 @@ export const LEVERS_CODE_LABEL: Record<string, string> = {
   "minLot+parking": "Lot size + parking",
   "attached+parking": "Attached + parking",
   "attached+minLot+parking": "All three",
+  adu: "ADU",
+  contextual: "Contextual setback",
+  height: "One more story",
 };
+
+const SHORT: Record<string, string> = { attached: "attached", minLot: "lot size", parking: "parking", adu: "ADU", contextual: "contextual setback", height: "+1 story" };
+/** Label for a combination of levers as policy_results.touched joins them ("minLot+adu"). */
+export function leverComboLabel(code: string): string {
+  if (LEVERS_CODE_LABEL[code]) return LEVERS_CODE_LABEL[code]!;
+  const parts = code.split("+").map((x) => SHORT[x] ?? x);
+  return parts.length ? `${parts[0]!.charAt(0).toUpperCase()}${parts[0]!.slice(1)}${parts.length > 1 ? ` + ${parts.slice(1).join(" + ")}` : ""}` : code;
+}
+
+/** How each of the later levers is applied, in plain words (Method tab, council packet, receipts). */
+export const LEVER_METHOD = {
+  adu: `ADUs by right: lots in R1D, R1A, R2, R3 and RM with a detached single-family house (county use "single family"; rowhouses and townhouses excluded). Our zoning table has no ADU rules, so this scenario supplies them: one accessory dwelling up to ${ADU_RULES.maxFloorAreaSf} sq ft beside the house. Each eligible lot adds one home; the house stays and is not rescored. Low end: only lots where an area check says the smallest ADU (${ADU_RULES.minWidthFt} × ${ADU_RULES.minDepthFt} ft) fits behind the house with the district's side and rear yards and ${ADU_RULES.separationFt} ft from the house (lot area − house footprint − frontage × front setback). That is a proxy, not a drawn fit: the engine's lot-fit test has no priced ADU path yet. Pencil test: ${ADU_RULES.maxFloorAreaSf} sq ft at nearby new-construction prices per sq ft, with no land cost. Where another lever also adds homes on the same lot, the path with more homes counts (the ADU at a tie), never both.`,
+  contextual: `Contextual front setback: lots in R1D, R1A, R2, R3 and RM whose front setback is deeper than ${CONTEXTUAL_FRONT_FT} ft. We do not measure neighboring buildings; the engine's contextual-setback assumption (${CONTEXTUAL_FRONT_FT} ft, the same one every parcel page uses for §925.06) stands in for the neighbors' average and applies by right. Today's baseline already credits that setback where a lot needs it, so by-right gains are small; the lever mostly removes a step.`,
+  height: `One more story: lots in R1D, R1A, R2, R3 and RM with a height limit get +${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft. The lot-fit test's building types top out at three stories (placeholder sizes), so where a district already allows three the lever cannot add homes in this model; the result is a floor.`,
+} as const;

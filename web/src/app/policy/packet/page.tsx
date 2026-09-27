@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import { formatRange, fmtMoney } from "@/components/seats/format";
 import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
 import {
-  concentration, fiscal, homesRange, leverSentence, LEVERS_CODE_LABEL, newlyRange, scenarioFromQuery, stateKey, TRANSIT_M,
+  concentration, fiscal, homesRange, leverSentence, leverComboLabel, LEVER_METHOD, newlyRange, scenarioFromQuery, stateKey, TRANSIT_M,
 } from "@/lib/policy/model";
 import "./packet.css";
 
@@ -14,7 +14,7 @@ import "./packet.css";
 const sans = Inter({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--pk-sans", display: "block" });
 export const metadata: Metadata = { title: "Council packet — EaseScore.AI", robots: { index: false } };
 
-const DOT: Record<string, string> = { attached: "#000000", minLot: "#7a7a7a", "attached+minLot": "#333333", parking: "#b0b0b0" };
+const DOT: Record<string, string> = { attached: "#000000", minLot: "#7a7a7a", "attached+minLot": "#333333", parking: "#b0b0b0", adu: "#555555", contextual: "#999999", height: "#444444" };
 
 function DotMap({ outline, points }: { outline: Outline | null; points: PolicyPoint[] }) {
   const W = 680, H = 250;
@@ -117,7 +117,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
         </div>
         <DotMap outline={outline} points={points} />
         <p className="fine">
-          {Object.entries(DOT).filter(([k]) => points.some((p) => p[4] === k)).map(([k, c]) => <span key={k} className="key"><i style={{ background: c }} />{LEVERS_CODE_LABEL[k] ?? k}</span>)}
+          {Object.entries(DOT).filter(([k]) => points.some((p) => p[4] === k)).map(([k, c]) => <span key={k} className="key"><i style={{ background: c }} />{leverComboLabel(k)}</span>)}
           One dot per parcel that gains homes ({points.length.toLocaleString()}); larger dots gain more. Lines are City neighborhood boundaries.
         </p>
         <h2>Where the new capacity lands</h2>
@@ -140,6 +140,9 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
         <ol>
           <li><b>Baseline</b> is today’s code as transcribed in the EaseScore.AI zoning table, scored with the Ease Score engine (config v0.2). With every lever off, results equal the baseline exactly.</li>
           <li><b>Eligibility.</b> Attached homes: R1D and R1A lots no wider than {sc.levers.attached.maxWidthFt} ft (measured along the street) where two units are not already permitted. Minimum lot size: every district with a minimum lot size or lot area per unit. Parking: every district with a minimum{sc.levers.parking === "transit" ? `, within ${TRANSIT_M} m (¼ mile) of a frequent-transit stop` : ""}. Parks (P) and districts that permit no housing are excluded. Only eligible parcels are recomputed.</li>
+          {sc.levers.adu ? <li><b>ADUs.</b> {LEVER_METHOD.adu}</li> : null}
+          {sc.levers.contextual ? <li><b>Front setback.</b> {LEVER_METHOD.contextual}</li> : null}
+          {sc.levers.height ? <li><b>Height.</b> {LEVER_METHOD.height}</li> : null}
           <li><b>Capacity.</b> The lot-fit test (QuickFit) reruns with the changed rules for single-family, duplex, 3–4 unit and townhouse-row options; homes allowed by right = the most homes an option fits with the use permitted and no variance. Range: low counts only homes that need no lot split; high adds lots the fit test could not finish, at the average gain.</li>
           <li><b>Pencil test.</b> Sale value = nearby new-construction price per finished sq ft × finished area. Cost = ${meta?.cost_basis.costPsf.high}–${meta?.cost_basis.costPsf.low} per sq ft construction × gross area × (1 + soft costs + {Math.round((meta?.cost_basis.contingencyShare ?? 0) * 100)}% contingency) + the lot at assessed value. Pencils at a margin of at least {Math.round((meta?.cost_basis.minMargin ?? 0) * 100)}% after {Math.round((meta?.cost_basis.brokerShare ?? 0) * 100)}% selling costs.</li>
           <li><b>Fiscal.</b> Added assessed value × millage for each taxing body, at full build-out of homes that pencil.</li>
