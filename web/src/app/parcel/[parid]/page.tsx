@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
@@ -22,6 +23,9 @@ import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
 import { GEN_TYPOLOGIES, metricsOf, type GenInput } from "@/lib/quickfit-gen";
 import { parcelPlan, planNeedsLot, reportQueryFor } from "@/lib/parcel-plan";
+import { getT } from "@/lib/i18n/server";
+import { OPTION_NAME_ES } from "@/lib/i18n/engine-es";
+import LanguageMenu from "@/components/i18n/LanguageMenu";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -94,15 +98,16 @@ function money(v: unknown) {
 }
 
 /** Shown when the parcel's data could not be read right now (never a 404 for an existing parcel). */
-function DataUnavailable({ parid }: { parid: string }) {
+async function DataUnavailable({ parid }: { parid: string }) {
+  const { t } = await getT();
   return (
     <main className="mx-auto max-w-xl p-6">
-      <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
-      <h1 className="mt-4 text-xl font-bold text-slate-900">Parcel {parid}</h1>
+      <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">{t("pane.newSearch")}</Link>
+      <h1 className="mt-4 text-xl font-bold text-slate-900">{t("pane.parcel", { id: parid })}</h1>
       <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        Some data for this parcel is temporarily unavailable. Our database is busy right now; please refresh in a moment.
+        {t("pane.busy")}
       </p>
-      <a href={`/parcel/${encodeURIComponent(parid)}`} className="mt-4 inline-block rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Refresh</a>
+      <a href={`/parcel/${encodeURIComponent(parid)}`} className="mt-4 inline-block rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">{t("pane.refresh")}</a>
     </main>
   );
 }
@@ -133,7 +138,8 @@ export async function generateMetadata({ params }: PageProps<"/parcel/[parid]">)
   } catch {
     address = null;
   }
-  return { title: `${address ? `${address} · ` : ""}Parcel ${parid} — EaseScore.AI` };
+  const { t } = await getT();
+  return { title: `${address ? `${address} · ` : ""}${t("pane.parcel", { id: parid })} — EaseScore.AI` };
 }
 
 /** Resolves to null after `ms` (the caller then shows the retry state). */
@@ -143,6 +149,11 @@ const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
+  // Spanish covers the pane's headings, facts, score, callouts and summary; the drawers, plan panel and
+  // street precedent card stay English (marked lang="en" with a Spanish note).
+  const { t: tr, locale } = await getT();
+  const isEs = locale === "es";
+  const englishNote = (body: ReactNode) => (isEs ? <div lang="en"><p lang="es" className="mb-2 rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-700">Esta sección aún está en inglés.</p>{body}</div> : body);
   const asOf = new Date().toISOString().slice(0, 10);
   const T = new Timing("parcel", parid);
   // Map data and lot geometry stream to the browser after the pane (never awaited here).
@@ -259,24 +270,25 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   // Query for the full report: same keys, with the report's names for the building type and tenure.
   const reportQuery = reportQueryFor(sp, selected?.strategy ?? null);
-  const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}download=0`;
+  // Spanish: the report's summary section is in Spanish (lang=es); the rest of the report stays English.
+  const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}${isEs ? "lang=es&" : ""}download=0`;
   const reportHtml = `/parcel/${encodeURIComponent(parid)}/report${reportQuery ? `?${reportQuery}` : ""}`;
 
   // Header: address, then the parcel ID, then neighborhood and zoning.
   const place = (f.context?.neighborhood as string | undefined) ?? titleCase(f.context?.municipality ?? a?.municipality) ?? null;
-  const address = titleCase(a?.address) || `Parcel ${parid}`; // parcel_facts' address already has the house number
-  const subline = [place, f.zoning?.code ? `Zoning ${f.zoning.code}` : "Zoning not in our data"].filter(Boolean).join(" · ");
+  const address = titleCase(a?.address) || tr("pane.parcel", { id: parid }); // parcel_facts' address already has the house number
+  const subline = [place, f.zoning?.code ? tr("pane.zoning", { code: f.zoning.code }) : tr("pane.zoningMissing")].filter(Boolean).join(" · ");
 
   // 3. Fact tiles.
-  const NR = "Not on record";
+  const NR = tr("pane.notOnRecord");
   const lotSf = (f.lot_area_sqft_gis as number | undefined) ?? a?.lot_area_sqft ?? null;
   const slope = (f.slope_1m ?? f.slope) as { mean_pct?: number; share_over_25?: number; steep_share?: number } | undefined;
   const over25 = slope?.share_over_25 ?? slope?.steep_share;
   const tiles: [string, string, string | null][] = [
-    ["Year built", a?.year_built ? String(a.year_built) : NR, null],
-    ["House sq ft", a?.living_area_sqft ? Math.round(a.living_area_sqft).toLocaleString("en-US") : NR, null],
-    ["Lot sq ft", lotSf ? Math.round(lotSf).toLocaleString("en-US") : NR, null],
-    ["Average slope", slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? `${Math.round(Number(over25) * 100)}% over 25%` : null],
+    [tr("pane.yearBuilt"), a?.year_built ? String(a.year_built) : NR, null],
+    [tr("pane.houseSqft"), a?.living_area_sqft ? Math.round(a.living_area_sqft).toLocaleString("en-US") : NR, null],
+    [tr("pane.lotSqft"), lotSf ? Math.round(lotSf).toLocaleString("en-US") : NR, null],
+    [tr("pane.avgSlope"), slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? tr("pane.over25", { pct: `${Math.round(Number(over25) * 100)}%` }) : null],
   ];
 
   // 8. "Pencils?" chip for the selected option.
@@ -297,6 +309,24 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     }
   }
 
+  // Spanish chip: same verdicts and numbers, fixed Spanish wording (the English range headline is not used).
+  if (isEs) {
+    chip = tr("chip.notComputed");
+    if (pf) {
+      const pctTxt = (x: number) => `${Math.round(x * 100)}%`;
+      const rg = pf.ranges;
+      const pctR = (x: { low: number; high: number } | null) => (x && x.low !== x.high ? tr("chip.range", { range: tr("chip.to", { a: x.low, b: x.high }) }) : "");
+      if (pf.plan.missing.length) chip = pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((m) => /rehab cost|cost per/i.test(m)) ? tr("chip.rehab") : tr("chip.missing");
+      else if (pf.plan.tenure === "sale" && pf.sale.profit != null) {
+        const what = selected ? ` (${OPTION_NAME_ES[selected.strategy].toLowerCase()})` : "";
+        chip = pf.verdict === "no" ? tr("chip.gap", { gap: narrative.money(-pf.sale.profit), what })
+          : tr(pf.verdict === "thin" ? "chip.thin" : "chip.yes", { what, pct: pctTxt(pf.sale.margin ?? 0), range: pctR(rg.sale.marginPct) });
+      } else if (pf.plan.tenure === "rent" && pf.rent.noi != null) {
+        chip = pf.verdict === "no" ? tr("chip.rentNo") : tr("chip.rent", { pct: pctTxt(pf.rent.yieldOnCost ?? 0), range: pctR(rg.rent.yieldOnCostPct) });
+      }
+    }
+  }
+
   const pane = (
     <>
       {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
@@ -306,16 +336,17 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         <p className="mt-0.5 text-xs text-slate-500">{subline}</p>
       </header>
       <div className="flex items-center justify-between">
-        <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
+        <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">{tr("pane.newSearch")}</Link>
+        <LanguageMenu />
       </div>
       {/* Best options for this lot: the ranked list is the one option switcher */}
-      {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} />}
+      {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={isEs ? Object.fromEntries(Object.entries(pencilDetail).map(([k, v]) => [k, tr("best.rental", { pct: v!.replace(/\D+/g, "") })])) : pencilDetail} selected={selected?.strategy ?? null} sp={sp} lang={locale} />}
       {/* Street precedent: the block's pattern, §925.06 contextual setback, nearby ZBA outcomes */}
-      <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
+      {englishNote(<StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />)}
       {/* 2. Property image (streams in after the pane) */}
       <ParcelThumb stage={stage} date={asOf} />
       {/* 3. Fact row */}
-      <section aria-label="Key facts" className="grid grid-cols-4 gap-1.5">
+      <section aria-label={tr("pane.factsAria")} className="grid grid-cols-4 gap-1.5">
         {tiles.map(([k, v, sub]) => (
           <div key={k} className="rounded-lg border border-slate-200 bg-white/70 px-1.5 py-1.5 text-center">
             <p className="text-[10px] uppercase tracking-wide text-slate-500">{k}</p>
@@ -327,29 +358,30 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {/* 4-6. Score, factor bars, callouts */}
       {easeResult && selected ? (
         <>
-          <ScoreBlock selected={selected} />
-          <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} />
-          <Callouts selected={selected} />
+          <ScoreBlock selected={selected} lang={locale} />
+          <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} lang={locale} />
+          <Callouts selected={selected} lang={locale} />
         </>
       ) : (
-        <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now. The report and the process checklist still apply.</p>
+        <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">{tr("pane.notScored")}</p>
       )}
       {/* 7. Two-sentence summary + fine print */}
       {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
       {/* 8. Pencils? */}
-      <OpenDrawer id="pencils" className={`w-full rounded-full border px-3 py-1.5 text-left text-sm font-semibold ${chipTone}`} label="Open the pro forma">
+      <OpenDrawer id="pencils" className={`w-full rounded-full border px-3 py-1.5 text-left text-sm font-semibold ${chipTone}`} label={tr("pane.openProForma")}>
         {chip} <span aria-hidden className="float-right opacity-60">›</span>
       </OpenDrawer>
       {/* 9. Buttons */}
       <div className="grid grid-cols-2 gap-2">
-        <a href={pdfHref} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open the full report</a>
-        <OpenDrawer id="plan" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-500">Change the plan</OpenDrawer>
+        <a href={pdfHref} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">{tr("pane.openReport")}</a>
+        <OpenDrawer id="plan" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-500">{tr("pane.changePlan")}</OpenDrawer>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-        <OpenDrawer id="process" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Process checklist</OpenDrawer>
-        <OpenDrawer id="details" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Details</OpenDrawer>
-        <DownloadReport parid={parid} query={reportQuery} label="Download the PDF" hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
+        <OpenDrawer id="process" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">{tr("pane.process")}</OpenDrawer>
+        <OpenDrawer id="details" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">{tr("pane.details")}</OpenDrawer>
+        <DownloadReport parid={parid} query={reportQuery} label={tr("pane.downloadPdf")} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
       </div>
+      {isEs && <p className="text-[11px] text-slate-500">{tr("pane.englishParts")}</p>}
     </>
   );
 
@@ -452,11 +484,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   return (
     <ParcelShell
       pane={pane}
-      planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
+      planExtras={englishNote(<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>)}
       drawers={[
-        { id: "pencils", title: "Does it pencil?", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
-        { id: "process", title: "Process checklist", content: process },
-        { id: "details", title: "Details", content: details },
+        { id: "pencils", title: tr("pane.pencils"), content: englishNote(pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p>) },
+        { id: "process", title: tr("pane.process"), content: englishNote(process) },
+        { id: "details", title: tr("pane.details"), content: englishNote(details) },
       ]}
       parid={parid} stage={stage} outline={P.outline} center={centerOf(f)}
       viewFacts={{

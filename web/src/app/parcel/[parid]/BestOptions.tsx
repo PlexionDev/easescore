@@ -6,6 +6,8 @@
 
 import Link from "next/link";
 import { score } from "@easescore/engine";
+import { translator, type Locale } from "@/lib/i18n";
+import { OPTION_NAME_ES, leadLabelEs, zoningPathEs } from "@/lib/i18n/engine-es";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -40,32 +42,34 @@ function strategyHref(sp: SP, parid: string, id: string) {
   return `/parcel/${encodeURIComponent(parid)}?${q.toString()}`;
 }
 
-export default function BestOptions({ parid, rows, detail, selected, sp }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP }) {
+export default function BestOptions({ parid, rows, detail, selected, sp, lang = "en" }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP; lang?: Locale }) {
+  const t = translator(lang);
+  const es = lang === "es";
   return (
     <section aria-labelledby="best-options-h">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="best-options-h" className="text-sm font-semibold text-slate-900">Best options for this lot</h2>
-        <span className="hidden text-[10px] text-slate-500 sm:inline">Ease Score · zoning · money, kept separate</span>
+        <h2 id="best-options-h" className="text-sm font-semibold text-slate-900">{t("best.heading")}</h2>
+        <span className="hidden text-[10px] text-slate-500 sm:inline">{t("best.sub")}</span>
       </div>
       <ol className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white/80">
         {rows.map((r) => {
           const on = r.strategy === selected;
-          const p = PENCIL[r.pencils];
+          const p = { ...PENCIL[r.pencils], text: es && r.pencils !== "none" ? t(`pencil.${r.pencils}`) : PENCIL[r.pencils].text };
           const scoreText = r.score != null ? String(r.score) : r.range ? `${r.range[0]}–${r.range[1]}` : "—";
           const body = (
             <>
               <div className="flex items-center gap-2">
                 <span className="w-4 shrink-0 text-[11px] tabular-nums text-slate-500">{r.rank}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{r.name}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{es ? OPTION_NAME_ES[r.strategy] : r.name}</span>
                 {r.applicable && (
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900" title="Ease Score out of 100">{scoreText}</span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900" title={t("best.scoreTitle")}>{scoreText}</span>
                 )}
-                {r.band && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${BAND_STYLE[r.band]}`}>{r.band}</span>}
-                {r.applicable && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.style}`} title="Does it pencil? (from the pro forma)">{detail?.[r.strategy] ?? p.text}</span>}
+                {r.band && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${BAND_STYLE[r.band]}`}>{es ? t(`bandShort.${r.band}` as Parameters<typeof t>[0]) : r.band}</span>}
+                {r.applicable && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.style}`} title={t("best.pencilTitle")}>{detail?.[r.strategy] ?? p.text}</span>}
               </div>
               <p className={`ml-6 mt-0.5 text-[11px] leading-snug ${ZONING_STYLE[r.zoning.kind] ?? "text-slate-600"}`}>
-                {r.zoning.text}
-                {r.leadLabel && <span className="ml-1 rounded bg-slate-900 px-1 py-px text-[10px] font-semibold text-white">{r.leadLabel}</span>}
+                {es ? zoningPathEs(r.zoning) : r.zoning.text}
+                {r.leadLabel && <span className="ml-1 rounded bg-slate-900 px-1 py-px text-[10px] font-semibold text-white">{es ? leadLabelEs(r.leadLabel) : r.leadLabel}</span>}
               </p>
             </>
           );
@@ -75,7 +79,7 @@ export default function BestOptions({ parid, rows, detail, selected, sp }: { par
                 <Link href={strategyHref(sp, parid, r.strategy)} scroll={false} prefetch={false} aria-current={on ? "true" : undefined}
                   className={`block px-2 py-1.5 ${on ? "bg-slate-100 ring-2 ring-inset ring-slate-900" : "hover:bg-slate-50"}`}>
                   {body}
-                  <span className="sr-only">{on ? " (selected)" : " (show this option's details)"}</span>
+                  <span className="sr-only">{on ? t("best.selectedSr") : t("best.showSr")}</span>
                 </Link>
               ) : (
                 <div className="px-2 py-1.5 opacity-70">{body}</div>

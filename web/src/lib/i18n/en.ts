@@ -249,6 +249,12 @@ export const en = {
   "pane.englishParts": "",
   "pane.detailsFine": "Parcel {id}. Decision support only. Verify with your lender, accountant, and the permitting office.",
 
+  "pane.loading": "Loading this parcel: score, costs and the 3D site plan…",
+  "pane.busy": "Some data for this parcel is temporarily unavailable. Our database is busy right now; please refresh in a moment.",
+  "pane.refresh": "Refresh",
+  "pane.errorBody": "Some data for this parcel is temporarily unavailable. Please try again in a moment.",
+  "pane.tryAgain": "Try again",
+
   // "Pencils?" chip
   "chip.notComputed": "Pencils? Not computed for this option",
   "chip.rehab": "Enter your rehab cost to price this",
@@ -320,6 +326,12 @@ export const en = {
   "pencil.no": "Doesn't pencil",
   "pencil.pricing": "Pricing…",
   "pencil.unknown": "Can't tell yet",
+
+  "thumb.alt": "3D map view of the lot outlined in yellow, with nearby buildings and terrain",
+  "thumb.planAlt": "Plan of the lot outlined in yellow, with neighboring lots and buildings",
+  "thumb.caption": "Map view from EaseScore.AI data (county parcels, USGS lidar), {date}",
+  "dl.preparing": "Preparing the study…",
+  "dl.error": "Could not create the PDF: {error}",
 
   // Drawers
   "drawer.close": "Close",

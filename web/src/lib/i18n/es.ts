@@ -239,8 +239,14 @@ export const es: Record<Key, string> = {
   "pane.downloadPdf": "Descargar el PDF",
   "pane.pencils": "¿Salen las cuentas?",
   "pane.noEstimate": "Todavía no hay una estimación de costo y valor para esta opción.",
-  "pane.englishParts": "El mapa, la vista 3D, el pro forma, la lista de trámites, los detalles y el informe completo aún están en inglés.",
+  "pane.englishParts": "El mapa, la vista 3D, el pro forma, la lista de trámites, los detalles y el informe completo (salvo su resumen) aún están en inglés.",
   "pane.detailsFine": "Parcela {id}. Solo apoyo para decisiones. Verifique con su prestamista, su contador y la oficina de permisos. La versión en inglés prevalece.",
+
+  "pane.loading": "Cargando esta parcela: puntaje, costos y el plano 3D del sitio…",
+  "pane.busy": "Algunos datos de esta parcela no están disponibles por el momento. Nuestra base de datos está ocupada; actualice la página en un momento.",
+  "pane.refresh": "Actualizar",
+  "pane.errorBody": "Algunos datos de esta parcela no están disponibles por el momento. Vuelva a intentarlo en un momento.",
+  "pane.tryAgain": "Intentar de nuevo",
 
   "chip.notComputed": "¿Salen las cuentas? No se calculó para esta opción",
   "chip.rehab": "Escriba su costo de rehabilitación para calcular el precio",
@@ -308,6 +314,12 @@ export const es: Record<Key, string> = {
   "pencil.no": "No salen",
   "pencil.pricing": "Calculando…",
   "pencil.unknown": "Aún no se sabe",
+
+  "thumb.alt": "Vista 3D del lote marcado en amarillo, con los edificios cercanos y el terreno",
+  "thumb.planAlt": "Plano del lote marcado en amarillo, con los lotes y edificios vecinos",
+  "thumb.caption": "Vista del mapa con datos de EaseScore.AI (parcelas del condado, lidar del USGS), {date}",
+  "dl.preparing": "Preparando el estudio…",
+  "dl.error": "No se pudo crear el PDF: {error}",
 
   "drawer.close": "Cerrar",
   "drawer.closeNamed": "Cerrar {title}",

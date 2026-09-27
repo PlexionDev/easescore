@@ -11,12 +11,14 @@ import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor } from "@protomaps/basemaps";
 import { bboxOf, markSubject } from "./MapStage";
 import { tilesBase } from "@/lib/tiles";
+import { useT } from "@/lib/i18n/client";
 
 type FC = { type: "FeatureCollection"; bbox: [number, number, number, number]; center: [number, number]; features: any[] }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let protocolAdded = false;
 
 export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData: FC | null }>; date: string }) {
+  const t = useT();
   const el = useRef<HTMLDivElement>(null);
   // The map data streams in after the pane; until then the frame stays empty (the pane never waits for it).
   const [data, setData] = useState<FC | null>(null);
@@ -101,19 +103,20 @@ export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData:
     <figure className="m-0">
       <div className="relative h-40 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
         {img
-          ? <img src={img} alt="3D map view of the lot outlined in yellow, with nearby buildings and terrain" className="h-full w-full object-cover" />
+          ? <img src={img} alt={t("thumb.alt")} className="h-full w-full object-cover" />
           : <>
               {data && <PlanSvg data={data} />}
               {!failed && <div ref={el} className="absolute inset-0" aria-hidden />}
             </>}
       </div>
-      <figcaption className="mt-1 text-[11px] text-slate-500">Map view from EaseScore.AI data (county parcels, USGS lidar), {date}</figcaption>
+      <figcaption className="mt-1 text-[11px] text-slate-500">{t("thumb.caption", { date })}</figcaption>
     </figure>
   );
 }
 
 /** Flat plan of the lot from the same data (parcel, neighbors, building footprints); shown until the 3D view has drawn. */
 function PlanSvg({ data }: { data: FC }) {
+  const t = useT();
   const parcel = data.features.find((f) => f.properties?.kind === "parcel");
   if (!parcel) return null;
   const [x0, y0, x1, y1] = bboxOf(parcel.geometry);
@@ -127,7 +130,7 @@ function PlanSvg({ data }: { data: FC }) {
   const d = (g: { type: string; coordinates: unknown }) => rings(g as { type: string; coordinates: any }).map((r) => `M${r.map(pt).join("L")}`).join(" "); // eslint-disable-line @typescript-eslint/no-explicit-any
   const marked = markSubject(data, parcel) as FC;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" role="img" aria-label="Plan of the lot outlined in yellow, with neighboring lots and buildings">
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" role="img" aria-label={t("thumb.planAlt")}>
       <rect width={W} height={H} fill="#f1f5f9" />
       {marked.features.filter((f) => f.properties?.kind === "neighbor").map((f, i) => <path key={`n${i}`} d={d(f.geometry)} fill="none" stroke="#94a3b8" strokeWidth={0.8} />)}
       <path d={`${d(parcel.geometry)} Z`} fill="#facc15" fillOpacity={0.25} stroke="#ca8a04" strokeWidth={2.5} />

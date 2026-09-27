@@ -6,6 +6,7 @@
 // <OpenDrawer> button, or from "#drawer=<id>" in the URL (forms inside a drawer return to it).
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useT } from "@/lib/i18n/client";
 
 const EVENT = "easescore:drawer";
 
@@ -20,6 +21,7 @@ export function OpenDrawer({ id, className, children, label }: { id: DrawerId; c
 }
 
 export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string; content: ReactNode }[] }) {
+  const t = useT();
   const [open, setOpen] = useState<DrawerId | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const ids = drawers.map((d) => d.id).join(",");
@@ -55,11 +57,11 @@ export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string
             className={`fixed inset-0 z-50 ${on ? "flex" : "hidden"} flex-col overflow-hidden bg-white md:inset-auto md:bottom-4 md:left-[472px] md:top-4 md:w-[500px] md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl`}>
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <h2 className="text-base font-semibold text-slate-900">{d.title}</h2>
-              <button ref={on ? closeRef : undefined} type="button" onClick={close} className="rounded-full px-2 py-1 text-sm text-slate-600 hover:bg-slate-100" aria-label={`Close ${d.title}`}>
-                Close ✕
+              <button ref={on ? closeRef : undefined} type="button" onClick={close} className="rounded-full px-2 py-1 text-sm text-slate-600 hover:bg-slate-100" aria-label={t("drawer.closeNamed", { title: d.title })}>
+                {t("drawer.close")} ✕
               </button>
             </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4" tabIndex={0} role="region" aria-label={`${d.title} content`}>{d.content}</div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4" tabIndex={0} role="region" aria-label={t("drawer.content", { title: d.title })}>{d.content}</div>
           </div>
         );
       })}
@@ -71,6 +73,7 @@ export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string
 export function SheetButton({ label, title, children }: { label: string; title: string; children: ReactNode }) {
   const [on, setOn] = useState(false);
   const id = useId();
+  const t = useT();
   useEffect(() => {
     if (!on) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOn(false); };
@@ -89,7 +92,7 @@ export function SheetButton({ label, title, children }: { label: string; title: 
             className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 text-[13px] leading-snug text-slate-700 shadow-2xl md:w-[420px] md:rounded-2xl">
             <div className="mb-2 flex items-start justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-              <button type="button" autoFocus onClick={() => setOn(false)} className="rounded-full px-2 text-sm text-slate-500 hover:bg-slate-100" aria-label="Close">✕</button>
+              <button type="button" autoFocus onClick={() => setOn(false)} className="rounded-full px-2 text-sm text-slate-500 hover:bg-slate-100" aria-label={t("drawer.close")}>✕</button>
             </div>
             {children}
           </div>
