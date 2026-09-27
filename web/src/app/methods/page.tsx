@@ -56,6 +56,8 @@ const TOC: [string, string][] = [
   ["sources", "Sources"],
 ];
 
+/** Pro forma backtest (scripts/backtest.sh, run 2026-09-27; Good spec default, cost-assumptions config of that date). */
+const BACKTEST = { n: 518, built: "2020–2025", sold: "March 2021 to August 2026", lossDefault: 94, loss185: 78 };
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 
@@ -110,7 +112,7 @@ export default function MethodsPage() {
               Score = the sum of (weight × factor score) over the factors that have data, divided by the sum of those weights.
               The weights add up to {totalWeight}.
             </p>
-            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Factor weights table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <caption>Factor weights (from the engine config)</caption>
                 <thead>
@@ -129,7 +131,7 @@ export default function MethodsPage() {
             </div>
 
             <h3>Bands</h3>
-            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Bands table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Band</th><th scope="col" className={d.num}>Score</th></tr></thead>
                 <tbody>
@@ -145,7 +147,7 @@ export default function MethodsPage() {
 
             <h3>Zoning permission</h3>
             <p>Use permission comes from the City&apos;s §911.02 Use Table. The permission score is multiplied by the lot-fit factor.</p>
-            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Zoning permission table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Code</th><th scope="col">Meaning</th><th scope="col" className={d.num}>Points</th></tr></thead>
                 <tbody>
@@ -170,7 +172,7 @@ export default function MethodsPage() {
             </p>
 
             <h3>Geohazard multipliers</h3>
-            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Geohazard multipliers table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Condition on the lot</th><th scope="col" className={d.num}>Multiplier</th></tr></thead>
                 <tbody>
@@ -234,8 +236,15 @@ export default function MethodsPage() {
             <h3>Costs</h3>
             <ul>
               <li>
-                <strong>Construction:</strong> five tiers from published Pittsburgh builder ranges, per finished square foot
-                ({tiers.map((t) => `${t.label} ${usd(t.costPerSf.value)}`).join(", ")}). The default is {defaultTier.label}, {usd(defaultTier.costPerSf.value)}.
+                <strong>Construction:</strong> a build-quality slider per finished square foot
+                ({tiers.map((t) => `${t.label} ${usd(t.costPerSf.value)}`).join(", ")}). The five from Basic up are published Pittsburgh builder ranges;
+                Production (spec) is {tiers.find((t) => t.id === "production")?.costPerSf.sourceLabel} The default is {defaultTier.label}, {usd(defaultTier.costPerSf.value)}.
+              </li>
+              <li>
+                <strong>Backtest:</strong> we ran the pro forma on {BACKTEST.n} new homes built in Allegheny County in {BACKTEST.built} that then sold
+                ({BACKTEST.sold}), each priced at its actual sale price. At default assumptions, {BACKTEST.lossDefault}% of real completed homes show a loss;
+                at the Production (spec) rate of $185 per square foot, {BACKTEST.loss185}%. Real builders built and sold these homes, so the default
+                costs are on the high side for production and spec builders: the pro forma leans toward &ldquo;does not pencil.&rdquo;
               </li>
               <li>
                 <strong>Hillside adders</strong> fire from the lidar slope: moderate slope {usd(costs.siteAdders.moderateSlope.value)} and steep slope{" "}
@@ -287,14 +296,16 @@ export default function MethodsPage() {
               A new home is valued only from sales of new homes: valid arm&apos;s-length sales in the last {nc.years} years of homes built no more than{" "}
               {nc.maxAgeAtSaleYears} years before the sale, at least {nc.minLivingAreaSqft.toLocaleString("en-US")} sq ft and {usd(nc.minPrice)}, nearest first.
               We need at least {nc.minComps}, widening the search from ¼ mile to {nc.radiiMi[nc.radiiMi.length - 1]} miles and saying how far it went.
-              Sales in the same City neighborhood (or municipality) are used alone when there are at least {nc.selection.sameAreaMinComps}; otherwise the
-              nearest by distance. We widen until {nc.selection.nearestMin} sales, keep the nearest {nc.selection.nearestMax}, and drop sales whose price per
+              Sales in the same City neighborhood (or municipality) are used alone when there are at least {nc.selection.sameAreaMinComps}; otherwise
+              market-tier areas (below). We widen until {nc.selection.nearestMin} sales, keep the nearest {nc.selection.nearestMax}, and drop sales whose price per
               square foot is beyond {nc.selection.outlierIqrMultiplier}× the middle-half spread; dropped sales are listed with the reason. When the
               lot&apos;s own area has too few new sales, comps come only from areas in the same market tier: the median price per square foot of
               existing-home sales there is within &plusmn;{Math.round(nc.selection.tierBand * 100)}% of the lot&apos;s area (an assumption you can edit;
-              at least {nc.selection.tierMinSales} sales in {nc.selection.tierYears} years, else the tier is unknown). This is the way appraisers pick
-              comparable neighborhoods; no income, race or other demographic data is used. If too few sales qualify, the nearest sales are used and the
-              receipt says so.
+              at least {nc.selection.tierMinSales} sales in {nc.selection.tierYears} years, else {nc.selection.tierYearsFallback} years; an area still
+              without a tier borrows the median tier of its {nc.selection.tierNeighbors} nearest areas). This is the way appraisers pick
+              comparable neighborhoods; no income, race or other demographic data is used. If too few sales qualify, areas priced no higher are
+              allowed; if there are still too few, no value is estimated — sales from richer markets nearby are never used just because they are close.
+              Comps are kept within &plusmn;{Math.round(nc.selection.sizeBand * 100)}% of the planned home&apos;s size when enough remain.
             </p>
             <p>
               When there are too few, the value is left blank. Older-home prices are then shown only as a labeled floor, never as the value of a new build.

@@ -96,7 +96,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
           </button>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Construction per finished sq ft{t.id === "production" ? "" : ", builder overhead and profit included"}; site adders are separate lines.</p>
+      <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Construction per finished sq ft, builder overhead and profit included; site adders are separate lines.</p>
       <details className="text-[11px] text-slate-500">
         <summary className="cursor-pointer underline decoration-dotted underline-offset-2">Source: {t.costPerSf.sourceLabel}</summary>
         <p className="mt-0.5">{t.costPerSf.sourceNote}</p>

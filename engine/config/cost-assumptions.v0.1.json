@@ -5,20 +5,20 @@
   "construction": {
     "_note": "Base construction cost per finished (livable) square foot, above a standard foundation. Includes builder overhead and profit. Excludes land, demolition, unusual site or foundation work, and soft costs.",
     "unit": "$/finished SF",
-    "defaultTier": "production",
+    "defaultTier": "good",
     "tiers": [
       {
         "id": "production",
         "label": "Production (spec)",
-        "meaning": "Stock plans from a production or spec builder; construction cost only, since the builder's margin is the profit this pro forma tests",
+        "meaning": "Stock plans from a production or spec builder",
         "costPerSf": {
-          "value": 150,
+          "value": 185,
           "range": [
-            130,
-            175
+            165,
+            205
           ],
-          "sourceLabel": "NAHB 2024 cost share + local backtest",
-          "sourceNote": "NAHB Cost of Constructing a Home 2024: construction cost about $162/SF nationally, 64% of the sale price, before the builder's overhead and profit. Checked against 518 homes built in Allegheny County since 2020 that then sold (EaseScore backtest): at $150/SF most of them make money, as they did. The five published tiers are builders' prices to an owner."
+          "sourceLabel": "NAHB 2024 construction cost + typical builder overhead and profit; cross-check: Pittsburgh basic range $175–225.",
+          "sourceNote": "NAHB Cost of Constructing a Home 2024: construction cost about $162/SF nationally, before the builder's overhead and profit; plus typical builder overhead and profit. Cross-check: Pittsburgh builders' published basic range is $175–225/SF."
         },
         "aeShare": 0.03,
         "aeRange": [

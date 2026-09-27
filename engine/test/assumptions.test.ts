@@ -50,14 +50,16 @@ const plan = (facts: Facts, extra: Partial<assumptions.PlanArgs> = {}) =>
   buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: SCHEME, comps: COMPS, newComps: NEW, rents: RENTS, primeRate: 0.07, permitMonths: 4, tapFeesPerUnit: 1000, ...extra });
 
 describe("cost config", () => {
-  it("has a version stamp and the backtested Production (spec) tier at $150 as the default", () => {
+  it("has a version stamp and the Good spec tier at $250 as the default (owner decision)", () => {
     expect(COST_CONFIG.version).toMatch(/^cost-assumptions\.v\d/);
     const def = assumptions.tierOf(COST_CONFIG, undefined);
-    expect(def.label).toBe("Production (spec)");
-    expect(def.costPerSf.value).toBe(150);
-    // The slider stops after it: the published Pittsburgh builder ranges.
+    expect(def.label).toBe("Good spec");
+    expect(def.costPerSf.value).toBe(250);
+    const prod = assumptions.tierOf(COST_CONFIG, "production");
+    expect(prod.costPerSf.value).toBe(185);
+    expect(prod.costPerSf.sourceLabel).toBe("NAHB 2024 construction cost + typical builder overhead and profit; cross-check: Pittsburgh basic range $175–225.");
     expect(COST_CONFIG.construction.tiers.map((t) => `${t.label} ${t.costPerSf.range.join("–")}`)).toEqual([
-      "Production (spec) 130–175", "Basic 175–225", "Good spec 225–275", "Better 275–350", "High-end 350–450", "Custom 450–600",
+      "Production (spec) 165–205", "Basic 175–225", "Good spec 225–275", "Better 275–350", "High-end 350–450", "Custom 450–600",
     ]);
   });
   it("labels the grouting default as owner-provided local data", () => {
@@ -134,9 +136,9 @@ describe("your own program", () => {
     const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: prog });
     expect(p.program).toMatchObject({ units: 4, footprintPerUnitSf: 400, finishedPerUnitSf: 680, garagePerUnitSf: 400, grossSf: 4800 });
     expect(p.finishedSf).toBe(2720);
-    // Tier cost: finished area at $150 + garage level at half the tier rate.
-    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 150 * 0.5);
-    expect(p.forSale.hardCost).toBe(2720 * 150 + 1600 * 75);
+    // Tier cost: finished area at $250 + garage level at half the tier rate.
+    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 250 * 0.5);
+    expect(p.forSale.hardCost).toBe(2720 * 250 + 1600 * 125);
   });
   it("uses your cost per home without double counting the garage, and adds site adders unless they are included", () => {
     const no = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000 } });
@@ -196,8 +198,8 @@ describe("site adders", () => {
     expect(i.minePath).toBe("insurance");
     expect(i.forSale.hardSiteLines?.grouting).toBeUndefined();
     // PA DEP chart: $3.75 + $0.25 per $1,000 of coverage; coverage = construction cost.
-    expect(i.msiCoverage).toBe(150 * 1700);
-    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 150 * 1700) / 1000, 6);
+    expect(i.msiCoverage).toBe(250 * 1700);
+    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 250 * 1700) / 1000, 6);
     expect(finance.msiAnnualPremium(i.msiCoverage).value).toBe(i.msiPremium?.value);
   });
   it("lets the user switch the mine path", () => {
@@ -251,8 +253,8 @@ describe("items that apply but have no cost yet", () => {
 describe("pro forma", () => {
   it("adds up: TDC equals the sum of the budget lines (hand-checked flat lot)", () => {
     const r = evaluateDevelopment(plan(FLAT));
-    const hard = 150 * 1700; // 255,000
-    const soft = hard * (0.03 + 0.006 + 0.03) + 1000; // A&E (stock plans) + PLI $6/$1,000 + survey/legal + tap fees
+    const hard = 250 * 1700; // 425,000
+    const soft = hard * (0.08 + 0.006 + 0.03) + 1000; // A&E + PLI $6/$1,000 + survey/legal + tap fees
     const contingency = hard * 0.07;
     const land = 13000; // Larimer vacant-land sales: $4.46/sq ft × 3,000 sq ft = $13,380, rounded
     const before = land + hard + soft + contingency;
@@ -272,7 +274,7 @@ describe("pro forma", () => {
     // The math uses the rounded figures: sales − selling costs − total cost.
     expect(r.sale.profit).toBe(510000 - 36000 - r.tdc!);
     expect(r.narrative).toMatchObject({ tenure: "sale", totalCost: r.tdc, value: r.sale.netSales });
-    expect(r.sentences[0]).toMatch(/^Cost: land \$13,000 \+ construction \$255,000 \+ design and engineering \$8,000 \+ contingency/);
+    expect(r.sentences[0]).toMatch(/^Cost: land \$13,000 \+ construction \$425,000 \+ design and engineering \$34,000 \+ contingency/);
   });
   it("says so plainly when there are not enough comps", () => {
     const p = plan(FLAT, { newComps: null });

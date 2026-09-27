@@ -50,16 +50,16 @@ describe("ranges: no false precision", () => {
 
   it("ranges come from the documented input ranges", () => {
     const hard = g.lines.find((l) => l.id === "hard_base")!;
-    expect(hard.triangulation!.used).toEqual({ low: 130, likely: 150, high: 175 });
+    expect(hard.triangulation!.used).toEqual({ low: 225, likely: 250, high: 275 });
     const slope = g.lines.find((l) => l.id === "slope_adder")!;
     // Per sq ft of building footprint.
     expect(slope.triangulation!.unit).toBe("$/SF of footprint");
     expect(slope.triangulation!.used).toEqual({ low: 30, likely: 45, high: 70 });
-    // Production (spec) tier: stock plans, A&E 2–5% (likely 3%).
-    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 2, likely: 3, high: 5 });
-    const good = pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges;
-    expect(good.lines.find((l) => l.id === "hard_base")!.triangulation!.used).toEqual({ low: 225, likely: 250, high: 275 });
-    expect(good.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 5, likely: 8, high: 12 });
+    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 5, likely: 8, high: 12 });
+    // Production (spec) tier: $185 (165–205), stock plans, A&E 2–5% (likely 3%).
+    const prod = pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges;
+    expect(prod.lines.find((l) => l.id === "hard_base")!.triangulation!.used).toEqual({ low: 165, likely: 185, high: 205 });
+    expect(prod.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 2, likely: 3, high: 5 });
     expect(g.tdc!.low).toBeLessThan(g.tdc!.likely);
     expect(g.tdc!.high).toBeGreaterThan(g.tdc!.likely);
   });
@@ -70,19 +70,19 @@ describe("ranges: no false precision", () => {
       else expect(l.source.badge).toBeNull();
       expect(l.source.badge).not.toBe("ICC BVD Feb 2026, national, permit-fee average");
     }
-    // Default Production (spec) tier: NAHB cost share (backtested); published tiers carry the Pittsburgh builders badge.
-    expect(g.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("NAHB 2024, national, excludes builder fee");
-    expect(pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Pittsburgh builders (2026)");
+    // Default Good spec: Pittsburgh builders. Production (spec) is our assumption (NAHB + builder overhead and profit).
+    expect(g.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Pittsburgh builders (2026)");
+    expect(pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Assumption, edit me");
     expect(g.lines.find((l) => l.id === "slope_adder")!.source.badge).toBe("Assumption, edit me");
     expect(g.lines.find((l) => l.id === "contingency")!.source.badge).toBe("Assumption, edit me");
   });
 
   it("triangulates hard cost per SF against NAHB national and local project benchmarks", () => {
     const pts = g.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
-    expect(pts.map((p) => p.badge)).toEqual(["NAHB 2024, national, excludes builder fee", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
-    expect(pts[2]!.value).toBe(162);
-    const good = pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
-    expect(good.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    expect(pts[1]!.value).toBe(162);
+    const prod = pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
+    expect(prod.map((p) => p.badge)).toEqual(["Assumption, edit me", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
     expect(g.lines.find((l) => l.id === "tdc")!.triangulation!.points[0]!.badge).toBe("Local project benchmark");
   });
 
