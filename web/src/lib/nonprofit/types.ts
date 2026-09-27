@@ -261,7 +261,7 @@ export function inTen(pct: number): string {
 }
 
 export const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-export const usdK = (n: number) => (Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M` : `$${Math.round(n / 1000)}K`);
+export const usdK = (n: number) => (Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M` : Math.round(n / 1000) === 0 ? "$0" : `$${Math.round(n / 1000)}K`);
 
 export const STRATEGY_TEXT: Record<string, string> = {
   new_sf: "New single-family",

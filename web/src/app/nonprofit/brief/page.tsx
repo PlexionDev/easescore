@@ -8,6 +8,7 @@ import { need as loadNeed, lotsDetail } from "@/lib/nonprofit/data";
 import { projectCost } from "@/lib/nonprofit/project";
 import { acquisitionPath, statusNote, TYPICAL_NOTE } from "@/lib/nonprofit/acquisition";
 import { EQUITY_NOTE, acsVintage } from "@/lib/nonprofit/receipts";
+import { formatRange } from "@/components/seats/format";
 import { inTen, needSummary, parseState, projectInput, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
 import "./brief.css";
 
@@ -16,7 +17,8 @@ export const dynamic = "force-dynamic";
 
 const title = (a: string | null, parid: string) => (a && a.trim() ? a.trim().toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase()) : `Parcel ${shortParid(parid)}`);
 const about = (n: number) => (Math.round(n / 10) * 10).toLocaleString("en-US");
-const rng = (r: { low: number; high: number }) => (r.low === r.high ? usdK(r.low) : `${usdK(r.low)}–${usdK(r.high)}`);
+// Same rounding as the seat page (two significant figures on the whole range), so brief and screen match.
+const rng = (r: { low: number; high: number }) => formatRange({ low: r.low, likely: r.low, high: r.high }, { format: "money" });
 
 function Outline({ geom, pts }: { geom: GeoJSON.Geometry | null; pts: { lon: number; lat: number; n: number }[] }) {
   if (!geom || (geom.type !== "Polygon" && geom.type !== "MultiPolygon")) return null;
@@ -160,7 +162,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
             <p>{r.units} rental homes of {s.bedrooms} bedroom{s.bedrooms === 1 ? "" : "s"}, {s.perLot} per lot. Who they serve:</p>
             <ul className="br-serves">
               {r.rents.map((x) => (
-                <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (placeholder).</li>
+                <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (assumption, edit me).</li>
               ))}
             </ul>
             <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {usdK(r.tdc.likely)} ({usdK(r.tdc.likely / r.units)} per home).</p>
