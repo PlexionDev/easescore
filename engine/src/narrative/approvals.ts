@@ -281,7 +281,7 @@ export function reconcileRequirements<R extends RequirementLike>(reqs: R[], rec:
       const v = rec.items.filter((i) => i.type === "special_exception" || i.type === "admin_exception");
       // An administrator exception alone is the Zoning Administrator's call (no hearing), not the Zoning Board's.
       const adminOnly = v.length > 0 && v.every((i) => i.type === "admin_exception");
-      if (v.length) return { ...r, ...(adminOnly ? { item: "Administrator exception", issuer: "Zoning Administrator (no hearing)" } : {}), status: v.some((i) => i.type === "special_exception") ? "REQUIRED" : "LIKELY", reasons: req(v).map((x, k) => ({ ...x, status: v[k]!.type === "special_exception" ? "REQUIRED" : "LIKELY" })) };
+      if (v.length) return { ...r, ...(adminOnly ? { item: "Administrator exception", issuer: "Zoning Administrator, no hearing" } : {}), status: v.some((i) => i.type === "special_exception") ? "REQUIRED" : "LIKELY", reasons: req(v).map((x, k) => ({ ...x, status: v[k]!.type === "special_exception" ? "REQUIRED" : "LIKELY" })) };
       if (r.status !== "NOT_NEEDED" && !rec.closest) return { ...r, status: "NOT_NEEDED", reasons: notNeeded("The studied use does not need a special exception here.") };
       return r;
     }
