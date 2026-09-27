@@ -53,8 +53,11 @@ export function classify(s: Strategy, zba: Record<string, ZbaRow> | null | undef
   return c ? { path: c.path, approval: c.approval, reliefType: c.reliefType, precedent: c.precedent } : null;
 }
 
-/** Profit for a sale, yearly NOI for a rental; used to rank options by "most financial sense". */
-const value = (pf: assumptions.ProFormaResult | null) => (pf ? (pf.plan.tenure === "sale" ? pf.sale.profit : pf.rent.noi != null && pf.tdc ? pf.rent.noi / pf.tdc : null) : null);
+/**
+ * "Most financial sense", on one scale for both tenures: profit margin on cost for a sale, yield on
+ * cost for a rental (both are return ÷ total cost).
+ */
+const value = (pf: assumptions.ProFormaResult | null) => (pf ? (pf.plan.tenure === "sale" ? pf.sale.margin : pf.rent.yieldOnCost) : null);
 
 function costDriver(pf: assumptions.ProFormaResult | null): { costDriver: string | null; costDriverEffect: string | null } {
   if (!pf || pf.tdc == null) return { costDriver: null, costDriverEffect: null };
@@ -112,7 +115,7 @@ export async function comparePlans(a: {
   known?: { strategy: score.StrategyId; pf: assumptions.ProFormaResult | null } | null;
   /** Precomputed comps (the parcel pane row): new-construction comps per strategy and the rehab's matched comps. */
   precomputed?: { newComps: Partial<Record<score.StrategyId, assumptions.CompSet | null>>; rehabComps: assumptions.CompSet | null } | null;
-}): Promise<PlanComparison> {
+}): Promise<PlanComparison & { ctx: SummaryCtx }> {
   const f = a.facts as ParcelFacts & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   const zba = a.zba?.by_relief ?? null;
   const shared: assumptions.CostOverrides = { ...a.overrides };
@@ -161,19 +164,46 @@ export async function comparePlans(a: {
     }),
   );
 
-  const { byRight, withApproval } = narrative.pickPlans(options.map((o) => ({ ...o, value: value(o.pf) })));
-
-  const best = a.result.strategies.find((s) => s.strategy === a.result.best) ?? a.result.strategies[0];
-  const district = score.isCityParcel(f) ? f.zoning?.code ?? null : null;
-  const summaryInput: narrative.SummaryInput = {
+  const ctx: SummaryCtx = {
     parid: a.parid,
-    district,
+    district: score.isCityParcel(f) ? f.zoning?.code ?? null : null,
     municipality: (f.context?.municipality as string | undefined) ?? f.assessment?.municipality ?? null,
-    byRight: byRight ? toSummaryOption(byRight) : null,
-    withApproval: withApproval
-      ? { ...toSummaryOption(withApproval), approval: withApproval.approval ?? "an approval", reliefType: withApproval.reliefType, precedent: withApproval.precedent }
-      : null,
-    redFlags: (best?.redFlags ?? []).map((r) => r.title),
+    redFlags: ((a.result.strategies.find((s) => s.strategy === a.result.best) ?? a.result.strategies[0])?.redFlags ?? []).map((r) => r.title),
   };
-  return { options, byRight, withApproval, summaryInput, summary: narrative.generateSummary(summaryInput) };
+  return summarize(options, ctx, null);
+}
+
+interface SummaryCtx { parid: string; district: string | null; municipality: string | null; redFlags: string[] }
+
+const approvalOption = (o: PlanOption): narrative.SummaryApprovalOption => ({
+  ...toSummaryOption(o), approval: o.approval ?? "an approval", reliefType: o.reliefType, precedent: o.precedent,
+});
+
+/**
+ * Picks the featured by-right option (most financial sense; ties go to the higher Ease Score) and the
+ * with-approval option, and writes the two sentences. `lead`: the strategy the visitor chose, when it
+ * is not the featured by-right option (sentence 1 then describes it).
+ */
+function summarize(options: PlanOption[], ctx: SummaryCtx, lead: score.StrategyId | null): PlanComparison & { ctx: SummaryCtx } {
+  const { byRight, withApproval } = narrative.pickPlans(options.map((o) => ({ ...o, value: value(o.pf) })));
+  const leadOpt = lead && lead !== byRight?.strategy ? options.find((o) => o.strategy === lead) ?? null : null;
+  const summaryInput: narrative.SummaryInput = {
+    parid: ctx.parid,
+    district: ctx.district,
+    municipality: ctx.municipality,
+    byRight: byRight ? toSummaryOption(byRight) : null,
+    withApproval: withApproval ? approvalOption(withApproval) : null,
+    ...(leadOpt ? { lead: approvalOption(leadOpt) } : {}),
+    redFlags: ctx.redFlags,
+  };
+  return { options, byRight, withApproval, summaryInput, summary: narrative.generateSummary(summaryInput), ctx };
+}
+
+/**
+ * Puts the page's selected option (its pro forma with the visitor's program edits) into the
+ * comparison and rewrites the summary; `explicit` when the visitor chose the strategy.
+ */
+export function withSelected(plans: PlanComparison & { ctx: SummaryCtx }, strategy: score.StrategyId, pf: assumptions.ProFormaResult | null, explicit: boolean): PlanComparison & { ctx: SummaryCtx } {
+  const options = plans.options.map((o) => (o.strategy === strategy && pf ? { ...o, pf, units: pf.plan.units ?? o.units, phrase: PHRASE[o.strategy](pf.plan.units ?? o.units) } : o));
+  return summarize(options, plans.ctx, explicit ? strategy : null);
 }

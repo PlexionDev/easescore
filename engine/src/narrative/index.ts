@@ -11,4 +11,4 @@ export {
   generateSummary, validateSummary, resolveSummary, precedentPhrase, splitSentences, SUMMARY_FINE_PRINT, PRECEDENT_MIN_CASES, BANNED_PATTERNS,
   type SummaryInput, type SummaryOption, type SummaryApprovalOption, type SummaryPrecedent, type SummaryResult, type SummaryValidation, type ReliefType,
 } from "./summary";
-export { classifyPlan, pickPlans, type PlanPath } from "./plans";
+export { classifyPlan, pickPlans, defaultStrategy, type PlanPath } from "./plans";

@@ -57,6 +57,8 @@ export interface SelectedScheme {
   stories: number | null;
   heightFt: number | null;
   parking: { option: ParkingOption | ParkingProgram; spaces: number | null; required: number | null } | null;
+  /** Unit (or building, when stacked) width and depth, and lot coverage, from the site-fit layout. */
+  layout: { unitWidthFt: number | null; unitDepthFt: number | null; lotCoveragePct: number | null; needsSubdivision: boolean } | null;
   /** What limits the layout, e.g. "Front setback is the limit". */
   bindingConstraint: Binding | null;
   /** Zoning path of the site-fit scheme. */
@@ -110,7 +112,7 @@ export function selectScheme(a: SelectSchemeArgs): SelectedScheme {
   const base: SelectedScheme = {
     strategy: a.strategy, strategyLabel: STRATEGY_LABEL[a.strategy], source: "none", schemeId: null, typologyLabel: null,
     units: null, siteFitUnits: null, buildings: null, footprints: [], footprintSf: null, grossFloorAreaSf: null, finishedSf: null,
-    garageSf: 0, stories: null, heightFt: null, parking: null, bindingConstraint: null,
+    garageSf: 0, stories: null, heightFt: null, parking: null, layout: null, bindingConstraint: null,
     path: f1?.fitStatus ?? null, variancesNeeded: Array.isArray(f1?.varianceRules) ? f1!.varianceRules! : [], permissionCode: f1?.permissionCode ?? null,
     program: null, sizeBasis: "", missing: null, notes: [], overridden: false,
   };
@@ -136,6 +138,7 @@ export function selectScheme(a: SelectSchemeArgs): SelectedScheme {
     ...base, source: "site_fit", schemeId: sch.id ?? null, typologyLabel: sch.typologyLabel ?? null, siteFitUnits: sch.units, buildings: sch.buildings ?? null,
     footprints: sch.footprints ?? [], footprintSf: sch.footprintSf ?? null, grossFloorAreaSf: sch.grossFloorAreaSf, stories: sch.stories ?? null, heightFt: sch.heightFt ?? null,
     parking: sch.parking ? { option: sch.parking, spaces: sch.parkingSpaces ?? null, required: sch.parkingRequired ?? null } : null, bindingConstraint: sch.binding ?? null,
+    layout: { unitWidthFt: sch.unitWidthFt ?? null, unitDepthFt: sch.unitDepthFt ?? null, lotCoveragePct: sch.lotCoveragePct ?? null, needsSubdivision: sch.needsSubdivision ?? false },
     variancesNeeded: base.variancesNeeded.length ? base.variancesNeeded : [...new Set((sch.approvals ?? []).filter((x) => x.kind === "variance").map((x) => x.rule))].sort(),
     permissionCode: base.permissionCode ?? sch.permission?.code ?? null, garageSf: 0,
   };

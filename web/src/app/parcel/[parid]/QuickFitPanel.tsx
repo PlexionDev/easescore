@@ -29,6 +29,22 @@ export interface PricedScheme {
   variancesNeeded: string[];
   binding: string | null;
   footprints: [number, number][][];
+  grossSf: number | null;
+  unitWidthFt: number | null;
+  unitDepthFt: number | null;
+  lotCoveragePct: number | null;
+  parking: { spaces: number | null; required: number | null } | null;
+  /** Engine pro forma for this scheme: headline range and total cost range. */
+  proForma: string | null;
+  totalCost: string | null;
+}
+
+/** Engine pro forma for another option's scheme (matched to a QuickFit card by scheme id). */
+export interface PricedOption {
+  schemeId: string;
+  label: string;
+  proForma: string | null;
+  totalCost: string | null;
 }
 
 const PATH_TEXT: Record<string, string> = {
@@ -92,8 +108,9 @@ function Legend({ input, envArea, units }: { input: QFInput; envArea: number; un
   );
 }
 
-export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme, onEnvelope }: {
+export default function QuickFitPanel({ input, rules, zoneCode, priced, pricedOptions = [], onScheme, onEnvelope }: {
   input: QFInput; rules: Record<string, unknown> | null; zoneCode: string | null;
+  pricedOptions?: PricedOption[];
   /** The priced scheme (score + pro forma + summary); shown first and drawn until another layout is picked. */
   priced?: PricedScheme | null;
   onScheme?: (s: { footprints: [number, number][][]; heightFt: number } | null, byUser: boolean) => void;
@@ -126,14 +143,26 @@ export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme
     }
   }, [input, rules, zoneCode, goal, frontVar, sideVar]);
 
-  const chosenForMap = useMemo(() => {
-    if (pick < 0 && priced) return { footprints: priced.footprints, heightFt: priced.heightFt };
-    if (!result || "error" in result) return null;
+  // The priced layout is the top card; the rest are alternatives (the priced scheme's own building type is
+  // not repeated, so the two never disagree). With a what-if entered, every card comes from the what-if run.
+  const whatIf = frontVar.trim() !== "" || sideVar.trim() !== "";
+  const pricedTyp = priced?.schemeId?.split("|")[0] ?? null;
+  const showPriced = !!priced && !whatIf;
+  const cards = useMemo(() => {
+    if (!result || "error" in result) return [] as quickfit.Scheme[];
     const seen: quickfit.Scheme[] = [];
-    for (const s of result.ranked) { if (!seen.some((t) => t.typology === s.typology)) seen.push(s); if (seen.length === 3) break; }
-    const s = seen[Math.min(Math.max(pick, 0), seen.length - 1)];
+    for (const s of result.ranked) {
+      if (showPriced && (s.id === priced!.schemeId || s.typology === pricedTyp)) continue;
+      if (!seen.some((t) => t.typology === s.typology)) seen.push(s);
+      if (seen.length === 3) break;
+    }
+    return seen;
+  }, [result, showPriced, priced, pricedTyp]);
+  const chosenForMap = useMemo(() => {
+    if (pick < 0 && showPriced) return { footprints: priced!.footprints, heightFt: priced!.heightFt };
+    const s = cards[Math.min(Math.max(pick, 0), cards.length - 1)];
     return s ? { footprints: s.footprints as [number, number][][], heightFt: s.heightFt } : null;
-  }, [result, pick, priced]);
+  }, [cards, pick, priced, showPriced]);
   useEffect(() => { onScheme?.(chosenForMap, pick >= 0); }, [chosenForMap]); // eslint-disable-line react-hooks/exhaustive-deps
   // Buildable envelope in the same local coordinates as the footprints (for the photoreal 3D view).
   useEffect(() => { onEnvelope?.(result && !("error" in result) ? (result.envelope.polygons as [number, number][][][]) : null); }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -142,12 +171,7 @@ export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme
   if (input.frontEdges.length === 0) return <p className="text-sm text-zinc-600">No street frontage found near this lot, so QuickFit can't orient a building.</p>;
   if (!result || "error" in result) return <p className="text-sm text-red-700">QuickFit couldn't run: {result && "error" in result ? result.error : "no result"}</p>;
 
-  // Best layout per building type (the ranked list has near-duplicates that differ only in parking).
-  const top: quickfit.Scheme[] = [];
-  for (const s of result.ranked) {
-    if (!top.some((t) => t.typology === s.typology)) top.push(s);
-    if (top.length === 3) break;
-  }
+  const top = cards;
   const chosen = pick >= 0 ? top[Math.min(pick, top.length - 1)] ?? null : null;
   const drawn = pick < 0 && priced ? priced.footprints : ((chosen?.footprints ?? []) as [number, number][][]);
   const v = result.variance;
@@ -175,17 +199,27 @@ export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme
           <Legend input={input} envArea={result.envelope.areaSf} units={drawn.length} />
         </div>
         <div className="space-y-2">
-          {priced && (
+          {showPriced && (
             <button onClick={() => setPick(-1)} className={`block w-full rounded border px-3 py-2 text-left text-sm ${pick < 0 ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"}`}>
               <div className="flex items-center justify-between">
                 <b>Priced layout: {priced.label}{priced.units != null ? `, ${priced.units} unit${priced.units === 1 ? "" : "s"}` : ""}</b>
                 <span className="rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-700">score + pro forma</span>
               </div>
-              <p>{priced.stories != null ? `${priced.stories} stories · ` : ""}{priced.finishedSf != null ? `${Math.round(priced.finishedSf).toLocaleString()} sq ft finished · ` : ""}{PATH_TEXT[priced.path ?? ""] ?? "zoning path unknown"}{priced.variancesNeeded.length ? ` (${priced.variancesNeeded.map((v) => v.replace(/_/g, " ")).join(", ")})` : ""}</p>
+              <p>
+                {priced.unitWidthFt != null && priced.unitDepthFt != null ? `${priced.unitWidthFt} ft wide × ${priced.unitDepthFt} ft deep · ` : ""}
+                {priced.stories != null ? `${priced.stories} stories · ` : ""}
+                {priced.grossSf != null ? `${Math.round(priced.grossSf).toLocaleString()} sq ft gross · ` : ""}
+                {priced.finishedSf != null ? `${Math.round(priced.finishedSf).toLocaleString()} sq ft finished · ` : ""}
+                {priced.lotCoveragePct != null ? `${priced.lotCoveragePct}% coverage · ` : ""}
+                {priced.parking?.spaces != null ? `parking ${priced.parking.spaces}${priced.parking.required != null ? ` of ${priced.parking.required} required` : ""} · ` : ""}
+                {PATH_TEXT[priced.path ?? ""] ?? "zoning path unknown"}{priced.variancesNeeded.length ? ` (${priced.variancesNeeded.map((v) => v.replace(/_/g, " ")).join(", ")})` : ""}
+              </p>
               {priced.binding && <p className="text-zinc-700">{priced.binding}.</p>}
-              <p className="text-xs text-zinc-500">The same building the Ease Score, the summary and the pro forma use. Other layouts below are for exploring.</p>
+              {priced.proForma && <p className="font-semibold text-slate-900">{priced.proForma}{priced.totalCost ? <span className="font-normal text-slate-600"> · total cost {priced.totalCost}</span> : null}</p>}
+              <p className="text-xs text-zinc-500">The same building the Ease Score, the summary, the pro forma and the 3D view use.</p>
             </button>
           )}
+          {showPriced && top.length > 0 && <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Alternatives (other building types)</p>}
           {top.length === 0 && (
             <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
               Nothing fits by right: the buildable envelope is {Math.round(result.envelope.areaSf).toLocaleString()} sq ft
@@ -205,7 +239,12 @@ export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme
               {s.approvals.map((a, j) => (
                 <p key={j} className="text-amber-800">Needs: {a.label}{a.odds ? (a.odds.status === "rate" ? ` — past ZBA: ${Math.round(a.odds.rate * 100)}% granted (${a.odds.granted}/${a.odds.n})` : ` — too few past cases (${a.odds.n})`) : ""}</p>
               ))}
-              <p className="text-xs text-zinc-500">Cost & return: needs your cost table.</p>
+              {(() => {
+                const po = pricedOptions.find((o) => o.schemeId === s.id);
+                return po?.proForma
+                  ? <p className="text-slate-900"><span className="font-semibold">{po.proForma}</span>{po.totalCost ? <span className="text-slate-600"> · total cost {po.totalCost}</span> : null} <span className="text-xs text-zinc-500">({po.label}, same pro forma as the page)</span></p>
+                  : <p className="text-xs text-zinc-500">Not priced: {whatIf ? "a what-if layout" : "a different layout from the one this building type is priced on"}. Pick its building type above the factor bars to price it.</p>;
+              })()}
             </button>
           ))}
         </div>

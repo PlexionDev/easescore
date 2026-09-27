@@ -122,7 +122,7 @@ export function ScoreBlock({ parid, result, selected, sp }: { parid: string; res
           <div className="pb-0.5">
             {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{BAND_WORD[s.band]}</span>}
             <p className="mt-1 text-[11px] text-slate-500">
-              Ease Score out of 100{preliminary ? " · Preliminary (thin evidence)" : s.range ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}
+              Ease Score out of 100{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}
             </p>
           </div>
         </div>

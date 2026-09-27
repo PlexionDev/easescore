@@ -163,3 +163,14 @@ describe("missing inputs", () => {
     expect(validateSummary(r.text, i).ok).toBe(true);
   });
 });
+
+describe("summary lead (the visitor's selected option)", () => {
+  it("sentence 1 describes the selected option; sentence 2 names the featured by-right option", () => {
+    const i = base();
+    i.lead = i.withApproval;
+    const r = generateSummary(i);
+    expect(r.sentences[0]).toBe("A duplex would need a special exception, and it pencils only thinly, at about a 4% margin on current new-home sale comps.");
+    expect(r.sentences[1]).toBe("By right, this lot allows one single-family home, and it pencils at about a 9% margin on current new-home sale comps.");
+    expect(validateSummary(r.text, i).ok).toBe(true);
+  });
+});

@@ -4,7 +4,7 @@ import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type 
 import { parcelExists, parcelMap, quickfitInput } from "@/lib/data";
 import { readCostOverrides } from "@/lib/proforma";
 import { loadPane } from "@/lib/pane";
-import { comparePlans, type PlanComparison } from "@/lib/summary";
+import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
 import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
@@ -100,6 +100,12 @@ function DataUnavailable({ parid }: { parid: string }) {
   );
 }
 
+/** Lot centroid [lon, lat] from the parcel facts, for aiming the 3D view before the map data arrives. */
+function centerOf(f: object): [number, number] | null {
+  const c = (f as { centroid?: { lon?: unknown; lat?: unknown } | null }).centroid;
+  return typeof c?.lon === "number" && typeof c?.lat === "number" ? [c.lon, c.lat] : null;
+}
+
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
@@ -126,15 +132,31 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   // Ease Score for every strategy, precomputed (or computed live above). null hides the score block, never the page.
   const easeResult: score.EaseScoreResult | null = P.score;
-  const wanted = typeof sp.strategy === "string" ? sp.strategy : null;
+  const overrides = readCostOverrides(sp);
+  // Every option through the same pro forma (no program edits) for the summary; its featured by-right
+  // option (most financial sense, ties to the higher Ease Score) is the page's default selection.
+  let plans0: Awaited<ReturnType<typeof comparePlans>> | null = null;
+  if (easeResult) {
+    try {
+      plans0 = await T.time("compare_plans", comparePlans({
+        parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
+        sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides, asOf,
+        precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
+      }));
+    } catch {
+      plans0 = null;
+    }
+  }
+  const wantedRaw = typeof sp.strategy === "string" ? sp.strategy : null;
+  const wanted = easeResult?.strategies.some((x) => x.strategy === wantedRaw) ? (wantedRaw as score.StrategyId) : null;
+  const defaultId = narrative.defaultStrategy(wanted, plans0?.byRight?.strategy ?? null, easeResult?.best ?? null);
   const selected = easeResult
-    ? easeResult.strategies.find((x) => x.strategy === wanted) ?? easeResult.strategies.find((x) => x.strategy === easeResult!.best) ?? easeResult.strategies[0] ?? null
+    ? easeResult.strategies.find((x) => x.strategy === defaultId) ?? easeResult.strategies[0] ?? null
     : null;
   // Pro forma for the selected option: cost defaults from the versioned config, the user's pf_* edits,
   // comps and rents from the database. A failure hides the section, never the page.
   // One SelectedScheme for the selected option (site-fit scheme + the user's program edits): the score's
   // fit, the pro forma, the summary and the 3D massing all read this same building.
-  const overrides = readCostOverrides(sp);
   let chosenScheme: score.SelectedScheme | null = null;
   if (selected?.applicable) {
     try {
@@ -194,18 +216,13 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       answers = null;
     }
   }
-  // Best by-right and best with-approval options (each through the same pro forma) for the summary.
+  // The summary with the selected option's own pro forma; sentence 1 describes the selected option when the visitor chose it.
   let plans: PlanComparison | null = null;
-  if (easeResult) {
+  if (plans0) {
     try {
-      plans = await T.time("compare_plans", comparePlans({
-        parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
-        sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides, asOf,
-        known: selected ? { strategy: selected.strategy, pf } : null,
-        precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
-      }));
+      plans = selected ? withSelected(plans0, selected.strategy, pf, wanted != null && wanted !== plans0.byRight?.strategy) : plans0;
     } catch {
-      plans = null;
+      plans = plans0;
     }
   }
 
@@ -418,12 +435,18 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Details", content: details },
       ]}
-      stage={stage} outline={P.outline} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
+      stage={stage} outline={P.outline} center={centerOf(f)} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
       selectedScheme={chosenScheme && chosenScheme.footprints.length ? {
         schemeId: chosenScheme.schemeId, label: `${chosenScheme.strategyLabel}${chosenScheme.typologyLabel ? ` (${chosenScheme.typologyLabel})` : ""}`,
         units: chosenScheme.units, stories: chosenScheme.stories, heightFt: chosenScheme.heightFt ?? 0, finishedSf: chosenScheme.finishedSf,
+        grossSf: chosenScheme.grossFloorAreaSf, unitWidthFt: chosenScheme.layout?.unitWidthFt ?? null, unitDepthFt: chosenScheme.layout?.unitDepthFt ?? null,
+        lotCoveragePct: chosenScheme.layout?.lotCoveragePct ?? null, parking: chosenScheme.parking ? { spaces: chosenScheme.parking.spaces, required: chosenScheme.parking.required } : null,
         path: chosenScheme.path, variancesNeeded: chosenScheme.variancesNeeded, binding: chosenScheme.bindingConstraint?.label ?? null,
         footprints: chosenScheme.footprints as [number, number][][],
-      } : null} />
+        proForma: pf?.ranges.headline ?? null, totalCost: pf ? assumptions.rangeText(pf.ranges.tdc) : null,
+      } : null}
+      pricedOptions={(plans?.options ?? []).filter((o) => o.pf?.plan.scheme.schemeId).map((o) => ({
+        schemeId: o.pf!.plan.scheme.schemeId!, label: o.label, proForma: o.pf!.ranges.headline, totalCost: assumptions.rangeText(o.pf!.ranges.tdc),
+      }))} />
   );
 }

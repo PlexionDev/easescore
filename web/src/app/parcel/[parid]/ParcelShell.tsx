@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { preconnect } from "react-dom";
 import MapStage, { type Footprints } from "./MapStage";
-import QuickFitPanel, { type PricedScheme } from "./QuickFitPanel";
+import QuickFitPanel, { type PricedOption, type PricedScheme } from "./QuickFitPanel";
 import { DrawerHost, type DrawerId } from "./Drawers";
 import PhotorealStill from "./PhotorealStill";
 import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
@@ -15,6 +15,7 @@ const Photoreal3D = dynamic(() => import("./Photoreal3D"), { ssr: false, loading
 
 // Inlined at build time; true when a Google Map Tiles key is configured.
 const HAS_KEY = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+const NO_FEATURES = { type: "FeatureCollection" as const, bbox: [], center: [0, 0] as [number, number], features: [] };
 const PANEL_W = 440, GUTTER = 16;
 
 type Affine = { lon0: number; lat0: number; lon_per_x: number; lat_per_x: number; lon_per_y: number; lat_per_y: number };
@@ -22,7 +23,7 @@ type Sheet = "peek" | "half" | "full";
 const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
 const PEEK_PX = 104;
 
-export default function ParcelShell({ pane, planExtras, drawers, stage, outline, rules, zoneCode, selectedScheme }: {
+export default function ParcelShell({ pane, planExtras, drawers, stage, outline, center, rules, zoneCode, selectedScheme, pricedOptions }: {
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
   /** Assumptions and project questions, shown in "Change the plan" under QuickFit. */
@@ -33,9 +34,13 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
   stage: Promise<{ mapData: any; qfInput: any }>;
   /** Lot outline in local feet, drawn as a still placeholder until the map data arrives. */
   outline: [number, number][] | null;
+  /** Lot centroid [lon, lat] from the pane: the photoreal view aims there and starts tiles before the map data. */
+  center?: [number, number] | null;
   rules: Record<string, unknown> | null; zoneCode: string | null;
   /** The one scheme the score, pro forma and summary use; drawn in 3D until the visitor picks another layout. */
   selectedScheme?: PricedScheme | null;
+  /** Engine pro formas for the other options' schemes (shown on the matching QuickFit cards). */
+  pricedOptions?: PricedOption[];
 }) {
   const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null);
   useEffect(() => {
@@ -119,6 +124,17 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
   const photoFootprints = useMemo(() => (footprints ? { rings: footprints.rings, heightFt: footprints.heightFt } : null), [footprints]);
   const maxHeightFt = typeof rules?.max_height_ft === "number" ? (rules.max_height_ft as number) : 40;
   const photoEnvelope = useMemo(() => (envelope ? { rings: envelope, heightFt: maxHeightFt } : null), [envelope, maxHeightFt]);
+  // Enough to aim the photoreal camera before the map data streams in: the centroid and the lot's radius.
+  const early = useMemo(() => {
+    if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) return null;
+    let radiusM = 20;
+    if (outline && outline.length >= 3) {
+      const xs = outline.map((p) => p[0]), ys = outline.map((p) => p[1]);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      radiusM = Math.max(...outline.map(([x, y]) => Math.hypot(x - cx, y - cy))) * 0.3048;
+    }
+    return { lon: center[0], lat: center[1], radiusM };
+  }, [center?.[0], center?.[1], outline]); // eslint-disable-line react-hooks/exhaustive-deps
   const parcelKey = String((mapData?.features as { properties?: { kind?: string; id?: string } }[] | undefined)?.find((f) => f.properties?.kind === "parcel")?.properties?.id ?? mapData?.center?.join(",") ?? "parcel");
 
   return (
@@ -129,12 +145,11 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
           <MapStage data={mapData} footprints={footprints} />
         </div>
       )}
-      {mapData && mode === "photoreal" && (HAS_KEY
-        ? <>
-            <PhotorealStill data={mapData} insets={insets} />
-            <Photoreal3D parcelKey={parcelKey} data={mapData} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
-          </>
-        : <KeyNeeded onFallback={() => choose("terrain")} />)}
+      {mode === "photoreal" && HAS_KEY && (mapData || early) && <>
+        {mapData && <PhotorealStill data={mapData} insets={insets} />}
+        <Photoreal3D parcelKey={parcelKey} data={mapData ?? NO_FEATURES} early={early} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
+      </>}
+      {mapData && mode === "photoreal" && !HAS_KEY && <KeyNeeded onFallback={() => choose("terrain")} />}
       {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} />}
 
       <aside
@@ -153,7 +168,7 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
             <h3 className="text-sm font-semibold text-slate-900">What fits here (QuickFit)</h3>
             <p className="mb-2 text-xs text-slate-500">Single-family, duplex, townhouse row. The selected layout is drawn in 3D on the map.</p>
             {qfInput ? (
-              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode} priced={selectedScheme ?? null}
+              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode} priced={selectedScheme ?? null} pricedOptions={pricedOptions ?? []}
                 onScheme={(s, byUser) => { setUserPicked(byUser); setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null); }}
                 onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
             ) : <p className="text-sm text-slate-600">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}

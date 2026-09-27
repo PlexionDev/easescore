@@ -120,9 +120,12 @@ const varRules = (s: Scheme) => [...new Set(s.approvals.filter((a) => a.kind ===
 
 type Runs = { base: QuickFitResult; contextual?: QuickFitResult | null; probe?: QuickFitResult | null };
 
-/** Most units first, then the better use permission, then a stable id. */
+/**
+ * Most units first, then the better use permission, then the most floor area, then a stable id: the
+ * same order QuickFit's "Most units" goal uses, so the priced scheme is that goal's winner.
+ */
 const byMostUnits = (a: Scheme, b: Scheme) =>
-  b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || b.grossFloorAreaSf - a.grossFloorAreaSf || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * The ONE scheme behind a strategy: the most units among schemes that fit by right, else with the

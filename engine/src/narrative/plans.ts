@@ -51,15 +51,23 @@ export function classifyPlan(s: StrategyResult, zba: Record<string, ZbaReliefCou
 }
 
 /**
- * Best by-right option (highest value, then most units) and the with-approval option that allows
- * more homes than by right (most units, then highest value). `value` is profit for a sale or yield
- * for a rental; null sorts last.
+ * Best by-right option (highest value, then the higher Ease Score, then most units) and the
+ * with-approval option that allows more homes than by right (most units, then the same order).
+ * `value` is profit for a sale or yield for a rental; null sorts last.
  */
-export function pickPlans<T extends { path: "by_right" | "approval"; units: number | null; value: number | null }>(options: T[]): { byRight: T | null; withApproval: T | null } {
-  const rank = (xs: T[]) => [...xs].sort((x, y) => (y.value ?? -Infinity) - (x.value ?? -Infinity) || (y.units ?? 0) - (x.units ?? 0));
+export function pickPlans<T extends { path: "by_right" | "approval"; units: number | null; value: number | null; score?: number | null }>(options: T[]): { byRight: T | null; withApproval: T | null } {
+  const rank = (xs: T[]) => [...xs].sort((x, y) => (y.value ?? -Infinity) - (x.value ?? -Infinity) || (y.score ?? -Infinity) - (x.score ?? -Infinity) || (y.units ?? 0) - (x.units ?? 0));
   const byRight = rank(options.filter((o) => o.path === "by_right"))[0] ?? null;
   const approvals = options.filter((o) => o.path === "approval" && (byRight == null || (o.units ?? 0) > (byRight.units ?? 0)));
   const mostUnits = Math.max(0, ...approvals.map((o) => o.units ?? 0));
   const withApproval = rank(approvals.filter((o) => (o.units ?? 0) === mostUnits))[0] ?? null;
   return { byRight, withApproval };
+}
+
+/**
+ * The page's default option: the summary's featured by-right option (the one that makes the most
+ * financial sense), else the Ease Score's best strategy. The visitor's own choice always wins.
+ */
+export function defaultStrategy<S extends string>(chosen: S | null | undefined, featuredByRight: S | null | undefined, best: S | null | undefined): S | null {
+  return chosen ?? featuredByRight ?? best ?? null;
 }

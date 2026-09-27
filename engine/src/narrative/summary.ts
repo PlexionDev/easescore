@@ -53,6 +53,11 @@ export interface SummaryInput {
   municipality: string | null;
   byRight: SummaryOption | null;
   withApproval: SummaryApprovalOption | null;
+  /**
+   * The option the visitor selected, when it is not the featured by-right option. Sentence 1 then
+   * describes it, and sentence 2 names the featured by-right option instead of the approval option.
+   */
+  lead?: SummaryApprovalOption | null;
   /** Red flag titles (floodway, no legal access, contamination on the lot). */
   redFlags: string[];
 }
@@ -100,6 +105,12 @@ function pencilsClause(o: SummaryOption): string {
 
 function sentenceOne(i: SummaryInput): string {
   const flag = i.redFlags.length ? `, but a red flag (${lc(i.redFlags[0]!)}) blocks building until it is resolved` : "";
+  if (i.lead) {
+    const l = i.lead;
+    const driver = l.costDriver ? `; ${l.costDriver}${l.costDriverEffect ? ` ${l.costDriverEffect}` : " is the main cost driver"}` : "";
+    const path = l.reliefType ? `would need ${l.approval}` : "is allowed by right";
+    return `${cap(l.label)} ${path}, and ${pencilsClause(l)}${driver}${flag}.`;
+  }
   const b = i.byRight;
   if (!b) {
     if (!i.district) {
@@ -113,6 +124,11 @@ function sentenceOne(i: SummaryInput): string {
 }
 
 function sentenceTwo(i: SummaryInput): string {
+  if (i.lead) {
+    const b = i.byRight;
+    if (b) return `By right, this lot allows ${b.label}, and ${pencilsClause(b)}.`;
+    return i.district ? `Nothing fits by right under ${i.district} zoning in our site check.` : "What is allowed by right needs to be confirmed with the municipality.";
+  }
   const w = i.withApproval;
   if (!w) {
     if (!i.district) return "Options that need zoning relief can't be checked until the zoning is confirmed.";

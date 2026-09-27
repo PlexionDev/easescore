@@ -121,6 +121,9 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
       m.addLayer({ id: "parcel-line", type: "line", source: "site", filter: ["==", ["get", "kind"], "parcel"], paint: { "line-color": "#ca8a04", "line-width": 3 } });
       // QuickFit scheme massing
       m.addSource("scheme", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      // Footprint drawn on the ground too, so its place on the lot reads clearly under the pitched 3D view.
+      m.addLayer({ id: "scheme-ground", type: "fill", source: "scheme", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.35 } });
+      m.addLayer({ id: "scheme-outline", type: "line", source: "scheme", paint: { "line-color": "#1e3a8a", "line-width": 2 } });
       m.addLayer({ id: "scheme-3d", type: "fill-extrusion", source: "scheme",
         paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.92 } });
       // Cinematic arrival

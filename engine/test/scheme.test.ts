@@ -82,6 +82,47 @@ describe.each(FIXTURES)("one scheme everywhere: %s", (_name, fx) => {
     }
   });
 
+  it("the page's default option is the summary's featured by-right option", () => {
+    const zba = (fx.zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null)?.by_relief ?? null;
+    const options = r.strategies.flatMap((s) => {
+      const c = narrative.classifyPlan(s, zba);
+      if (!c) return [];
+      const { pf } = planFor(fx, facts, r, s);
+      return [{ ...c, strategy: s.strategy, units: pf.plan.units ?? s.units, score: s.score, value: pf.sale.profit }];
+    });
+    const { byRight } = narrative.pickPlans(options);
+    const def = narrative.defaultStrategy(null, byRight?.strategy ?? null, r.best);
+    expect(def).toBe(byRight?.strategy ?? r.best);
+    // An explicit choice always wins.
+    expect(narrative.defaultStrategy("duplex", byRight?.strategy ?? null, r.best)).toBe("duplex");
+    // The default option's priced scheme is the one the score read.
+    const s = r.strategies.find((x) => x.strategy === def)!;
+    if (s.schemeId) expect(planFor(fx, facts, r, s).selected.schemeId).toBe(s.schemeId);
+  });
+
+  it("the 3D massing sits inside the lot: every footprint vertex is inside or on the parcel", () => {
+    const ring = ((fx.quickfitInput as { parcel: [number, number][] }).parcel);
+    const onSeg = (p: [number, number], a: [number, number], b: [number, number]) => {
+      const cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      return Math.abs(cross) / (len || 1) < 0.05 && p[0] >= Math.min(a[0], b[0]) - 0.05 && p[0] <= Math.max(a[0], b[0]) + 0.05 && p[1] >= Math.min(a[1], b[1]) - 0.05 && p[1] <= Math.max(a[1], b[1]) + 0.05;
+    };
+    const inside = (p: [number, number]) => {
+      let c = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[i]!, b = ring[j]!;
+        if (onSeg(p, a, b)) return true;
+        if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+      }
+      return c;
+    };
+    for (const s of newBuilds) {
+      const sel = planFor(fx, facts, r, s).selected;
+      expect(sel.footprints.length).toBeGreaterThan(0);
+      for (const fp of sel.footprints) for (const v of fp) expect(inside(v as [number, number]), `${s.strategy} vertex ${v}`).toBe(true);
+    }
+  });
+
   it("user program edits change the one scheme, not a second copy", () => {
     const s = newBuilds[0]!;
     const { selected, plan } = planFor(fx, facts, r, s, { units: (s.units ?? 1) + 1 });
