@@ -35,5 +35,22 @@
 
 - QuickFit v2 (QuickFit 3D): the solver draws rectangles only (no L-shapes); unit sizes, floor heights and parking sizes are placeholders; alley access is not detected yet (the front and street sides come from the lot's nearest streets), so an alley parking pad is never offered; backyard cottages (ADUs) are shown as not allowed because our zoning table has no ADU rule, and they are drawn but not priced. The lidar grid covers the lot plus a few feet, so the ground beyond is drawn flat. The batch scorers and the policy simulator still use the first QuickFit solver, so their unit counts can differ from the parcel page.
 - Accessibility: not yet tested with disabled users or a full screen-reader session by a person, and the PDF has not been run through a PDF accessibility checker. Map dots on the Planner, Policy and Nonprofit maps can't be reached one by one with the keyboard (the tables list the same parcels or totals), and the Policy map's per-parcel hover card needs a mouse. "Describe this view" and the accessibility page are in English only.
-- **No Street View photos yet.** The parcel pane asks Google for a Street View photo of the frontage only when a panorama is within 60 m of the lot, but the Street View Static API is not enabled on our Google key, so every parcel shows our illustrative 3D map (labeled "not a photo") until it is.
+- **Street View photos depend on Google coverage.** The parcel pane shows a Google Street View photo (with Google attribution, not cached) only when a panorama is within 60 m of the lot; otherwise it shows our own map, labeled "Illustrative 3D map, not a photo." The API has a daily quota cap.
 - **The Best options ranking prices options two ways.** The list ranks options with the summary's pro forma (the score's layout) except the option the page opens on, which is priced on the QuickFit layout; when those disagree the page re-checks the top option once so the pane, list and QuickFit agree.
+
+## Not fixed for the submission (2026-09-27)
+- **Blocker percentages can look alarming next to "Few barriers."** The Planner lists the share of parcels each blocker touches; a blocker may cost only a point, so the list should show points lost instead.
+- **The Planner map has no council-district or neighborhood boundaries.**
+- **Switching seats can reset Planner filters**, and the Policy link from the Planner does not carry the Planner's selection.
+- **Policy levers:** there is no inclusionary zoning / Affordable Housing Bonus lever; the ADU lever models one ADU up to 800 sq ft, not the pending two-ADU bill; parking reform is modeled only as whether a building fits (a lower bound); the equity view weighs zoned capacity, not likely production; a tax abatement changes only the fiscal ledger, not which homes pencil.
+- **The funder brief has no sources-and-uses table or developer fee line.**
+- **HUD income limits:** the stored table matches HUD's FY2026 Section 8 file (effective 2026-05-01); recheck when HUD publishes revisions.
+- **The Developer workspace has no money filters** (land price, margin, residual land value).
+- **Months to a permit are published review targets, not measured times.**
+- **No lot finder for tax-delinquent public land** (acquisition-path search).
+- **Some non-housing public land may still rank.** Streets, alleys, parks, plazas and right-of-way strips are excluded by county codes, zoning and lot shape; traffic islands, corner remnants and land under structures can slip through.
+- **Some built-on parcels are hidden and some vacant lots are missed.** Parcels the county records as built-on show as Partial; in a spot-check of 20, 2 were actually vacant.
+- **Sale values can hinge on a handful of comps.** Two lots a block apart can draw different new-construction sale sets (e.g. 7 sales at a $300/sq ft median vs 12 at $255), which moves the margin a lot.
+- **Search:** there is no search by municipality name ("Mt Lebanon" alone matches a street), intersections are not matched, and a house number that doesn't exist on a direction-prefixed street can fall back to the same number on a similarly named street elsewhere.
+- **A few same-parcel figures can differ by screen**: the QuickFit map's live scheme vs. the stored scheme (sale value, duplex profit) and a cached Planner row vs. the live page (homes by right). The Feasibility study is the reference.
+- **The pane checklist uses the approvals record only when a layout fits;** on lots where nothing fits, the report uses the closest layout's approvals and the pane shows the catalog's requirements.
