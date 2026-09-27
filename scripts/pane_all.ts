@@ -151,8 +151,10 @@ async function loadShared(): Promise<Shared> {
   const newSales = await sql<assumptions.SaleRecord[]>(`
     select s.parid, nullif(trim(concat_ws(' ', nullif(a.house_num, '0'), a.address)), '') address, s.sale_date::text "saleDate",
            s.price::float8 price, a.living_area_sqft::float8 "livingAreaSqft", a.year_built "yearBuilt", a.use_desc "use",
-           ST_Y(p.centroid) lat, ST_X(p.centroid) lon
+           ST_Y(p.centroid) lat, ST_X(p.centroid) lon,
+           case when g.is_pittsburgh then g.neighborhood else g.municipality end area
     from public.sales_valid s join public.assessments a on a.parid = s.parid join public.parcels p on p.parid = s.parid
+      left join public.parcel_geo g on g.parid = s.parid
     where s.sale_date >= ('${asOf}'::date - make_interval(years => ${r.years}))::date and s.sale_date <= '${asOf}'::date
       and s.price >= ${r.minPrice} and a.use_desc in (${uses})
       and a.year_built >= ${Number(asOf.slice(0, 4)) - r.years - r.maxAgeAtSaleYears} and a.living_area_sqft >= ${r.minLivingAreaSqft}

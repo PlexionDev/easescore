@@ -120,13 +120,21 @@
   "comps": {
     "_note": "How finished homes are valued. New builds use new-construction sales only; rehab uses existing-home sales matched on size and age. Older-home sales are never the value of a new build: when new-construction sales are too few, they are shown only as a labeled floor.",
     "newConstruction": {
-      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000; nearest first; at least 5, widening from ¼ mile to 3 miles.",
+      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000. Same City neighborhood (or municipality) when it has at least 5 such sales, otherwise the nearest by distance; widen from ¼ mile to 3 miles until 8, keep the nearest 12; drop sales beyond 1.5× the middle-half spread of $/SF; at least 5 needed.",
       "years": 3,
       "maxAgeAtSaleYears": 10,
       "minLivingAreaSqft": 600,
       "minPrice": 20000,
       "minComps": 5,
       "radiiMi": [0.25, 0.5, 1, 2, 3],
+      "selection": {
+        "_note": "How the new-construction comp set is chosen (deterministic). 1) Same City neighborhood (or same municipality outside the City) when it has at least sameAreaMinComps sales; otherwise the nearest sales by distance. 2) Widen by radius until nearestMin sales, then keep the nearest nearestMax. 3) Drop sales whose $/SF is beyond outlierIqrMultiplier x IQR from the quartiles (listed in the receipt). Editable assumptions.",
+        "sameAreaMinComps": 5,
+        "nearestMin": 8,
+        "nearestMax": 12,
+        "outlierIqrMultiplier": 1.5,
+        "sourceLabel": "Assumption — editable"
+      },
       "singleFamilyUses": ["SINGLE FAMILY"],
       "attachedUses": ["TOWNHOUSE", "ROWHOUSE"],
       "sourceLabel": "Allegheny County sales (valid new-construction comps)"

@@ -59,6 +59,12 @@ function CompBlock({ comps, floor, newBuild }: { comps: Comps; floor: string | n
       </p>
       {c.search_steps?.length ? <p className="text-[11px] text-slate-500">Search: {c.search_steps.join(" → ")}.</p> : null}
       {c.note && <p className="text-[11px] text-slate-500">{c.note}</p>}
+      {c.selection && <p className="text-[11px] text-slate-600">{c.selection.receipt}</p>}
+      {c.selection && c.selection.dropped.length > 0 && (
+        <ul className="text-[11px] text-slate-500">
+          {c.selection.dropped.map((d) => <li key={`${d.row.parid}${d.row.saleDate}`}>Dropped: {d.row.saleDate} · {usd(d.row.price)} · {d.reason}.</li>)}
+        </ul>
+      )}
       {floor && <p className="text-[11px] text-amber-800">{floor}</p>}
       {full && c.comps.length > 0 && (
         <details className="text-[11px]">

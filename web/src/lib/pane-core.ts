@@ -14,7 +14,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.4|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.5|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -93,6 +93,14 @@ export function fromStored(s: StoredPane): PanePayload {
   return { ...rest, newComps, sfComps: sfComps === "sales" ? (s.sales as assumptions.SalesCompsLike | null) : sfComps };
 }
 
+/** Comp area for the subject: City neighborhood inside Pittsburgh, else the municipality (matches parcel_geo). */
+export function compArea(f: Json): string | null {
+  const pgh = f?.assessment?.is_pittsburgh === true;
+  const hood = f?.context?.neighborhood as string | undefined;
+  const muni = (f?.context?.municipality ?? f?.assessment?.municipality) as string | undefined;
+  return (pgh ? hood : muni)?.trim() || null;
+}
+
 export function buildPane(i: PaneInputs): PanePayload {
   const f = i.facts as ParcelFacts & Record<string, Json>;
   let result: score.EaseScoreResult | null = null;
@@ -109,7 +117,7 @@ export function buildPane(i: PaneInputs): PanePayload {
   const newComps: PanePayload["newComps"] = {};
   for (const s of result?.strategies ?? []) {
     if (s.strategy === "rehab_existing" || c?.lat == null || c?.lon == null || !i.newSales) continue;
-    newComps[s.strategy] = assumptions.newConstructionCompsFor(s.strategy, { lat: c.lat, lon: c.lon, parid: i.parid }, i.newSales, i.asOf);
+    newComps[s.strategy] = assumptions.newConstructionCompsFor(s.strategy, { lat: c.lat, lon: c.lon, parid: i.parid, area: compArea(f) }, i.newSales, i.asOf);
   }
   let rehabComps: assumptions.CompSet | null = null;
   if (result?.strategies.some((s) => s.strategy === "rehab_existing" && s.applicable)) {

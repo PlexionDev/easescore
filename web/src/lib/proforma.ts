@@ -135,8 +135,18 @@ export function newConstructionArgs(parid: string, asOf: string) {
 }
 
 /** Recent new-construction sales near a parcel; null when they could not be loaded. */
-export function newConstructionSalesNear(parid: string, asOf: string): Promise<assumptions.SaleRecord[] | null> {
-  return rpc<assumptions.SaleRecord[]>("new_construction_comps", newConstructionArgs(parid, asOf));
+export async function newConstructionSalesNear(parid: string, asOf: string): Promise<assumptions.SaleRecord[] | null> {
+  const recs = await rpc<assumptions.SaleRecord[]>("new_construction_comps", newConstructionArgs(parid, asOf));
+  if (!recs?.length) return recs;
+  // Each sale's area (City neighborhood, else municipality) so same-neighborhood comps can be preferred.
+  const ids = [...new Set(recs.map((r) => r.parid))];
+  const geo = new Map<string, string | null>();
+  for (let i = 0; i < ids.length; i += 150) {
+    const rows = await select<{ parid: string; is_pittsburgh: boolean | null; neighborhood: string | null; municipality: string | null }>(
+      `parcel_geo?select=parid,is_pittsburgh,neighborhood,municipality&parid=in.(${ids.slice(i, i + 150).join(",")})`);
+    for (const g of rows) geo.set(g.parid.trim(), (g.is_pittsburgh ? g.neighborhood : g.municipality) ?? null);
+  }
+  return recs.map((r) => ({ ...r, area: geo.get(r.parid.trim()) ?? null }));
 }
 
 /** New-construction comps for a strategy from already-loaded nearby sales. */

@@ -18,6 +18,8 @@ export interface SaleRecord {
   use: string;
   lat: number;
   lon: number;
+  /** City neighborhood (City parcels) or municipality (elsewhere); used to prefer same-area comps. */
+  area?: string | null;
 }
 
 export interface CompRow {
@@ -30,6 +32,7 @@ export interface CompRow {
   yearBuilt: number | null;
   distanceMi: number;
   condition?: string | null;
+  area?: string | null;
 }
 
 export interface CompSet {
@@ -51,6 +54,15 @@ export interface CompSet {
   sourceLabel: string;
   /** Up to 25 nearest comps used. */
   comps: CompRow[];
+  /** New construction: how the set was chosen, plain words (rule + resulting set). */
+  selection?: {
+    scope: "same_area" | "nearest";
+    areas: string[];
+    dropped: { row: CompRow; reason: string }[];
+    p25PerSqft: number | null;
+    p75PerSqft: number | null;
+    receipt: string;
+  } | null;
 }
 
 export function median(xs: number[]): number | null {
@@ -89,11 +101,12 @@ function summarize(rows: CompRow[], base: Omit<CompSet, "count" | "median_price"
  * built no more than `maxAgeAtSaleYears` before the sale year. Widens ¼ → 3 miles until `minComps`.
  */
 export function newConstructionComps(
-  subject: { lat: number; lon: number; parid?: string | null },
+  subject: { lat: number; lon: number; parid?: string | null; area?: string | null },
   records: SaleRecord[],
   opts: { asOf: string; uses: string[]; useLabel: string; config?: CostConfig },
 ): CompSet {
   const r = (opts.config ?? COST_CONFIG).comps.newConstruction;
+  const sel = r.selection;
   const since = `${Number(opts.asOf.slice(0, 4)) - r.years}${opts.asOf.slice(4, 10)}`;
   const uses = new Set(opts.uses.map((u) => u.toUpperCase()));
   const radii = r.radiiMi;
@@ -107,32 +120,73 @@ export function newConstructionComps(
     if (!(s.yearBuilt >= Number(s.saleDate.slice(0, 4)) - r.maxAgeAtSaleYears)) continue;
     const d = distanceMi(subject.lat, subject.lon, s.lat, s.lon);
     if (d > maxR) continue;
-    pool.push({ parid: s.parid, address: s.address ?? null, saleDate: s.saleDate, price: s.price, livingAreaSqft: s.livingAreaSqft, pricePerSqft: s.price / s.livingAreaSqft, yearBuilt: s.yearBuilt, distanceMi: Math.round(d * 1000) / 1000 });
+    pool.push({ parid: s.parid, address: s.address ?? null, saleDate: s.saleDate, price: s.price, livingAreaSqft: s.livingAreaSqft, pricePerSqft: s.price / s.livingAreaSqft, yearBuilt: s.yearBuilt, distanceMi: Math.round(d * 1000) / 1000, area: s.area ?? null });
   }
+  pool.sort(byNearest);
+
+  // 1) Same neighborhood / municipality when it has enough sales; else nearest by distance.
+  const area = subject.area?.trim() || null;
+  const same = area ? pool.filter((p) => (p.area ?? "").toUpperCase() === area.toUpperCase()) : [];
+  const scope: "same_area" | "nearest" = area && same.length >= sel.sameAreaMinComps ? "same_area" : "nearest";
+  const cands = scope === "same_area" ? same : pool;
+
+  // 2) Widen by radius until nearestMin sales, then keep the nearest nearestMax.
   const steps: string[] = [];
-  let used = radii[0]!;
+  let reach = radii[0]!;
   let inside: CompRow[] = [];
   for (const rr of radii) {
-    inside = pool.filter((p) => p.distanceMi <= rr);
+    inside = cands.filter((p) => p.distanceMi <= rr);
     steps.push(`${inside.length} within ${rr} mi`);
-    used = rr;
-    if (inside.length >= r.minComps) break;
+    reach = rr;
+    if (inside.length >= sel.nearestMin) break;
   }
-  const ok = inside.length >= r.minComps;
+  let chosen = inside.slice(0, sel.nearestMax);
+
+  // 3) Drop $/SF outliers beyond k × IQR from the quartiles.
+  const dropped: { row: CompRow; reason: string }[] = [];
+  const q = (xs: number[], f: number) => {
+    const v = [...xs].sort((x, y) => x - y);
+    const pos = (v.length - 1) * f;
+    const i = Math.floor(pos);
+    return v[i]! + (v[Math.min(i + 1, v.length - 1)]! - v[i]!) * (pos - i);
+  };
+  if (chosen.length >= 4) {
+    const ps = chosen.map((c) => c.pricePerSqft);
+    const q1 = q(ps, 0.25), q3 = q(ps, 0.75), k = sel.outlierIqrMultiplier * (q3 - q1);
+    const lo = q1 - k, hi = q3 + k;
+    const keep: CompRow[] = [];
+    for (const c of chosen) {
+      if (c.pricePerSqft < lo || c.pricePerSqft > hi)
+        dropped.push({ row: c, reason: `$${Math.round(c.pricePerSqft)}/SF is ${c.pricePerSqft > hi ? "above" : "below"} the outlier limit ($${Math.round(Math.max(0, lo))}–$${Math.round(hi)}/SF, ${sel.outlierIqrMultiplier}× the middle-half spread)` });
+      else keep.push(c);
+    }
+    chosen = keep;
+  }
+  const farthest = chosen.length ? Math.max(...chosen.map((c) => c.distanceMi)) : reach;
+  const used = chosen.length ? radii.find((rr) => farthest <= rr) ?? maxR : reach;
+  const shownSteps = steps.slice(0, Math.max(1, radii.indexOf(used) + 1));
+  const ok = chosen.length >= r.minComps;
+  const areas = [...new Set(chosen.map((c) => c.area).filter((x): x is string => !!x))].sort();
+  const ps = chosen.map((c) => c.pricePerSqft);
+  const p25 = ps.length ? Math.round(q(ps, 0.25)) : null, p75 = ps.length ? Math.round(q(ps, 0.75)) : null;
+  const med = median(ps);
+  const scopeText = scope === "same_area" ? `same ${area} area (${same.length} sales there)` : area ? `nearest sales by distance (${same.length ? `only ${same.length}` : "none"} in ${area})` : "nearest sales by distance";
+  const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+, otherwise the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF. Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median $${Math.round(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
   const note = ok
-    ? used > radii[0]! ? `Search widened to ${used} mi to reach ${r.minComps} new-construction comps (${steps.join("; ")}).` : null
-    : `Insufficient new-construction comps: only ${inside.length} sale(s) of homes built within ${r.maxAgeAtSaleYears} years of the sale, within ${used} mi in the last ${r.years} years (${steps.join("; ")}). No new-home value is estimated.`;
-  return summarize(inside, {
+    ? used > radii[0]! && scope === "nearest" ? `Search widened to ${used} mi (${shownSteps.join("; ")}).` : null
+    : `Insufficient new-construction comps: only ${chosen.length} sale(s) of homes built within ${r.maxAgeAtSaleYears} years of the sale, within ${reach} mi in the last ${r.years} years (${steps.join("; ")}). No new-home value is estimated.`;
+  const set = summarize(chosen, {
     kind: "new_construction",
     status: ok ? "ok" : "insufficient comps",
     sufficient: ok,
-    radius_mi: used,
-    search_steps: steps,
+    radius_mi: ok ? used : reach,
+    search_steps: ok ? shownSteps : steps,
     comparable_use: `new ${opts.useLabel}`,
     note,
     rule: r.rule,
     sourceLabel: r.sourceLabel,
   });
+  return { ...set, selection: { scope, areas, dropped, p25PerSqft: p25, p75PerSqft: p75, receipt } };
 }
 
 /** Existing-home comps from the same-use search, kept when size and age are close to the building's. */
@@ -182,7 +236,7 @@ export function matchedExistingComps(
  */
 export function newConstructionCompsFor(
   strategy: string,
-  subject: { lat: number; lon: number; parid?: string | null },
+  subject: { lat: number; lon: number; parid?: string | null; area?: string | null },
   records: SaleRecord[],
   asOf: string,
   config: CostConfig = COST_CONFIG,

@@ -412,9 +412,11 @@ export function proFormaRanges(
 
   const p = sale.profit;
   const headline = plan.tenure === "sale" && p
-    ? p.likely < 0
-      ? `Gap ${rangeText({ low: -p.high, likely: -p.likely, high: -p.low })}`
-      : `Profit ${rangeText(p)}`
+    ? p.low < 0 && p.high > 0
+      ? `From a ${shortMoney(-p.low)} gap to a ${shortMoney(p.high)} profit, likely ${p.likely < 0 ? `a ${shortMoney(-p.likely)} gap` : `a ${shortMoney(p.likely)} profit`}`
+      : p.likely < 0
+        ? `Gap ${rangeText({ low: -p.high, likely: -p.likely, high: -p.low })}`
+        : `Profit ${rangeText(p)}`
     : tdc ? `Cost ${rangeText(tdc)}` : null;
 
   return {

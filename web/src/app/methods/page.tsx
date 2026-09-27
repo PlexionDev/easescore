@@ -283,6 +283,9 @@ export default function MethodsPage() {
               A new home is valued only from sales of new homes: valid arm&apos;s-length sales in the last {nc.years} years of homes built no more than{" "}
               {nc.maxAgeAtSaleYears} years before the sale, at least {nc.minLivingAreaSqft.toLocaleString("en-US")} sq ft and {usd(nc.minPrice)}, nearest first.
               We need at least {nc.minComps}, widening the search from ¼ mile to {nc.radiiMi[nc.radiiMi.length - 1]} miles and saying how far it went.
+              Sales in the same City neighborhood (or municipality) are used alone when there are at least {nc.selection.sameAreaMinComps}; otherwise the
+              nearest by distance. We widen until {nc.selection.nearestMin} sales, keep the nearest {nc.selection.nearestMax}, and drop sales whose price per
+              square foot is beyond {nc.selection.outlierIqrMultiplier}× the middle-half spread; dropped sales are listed with the reason.
             </p>
             <p>
               When there are too few, the value is left blank. Older-home prices are then shown only as a labeled floor, never as the value of a new build.

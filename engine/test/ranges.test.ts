@@ -94,7 +94,7 @@ describe("ranges: no false precision", () => {
   it("formats a range as low–high, likely", () => {
     expect(rangeText({ low: 620000, likely: 650000, high: 690000 })).toBe("$620K–$690K, likely $650K");
     expect(rangeText(roundRange(1234567, 1300000, 1411111, 10000))).toBe("$1.23M–$1.41M, likely $1.3M");
-    expect(g.headline).toMatch(/^(Gap|Profit) \$/);
+    expect(g.headline).toMatch(/^(Gap \$|Profit \$|From a \$)/);
   });
 });
 
