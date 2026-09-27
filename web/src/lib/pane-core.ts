@@ -15,7 +15,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.9|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.10|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -83,26 +83,33 @@ export interface PanePayload {
 export interface StoredPane extends Omit<PanePayload, "newComps" | "sfComps"> {
   newCompsSf: assumptions.CompSet | null;
   newCompsTownhouse: assumptions.CompSet | null;
+  /** Per strategy (comps are size-banded to each option's home size), when it differs from newCompsSf. */
+  newCompsBy?: Partial<Record<score.StrategyId, assumptions.CompSet | null>>;
   sfComps: assumptions.SalesCompsLike | null | "sales";
 }
 
 export function toStored(p: PanePayload): StoredPane {
   const { newComps, sfComps, ...rest } = p;
   const sfKey = (Object.keys(newComps) as score.StrategyId[]).find((k) => k !== "townhouse_row");
+  const base = sfKey ? newComps[sfKey] ?? null : null;
+  const by: StoredPane["newCompsBy"] = {};
+  for (const [k, v] of Object.entries(newComps) as [score.StrategyId, assumptions.CompSet | null][])
+    if (k !== "townhouse_row" && k !== sfKey && JSON.stringify(v) !== JSON.stringify(base)) by[k] = v;
   return {
     ...rest,
-    newCompsSf: sfKey ? newComps[sfKey] ?? null : null,
+    newCompsSf: base,
     newCompsTownhouse: newComps.townhouse_row ?? null,
+    ...(Object.keys(by).length ? { newCompsBy: by } : {}),
     sfComps: sfComps && sfComps === p.sales ? "sales" : sfComps,
   };
 }
 
 export function fromStored(s: StoredPane): PanePayload {
-  const { newCompsSf, newCompsTownhouse, sfComps, ...rest } = s;
+  const { newCompsSf, newCompsTownhouse, newCompsBy, sfComps, ...rest } = s;
   const newComps: PanePayload["newComps"] = {};
   for (const x of s.score?.strategies ?? []) {
     if (x.strategy === "rehab_existing") continue;
-    const set = x.strategy === "townhouse_row" ? newCompsTownhouse : newCompsSf;
+    const set = x.strategy === "townhouse_row" ? newCompsTownhouse : newCompsBy && x.strategy in newCompsBy ? newCompsBy[x.strategy] ?? null : newCompsSf;
     if (set) newComps[x.strategy] = set;
   }
   return { ...rest, newComps, sfComps: sfComps === "sales" ? (s.sales as assumptions.SalesCompsLike | null) : sfComps };
@@ -143,7 +150,10 @@ export function buildPane(i: PaneInputs): PanePayload {
   const newComps: PanePayload["newComps"] = {};
   for (const s of result?.strategies ?? []) {
     if (s.strategy === "rehab_existing" || c?.lat == null || c?.lon == null || !i.newSales) continue;
-    newComps[s.strategy] = assumptions.newConstructionCompsFor(s.strategy, { lat: c.lat, lon: c.lon, parid: i.parid, area: compArea(f) }, i.newSales, i.asOf);
+    // Size band: the fit scheme's finished area per home.
+    const sch = result?.schemes?.[s.strategy];
+    const sizeSf = sch && sch.units > 0 ? sch.netFloorAreaSf / sch.units : null;
+    newComps[s.strategy] = assumptions.newConstructionCompsFor(s.strategy, { lat: c.lat, lon: c.lon, parid: i.parid, area: compArea(f), sizeSf }, i.newSales, i.asOf);
   }
   let rehabComps: assumptions.CompSet | null = null;
   if (result?.strategies.some((s) => s.strategy === "rehab_existing" && s.applicable)) {

@@ -77,6 +77,21 @@ async function main() {
     }
     if (cache) writeFileSync(cache, JSON.stringify({ sample, facts: [...facts] }));
   }
+  // --comps: also value each home from new-construction comps (the pane's selection, the home itself excluded)
+  // and compare that estimate with its actual price.
+  const compsMode = process.argv.includes("--comps");
+  let newSales: assumptions.SaleRecord[] = [];
+  if (compsMode) {
+    const r = assumptions.COST_CONFIG.comps.newConstruction;
+    const uses = [...r.singleFamilyUses, ...r.attachedUses].map((u) => `'${u}'`).join(",");
+    newSales = (await sql<assumptions.SaleRecord[]>(`
+      select s.parid, s.sale_date::text "saleDate", s.price::float8 price, a.living_area_sqft::float8 "livingAreaSqft", a.year_built "yearBuilt", a.use_desc "use",
+             ST_Y(p.centroid) lat, ST_X(p.centroid) lon, trim(case when g.is_pittsburgh then g.neighborhood else g.municipality end) area
+      from public.sales_valid s join public.assessments a on a.parid = s.parid join public.parcels p on p.parid = s.parid left join public.parcel_geo g on g.parid = s.parid
+      where s.sale_date >= ('${asOf}'::date - make_interval(years => ${r.years + 3}))::date and s.sale_date <= '${asOf}'::date
+        and s.price >= ${r.minPrice} and a.use_desc in (${uses}) and a.living_area_sqft >= ${r.minLivingAreaSqft}
+        and a.year_built >= ${Number(asOf.slice(0, 4)) - r.years - 3 - r.maxAgeAtSaleYears}`)).map((x) => ({ ...x, parid: x.parid.trim() }));
+  }
   const [prime] = await sql<{ value: number; date: string }[]>("select value::float8 value, date::text date from public.market_series where series_id = 'DPRIME' order by date desc limit 1");
   const res: Json[] = [];
   for (const x of sample) {
@@ -106,10 +121,16 @@ async function main() {
       continue;
     }
     const b = (id: string) => r.budget.find((l) => l.id === id)?.amount ?? 0;
+    let compValue: number | null = null;
+    if (compsMode && f.centroid?.lat != null) {
+      // As of the home's own sale date, so its sale and later ones are not used.
+      const cs = assumptions.newConstructionCompsFor(strategy, { lat: f.centroid.lat, lon: f.centroid.lon, parid: x.parid, area: x.area, sizeSf: x.living }, newSales.filter((s) => s.parid !== x.parid), x.sale_date);
+      compValue = cs.sufficient && cs.median_price_per_sqft != null ? cs.median_price_per_sqft * x.living : null;
+    }
     res.push({
       parid: x.parid, city: x.city, attached: strategy !== "new_sf", area: x.area, built: x.year_built, sold: x.sale_date, price: x.price, living: x.living,
       land: b("land"), hard: r.budget.filter((l) => l.group === "hard").reduce((t, l) => t + (l.amount ?? 0), 0), slope: b("slope_adder") + b("retaining_walls"),
-      tdc: r.tdc, profit: r.sale.profit, margin: r.sale.margin, missing: r.plan.missing.length > 0,
+      tdc: r.tdc, profit: r.sale.profit, margin: r.sale.margin, missing: r.plan.missing.length > 0, compValue,
     });
   }
   const ok = res.filter((x) => x.tdc != null);
@@ -133,6 +154,11 @@ async function main() {
     group("Rest of County, attached", ok.filter((x) => !x.city && x.attached)),
     group("With a slope premium", ok.filter((x) => x.slope > 0)),
   ];
+  if (compsMode) {
+    const v = ok.filter((x) => x.compValue != null);
+    const e = v.map((x) => (x.compValue - x.price) / x.price);
+    summary.push({ group: "Comps value vs actual price", n: v.length, valued: `${v.length} of ${ok.length}`, medianError: +q(e, 0.5).toFixed(3), medianAbsError: +q(e.map(Math.abs), 0.5).toFixed(3), over25: +(e.filter((x) => x > 0.25).length / Math.max(1, v.length)).toFixed(3) } as Json);
+  }
   console.log(JSON.stringify(summary, null, 1));
   if (out) writeFileSync(out, JSON.stringify({ asOf, years, tier: tier || "default", summary, rows: res }, null, 1));
 }
