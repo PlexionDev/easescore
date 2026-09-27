@@ -182,7 +182,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     headline =
       verdict === "no"
         ? `No: it costs about ${about(tdc)} and the rent would not cover running costs.`
-        : `It depends on the loan: it costs about ${about(tdc)} and would bring in about ${usd(Math.round(rent.noi / 1000) * 1000)} a year after running costs, ${pct1(rent.yieldOnCost ?? 0)} on cost. A local cap rate is needed to call it.`;
+        : `Unlevered (before any loan payments): it costs about ${about(tdc)} and would bring in about ${usd(Math.round(rent.noi / 1000) * 1000)} a year after running costs, ${pct1(rent.yieldOnCost ?? 0)} on cost. A local cap rate is needed to value it.`;
   else headline = "Can't tell yet: an input is missing.";
   if (!plan.missing.length && plan.exclusions.length) headline += ` Partial estimate: ${plan.exclusions.length} cost item${plan.exclusions.length === 1 ? " is" : "s are"} not included yet.`;
 

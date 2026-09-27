@@ -10,3 +10,4 @@ export * from "./tax";
 export * from "./rehab";
 export * from "./comps-grid";
 export * from "./confidence";
+export * from "./decision";

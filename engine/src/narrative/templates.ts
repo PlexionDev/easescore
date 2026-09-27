@@ -110,7 +110,7 @@ export function pencilsSentence(f: NarrativeFacts): string {
   if (verdict === "no") return `No: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
   if (verdict === "yes") return `Yes: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
   if (verdict === "thin") return `Barely: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
-  return `It depends on the loan: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
+  return `Unlevered (before any loan payments): it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
 }
 
 // ---------------------------------------------------------------------------------------------

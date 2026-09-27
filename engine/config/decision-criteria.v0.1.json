@@ -1,0 +1,34 @@
+{
+  "version": "decision.v0.1",
+  "_note": "Investment criteria for the decision box (report top and Pencil calculator) and the unit-by-unit sellout. Every value is an editable assumption. Kept apart from cost-assumptions so editing a criterion never changes the priced budget.",
+  "targetMarginOnCost": {
+    "label": "Target developer profit, share of total development cost",
+    "value": 0.15,
+    "sourceLabel": "Assumption, edit me (a common for-sale developer target is 15–20% of cost)"
+  },
+  "minContingency": {
+    "label": "Minimum contingency, share of hard cost",
+    "value": 0.1,
+    "sourceLabel": "Assumption, edit me (Incline Homes: 10%)"
+  },
+  "maxLtc": {
+    "label": "Maximum construction loan, share of cost (LTC)",
+    "value": 0.75,
+    "sourceLabel": "Assumption, edit me (construction lenders commonly lend 75–80% of cost)"
+  },
+  "closingIntervalMonths": {
+    "label": "Months between closings after the first",
+    "value": 2,
+    "sourceLabel": "Assumption, edit me (one closing every 2 months; not a market study)"
+  },
+  "bedroomBands": {
+    "label": "Bedrooms by finished size per home",
+    "sourceLabel": "Assumption, edit me (size bands, not a floor plan)",
+    "bands": [
+      { "upToSf": 900, "bedrooms": 1 },
+      { "upToSf": 1300, "bedrooms": 2 },
+      { "upToSf": 1900, "bedrooms": 3 },
+      { "upToSf": null, "bedrooms": 4 }
+    ]
+  }
+}
