@@ -14,6 +14,7 @@ import ParcelShell from "./ParcelShell";
 import ParcelThumb from "./ParcelThumb";
 import CopyParcelId from "./CopyParcelId";
 import SummaryText from "./SummaryText";
+import RentReceipt from "./RentReceipt";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
@@ -431,6 +432,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       </section>
       <section className="rounded border border-zinc-200 p-3">
         <h3 className="text-sm font-semibold">Rent evidence</h3>
+        <RentReceipt parid={parid} />
         {r?.note && <p className="text-sm text-zinc-600">{r.note}</p>}
         {r?.zori && <p className="mt-1 text-sm">Zillow rent index (ZIP {r.zori.zip}): {money(r.zori.latest_rent)}/mo ({r.zori.latest_month}); a year earlier {money(r.zori.rent_12m_ago)}</p>}
         {r?.hud_fmr && <p className="mt-1 text-sm">HUD Fair Market Rent {r.hud_fmr.year} ({r.hud_fmr.level}): 1BR {money(r.hud_fmr.br1)}, 2BR {money(r.hud_fmr.br2)}, 3BR {money(r.hud_fmr.br3)}</p>}

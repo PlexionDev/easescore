@@ -7,3 +7,4 @@ export * as narrative from "./narrative";
 export * as score from "./score";
 export * as assumptions from "./assumptions";
 export * as affordable from "./affordable";
+export * as rents from "./rents";
