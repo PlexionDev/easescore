@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 const DEV_TOOLS: [string, string, string][] = [
   ["Claude Code (Anthropic)", "Claude Opus 5.5 and Claude Sonnet 5", "Pair programming, planning, code generation, review passes, and research notes."],
   ["oh-my-claudecode", "Claude Code plugin", "Coordinates several Claude Code agents working on separate tasks."],
+  ["Claude Code (Anthropic)", "Claude Opus 5.5", "Spanish translation of the interface (homepage, seat cards, parcel pane, Limitations page, report summary), the Spanish summary templates and the Spanish disclaimers. Legal and disclaimer strings are marked for human review; the English version governs."],
   ["ChatGPT (OpenAI)", "\u2014", "Homepage design and layout (HTML/CSS), later ported into the app."],
   ["ChatGPT image generation (OpenAI)", "\u2014", "Homepage images. They are AI-generated regional imagery: not photos of any lot or parcel, and not copyrighted photography."],
 ];
@@ -53,6 +54,7 @@ export default function AiUsePage() {
               <li><strong>To build it:</strong> Claude Code, Anthropic&apos;s coding assistant. ChatGPT designed the homepage layout.</li>
               <li><strong>Images:</strong> homepage images were made with ChatGPT&apos;s image generation. They show the region in general, not any real lot, and are not photographs.</li>
               <li><strong>In the product:</strong> the Claude API (model <code>claude-sonnet-5</code>) rewords plain-English sentences that the engine has already written from computed results.</li>
+              <li><strong>Spanish:</strong> the Spanish interface text was translated with AI (Claude) and reviewed for key terms; if something is unclear, the English version governs. Official code terms stay in English with the Spanish beside them. In Spanish, the two-sentence summary is written from the same computed results (a fixed Spanish template, optionally reworded by the Claude API) and passes the same number, code and banned-word checks.</li>
               <li><strong>Guardrail:</strong> a validator rejects any AI sentence containing a number that is not in the computed data. The page then shows the engine&apos;s own sentence.</li>
             </ul>
           </section>
@@ -82,7 +84,7 @@ export default function AiUsePage() {
             <p>The parcel page has two places where AI may reword text:</p>
             <ul>
               <li><strong>Four answers:</strong> Can you build here? Does it pencil? What&apos;s in the way? What next?</li>
-              <li><strong>Two-sentence summary:</strong> what the lot allows by right, and what might be possible with zoning relief.</li>
+              <li><strong>Two-sentence summary:</strong> what the lot allows by right, and what might be possible with zoning relief. When the visitor chooses Español, the same summary is written in Spanish from the same computed results and checked the same way.</li>
             </ul>
             <h3>How a sentence is made</h3>
             <ol className={d.steps}>
