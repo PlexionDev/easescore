@@ -174,7 +174,11 @@ export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> 
     if (!res || !res.ok()) throw new Error(`Report page returned ${res?.status() ?? "no response"}`);
     // Inside .rpt: streamed sections first arrive in a hidden holder and count only once React has
     // swapped them in for the first look (the swap can lag the arrival by a frame or two).
-    const state = await page.waitForSelector(".rpt [data-report-ready], .rpt [data-report-error]", { timeout: 30_000 });
+    // The seat print pages (memo, packet, brief) are not streamed and mark their root element instead.
+    const state = await page.waitForSelector(
+      ".rpt [data-report-ready], .rpt [data-report-error], .memo[data-report-ready], .pk[data-report-ready], .br[data-report-ready]",
+      { timeout: 30_000 },
+    );
     if (await state?.evaluate((el) => el.hasAttribute("data-report-error"))) throw new Error("No data for this parcel right now. Try again in a minute.");
     await page.evaluate(() => Promise.all([document.fonts.ready, ...Array.from(document.images).filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; }))]).then(() => true));
     lap("page");
