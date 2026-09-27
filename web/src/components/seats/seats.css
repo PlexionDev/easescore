@@ -139,7 +139,7 @@
 .es-switch span{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #0003;transition:transform .15s}
 .es-switch[aria-checked=true]{background:var(--es-green)}
 .es-switch[aria-checked=true] span{transform:translateX(16px)}
-.es-switch-row.is-disabled{opacity:.55}
+.es-switch-row.is-disabled .es-switch,.es-switch-row.is-disabled .es-switch-label{opacity:.55} /* the hint (why it is off) stays readable */
 
 .es-seg{display:inline-flex;max-width:100%;padding:2px;border:1px solid var(--es-line);border-radius:8px;background:var(--es-bg)}
 .es-seg button{flex:1 1 auto;min-height:28px;padding:4px 10px;border:0;border-radius:6px;background:transparent;font-size:12.5px;font-weight:550;color:var(--es-muted);white-space:nowrap}

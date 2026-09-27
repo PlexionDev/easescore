@@ -22,7 +22,7 @@
 .pol-lede { font-size: 14px; color: #111b1a; margin: 0 0 10px; line-height: 1.5; }
 .pol-muted { font-size: 12px; color: #596563; line-height: 1.5; margin: 8px 0 0; }
 .pol-try { margin: 12px 0 0; padding: 8px 10px; background: #f5f8f6; border-radius: 6px; }
-.pol-tablewrap { overflow-x: auto; }
+.pol-tablewrap { overflow-x: auto; position: relative; } /* keeps the .es-sr "Bar" header inside the scroll box on phones */
 .pol-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .pol-table th, .pol-table td { padding: 8px 8px; border-bottom: 1px solid #e8eeeb; text-align: left; vertical-align: middle; }
 .pol-table thead th { font-size: 12px; font-weight: 600; color: #596563; border-bottom: 1px solid #dce3df; }
