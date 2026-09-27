@@ -68,7 +68,7 @@ export function describeParcelView(p: {
   if (p.envelopeSf) out.push(`Area left to build on inside the setbacks: about ${n0(p.envelopeSf)} sq ft.`);
   out.push(`Studied building: ${schemeSentence(p.scheme, p.reason, f.lotSf)}`);
   if (p.binding) out.push(p.binding.endsWith(".") ? p.binding : `${p.binding}.`);
-  if (p.neighborBuildings) out.push(`${p.neighborBuildings} neighboring building${p.neighborBuildings === 1 ? "" : "s"} are shown around the lot for context.`);
+  if (p.neighborBuildings) out.push(`${p.neighborBuildings} neighboring building${p.neighborBuildings === 1 ? " is" : "s are"} shown around the lot for context.`);
   return out;
 }
 
