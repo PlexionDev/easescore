@@ -12,7 +12,7 @@ Every AI tool, dataset, API, library, service, and asset this project uses. Main
 | oh-my-claudecode | Claude Code plugin | Multi-agent orchestration inside Claude Code |
 
 ## AI in the product
-_None yet._ (Rule: the LLM only explains; it never produces a number.)
+Claude API (`claude-sonnet-5`) rewords the plain-English answers and the two-sentence summary from computed JSON only. A validator rejects any sentence with a number, district or code that is not in the JSON, and the deterministic template is used instead. No AI in scoring or financial math. See /ai-use.
 
 ## Datasets
 | Dataset | Publisher | License | URL | Accessed | Fields used / notes |
@@ -40,7 +40,7 @@ See `docs/DATA.md` for the full table-by-table row counts, coverage notes, and k
 | GitHub | Source hosting | Public repo at submission |
 | Vercel | Web hosting and deploys | |
 | Supabase | Postgres database (PostGIS 3.3 extension; Row Level Security on) | Browser uses publishable key only; server-only writes use the secret key (env var `SUPABASE_SECRET_KEY`, never committed) |
-| Anthropic API | Plain-language explanations | Server-only; model TBD. Env var: `ANTHROPIC_API_KEY` |
+| Anthropic API | Plain-language explanations | Server-only; model `claude-sonnet-5`. Env var: `ANTHROPIC_API_KEY` |
 | Census ACS API | — | Configured, not yet used in app code. Env var: `CENSUS_API_KEY` |
 | HUD User Fair Market Rents (FMR) API | — | Configured, not yet used in app code. Env var: `HUD_API_TOKEN` |
 | FRED (Federal Reserve Economic Data) API | — | Configured, not yet used in app code. Env var: `FRED_API_KEY` |

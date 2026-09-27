@@ -16,4 +16,4 @@
 - **Layouts on tight lots can be much smaller than new homes that sell nearby.** The page says so; the value assumes the same price per sq ft.
 - **Slope adders use slope across the whole lot**, not under the building footprint (the per-footprint slope is not computed yet).
 - **Rental answers stop at yield on cost.** There is no local market cap rate, discount rate or hold period, so rental verdicts, stabilized value, IRR and the rental funding gap say what they still need.
-- **Rehab costs use the new-build tier as a stand-in** on the existing living area.
+- **Rehab is not priced until a rehab cost is entered.** There is no local rehab cost default, and new-construction rates are never used for a rehab. After-repair value uses sales of homes in Good or better condition.

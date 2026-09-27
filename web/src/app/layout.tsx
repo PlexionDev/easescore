@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "EaseScore.AI — v0.5 test build",
-  description: "Internal test interface for the EaseScore.AI data and requirements engine.",
+  title: "EaseScore.AI",
+  description: "Development Ease Score and feasibility for every parcel in Allegheny County.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
