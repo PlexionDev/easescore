@@ -2083,19 +2083,26 @@ export function AppE(x: Ctx) {
         survey, an environmental assessment, or engineering, legal or financial advice. Verify every item with the permitting office, a surveyor, an engineer,
         your lender and your accountant.
       </p>
-      <h2>Who benefits and who might be harmed</h2>
+      <h2>Who this helps and who it could hurt</h2>
       <p>
-        It helps small builders, nonprofits, residents and planners see the rules, hazards and costs of a lot early and for free. It could harm people if a
-        reader treats a screening result as final: for example, buying a lot because it “fits” when a survey or engineer later finds it does not, or passing on
-        a good lot because of an overlay that turns out to be manageable. It could also steer attention toward or away from neighborhoods based on data
-        quality rather than need.
+        It helps homeowners, small builders, nonprofits and planners see the rules, hazards and costs of a lot early, before paying a consultant. It could
+        hurt people in these ways, and this is what the tool does today:
       </p>
+      <ul>
+        <li><b>Buying on an estimate.</b> A lot that “fits” here may not fit after a survey or engineer looks. Scores and costs show ranges, each number cites its source, and this study lists its data gaps.</li>
+        <li><b>Targeting owners behind on taxes.</b> No owner names are stored or shown. The Planner’s tax-delinquent filter is off by default but not limited to public land. There is no “motivated seller” feature.</li>
+        <li><b>Displacement where rents are rising.</b> The Policy and Nonprofit seats show rent burden as context. It is never used to compute the Ease Score.</li>
+        <li><b>Thin data.</b> Areas with less data get wider ranges or a “Preliminary — insufficient evidence” score instead of one number, which can steer attention by data quality rather than need.</li>
+        <li><b>Older homes.</b> Buildings that would not meet today’s code point to the rule, not the house. This study does not rule on whether any home is legal to keep.</li>
+      </ul>
+      <p className="small">More at easescore.ai/limitations#who-it-helps.</p>
       <h2>What the tool can get wrong</h2>
       <ul>
         <li>GIS lot lines, street frontage and building footprints can be off by several feet, which matters on small lots.</li>
         <li>The site-fit solver uses rectangular footprints and placeholder sizes, and does not yet remove steep ground from the buildable area.</li>
         <li>Zoning rules were transcribed by hand; overlays, compatibility standards and some exceptions are not modeled.</li>
         <li>Mine maps are incomplete; the absence of a mapped mine does not prove there is none.</li>
+        <li>Rents are asking rents, property taxes after building are estimates (the County sets them), and permit times are City targets, not guaranteed.</li>
         <li>Sales comps are mostly older homes, so they are a reference for new construction, not a price.</li>
         <li>Past zoning decisions describe history, not the outcome of any future case.</li>
       </ul>

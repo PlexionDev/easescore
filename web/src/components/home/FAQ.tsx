@@ -18,6 +18,9 @@ export default function FAQ() {
           {FAQS.map(([q, a]) => (
             <details key={q}><summary>{q}</summary><p>{a}</p></details>
           ))}
+          <p style={{ fontSize: ".875rem", marginTop: 18 }}>
+            Who this helps, who it could hurt, and what it gets wrong: <a href="/limitations#who-it-helps">read the limitations</a>.
+          </p>
         </div>
       </div>
     </section>

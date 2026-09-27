@@ -91,11 +91,34 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
   },
 ];
 
+const HARMS: { risk: string; today: string }[] = [
+  {
+    risk: "Speculators use it to find owners who are behind on taxes",
+    today: "No owner names are stored or shown. The Nonprofit seat lists publicly owned lots by default. The Planner has a tax-delinquent filter. It is off by default, but it is not limited to public land, and it shows only whether a county tax lien is open. There is no “motivated seller” score or feature.",
+  },
+  {
+    risk: "Easier building speeds up displacement where rents are rising",
+    today: "The Policy seat shows how much new capacity lands in census tracts with high rent burden, and flags tracts where rent burden is high and sale prices are rising fast. The flag marks where to look; it does not predict displacement. The Nonprofit seat maps renter cost burden. This is context only: rent burden and displacement data are never used to compute the Ease Score.",
+  },
+  {
+    risk: "Someone buys a lot because they trust an estimate",
+    today: "Scores and costs show ranges, and numbers carry their source. The parcel page and the report say they are decision support, not advice. The report lists each parcel’s data gaps and says to check with the permitting office, a surveyor, an engineer and your lender.",
+  },
+  {
+    risk: "Places with thin data get worse estimates",
+    today: "Each score factor says whether its data is complete, partial or missing. When too much is missing, the score is a range marked “Preliminary — insufficient evidence” instead of one number. With too few nearby sales, the home value is left blank.",
+  },
+  {
+    risk: "People in older homes read “can’t be built today” as a threat to their home",
+    today: "The street-precedent panel counts how many buildings on a block would not meet today’s code. Where most of a block does not, the Planner says the code, not the lot, is the obstacle. The tool does not rule on whether any home is legal to keep.",
+  },
+];
+
 const TOC: [string, string][] = [
   ["not-advice", "What this is not"],
   ["gaps", "Data gaps and vintages"],
   ["scope", "Out of scope"],
-  ["people", "Who benefits, who could be harmed"],
+  ["who-it-helps", "Who this helps and who it could hurt"],
   ["terms", "Third-party terms"],
 ];
 
@@ -165,31 +188,49 @@ export default function LimitationsPage() {
               <li><strong>Developer capacity.</strong> The tool does not judge a developer&apos;s experience, financial strength or ability to finish a project.</li>
               <li><strong>Site inspection.</strong> Nothing here replaces walking the lot, a survey, soil borings, or an environmental assessment.</li>
               <li><strong>Title and ownership.</strong> Owner names are not stored. Liens, easements and title problems are not checked beyond tax-delinquency status.</li>
-              <li><strong>Affordable-housing financing and the policy simulator.</strong> The nonprofit and policy tools are labeled &ldquo;Coming next&rdquo; and are not live yet.</li>
+              <li><strong>Affordable-housing financing and policy forecasts.</strong> The Nonprofit and Policy seats give screening estimates, not an underwriting or a forecast of what will get built.</li>
             </ul>
           </section>
 
-          <section id="people" aria-labelledby="people-h">
-            <h2 id="people-h">Who benefits, who could be harmed</h2>
-            <h3>Who benefits</h3>
-            <p>
-              Small developers, nonprofits and planners who cannot pay for a feasibility study on every lot get a fast, sourced first look, and
-              can see which rules block housing most often.
-            </p>
-            <h3>Who could be harmed, and how we limit it</h3>
+          <section id="who-it-helps" aria-labelledby="who-it-helps-h">
+            <h2 id="who-it-helps-h">Who this helps and who it could hurt</h2>
+            <h3>Who it helps</h3>
             <ul>
+              <li>Homeowners and small builders who cannot pay a consultant before they decide.</li>
+              <li>Nonprofits and community groups sizing affordable homes on public land.</li>
+              <li>Planners and policy staff who need evidence of which rules block housing.</li>
+              <li>Permit staff, when applicants come in already knowing the rules for their lot.</li>
+            </ul>
+            <h3>Who it could hurt, and what the tool does about it</h3>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Risks table (scrolls sideways on small screens)">
+              <table className={d.table}>
+                <thead>
+                  <tr><th scope="col">Risk</th><th scope="col">What the tool does today</th></tr>
+                </thead>
+                <tbody>
+                  {HARMS.map((h) => (
+                    <tr key={h.risk}>
+                      <th scope="row">{h.risk}</th>
+                      <td>{h.today}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <h3>What it gets wrong</h3>
+            <ul>
+              <li>Zoning rules are loaded for the City of Pittsburgh only. Elsewhere the score shows a range and asks you to check with the municipality.</li>
+              <li>Rents from nearby listings are asking rents, not signed leases.</li>
+              <li>Property taxes after you build are estimates. They come from how similar new homes were assessed, and the receipt shows the spread. The County sets the real figure.</li>
+              <li>Costs are published ranges and labeled estimates, not bids. Items with no local cost show as &ldquo;Not included,&rdquo; not zero.</li>
+              <li>Mine maps are incomplete. No mapped mine is not proof of no mine.</li>
+              <li>Lot lines and street frontage come from county GIS, not a survey.</li>
               <li>
-                <strong>Neighbors and residents.</strong> A high score could draw speculative buying to a lot or a neighborhood. The tool shows
-                public records only and stores no owner names.
+                Match-the-neighbors (contextual) setbacks are only partly automated. Parcel pages use setbacks measured from nearby buildings where
+                there are enough of them. The Planner still uses a 5 ft assumption, so the two can differ. Measured setbacks are not surveyed.
               </li>
-              <li>
-                <strong>Places with less data.</strong> Parcels outside the City have more missing factors. Their scores show wider ranges and may be
-                labeled preliminary, which can make them look less attractive than they are.
-              </li>
-              <li>
-                <strong>Anyone who treats an estimate as a fact.</strong> A wrong cost or value could lead to a bad decision. Every number carries its
-                source, estimates are labeled, and items with no local cost are shown as &ldquo;Not included&rdquo; instead of zero.
-              </li>
+              <li>Permit times are City targets and typical steps. They are not measured or guaranteed review times.</li>
+              <li>The tool has no data on a building&apos;s condition inside. Rehab is not priced until you enter a rehab cost.</li>
             </ul>
           </section>
 
