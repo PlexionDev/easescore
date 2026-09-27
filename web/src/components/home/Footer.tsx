@@ -36,7 +36,7 @@ export default async function Footer({ home = false }: { home?: boolean }) {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>Built for the AI for Housing Hackathon, Pittsburgh, 2026.<br />Not affiliated with Allegheny County or the City of Pittsburgh.</p>
+          <p>Built for the AI for Housing Hackathon, Pittsburgh, 2026. Live at <a href="https://easescore.ai">easescore.ai</a>.<br />Not affiliated with Allegheny County or the City of Pittsburgh.</p>
           <p>AI-generated imagery.<br />Representative scenes, not parcel evidence.</p>
         </div>
       </div>
