@@ -70,16 +70,25 @@ export interface ResultRow {
 /** Every parcel a lever state touches, paged through the Data API. */
 export async function policyRows(key: string, onlyGaining = false): Promise<ResultRow[]> {
   const cols = "parid,touched,units_before,units_after,units_delta,strategy_after,pencils_low,pencils_likely,pencils_high,av_delta_likely,neighborhood,zoning";
-  const out: ResultRow[] = [];
-  const page = 10000;
-  for (let from = 0; from < 400000; ) {
-    const rows = await get<ResultRow[]>(
-      `policy_results?select=${cols}&key=eq.${encodeURIComponent(key)}${onlyGaining ? "&units_delta=gt.0" : ""}&order=units_delta.desc,parid`,
-      { Range: `${from}-${from + page - 1}`, "Range-Unit": "items" },
-    );
-    if (!rows || !rows.length) break;
-    out.push(...rows);
-    from += rows.length;
+  const path = `policy_results?select=${cols}&key=eq.${encodeURIComponent(key)}${onlyGaining ? "&units_delta=gt.0" : ""}&order=units_delta.desc,parid`;
+  // The API caps each response (1,000 rows), so a full City export is ~100 pages: fetch them in parallel
+  // waves, retry a failed page once, and fail loudly rather than return a silently truncated list.
+  const fetchPage = async (from: number, size: number) =>
+    (await get<ResultRow[]>(path, { Range: `${from}-${from + size - 1}`, "Range-Unit": "items" })) ??
+    (await get<ResultRow[]>(path, { Range: `${from}-${from + size - 1}`, "Range-Unit": "items" }));
+  const first = await fetchPage(0, 10000);
+  if (!first) throw new Error("policy_results could not be read");
+  const out: ResultRow[] = [...first];
+  const size = first.length;
+  if (!size) return out;
+  const WAVE = 8;
+  for (let from = size, done = false; !done && from < 400000; from += size * WAVE) {
+    const pages = await Promise.all(Array.from({ length: WAVE }, (_, i) => fetchPage(from + i * size, size)));
+    for (const rows of pages) {
+      if (!rows) throw new Error("policy_results page could not be read");
+      out.push(...rows);
+      if (rows.length < size) { done = true; break; }
+    }
   }
   return out;
 }
