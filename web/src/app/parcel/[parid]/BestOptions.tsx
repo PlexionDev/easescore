@@ -40,7 +40,7 @@ function strategyHref(sp: SP, parid: string, id: string) {
   return `/parcel/${encodeURIComponent(parid)}?${q.toString()}`;
 }
 
-export default function BestOptions({ parid, rows, detail, selected, sp }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP }) {
+export default function BestOptions({ parid, rows, detail, selected, sp, partial = false }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP; /** Zoning not loaded: no numeric scores or bands. */ partial?: boolean }) {
   return (
     <section aria-labelledby="best-options-h">
       <div className="flex items-baseline justify-between gap-2">
@@ -57,10 +57,10 @@ export default function BestOptions({ parid, rows, detail, selected, sp }: { par
               <div className="flex items-center gap-2">
                 <span className="w-4 shrink-0 text-[11px] tabular-nums text-slate-500">{r.rank}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{r.name}</span>
-                {r.applicable && (
+                {r.applicable && !partial && (
                   <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900" title={"Ease Score out of 100"}>{scoreText}</span>
                 )}
-                {r.band && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${BAND_STYLE[r.band]}`}>{r.band}</span>}
+                {r.band && !partial && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${BAND_STYLE[r.band]}`}>{score.bandLabel(r.band)}</span>}
                 {r.applicable && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.style}`} title={"Does it pencil? (from the pro forma)"}>{detail?.[r.strategy] ?? p.text}</span>}
               </div>
               <p className={`ml-6 mt-0.5 text-[11px] leading-snug ${ZONING_STYLE[r.zoning.kind] ?? "text-slate-600"}`}>

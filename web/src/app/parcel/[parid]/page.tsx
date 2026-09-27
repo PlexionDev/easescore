@@ -7,7 +7,7 @@ import { readCostOverrides } from "@/lib/proforma";
 import { loadPane } from "@/lib/pane";
 import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
-import { Callouts, DetailsContent, FactorBars, ScoreBlock, hazardWords, scoreSentence } from "./EaseScorePanel";
+import { Callouts, DetailsContent, FactorBars, PartialBlock, ScoreBlock, hazardWords, scoreSentence } from "./EaseScorePanel";
 import BestOptions from "./BestOptions";
 import StreetPrecedent from "./StreetPrecedent";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
@@ -209,7 +209,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       })))
     : [];
   // The page (and QuickFit) open on the first row of that ranking; ?strategy= (a visitor's pick) wins.
-  const bestRanked = rankWith(plans0).find((r) => r.applicable)?.strategy ?? null;
+  // Only an option that can be sized and priced is "best" (score.rankOptions puts those first).
+  const topOf = (rows: score.OptionRow[]) => (rows.find((r) => r.evaluable) ?? rows.find((r) => r.applicable))?.strategy ?? null;
+  const bestRanked = topOf(rankWith(plans0));
   const defaultId = narrative.defaultStrategy(wanted, bestRanked ?? plans0?.byRight?.strategy ?? null, easeResult?.best ?? null);
   let selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === defaultId) ?? easeResult.strategies[0] ?? null
@@ -225,12 +227,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // that one instead (one more pricing, kept when it still ranks first), so the pane, the ranking and QuickFit agree.
   if (!wanted && selected && easeResult) {
     pagePf[selected.strategy] = plan.pf;
-    const top = rankWith(plans0).find((r) => r.applicable)?.strategy ?? null;
+    const top = topOf(rankWith(plans0));
     const alt = top && top !== selected.strategy ? easeResult.strategies.find((x) => x.strategy === top) ?? null : null;
     if (alt) {
       const altPlan = T.timeSync("proforma_alt", () => parcelPlan({ P, sp, overrides, strategy: alt.strategy, qf: qfIn }));
       pagePf[alt.strategy] = altPlan.pf;
-      if (rankWith(plans0).find((r) => r.applicable)?.strategy === alt.strategy) { selected = alt; plan = altPlan; }
+      if (topOf(rankWith(plans0)) === alt.strategy) { selected = alt; plan = altPlan; }
     }
   }
   const { fin, isCity, genDefaults, urlControls, genTyp } = plan;
@@ -308,14 +310,26 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     ["Zoning", f.zoning?.code ?? "No data", f.zoning?.code ? (isCity ? "Pittsburgh" : titleCase(f.context?.municipality ?? a?.municipality) || null) : titleCase(f.context?.municipality ?? a?.municipality) || null],
   ];
   // The best option in one line: its name, zoning path and money signal (never blended into one number).
-  const best = optionRows.find((r) => r.applicable) ?? null;
+  // Zoning not loaded (outside the City, or no district): a partial screen, no numeric score.
+  const partial = !score.zoningLoaded(f);
+  const muniName = (f.context?.municipality ?? a?.municipality ?? null) as string | null;
+  const best = optionRows.find((r) => r.evaluable) ?? null;
   const PENCIL_WORDS: Record<score.PencilState, string> = {
     yes: "pencils at market rate", thin: "tight margin", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
   };
-  const bestLine = best
-    ? [best.name, best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, ""),
-        best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ")
-    : null;
+  const bestLine = !best
+    ? (optionRows.some((r) => r.applicable) ? (partial ? "Can't determine; zoning not loaded" : "Can't determine yet: no option can be sized and priced") : null)
+    : [best.name, best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, ""),
+        best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
+  // Market strength beside the score: the new-construction comp set the pro forma prices from.
+  const marketSet = (selected && P.newComps[selected.strategy]) ?? P.newComps.new_sf ?? Object.values(P.newComps).find(Boolean) ?? null;
+  const market = assumptions.marketSignal(marketSet);
+  // Existing building, from the County assessment.
+  const hasBuilding = !!a?.year_built || Number(a?.fmv_building ?? 0) > 0;
+  const buildingLine = hasBuilding
+    ? `${a?.use ? String(a.use).toLowerCase().replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
+    : "None on record (County assessment)";
+  const canSolve = !!(plan.qf2?.rules && plan.qf2.zoneCode);
   // The site layout thumbnail shows the selected option when it is a new build, else the best new build.
   const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
   const thumbLabel = thumbTyp ? score.OPTION_NAME[QF2_TYPES.find((t) => t.id === thumbTyp)!.strategy] : null;
@@ -345,8 +359,10 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {/* Red flags stay above the score */}
       {selected && selected.redFlags.length > 0 && <Callouts selected={selected} kinds="red" max={1} compact />}
       {/* 4. Ease Score, band and one sentence */}
-      {easeResult && selected ? (
-        <ScoreBlock selected={selected} sentence={scoreSentence(selected)} />
+      {partial ? (
+        <PartialBlock municipality={muniName} market={market} />
+      ) : easeResult && selected ? (
+        <ScoreBlock selected={selected} sentence={scoreSentence(selected)} market={market} pencilsNo={pf?.verdict === "no"} />
       ) : (
         <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now (not enough evidence loaded). The report and the process checklist still apply.</p>
       )}
@@ -362,12 +378,13 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
             </div>
           ))}
         </div>
-        {bestLine && <p className="mt-1.5 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
+        <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}</p>
+        {bestLine && <p className="mt-1 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
       {/* 6. Three buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>
+      <div className={`grid gap-2 ${canSolve ? "grid-cols-3" : "grid-cols-2"}`}>
+        {canSolve && <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>}
         <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pencil calculator</OpenDrawer>
         <a href={reportHtml} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Full report<span className="sr-only"> (opens in a new tab)</span></a>
       </div>
@@ -494,7 +511,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Score details", content: details },
         { id: "options", title: "Best options and street precedent", content: <>
-          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
+          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
           <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
         </> },
       ]}

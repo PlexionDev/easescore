@@ -357,7 +357,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           onFallback={() => choose("terrain")} onPick={openParcel} />
       </>}
       {mapData && mode === "photoreal" && !HAS_KEY && <KeyNeeded onFallback={() => choose("terrain")} />}
-      {(mapData || mode === "build") && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose}
+      {(mapData || mode === "build") && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} hide={canSolve ? undefined : ["build"]}
         extra={viewFacts ? <DescribeButton open={descOpen} onToggle={() => setDescOpen(!descOpen)} controls="es-describe" btnRef={descBtn} /> : null} />}
       {mapData && viewFacts && (
         <DescribeView id="es-describe" open={descOpen} onClose={() => { setDescOpen(false); descBtn.current?.focus(); }}
@@ -369,7 +369,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           nearby={nearby} viewHash={`#view=${mode}`} />
       )}
 
-      {(data || mapData) && overlaysOn && qf && (
+      {(data || mapData) && overlaysOn && qf && canSolve && (
         <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
           <BuildPanel controls={shownControls} onChange={change} onReset={() => { touched.current = true; setControls(gen.defaults[shownControls.typology]); }}
             isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} scheme={scheme} all={run.all} ms={run.ms} unavailable={canSolve ? null : noSolveNote}
@@ -377,7 +377,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
             edges={((scheme as unknown as { debug?: { edges?: { i: number; kind: string; lengthFt: number }[] } } | null)?.debug?.edges ?? []).map((e) => ({ i: e.i, kind: e.kind, lengthFt: e.lengthFt }))} />
         </div>
       )}
-      {(data || mapData) && overlaysOn && qf && (
+      {(data || mapData) && overlaysOn && qf && canSolve && (
         <div className="absolute left-2 right-2 z-20 md:left-[472px] md:right-4" style={{ bottom: mobile ? sheetH + 6 : 12 }}>
           <MetricsBar metrics={metrics} binding={binding} reason={reason} controls={controls} pins={pins}
             onPin={pin} onUnpin={(k) => savePins(pins.filter((p) => p.key !== k))} onRestore={(p) => { touched.current = true; setControls(p.controls); }}

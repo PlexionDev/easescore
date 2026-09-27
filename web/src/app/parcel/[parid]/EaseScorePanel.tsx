@@ -2,14 +2,13 @@
 // selected option (picked in BestOptions), the seven factor bars with receipt sheets, the red and amber callouts, and the
 // "Details" drawer content (four answers, time to a permit, planning badge, what would unlock it).
 
-import { narrative, score } from "@easescore/engine";
+import { assumptions, narrative, score } from "@easescore/engine";
 import FourAnswers from "./FourAnswers";
 import { SheetButton } from "./Drawers";
 
 type Result = score.EaseScoreResult;
 type Strategy = score.StrategyResult;
 
-const BAND_WORD: Record<string, string> = { Easy: "Easy to build", Moderate: "Moderate to build", Hard: "Hard to build", "Very hard": "Very hard to build" };
 const BAND_STYLE: Record<string, string> = {
   Easy: "bg-emerald-100 text-emerald-800",
   Moderate: "bg-amber-100 text-amber-800",
@@ -114,21 +113,57 @@ export function hazardWords(s: Strategy): string[] | null {
   return Object.entries(HAZARD_WORD).filter(([k]) => (f3.inputs as Record<string, unknown>)[k] === true).map(([, w]) => w);
 }
 
-/** Why the score is what it is, in one line: the weakest factors (below 70) in plain words. */
+/**
+ * Why the band is what it is, in one line: the strongest constraints (site factors below 70, most
+ * binding first). Market activity (F7) is never the reason: it is shown as the separate market signal,
+ * so a weakness never reads as the reason for a favorable band.
+ */
 export function scoreSentence(s: Strategy): string | null {
   if (!s.applicable || !s.band) return null;
   const hz = hazardWords(s) ?? [];
   const PHRASE: Record<score.FactorId, string | null> = {
     F1: "zoning approvals needed", F2: "steep ground", F3: hz.length ? `mapped hazards (${hz.slice(0, 2).join(", ")})` : "mapped hazards",
-    F4: "limited street access or utilities", F5: "a long approval path", F6: "title or lot readiness issues", F7: "little recent building or sales nearby",
+    F4: "limited street access or utilities", F5: "a long approval path", F6: "title or lot readiness issues", F7: null,
   };
-  const weak = s.factors.filter((f) => f.subscore != null && f.subscore < 70).sort((a, b) => a.subscore! - b.subscore!).map((f) => PHRASE[f.id]).filter(Boolean).slice(0, 2);
-  const why = weak.length ? weak.join(" and ") : "no major site issues in our data";
-  return `${s.band}: ${why}.`;
+  const weak = s.factors.filter((f) => f.id !== "F7" && f.subscore != null && f.subscore < 70).sort((a, b) => a.subscore! - b.subscore!).map((f) => PHRASE[f.id]).filter(Boolean).slice(0, 2);
+  return weak.length ? `Main constraint${weak.length > 1 ? "s" : ""}: ${weak.join(" and ")}.` : "No major site constraints in our data.";
+}
+
+const MARKET_STYLE: Record<assumptions.MarketLevel, string> = {
+  Strong: "border-emerald-300 bg-emerald-50 text-emerald-900", Moderate: "border-amber-300 bg-amber-50 text-amber-900", Weak: "border-slate-300 bg-slate-50 text-slate-800",
+};
+
+/** Market strength beside the score (a separate signal, never part of it), with its receipt. */
+export function MarketLine({ market }: { market: assumptions.MarketSignal }) {
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-slate-700">
+      <span className={`rounded-full border px-2 py-0.5 font-semibold ${MARKET_STYLE[market.level]}`}>{`Market: ${market.level}`}</span>
+      <span className="min-w-0">{market.count ? `${market.count} new-construction sale${market.count === 1 ? "" : "s"} nearby${market.medianPerSf != null ? `, median $${Math.round(market.medianPerSf).toLocaleString("en-US")}/sq ft` : ""}` : "No recent new-construction sales nearby"}</span>
+      <SheetButton label={"Receipt"} title={"Market strength: receipt"}>
+        <p className="text-slate-800">{market.receipt}</p>
+        <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Rule applied</h4>
+        <p>{market.rule}</p>
+        <p className="mt-2 text-[12px] text-slate-500">Separate from the Ease Score, which measures barriers to building, not whether it&apos;s a good investment. Source: Allegheny County Property Sale Transactions and Assessments.</p>
+      </SheetButton>
+    </p>
+  );
+}
+
+/** No numeric Ease Score where the municipality's zoning is not loaded: the known facts only. */
+export function PartialBlock({ municipality, market }: { municipality: string | null; market: assumptions.MarketSignal | null }) {
+  return (
+    <section aria-label="Partial screen">
+      <p className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2">
+        <span className="block text-base font-semibold leading-snug text-slate-900">{score.partialHeadline(municipality)}</span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-slate-700">No Ease Score: zoning is a quarter of the score, and we have zoning rules for the City of Pittsburgh only. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality.</span>
+      </p>
+      {market && <MarketLine market={market} />}
+    </section>
+  );
 }
 
 /** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. */
-export function ScoreBlock({ selected, sentence }: { selected: Strategy; sentence?: string | null }) {
+export function ScoreBlock({ selected, sentence, market, pencilsNo }: { selected: Strategy; sentence?: string | null; market?: assumptions.MarketSignal | null; /** The selected option's pro forma does not pencil. */ pencilsNo?: boolean }) {
   const s = selected;
   const preliminary = s.labels.includes(score.PRELIMINARY);
   return (
@@ -138,9 +173,10 @@ export function ScoreBlock({ selected, sentence }: { selected: Strategy; sentenc
           <span className="text-5xl font-bold tabular-nums leading-none tracking-tight text-slate-900">{preliminary && s.range ? `${s.range[0]}–${s.range[1]}` : s.score ?? "—"}</span>
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{BAND_WORD[s.band]}</span>}
+              {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{score.bandLabel(s.band)}</span>}
               <span className="text-[11px] text-slate-600">{`Ease Score · ${score.OPTION_NAME[s.strategy]}`}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}</span>
             </p>
+            {pencilsNo && s.band && <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900">{`${score.bandLabel(s.band)}, but doesn't pencil at today's prices.`}</p>}
             {sentence && <p className="mt-1 text-[13px] leading-snug text-slate-800">{sentence}</p>}
           </div>
         </div>
@@ -149,9 +185,11 @@ export function ScoreBlock({ selected, sentence }: { selected: Strategy; sentenc
       )}
       {s.cap && (
         <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-950" title={`Without the cap the factors average ${s.cap.uncappedScore}.`}>
-          {s.cap.label}. <span className="text-amber-800">{`Hazards like these hold the score at ${s.cap.band} or lower.`}</span>
+          {score.relabelBands(s.cap.label)}. <span className="text-amber-800">{`Hazards like these hold the score at ${score.bandLabel(s.cap.band)} or lower.`}</span>
         </p>
       )}
+      {s.applicable && market && <MarketLine market={market} />}
+      {s.applicable && s.score != null && <p className="mt-1 text-[11px] text-slate-600">{score.SCORE_CAPTION}</p>}
     </section>
   );
 }
