@@ -40,7 +40,7 @@ describe("per-option F1 from the use table", () => {
       expect(f.inputs.permissionCode).toBe("N");
       expect(f.inputs.status).toBe("not_allowed");
       expect(f.subscore).toBe(0);
-      expect(score.optionZoningPath(strat(r, id))).toEqual({ kind: "not_allowed", text: "Not allowed: would need a rezoning" });
+      expect(score.optionZoningPath(strat(r, id))).toEqual({ kind: "not_allowed", text: "Not allowed here: would need a rezoning or a use variance (hard to get)" });
     }
     // Scores differ by option: single-family scores above every not-allowed option.
     for (const id of ["duplex", "three_four_unit", "townhouse_row"] as const) expect(strat(r, "new_sf").score!).toBeGreaterThan(strat(r, id).score!);

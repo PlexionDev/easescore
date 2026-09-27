@@ -67,7 +67,7 @@ export function optionZoningPath(s: StrategyResult): { kind: ZoningPathKind; tex
     return { kind: "unknown", text: "Zoning not in our data: confirm with the municipality" };
   }
   const code = i.permissionCode;
-  if (code === "N" || i.status === "not_allowed") return { kind: "not_allowed", text: "Not allowed: would need a rezoning" };
+  if (code === "N" || i.status === "not_allowed") return { kind: "not_allowed", text: "Not allowed here: would need a rezoning or a use variance (hard to get)" };
   if (i.fitStatus === "no_fit") return { kind: "no_fit", text: "Allowed use, but no building of this type fits the lot" };
   if (i.lotOfRecordPath) return { kind: "administrator_exception", text: "Needs an administrator exception (undersized lot of record)" };
   const variance = i.fitStatus === "variance";
