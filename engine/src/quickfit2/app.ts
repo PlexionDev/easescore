@@ -8,6 +8,7 @@
 //     the hillside stepping summary. The finance engine itself is unchanged.
 // Pure and deterministic.
 
+import { garageCutFromNotes } from "../assumptions/sitework";
 import { solve as solveRaw, TYPOLOGIES, SOLVER_VERSION } from "./src";
 import { classify, buildable, Raster } from "./src/geom";
 import type { Controls, EdgeKind, ParcelInput, Pt, Ring, Scheme, Typology, Use } from "./src/types";
@@ -379,6 +380,8 @@ export function steppingOf(s: Scheme) {
     steps: Math.max(0, levels.length - 1),
     dropFt: Math.round(drop * 10) / 10,
     cells: [] as { plate: number; ground: number }[],
+    /** Ground quantities for the Site work & earthwork takeoff (assumptions.siteWorkQuantities). */
+    quantities: s.footprintWorld && g ? { widthFt: s.widthFt, depthFt: s.depthFt, ground: g, garageCut: garageCutFromNotes(s.site?.parking ?? null) } : null,
   };
 }
 

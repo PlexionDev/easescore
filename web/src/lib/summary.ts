@@ -65,10 +65,13 @@ function costDriver(pf: assumptions.ProFormaResult | null): { costDriver: string
   const line = (id: string) => pf.plan.lines.find((l) => l.id === id)?.amount ?? null;
   const cands: { amount: number; driver: string; effect: string }[] = [];
   // Stepped/hillside foundation and the retaining-wall line together, so the summary matches the budget's two lines.
-  const slope = (line("slope_adder") ?? 0) + (line("retaining_walls") ?? 0) || null;
+  // With the Site work & earthwork takeoff, the hillside lines are foundation walls, excavation and retaining walls.
+  const slope = (line("slope_adder") ?? 0) + (line("retaining_walls") ?? 0) + (line("foundation_walls") ?? 0) + (line("excavation") ?? 0) || null;
   if (slope) {
     const steep = pf.plan.adders.some((a) => a.id === "steep_slope");
-    cands.push(steep
+    cands.push(pf.plan.siteTakeoff
+      ? { amount: slope, driver: steep ? "the steep slope" : "the slope", effect: `adds about ${narrative.money(slope)} of foundation walls, excavation and retaining walls (priced by quantity)` }
+      : steep
       ? { amount: slope, driver: "the steep slope", effect: `points to a stepped foundation and retaining walls that add about ${narrative.money(slope)}` }
       : { amount: slope, driver: "the slope", effect: `adds about ${narrative.money(slope)} of foundation and site work` });
   }

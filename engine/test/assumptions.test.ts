@@ -236,15 +236,15 @@ describe("items that apply but have no cost yet", () => {
     expect(p.forSale.hardSiteLines?.demolition).toBeUndefined();
     expect(p.evidence).toBe("partial");
     const s = plan(STEEP);
-    expect(s.exclusions.map((e) => e.text)).toEqual([
-      "Not included: Dumpsters and DOMI street permit — cost not set yet",
-    ]);
+    // A steep City lot stages in the street: a labeled DOMI staging-permit estimate, no longer "not included".
+    expect(s.exclusions).toEqual([]);
+    expect(s.lines.find((l) => l.id === "dumpsters")).toMatchObject({ label: "Street occupancy and staging (estimate)" });
     // The geotechnical report is priced: $7,000 in the landslide-prone overlay or on a steep site.
     expect(s.forSale.softSiteLines?.geotechnical).toBe(7000);
     // The pro forma still computes with the known lines.
     const r = evaluateDevelopment(s);
     expect(r.tdc).not.toBeNull();
-    expect(r.headline).toMatch(/Partial estimate: 1 cost item/);
+    expect(r.tdc).toBeGreaterThan(0);
   });
   it("disappear from the list once the user enters a cost", () => {
     const p = plan(STEEP, { overrides: { geotech: 5000, dumpsters: 3000 } });

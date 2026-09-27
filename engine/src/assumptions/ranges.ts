@@ -185,6 +185,13 @@ export function proFormaRanges(
   const rwAmt = amt("retaining_walls");
   const rwDef = config.siteAdders.retainingWalls;
   if (rwAmt) mult.retaining_walls = mineLine("retaining_walls") ? [1, 1] : [rwDef.range[0]! / rwDef.value, rwDef.range[1]! / rwDef.value];
+  // Site work & earthwork takeoff: each quantity line's own low/high (unit cost range × quantity).
+  const takeoff = plan.siteTakeoff;
+  for (const q of takeoff?.lines ?? []) {
+    if (q.id !== "foundation_walls" && q.id !== "excavation" && q.id !== "retaining_walls") continue;
+    if (!q.amount.likely) continue;
+    mult[q.id] = mineLine(q.id) ? [1, 1] : [q.amount.low / q.amount.likely, q.amount.high / q.amount.likely];
+  }
   const grout = config.siteAdders.mineGrouting;
   const groutAmt = amt("grouting");
   if (groutAmt != null) mult.grouting = edited("grouting") ? [1, 1] : [grout.range[0]! / groutAmt, grout.range[1]! / groutAmt];
@@ -216,11 +223,11 @@ export function proFormaRanges(
   const costInputs = <I extends ForSaleInputs | RentalInputs>(i: I, k: 0 | 1): I => {
     const siteLines = { ...(i.hardSiteLines ?? {}) } as Record<string, number>;
     if ("grouting" in siteLines && mult.grouting) siteLines.grouting = siteLines.grouting! * mult.grouting[k];
-    if ("siteWork" in siteLines && (slope || rwAmt)) {
-      const s = amt("slope_adder") ?? 0;
-      const w = rwAmt ?? 0;
-      siteLines.siteWork = siteLines.siteWork! - s - w + s * (mult.slope_adder?.[k] ?? 1) + w * (mult.retaining_walls?.[k] ?? 1);
-    }
+    if ("siteWork" in siteLines)
+      for (const id of ["slope_adder", "retaining_walls", "foundation_walls", "excavation"]) {
+        const a = amt(id);
+        if (a && mult[id]) siteLines.siteWork = siteLines.siteWork! + a * (mult[id]![k] - 1);
+      }
     const baseAmt = (amt("hard_base") ?? 0) + (amt("garage_level") ?? 0);
     const baseMult = mult.hard_base?.[k] ?? 1;
     const softShare = shares.ae![k] + shares.permits![k] + shares.other_soft![k];
@@ -300,9 +307,18 @@ export function proFormaRanges(
         break;
       }
       case "retaining_walls":
-        source = mineLine("retaining_walls") ? USER : badge(ASSUMPTION_BADGE, rwDef.sourceLabel);
-        basis = mineLine("retaining_walls") ? "Your number" : `$${rwDef.range[0]!.toLocaleString("en-US")}–$${rwDef.range[1]!.toLocaleString("en-US")} per building (Assumption, edit me: confirm with bids)`;
+      case "foundation_walls":
+      case "excavation": {
+        const q = takeoff?.lines.find((l) => l.id === b.id);
+        if (q && q.unitCost) {
+          source = mineLine(b.id) ? USER : badge(ASSUMPTION_BADGE, q.sourceLabel);
+          basis = mineLine(b.id) ? "Your number" : `${q.quantity?.toLocaleString("en-US")} ${q.unit} × $${q.unitCost.low}–$${q.unitCost.high} ${q.unitCost.unit.replace(/^\$ /, "")} (Assumption, edit me: confirm with bids)`;
+        } else {
+          source = mineLine("retaining_walls") ? USER : badge(ASSUMPTION_BADGE, rwDef.sourceLabel);
+          basis = mineLine("retaining_walls") ? "Your number" : `$${rwDef.range[0]!.toLocaleString("en-US")}–$${rwDef.range[1]!.toLocaleString("en-US")} per building (Assumption, edit me: confirm with bids)`;
+        }
         break;
+      }
       case "grouting":
         source = edited("grouting") ? USER : badge("Local project data (owner-provided)");
         basis = edited("grouting") ? "Your number" : `Grouting range $${grout.range[0]!.toLocaleString("en-US")}–$${grout.range[1]!.toLocaleString("en-US")} (Local project data (owner-provided); not a quote)`;

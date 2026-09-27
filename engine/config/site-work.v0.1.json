@@ -1,0 +1,63 @@
+{
+  "version": "site-work.v0.1",
+  "_note": "Unit costs for site work priced by quantity (QuickFit v2 ground quantities). Every value is an editable assumption from the cited range; confirm with local bids. National cost guides are cross-checks, not Pittsburgh quotes.",
+  "retainingWallFace": {
+    "label": "Retaining walls",
+    "unit": "$ per sq ft of wall face",
+    "low": 20,
+    "likely": 33,
+    "high": 53,
+    "sourceLabel": "Assumption from LawnStarter 2026 retaining wall cost guide: $20–$53 per sq ft of wall face, average $33",
+    "sourceNote": "Wall face = length × height. Walls over 4 ft need an engineered design (IRC R404.4), which can push the cost to the top of the range or above. Confirm with bids."
+  },
+  "foundationWallExtra": {
+    "label": "Extra foundation wall (hillside)",
+    "unit": "$ per sq ft of wall",
+    "low": 15,
+    "likely": 25,
+    "high": 40,
+    "sourceLabel": "Unverified assumption: $15–$40 per sq ft for poured concrete walls, from a search-engine summary of Angi's 2026 concrete wall cost guide (the page itself could not be opened to check)",
+    "sourceNote": "Only the wall area beyond a flat lot's foundation; the ordinary foundation is in the construction cost per sq ft."
+  },
+  "excavationCut": {
+    "label": "Excavation (cut and haul away)",
+    "unit": "$ per cu yd",
+    "low": 50,
+    "likely": 75,
+    "high": 190,
+    "sourceLabel": "Assumption from CostFlowAI 2026 excavation guide: standard soil $50–$100 per cu yd, small residential digs $39–$191, rock $100–$300",
+    "sourceNote": "Cut only; the soil is assumed hauled away. Likely = middle of the standard-soil range; high = rocky ground. Confirm with bids."
+  },
+  "staging": {
+    "domiPermitPeriod": {
+      "label": "DOMI construction staging permit (street or sidewalk)",
+      "unit": "$ per permit period (up to 42 days)",
+      "low": 195,
+      "likely": 475,
+      "high": 605,
+      "sourceLabel": "City of Pittsburgh DOMI Construction Staging Permit information sheet, 2026: $135 at application + $60 at issuance; $280 major obstruction fee over 18 days; $40 extension; $30 per two weeks on primary roads",
+      "sourceNote": "Likely = $135 + $60 + $280 for a 42-day period; high adds an extension and primary-road fees; low is a short permit. Parking meter fees (Pittsburgh Parking Authority) are not included."
+    },
+    "periods": 2,
+    "dumpsterHaul": {
+      "label": "Dumpster haul (30 yard)",
+      "unit": "$ per haul",
+      "low": 485,
+      "likely": 594,
+      "high": 703,
+      "sourceLabel": "RightDumpster Pittsburgh market estimates (2025): 30-yard $485–$703, average about $594",
+      "sourceNote": "Construction clean-up is in the construction cost; hauls here are for demolition debris only."
+    },
+    "demolitionHauls": 5,
+    "sourceNote": "Labeled estimate. Assumptions: 2 staging permit periods (about 12 weeks of street staging when the lot has no room on site) and 5 dumpster hauls when a building is demolished. Confirm with the DOMI permit office and a hauler."
+  },
+  "lateral": {
+    "label": "Water and sewer laterals (excavation, street opening, restoration)",
+    "unit": "$ per house",
+    "low": 5000,
+    "likely": 10000,
+    "high": 15000,
+    "sourceLabel": "Assumption; confirm with a contractor",
+    "sourceNote": "Same default as cost model v0.2 (COST-MODEL-LOCKED §B)."
+  }
+}

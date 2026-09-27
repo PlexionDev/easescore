@@ -15,6 +15,7 @@ import { NOT_RECORDED } from "@/lib/report/sources";
 import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
 import { ExitLead } from "./exit";
 import { CompsGrid, ConfidenceGrades } from "./evidence";
+import { SiteWorkBlock } from "./sitework";
 
 export interface Ctx {
   m: ReportModel;
@@ -1417,6 +1418,7 @@ export function S7(x: Ctx) {
           {fn(x, "msi_rates")}. It is a yearly owner cost, so it is not in the budget{m.scenario.tenure === "rent" ? "; it is in the operating costs in Section 8" : ""}. The grouting path ({money(assumptions.COST_CONFIG.siteAdders.mineGrouting.value)} lump sum, Local project data (owner-provided)) can be chosen instead on the parcel page.
         </p>
       ) : null}
+      {SiteWorkBlock(x)}
       <p className="small">
         <b>Sanity check.</b> {pf.benchmark.line}
         {fn(x, "benchmarks")} National reference: {money(assumptions.COST_CONFIG.construction.nationalReference.value)} per sq ft for construction only (national reference, not a Pittsburgh default)

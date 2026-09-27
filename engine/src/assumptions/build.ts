@@ -13,6 +13,7 @@ import { COST_CONFIG, tierOf, type CostConfig } from "./config";
 import { landEstimate, type LandEstimate } from "./land";
 import { assessedAfterCompletion, type AssessedEstimate } from "./tax";
 import { rehabEstimate, type RehabEstimate } from "./rehab";
+import { siteWorkQuantities, type GroundQuantitiesInput, type SiteWorkQuantities } from "./sitework";
 import { rentForBedrooms, type RentEstimate, type RentsByBedroom } from "../rents";
 
 export type Tenure = "sale" | "rent";
@@ -146,6 +147,13 @@ export interface PlanArgs {
    * stands in when there is no footprint. Defaults to `stepping.footprintSlopePct` when given.
    */
   footprintSlopePct?: number | null;
+  /**
+   * Ground quantities of the site-fit building (QuickFit v2: foundation wall, retaining wall, floor
+   * plates, garage cut). When given and the hillside rule fires (slope under the footprint over 15%),
+   * the site work is priced by quantity (Site work & earthwork takeoff) instead of the per-sq-ft
+   * slope premium and the retaining-wall lump sum.
+   */
+  siteQuantities?: GroundQuantitiesInput | null;
   /** Rents by bedroom count (engine rents module: RentCast comps, else HUD SAFMR, else ZORI). When absent, built from `rents` (HUD / ZORI only). */
   rentsByBedroom?: RentsByBedroom | null;
 }
@@ -276,6 +284,8 @@ export interface DevelopmentPlan {
   slopeBasis: string | null;
   loanFeeShare: number;
   adders: AdderFired[];
+  /** Site work & earthwork takeoff (quantities × unit cost ranges) when it priced the hillside site work. */
+  siteTakeoff: SiteWorkQuantities | null;
   /** Hillside stepping that priced the stepped-foundation line (or was covered by the lot's steep-slope adder). */
   stepping: (SteppingInput & { pricedBy: "stepping" | "steep_slope_adder" }) | null;
   exclusions: Exclusion[];
@@ -465,7 +475,30 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     ? sel.footprintSf
     : finishedSf != null ? Math.round(finishedSf / Math.max(1, sel.stories ?? 2)) : null;
   const footprintBasis = has(sel.footprintSf) && sel.footprintSf > 0 ? "building footprint" : `footprint estimated as finished area ÷ ${Math.max(1, sel.stories ?? 2)} floors`;
-  if (slopeKind) {
+  // Site work & earthwork takeoff: with QuickFit ground quantities, a hillside site (the same slope rule)
+  // is priced by quantity; it replaces the per-sq-ft slope premium and the retaining-wall lump sum.
+  // Your own slope-premium number keeps the allowance path.
+  const qIn = !rehab && !siteSuppressed && slopeKind && a.siteQuantities?.ground && !has(o.slopeAdderPerSf) && !has(la.slope_adder) ? a.siteQuantities : null;
+  const siteTakeoff: SiteWorkQuantities | null = qIn
+    ? siteWorkQuantities(qIn, { units: units ?? 1, isCity, demolition: (f.site?.building_count ?? 0) > 0, stagingInStreet: true })
+    : null;
+  if (siteTakeoff) {
+    const where = fpSlope != null ? "under the building footprint" : "(lot average)";
+    const why = `${slopeKind === "steep" ? "Steep" : "Moderate"} slope ${where}: ${Math.round(slopeUsed!)}%`;
+    const QTY_SHORT: Record<string, string> = { foundation_walls: "hillside foundation walls", excavation: "excavation", retaining_walls: "retaining walls" };
+    for (const q of siteTakeoff.lines.filter((l) => l.id === "foundation_walls" || l.id === "excavation" || l.id === "retaining_walls")) {
+      const mine = has(la[q.id]);
+      const amount = mine ? la[q.id]! : q.amount.likely;
+      hardSite.siteWork += amount;
+      lines.push({ id: q.id, group: "hard", label: q.label, short: QTY_SHORT[q.id]!, amount,
+        basis: mine ? "Your number" : `${q.quantityBasis}; × $${q.unitCost!.likely.toLocaleString("en-US")} ${q.unitCost!.unit.replace(/^\$ /, "")} (range $${q.unitCost!.low}–$${q.unitCost!.high})`,
+        sourceLabel: mine ? "Your number" : q.sourceLabel });
+      row(q.id === "foundation_walls" ? "foundationWalls" : q.id === "excavation" ? "excavation" : "retainingWallsQty", q.label, `$${q.unitCost!.likely} ${q.unitCost!.unit.replace(/^\$ /, "")}`, { sourceLabel: q.sourceLabel, sourceNote: q.sourceNote }, `$${q.unitCost!.low}–$${q.unitCost!.high}`, false);
+    }
+    const qtyTotal = siteTakeoff.lines.filter((l) => l.id !== "staging" && l.id !== "lateral").reduce((t, l) => t + l.amount.likely, 0);
+    adders.push({ id: slopeKind === "steep" ? "steep_slope" : "moderate_slope", label: "Site work & earthwork takeoff", reason: `${why} → site work priced by quantity from the site-fit building: ${usd(qtyTotal)} (foundation walls, excavation${siteTakeoff.lines.some((l) => l.id === "retaining_walls") ? ", retaining walls" : ""})`, perSf: null, amount: qtyTotal, sourceLabel: "Site work & earthwork takeoff (quantities × unit cost ranges)", range: null });
+    notes.push("Hillside site work is priced by quantity (Site work & earthwork takeoff): foundation wall and cut from the site-fit building on 1 m lidar, each × a sourced unit cost range.");
+  } else if (slopeKind) {
     const def0 = slopeKind === "steep" ? cfg.siteAdders.steepSlope : cfg.siteAdders.moderateSlope;
     const def = steppedOnly ? { ...def0, label: "Stepped foundation (hillside stepping)" } : def0;
     const perSf = has(o.slopeAdderPerSf) ? o.slopeAdderPerSf : def.value;
@@ -567,10 +600,14 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   if (dumpApplies) {
     const dd = cfg.siteAdders.dumpstersAndStreetPermit;
     const reason = demoApplies ? "Debris from demolition has to be hauled away" : "A steep lot leaves no flat room to stage on site";
-    const amount = has(o.dumpsters) ? o.dumpsters : (dd.value as number | null);
+    // Street occupancy and staging (labeled estimate): DOMI staging permits in the City + dumpster hauls for demolition.
+    const stg = !has(o.dumpsters) && dd.value == null && !rehab
+      ? siteWorkQuantities({ widthFt: 0, depthFt: 0, ground: null }, { units: units ?? 1, isCity, demolition: demoApplies, stagingInStreet: lotSlopeKind === "steep" }).lines.find((l) => l.id === "staging") ?? null
+      : null;
+    const amount = has(o.dumpsters) ? o.dumpsters : stg && stg.amount.likely > 0 ? stg.amount.likely : (dd.value as number | null);
     if (amount != null) {
       hardSite.siteWork += amount;
-      lines.push({ id: "dumpsters", group: "hard", label: "Dumpsters and DOMI street permit", short: "dumpsters and street permit", amount, basis: reason, sourceLabel: has(o.dumpsters) ? "Your input" : dd.sourceLabel });
+      lines.push({ id: "dumpsters", group: "hard", label: stg && !has(o.dumpsters) ? stg.label : "Dumpsters and DOMI street permit", short: "street occupancy and staging", amount, basis: stg && !has(o.dumpsters) ? `${reason}: ${stg.quantityBasis} (range ${usd(stg.amount.low)}–${usd(stg.amount.high)})` : reason, sourceLabel: has(o.dumpsters) ? "Your input" : stg ? stg.sourceLabel : dd.sourceLabel });
       row("dumpsters", dd.label, usd(amount), dd, null, has(o.dumpsters));
     } else {
       exclude("dumpsters", "Dumpsters and DOMI street permit", reason);
@@ -906,6 +943,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     slopeBasis,
     loanFeeShare: fin.loanFeeShare.value,
     adders,
+    siteTakeoff,
     stepping,
     exclusions,
     minePath,

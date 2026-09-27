@@ -145,6 +145,8 @@ export interface SteppingResult {
   dropFt: number;
   /** Every footprint cell: its plate and the lidar ground under it (feet). */
   cells: { plate: number; ground: number }[];
+  /** QuickFit v2 ground quantities for the Site work & earthwork takeoff (absent for other layouts). */
+  quantities?: assumptions.GroundQuantitiesInput | null;
 }
 
 export interface GenResult {
@@ -599,6 +601,7 @@ export function financeFor(fin: FinanceInputs, strategy: StrategyId, scheme: qui
       stepping: rehab ? null : steppingInput(stepping),
       // Cost model v0.2: the slope premium keys off the slope under the building footprint (lidar), stepped or not.
       footprintSlopePct: rehab ? null : stepping?.footprintSlopePct ?? null,
+      siteQuantities: rehab ? null : stepping?.quantities ?? null,
     });
     pf = assumptions.evaluateDevelopment(plan);
   } catch {
