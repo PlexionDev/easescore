@@ -322,7 +322,7 @@ export default function MethodsPage() {
               Method: new single-family homes, townhouses and rowhouses built in 2020 or later, each at its first valid sale after completion (at least
               $75,000 and 600 sq ft). The engine prices each home with its own size, lot, slope, overlays, taxes and land estimate, and uses its actual
               sale price as the value. Margin = (sale price − selling costs − our total cost) ÷ our total cost; a loss means our total cost is above
-              what the home sold for, net of selling costs.
+              what the home sold for, net of selling costs. Run at a 7.75% construction loan rate; the current default is 8.0%.
             </p>
           </section>
 
