@@ -4,7 +4,6 @@ import { brandSans } from "./font";
 import Footer from "./Footer";
 import Header from "./Header";
 import InfoDialogProvider from "./InfoDialog";
-import { getT } from "@/lib/i18n/server";
 
 /**
  * Public-site chrome from the owner's homepage design: skip link, floating header, footer, shared dialog.
@@ -19,13 +18,12 @@ export default async function SiteFrame({ children, home = false, scoped = true 
   home?: boolean;
   scoped?: boolean;
 }) {
-  const { t } = await getT();
   const root = `es-home ${home ? "" : "es-page "}${brandSans.variable}`;
   if (scoped) {
     return (
       <div className={root}>
         <InfoDialogProvider>
-          <a className="skip" href="#main">{t("skip")}</a>
+          <a className="skip" href="#main">Skip to content</a>
           <div className="site-shell">
             <Header home={home} />
             <main id="main">{children}</main>
@@ -39,7 +37,7 @@ export default async function SiteFrame({ children, home = false, scoped = true 
     <div className={`es-frame ${brandSans.variable}`}>
       <InfoDialogProvider scopeClass={root}>
         <div className={root}>
-          <a className="skip" href="#main">{t("skip")}</a>
+          <a className="skip" href="#main">Skip to content</a>
           <div className="site-shell"><Header /></div>
         </div>
         <main id="main">{children}</main>

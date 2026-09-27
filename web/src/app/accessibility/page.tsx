@@ -102,7 +102,7 @@ export default function AccessibilityPage() {
               <li><strong>The Policy map&apos;s hover card</strong> (one parcel&apos;s homes before and after) needs a mouse. The tables have the totals, not each parcel.</li>
               <li><strong>The 3D Photoreal city</strong> comes from Google. We can describe our lot, rules and building, but not every detail of the photo mesh.</li>
               <li><strong>Small screens and 200% zoom:</strong> the parcel page&apos;s floating panels can crowd the map on narrow screens. Scroll the side panel, or use the report.</li>
-              <li><strong>Spanish:</strong> some newer text, including &ldquo;Describe this view,&rdquo; is in English only for now.</li>
+              <li><strong>Language:</strong> the site is in English only; there is no translated version.</li>
             </ul>
           </section>
 

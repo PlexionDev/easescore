@@ -5,8 +5,6 @@
 import { narrative, score } from "@easescore/engine";
 import FourAnswers from "./FourAnswers";
 import { SheetButton } from "./Drawers";
-import { translator, type Locale } from "@/lib/i18n";
-import { FACTOR_ES, OPTION_NAME_ES, calloutEs, capLabelEs, notApplicableEs } from "@/lib/i18n/engine-es";
 
 type Result = score.EaseScoreResult;
 type Strategy = score.StrategyResult;
@@ -64,10 +62,10 @@ function inputValue(v: unknown): string {
   return String(v);
 }
 
-function FactorBar({ f, band, reportHref, lang = "en" }: { f: score.FactorResult; band: string | null; reportHref: string; lang?: Locale }) {
-  const t = translator(lang);
-  const es = lang === "es";
-  const label = es ? FACTOR_ES[f.id] ?? f.label : f.label;
+const EVIDENCE_WORD: Record<string, string> = { complete: "Complete data", partial: "Partial data", missing: "No data" };
+
+function FactorBar({ f, band, reportHref }: { f: score.FactorResult; band: string | null; reportHref: string }) {
+  const label = f.label;
   const v = f.subscore;
   const sources = [...new Set(f.sources)];
   const inputs = Object.entries(f.inputs);
@@ -76,25 +74,23 @@ function FactorBar({ f, band, reportHref, lang = "en" }: { f: score.FactorResult
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="min-w-0 truncate font-medium text-slate-800">{label}</span>
         <span className="flex shrink-0 items-center gap-2">
-          <span className="tabular-nums text-slate-700">{v == null ? t("factor.noData") : Math.round(v)}</span>
-          <SheetButton label={t("factor.receipt")} title={t("factor.receiptTitle", { label })}>
-            {/* Spanish: headings and the weight line are translated; the engine's explanation, inputs, rule and source names stay English (lang="en"). */}
-            {es && <p className="mb-1 rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-700">Las explicaciones, los datos de entrada, la regla y los nombres de las fuentes de este comprobante aún están en inglés.</p>}
-            <p className="text-slate-800" lang={es ? "en" : undefined}>{f.oneLiner}</p>
-            <p className="mt-1 text-[12px] text-slate-500">{t("factor.weightLine", { w: f.weight, evidence: t(`evidence.${f.evidence}`), partial: f.partialCoverage ? t("factor.partial") : "", sub: v == null ? t("factor.leftOut") : Math.round(v) })}</p>
-            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("factor.inputs")}</h4>
+          <span className="tabular-nums text-slate-700">{v == null ? "No data" : Math.round(v)}</span>
+          <SheetButton label={"Receipt"} title={`${label}: receipt`}>
+            <p className="text-slate-800">{f.oneLiner}</p>
+            <p className="mt-1 text-[12px] text-slate-500">{`Weight ${f.weight}% · ${EVIDENCE_WORD[f.evidence] ?? f.evidence}${f.partialCoverage ? " · source covers part of the county" : ""} · sub-score ${v == null ? "left out of the score" : Math.round(v)}`}</p>
+            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Inputs</h4>
             {inputs.length ? (
-              <ul className="mt-0.5 space-y-0.5" lang={es ? "en" : undefined}>
+              <ul className="mt-0.5 space-y-0.5">
                 {inputs.map(([k, x]) => <li key={k}><span className="text-slate-500">{inputName(k)}:</span> {inputValue(x)}</li>)}
               </ul>
-            ) : <p className="text-slate-500">{t("factor.noInputs")}</p>}
-            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("factor.rule")}</h4>
-            <p lang={es ? "en" : undefined}>{factorRule(f.id)}</p>
-            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("factor.sources")}</h4>
+            ) : <p className="text-slate-500">No inputs were available.</p>}
+            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Rule applied</h4>
+            <p>{factorRule(f.id)}</p>
+            <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Sources</h4>
             <ul className="mt-0.5 list-disc pl-4">
-              {sources.map((s) => <li key={s}><span lang={es ? "en" : undefined}>{s}</span><span className="text-slate-500"> · {f.dates[s] ? t("factor.dataDate", { d: f.dates[s]! }) : t("factor.noDate")}</span></li>)}
+              {sources.map((s) => <li key={s}><span>{s}</span><span className="text-slate-500"> · {f.dates[s] ? `data date ${f.dates[s]!}` : "no data date recorded"}</span></li>)}
             </ul>
-            <a href={reportHref} target="_blank" rel="noopener" className="mt-3 inline-block text-[12px] font-semibold text-slate-800 underline">{t("factor.seeReport")}</a>
+            <a href={reportHref} target="_blank" rel="noopener" className="mt-3 inline-block text-[12px] font-semibold text-slate-800 underline">See this factor in the full report</a>
           </SheetButton>
         </span>
       </div>
@@ -108,31 +104,28 @@ function FactorBar({ f, band, reportHref, lang = "en" }: { f: score.FactorResult
 }
 
 /** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. The option is picked in BestOptions. */
-export function ScoreBlock({ selected, lang = "en" }: { selected: Strategy; lang?: Locale }) {
+export function ScoreBlock({ selected }: { selected: Strategy }) {
   const s = selected;
-  const t = translator(lang);
-  const es = lang === "es";
-  const bandWord = (b: string) => t(`band.${b}` as Parameters<typeof t>[0]);
   const preliminary = s.labels.includes(score.PRELIMINARY);
   return (
-    <section aria-label={t("score.aria")}>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("score.selected", { name: es ? OPTION_NAME_ES[s.strategy] : score.OPTION_NAME[s.strategy] })}</p>
+    <section aria-label={"Ease Score"}>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{`Selected: ${score.OPTION_NAME[s.strategy]}`}</p>
       {s.applicable ? (
         <div className="flex items-end gap-3">
           <span className="text-5xl font-bold tabular-nums leading-none tracking-tight text-slate-900">{preliminary && s.range ? `${s.range[0]}–${s.range[1]}` : s.score ?? "—"}</span>
           <div className="pb-0.5">
-            {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{es ? bandWord(s.band) : BAND_WORD[s.band]}</span>}
+            {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{BAND_WORD[s.band]}</span>}
             <p className="mt-1 text-[11px] text-slate-500">
-              {t("score.outOf")}{preliminary ? t("score.preliminary") : s.range && s.range[0] !== s.range[1] ? t("score.couldBe", { a: s.range[0], b: s.range[1] }) : ""}
+              {"Ease Score out of 100"}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}
             </p>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-slate-600">{es ? t("score.notOption", { name: OPTION_NAME_ES[s.strategy], reason: notApplicableEs(s.notApplicableReason) }) : `${s.strategyLabel} is not an option here: ${s.notApplicableReason}`}</p>
+        <p className="text-sm text-slate-600">{`${s.strategyLabel} is not an option here: ${s.notApplicableReason}`}</p>
       )}
       {s.cap && (
-        <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-950" title={t("score.capTitle", { n: s.cap.uncappedScore })}>
-          {es ? capLabelEs(s.cap.band, s.cap.reason, (b) => t(`bandShort.${b}` as Parameters<typeof t>[0]).toLowerCase()) : s.cap.label}. <span className="text-amber-800">{t("score.capHold", { band: es ? t(`bandShort.${s.cap.band}` as Parameters<typeof t>[0]).toLowerCase() : s.cap.band })}</span>
+        <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-950" title={`Without the cap the factors average ${s.cap.uncappedScore}.`}>
+          {s.cap.label}. <span className="text-amber-800">{`Hazards like these hold the score at ${s.cap.band} or lower.`}</span>
         </p>
       )}
     </section>
@@ -140,39 +133,36 @@ export function ScoreBlock({ selected, lang = "en" }: { selected: Strategy; lang
 }
 
 /** 5. The seven factor bars, each with a receipt sheet. */
-export function FactorBars({ selected, reportHref, lang = "en" }: { selected: Strategy; reportHref: string; lang?: Locale }) {
+export function FactorBars({ selected, reportHref }: { selected: Strategy; reportHref: string }) {
   if (!selected.applicable) return null;
   return (
-    <section aria-label={translator(lang)("factorsAria")}>
+    <section aria-label="Score factors">
       <ul className="divide-y divide-slate-100">
-        {selected.factors.map((f) => <FactorBar key={f.id} f={f} band={selected.band} reportHref={reportHref} lang={lang} />)}
+        {selected.factors.map((f) => <FactorBar key={f.id} f={f} band={selected.band} reportHref={reportHref} />)}
       </ul>
     </section>
   );
 }
 
 /** 6. Red flags (red, rare) then "Review required" (amber); at most 3 visible, the rest behind "+N more". */
-export function Callouts({ selected, lang = "en" }: { selected: Strategy; lang?: Locale }) {
-  const t = translator(lang);
-  const items0 = [
+export function Callouts({ selected }: { selected: Strategy }) {
+  const items = [
     ...selected.redFlags.map((x) => ({ id: x.id, tone: "red" as const, title: x.title, reason: x.reason })),
     ...selected.reviewCallouts.map((c) => ({ id: c.id, tone: "amber" as const, title: c.title.replace(/^Review required:\s*/i, "").replace(/^./, (m) => m.toUpperCase()), reason: c.reason })),
   ];
-  // Spanish: fixed Spanish title and first sentence per callout id (numbers reused from the engine's text).
-  const items = lang === "es" ? items0.map((c) => ({ ...c, ...calloutEs(c.id, c.reason) })) : items0;
   if (!items.length) return null;
   const row = (c: (typeof items)[number]) => (
     <li key={c.id} className={`rounded-lg border px-3 py-1.5 text-[13px] ${c.tone === "red" ? "border-red-300 bg-red-50 text-red-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
-      <span className="mr-1 text-[10px] font-bold uppercase tracking-wide">{c.tone === "red" ? t("callout.red") : t("callout.review")}</span>
+      <span className="mr-1 text-[10px] font-bold uppercase tracking-wide">{c.tone === "red" ? "Red flag" : "Review required"}</span>
       <b>{c.title}.</b> <span className="opacity-80">{c.reason.split(". ")[0]!.replace(/\.$/, "")}.</span>
     </li>
   );
   return (
-    <section aria-label={t("callout.aria")}>
+    <section aria-label={"Red flags and review items"}>
       <ul className="space-y-1.5">{items.slice(0, 3).map(row)}</ul>
       {items.length > 3 && (
         <details className="mt-1.5">
-          <summary className="cursor-pointer text-xs font-semibold text-slate-600 underline decoration-dotted underline-offset-2">{t("callout.more", { n: items.length - 3 })}</summary>
+          <summary className="cursor-pointer text-xs font-semibold text-slate-600 underline decoration-dotted underline-offset-2">{`+${items.length - 3} more`}</summary>
           <ul className="mt-1.5 space-y-1.5">{items.slice(3).map(row)}</ul>
         </details>
       )}

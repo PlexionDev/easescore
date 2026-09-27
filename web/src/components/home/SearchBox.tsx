@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_QUERY, SEARCH_ID } from "./constants";
 import type { SearchHit } from "@/lib/data";
-import { useT } from "@/lib/i18n/client";
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 150;
@@ -14,8 +13,10 @@ function hitLabel(h: SearchHit): string {
   return [h.house_num && h.house_num !== "0" ? h.house_num : null, h.address].filter(Boolean).join(" ");
 }
 
-/** Parcel search on the homepage. One match opens the parcel; several open the list; no separate results page.
- *  Without JavaScript the form GETs /check, which redirects (one match → parcel, else back to /?q=). */
+/** Parcel search on the homepage, driven by the autocomplete: choosing a suggestion opens that parcel, and
+ *  Enter opens the highlighted suggestion or else the top one (waiting for the matches if they are still
+ *  loading). No separate results page and no button. Without JavaScript, Enter submits the form to /check,
+ *  which redirects (one match → parcel, else back to /?q=). */
 export default function SearchBox({
   id,
   icon = false,
@@ -37,8 +38,7 @@ export default function SearchBox({
   const input = useRef<HTMLInputElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const t = useT();
-  const EMPTY = t("search.empty");
+  const EMPTY = "Enter an address or parcel ID.";
 
   const [value, setValue] = useState(defaultValue ?? "");
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -79,7 +79,7 @@ export default function SearchBox({
         const data = (await res.json()) as { hits: SearchHit[] };
         setHits(data.hits);
         setActive(-1);
-        setAnnounce(data.hits.length === 1 ? t("search.results1") : t("search.resultsN", { n: data.hits.length }));
+        setAnnounce(data.hits.length === 1 ? "1 result" : `${data.hits.length} results`);
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
           setHits([]);
@@ -101,6 +101,35 @@ export default function SearchBox({
     scheduleSearch(q);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The Developer seat and other links to /#parcel-search land here with the field focused.
+  useEffect(() => {
+    if (id !== SEARCH_ID) return;
+    const focusField = () => {
+      const el = input.current;
+      if (!el) return;
+      el.scrollIntoView({ block: "center" });
+      el.focus({ preventScroll: true });
+    };
+    if (window.location.hash === `#${SEARCH_ID}`) focusField();
+    const onHash = () => { if (window.location.hash === `#${SEARCH_ID}`) focusField(); };
+    // Same-page clicks on a link to the search (the hash may already be set, so no hashchange fires).
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href]");
+      const href = a?.getAttribute("href");
+      if (href !== `#${SEARCH_ID}` && href !== `/#${SEARCH_ID}`) return;
+      e.preventDefault();
+      if (window.location.hash !== `#${SEARCH_ID}`) history.pushState(null, "", `#${SEARCH_ID}`);
+      focusField();
+    };
+    window.addEventListener("hashchange", onHash);
+    document.addEventListener("click", onClick);
+    return () => {
+      window.removeEventListener("hashchange", onHash);
+      document.removeEventListener("click", onClick);
+    };
+  }, [id]);
+
+  /** Enter: open the top match for this text, waiting for the matches when they are still loading. */
   async function submitSearch(q: string) {
     abortRef.current?.abort();
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -111,10 +140,10 @@ export default function SearchBox({
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal });
       const data = (await res.json()) as { hits: SearchHit[] };
-      if (data.hits.length === 1) { goToHit(data.hits[0]); return; }
-      setHits(data.hits);
-      setActive(data.hits.length ? 0 : -1);
-      setAnnounce(data.hits.length === 1 ? t("search.results1") : t("search.resultsN", { n: data.hits.length }));
+      if (data.hits.length) { goToHit(data.hits[0]); return; }
+      setHits([]);
+      setActive(-1);
+      setAnnounce("No matches — try the parcel ID.");
       input.current?.focus();
     } catch (err) {
       if ((err as { name?: string }).name !== "AbortError") setHits([]);
@@ -145,7 +174,7 @@ export default function SearchBox({
       className="search-form"
       action="/check"
       role="search"
-      aria-label={landmarkLabel ?? t("search.landmark")}
+      aria-label={landmarkLabel ?? "Parcel search"}
       onSubmit={(e) => {
         const el = input.current;
         if (el && !el.value.trim()) {
@@ -154,12 +183,12 @@ export default function SearchBox({
           el.reportValidity();
           return;
         }
-        // Stay on this page: one match opens the parcel, several show the list.
+        // Stay on this page: open the highlighted suggestion, else the top match.
         e.preventDefault();
         if (el) void submitSearch(el.value.trim());
       }}
     >
-      <label className="sr-only" htmlFor={id}>{t("search.label")}</label>
+      <label className="search-field-label" htmlFor={id}>Address or parcel ID</label>
       <div className="search-field-wrap" ref={wrap}>
         <div className="search-field">
           {icon && (
@@ -173,7 +202,7 @@ export default function SearchBox({
             id={id}
             name="q"
             type="search"
-            placeholder={t("search.placeholder")}
+            placeholder={"Enter an address or parcel ID"}
             required
             maxLength={180}
             autoComplete="street-address"
@@ -216,15 +245,11 @@ export default function SearchBox({
             }}
           />
           {shortcut && <kbd aria-hidden="true">⌘ K</kbd>}
-          <button type="submit" aria-label={t("search.submit")}>
-            <span className="search-label">{t("search.submit")}</span>
-            <span aria-hidden="true">↗</span>
-          </button>
         </div>
         {showDropdown && (
-          <div className="search-suggest" id={listboxId} role="listbox" aria-label={t("search.suggest")}>
+          <div className="search-suggest" id={listboxId} role="listbox" aria-label={"Matching parcels"}>
             {loading && hits.length === 0 ? (
-              <p className="search-suggest-note">{t("search.searching")}</p>
+              <p className="search-suggest-note">Searching…</p>
             ) : hits.length ? (
               hits.map((h, i) => (
                 <button
@@ -243,7 +268,7 @@ export default function SearchBox({
                 </button>
               ))
             ) : (
-              <p className="search-suggest-note">{t("search.none")}</p>
+              <p className="search-suggest-note">No matches — try the parcel ID.</p>
             )}
           </div>
         )}
@@ -251,7 +276,7 @@ export default function SearchBox({
       </div>
       {tryExample && (
         <p className="search-hint">
-          {t("search.noAccount")}{" "}
+          {"No account needed."}{" "}
           <button
             type="button"
             onClick={() => {
@@ -265,7 +290,7 @@ export default function SearchBox({
               scheduleSearch(EXAMPLE_QUERY);
             }}
           >
-            {t("search.try")} <span aria-hidden="true">→</span>
+            {"Try a URA-owned housing site in the Lower Hill"} <span aria-hidden="true">→</span>
           </button>
         </p>
       )}

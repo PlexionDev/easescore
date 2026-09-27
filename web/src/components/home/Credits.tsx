@@ -1,24 +1,22 @@
 "use client";
 
 import { useInfoDialog } from "./InfoDialog";
-import { useT } from "@/lib/i18n/client";
 
 /** Footer button: image and type credits in the shared dialog. */
 export default function CreditsButton() {
   const show = useInfoDialog();
-  const t = useT();
   return (
     <button
       type="button"
-      onClick={() => show(t("credits.title"), (
+      onClick={() => show("Images & type", (
         <>
-          <p>{t("credits.p1")}</p>
-          <p>{t("credits.p2")}</p>
-          <p>{t("credits.p3")}</p>
+          <p>The Pittsburgh and Allegheny County scenes were generated using OpenAI image generation for this design. They are representative illustrations and may differ from the actual geography or architecture.</p>
+          <p>The images and the Inter font are served with the page. Inter is by Rasmus Andersson and distributed under the SIL Open Font License 1.1.</p>
+          <p>Bentley’s Cities & Government page informed the visual direction. No Bentley images, text or brand marks are used.</p>
         </>
       ))}
     >
-      {t("footer.credits")}
+      {"Image & font credits"}
     </button>
   );
 }

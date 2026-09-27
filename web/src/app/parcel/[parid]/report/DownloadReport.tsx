@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale, useT } from "@/lib/i18n/client";
 
 /**
  * "Download Feasibility Study (PDF)" button.
@@ -29,17 +28,13 @@ export default function DownloadReport({
   variant?: "primary" | "secondary";
 }) {
   const [busy, setBusy] = useState(false);
-  const t = useT();
-  const lang = useLocale();
   const [error, setError] = useState<string | null>(null);
 
   async function download() {
     setBusy(true);
     setError(null);
     try {
-      // Spanish: the report's summary section is written in Spanish (lang=es); the rest stays English.
-      const q0 = query.replace(/^\?/, "");
-      const q = lang === "es" ? `${q0}${q0 ? "&" : ""}lang=es` : q0;
+      const q = query.replace(/^\?/, "");
       const url = `/api/report/${encodeURIComponent(parid)}${q ? `?${q}` : ""}`;
       const images = getImages ? await getImages() : undefined;
       const res = images
@@ -78,11 +73,11 @@ export default function DownloadReport({
         <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
           <path d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42L9 11.6V3a1 1 0 0 1 1-1Zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
         </svg>
-        {busy ? t("dl.preparing") : label}
+        {busy ? "Preparing the study…" : label}
       </button>
       {(error || hint) && (
         <p className="mt-1 text-[11px] text-slate-500">
-          {error ? <span className="text-red-700">{t("dl.error", { error })}</span> : hint}
+          {error ? <span className="text-red-700">{`Could not create the PDF: ${error}`}</span> : hint}
         </p>
       )}
     </div>

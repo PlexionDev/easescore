@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { SEARCH_ID } from "./constants";
-import LanguageMenu from "@/components/i18n/LanguageMenu";
-import { useT } from "@/lib/i18n/client";
 
 /** Focus the page's main parcel search, if this page has one. */
 export function focusSearch(): boolean {
@@ -31,11 +29,10 @@ export function BrandMark() {
 
 /**
  * Floating site header. On the homepage the section links are in-page anchors; elsewhere they lead back
- * to the homepage sections. "Check a lot" and ⌘K / Ctrl+K focus the page's search when it has one.
+ * to the homepage sections. ⌘K / Ctrl+K focuses the page's search when it has one.
  */
 export default function Header({ home = false }: { home?: boolean }) {
   const [open, setOpen] = useState(false);
-  const t = useT();
   const base = home ? "" : "/";
 
   useEffect(() => {
@@ -53,27 +50,21 @@ export default function Header({ home = false }: { home?: boolean }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const onCta = (e: MouseEvent<HTMLAnchorElement>) => {
-    setOpen(false);
-    if (focusSearch()) e.preventDefault();
-  };
-
   return (
     <header className="header" id="site-header">
-      <Link className="brand" href="/" aria-label={t("brand.home")}>
+      <Link className="brand" href="/" aria-label={"EaseScore.AI home"}>
         <BrandMark />
         <span>
           EaseScore<span className="brand-ai">.AI</span>
-          <small>{t("brand.tagline")}</small>
+          <small>Intelligent Feasibility</small>
         </span>
       </Link>
-      <LanguageMenu />
       <button
         type="button"
         className="menu-toggle"
         aria-expanded={open}
         aria-controls="main-nav"
-        aria-label={open ? t("nav.close") : t("nav.open")}
+        aria-label={open ? "Close navigation" : "Open navigation"}
         onClick={() => setOpen((o) => !o)}
       >
         <span />
@@ -81,16 +72,13 @@ export default function Header({ home = false }: { home?: boolean }) {
       </button>
       <nav
         id="main-nav"
-        aria-label={t("nav.main")}
+        aria-label={"Main navigation"}
         className={open ? "open" : undefined}
         onClick={(e) => { if ((e.target as Element).closest("a")) setOpen(false); }}
       >
-        <a href={`${base}#who-its-for`}>{t("nav.who")}</a>
-        <a href={`${base}#how-it-works`}>{t("nav.how")}</a>
-        <a href={`${base}#data`}>{t("nav.data")}</a>
-        <a className="nav-cta" href={home ? `#${SEARCH_ID}` : `/#${SEARCH_ID}`} onClick={onCta}>
-          {t("nav.cta")} <span aria-hidden="true">↗</span>
-        </a>
+        <a href={`${base}#who-its-for`}>Who it’s for</a>
+        <a href={`${base}#how-it-works`}>How it works</a>
+        <a href={`${base}#data`}>Data & methods</a>
       </nav>
     </header>
   );

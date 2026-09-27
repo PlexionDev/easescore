@@ -2,7 +2,6 @@
 // (or a documented derivation of it), exactly or rounded to the precision it is shown at.
 
 import { derive } from "./derive";
-import { NUMBER_WORDS_ES } from "./summary-es";
 import type { NarrativeFacts, NarrativeResult, ValidationResult } from "./types";
 
 export interface NumberToken {
@@ -22,10 +21,8 @@ const WORDS: Record<string, number> = {
 
 // Digits not glued to a letter or another number (so "R1D-H" and "v0.1" are not read as numbers).
 const NUM_RE =
-  /(?<![\w.,])(\$\s?)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s?(k|K|M|million|thousand|mil)\b)?(\s?%|\s+percent\b|\s+por\s+ciento\b)?/g;
+  /(?<![\w.,])(\$\s?)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s?(k|K|M|million|thousand)\b)?(\s?%|\s+percent\b)?/g;
 const WORD_RE = new RegExp(`\\b(${Object.keys(WORDS).join("|")})\\b(\\s+percent\\b)?`, "gi");
-// Spanish: only when the text is Spanish ("once" is 11 in Spanish, a plain word in English).
-const WORD_RE_ES = new RegExp(`(?<![\\p{L}])(${Object.keys(NUMBER_WORDS_ES).join("|")})(?![\\p{L}])(\\s+por\\s+ciento(?![\\p{L}]))?`, "giu");
 
 function intPrecision(digits: string): number {
   // Trailing zeros set the precision, but keep at least two significant figures:
@@ -37,7 +34,7 @@ function intPrecision(digits: string): number {
 }
 
 /** Every number in a piece of text, with the precision it is displayed at. */
-export function extractNumbers(text: string, lang: "en" | "es" = "en"): NumberToken[] {
+export function extractNumbers(text: string): NumberToken[] {
   const out: NumberToken[] = [];
   for (const m of text.matchAll(NUM_RE)) {
     const digits = m[2]!.replace(/,/g, "");
@@ -46,7 +43,7 @@ export function extractNumbers(text: string, lang: "en" | "es" = "en"): NumberTo
     const percent = Boolean(m[5]);
     let value = Number(digits + dec);
     let precision = dec ? 10 ** -(dec.length - 1) : intPrecision(digits);
-    const mult = suffix === "k" || suffix === "K" || suffix === "thousand" || suffix === "mil" ? 1e3 : suffix === "M" || suffix === "million" ? 1e6 : 1;
+    const mult = suffix === "k" || suffix === "K" || suffix === "thousand" ? 1e3 : suffix === "M" || suffix === "million" ? 1e6 : 1;
     if (mult !== 1) {
       value *= mult;
       precision = (dec ? 10 ** -(dec.length - 1) : 1) * mult;
@@ -55,11 +52,6 @@ export function extractNumbers(text: string, lang: "en" | "es" = "en"): NumberTo
   }
   for (const m of text.matchAll(WORD_RE)) {
     out.push({ raw: m[0], value: WORDS[m[1]!.toLowerCase()]!, precision: 1, percent: Boolean(m[2]) });
-  }
-  if (lang === "es") {
-    for (const m of text.matchAll(WORD_RE_ES)) {
-      out.push({ raw: m[0], value: NUMBER_WORDS_ES[m[1]!.toLowerCase()]!, precision: 1, percent: Boolean(m[2]) });
-    }
   }
   return out;
 }

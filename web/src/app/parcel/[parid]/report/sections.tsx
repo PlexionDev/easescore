@@ -2,7 +2,6 @@
 // runs eagerly, in document order: footnote numbers, figure numbers and table numbers are assigned
 // in reading order, and the same inputs always give the same numbering.
 
-import { translator } from "@/lib/i18n";
 import type { ReactNode } from "react";
 import { assumptions, finance, PHASE_ORDER, quickfit, type RequirementResult } from "@easescore/engine";
 import type { CiteRegistry } from "@/lib/report/cite";
@@ -21,8 +20,6 @@ export interface Ctx {
   tab: () => number;
   /** Rendering for the downloadable PDF: full rent-comp street addresses (on screen: block level only). */
   print?: boolean;
-  /** "es": the two-sentence summary in Section 1 is written in Spanish (the rest of the report stays English). */
-  lang?: "en" | "es";
 }
 
 export const REPORT_VERSION = "report v0.1";
@@ -342,15 +339,7 @@ export function S1(x: Ctx) {
         )}
       </p>
 
-      {m.plans && x.lang === "es" ? (
-        // Spanish from the same summary JSON (engine template, validated); fixed Spanish fine print.
-        <div className="callout" lang="es">
-          <div className="callout-title">{translator("es")("report.twoSentences")}</div>
-          <p>{narrative.generateSummary(m.plans.summaryInput, "es").text}{fn(x, "ease_score", "cost_config", "zba")}</p>
-          <p className="small muted">{translator("es")("summary.fine")}</p>
-          <p className="small muted">{translator("es")("report.englishRest")}</p>
-        </div>
-      ) : m.plans && (
+      {m.plans && (
         <div className="callout">
           <div className="callout-title">In two sentences</div>
           <p>{m.plans.summary.text}{fn(x, "ease_score", "cost_config", "zba")}</p>

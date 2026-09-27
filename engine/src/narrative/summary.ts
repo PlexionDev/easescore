@@ -7,10 +7,6 @@
 
 import { extractNumbers } from "./validate";
 import { money, pct } from "./format";
-import { BANNED_PATTERNS_ES, summarySentencesEs } from "./summary-es";
-
-/** Language of the summary text. The input JSON is the same for both. */
-export type SummaryLang = "en" | "es";
 
 export type ReliefType = "special_exception" | "dimensional_variance" | "use_variance" | "conditional_use" | "administrator_exception";
 
@@ -141,9 +137,9 @@ function sentenceTwo(i: SummaryInput): string {
   return `${cap(w.label)} would need ${w.approval}, and ${precedentPhrase(w.precedent, i.district)}.`;
 }
 
-/** The deterministic two sentences (English, or Spanish from the same input). Always passes validateSummary for its own input and language. */
-export function generateSummary(i: SummaryInput, lang: SummaryLang = "en"): SummaryResult {
-  const sentences: [string, string] = lang === "es" ? summarySentencesEs(i) : [sentenceOne(i), sentenceTwo(i)];
+/** The deterministic two sentences. Always passes validateSummary for its own input. */
+export function generateSummary(i: SummaryInput): SummaryResult {
+  const sentences: [string, string] = [sentenceOne(i), sentenceTwo(i)];
   return { sentences, text: sentences.join(" "), source: "template", failures: 0 };
 }
 
@@ -196,23 +192,21 @@ export interface SummaryValidation {
 }
 
 /** Every number and every district/code must exist in the input JSON; no banned words; exactly two sentences. */
-export function validateSummary(text: string, input: SummaryInput, lang: SummaryLang = "en"): SummaryValidation {
+export function validateSummary(text: string, input: SummaryInput): SummaryValidation {
   const strings: string[] = [];
   const pool: number[] = [];
   walk(input, strings, pool, null);
   // Years named by the precedent phrase and the counts it prints come from the input already.
   const joined = strings.join(" \u0000 ");
-  const numbers = extractNumbers(text, lang).filter((t) => !numberOk(t, pool)).map((t) => t.raw);
+  const numbers = extractNumbers(text).filter((t) => !numberOk(t, pool)).map((t) => t.raw);
   const codes = [...new Set([...(text.match(CODE_RE) ?? []), ...(text.match(SECTION_RE) ?? [])])].filter((c) => !joined.includes(c.replace(/\s/g, "")) && !joined.includes(c));
-  // Both lists always apply: a Spanish draft may slip into English words and the reverse.
-  const banned = [...BANNED_PATTERNS, ...BANNED_PATTERNS_ES].filter((b) => b.re.test(text)).map((b) => b.word);
+  const banned = BANNED_PATTERNS.filter((b) => b.re.test(text)).map((b) => b.word);
   const problems: string[] = [];
   const sentences = splitSentences(text);
   if (sentences.length !== 2) problems.push(`expected 2 sentences, got ${sentences.length}`);
-  // Spanish runs about a quarter longer than English for the same content.
-  if (text.length > (lang === "es" ? 760 : 600)) problems.push("too long");
+  if (text.length > 600) problems.push("too long");
   problems.push(...proseProblems(text, sentences));
-  problems.push(...tenureTermProblems(text, input, lang));
+  problems.push(...tenureTermProblems(text, input));
   return { ok: !numbers.length && !codes.length && !banned.length && !problems.length, numbers, codes, banned, problems };
 }
 
@@ -220,10 +214,9 @@ export function validateSummary(text: string, input: SummaryInput, lang: Summary
  * A rental's return is a yield on cost, not a margin: "margin" is only for a for-sale option. When every
  * option in the input is a rental, a draft that says "margin" is rejected (the template says "yield on cost").
  */
-export function tenureTermProblems(text: string, input: SummaryInput, lang: SummaryLang = "en"): string[] {
+export function tenureTermProblems(text: string, input: SummaryInput): string[] {
   const opts = [input.byRight, input.withApproval, input.lead].filter((o): o is SummaryOption => o != null && o.marginPct != null);
   if (!opts.length || opts.some((o) => o.tenure === "sale")) return [];
-  if (lang === "es") return /(^|[^\p{L}])m[aá]rgen(es)?(?![\p{L}])/iu.test(text) ? ["el rendimiento de un alquiler es un \"rendimiento sobre el costo\", no un \"margen\""] : [];
   return /\bmargins?\b/i.test(text) ? ["a rental's return is a yield on cost, not a margin: say \"yield on cost\""] : [];
 }
 
@@ -268,9 +261,8 @@ export async function resolveSummary(
   input: SummaryInput,
   draft?: (attempt: number, template: SummaryResult, lastProblems: SummaryValidation | null) => Promise<string | null>,
   maxFailures = 2,
-  lang: SummaryLang = "en",
 ): Promise<SummaryResult> {
-  const tpl = generateSummary(input, lang);
+  const tpl = generateSummary(input);
   if (!draft) return tpl;
   let failures = 0;
   let last: SummaryValidation | null = null;
@@ -283,7 +275,7 @@ export async function resolveSummary(
     }
     if (text == null) return { ...tpl, failures };
     const clean = text.replace(/\s+/g, " ").trim();
-    last = validateSummary(clean, input, lang);
+    last = validateSummary(clean, input);
     if (last.ok) {
       const [a, b] = splitSentences(clean) as [string, string];
       return { sentences: [a, b], text: clean, source: "ai", failures };

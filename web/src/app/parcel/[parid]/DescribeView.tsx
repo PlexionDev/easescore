@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { quickfit } from "@easescore/engine";
 import type { ViewMode } from "./ViewModes";
-import { useLocale, useT } from "@/lib/i18n/client";
 
 // "Describe this view": the map and 3D views in words, built from the same numbers they draw (lot, hazards,
 // setbacks, the studied building). A screen-reader or keyboard user gets what the picture shows, and
@@ -75,11 +74,10 @@ export function describeParcelView(p: {
 
 /** The toggle, placed in the view switch row (never under the floating panels). */
 export function DescribeButton({ open, onToggle, controls, btnRef }: { open: boolean; onToggle: () => void; controls: string; btnRef: React.RefObject<HTMLButtonElement | null> }) {
-  const t = useT();
   return (
-    <button ref={btnRef} type="button" aria-label={open ? t("describe.hide") : t("describe.show")} aria-expanded={open} aria-controls={controls} onClick={onToggle}
+    <button ref={btnRef} type="button" aria-label={open ? "Hide description" : "Describe this view"} aria-expanded={open} aria-controls={controls} onClick={onToggle}
       className="min-h-8 whitespace-nowrap rounded-full border border-white/40 bg-slate-900/75 px-3 py-1.5 text-sm font-semibold text-slate-100 shadow-xl backdrop-blur-md hover:bg-slate-900/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-      {open ? t("describe.hide") : <>{t("describe.showShort")}<span className="hidden lg:inline">{t("describe.showRest")}</span></>}
+      {open ? "Hide description" : <>Describe<span className="hidden lg:inline">{" this view"}</span></>}
     </button>
   );
 }
@@ -89,27 +87,23 @@ export default function DescribeView({ id, open, onClose, lines, announce, class
   id: string; open: boolean; onClose: () => void; lines: string[]; announce: string | null; className?: string;
 }) {
   const panel = useRef<HTMLElement>(null);
-  const tr = useT();
-  const es = useLocale() === "es";
   useEffect(() => { if (open) panel.current?.focus({ preventScroll: true }); }, [open]);
   const [live, setLive] = useState("");
   // Announce the new layout a moment after it settles (not every intermediate step of a slider drag).
   useEffect(() => {
     if (!announce) return;
-    const t = setTimeout(() => setLive(`${tr("describe.updated")} ${announce}`), 900);
+    const t = setTimeout(() => setLive(`Layout updated. ${announce}`), 900);
     return () => clearTimeout(t);
   }, [announce]);
   return (
     <>
       {open && (
-        <section id={id} ref={panel} aria-label={tr("describe.aria")} tabIndex={-1}
+        <section id={id} ref={panel} aria-label={"Description of the map view"} tabIndex={-1}
           onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
           className={`max-h-[55vh] overflow-y-auto rounded-2xl border border-white/50 bg-white/95 p-3 text-left text-sm leading-snug text-slate-800 shadow-xl backdrop-blur-md focus:outline-none ${className}`}>
-          {/* Spanish: the generated description stays English (lang="en"); label, note and keyboard help are Spanish. */}
-          {es && <p className="mb-1.5 text-xs text-slate-600">{tr("describe.english")}</p>}
-          <div lang={es ? "en" : undefined}>{lines.map((l, i) => <p key={i} className={i ? "mt-1.5" : "font-medium"}>{l}</p>)}</div>
+          <div>{lines.map((l, i) => <p key={i} className={i ? "mt-1.5" : "font-medium"}>{l}</p>)}</div>
           <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600">
-            {tr("describe.keys")}
+            {"Keyboard: Tab to the map, then arrow keys move (in 3D Photoreal they orbit and tilt), + and − zoom. The panel on the left and the Feasibility Study have the same numbers as text. Esc closes this."}
           </p>
         </section>
       )}

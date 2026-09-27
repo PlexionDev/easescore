@@ -2,10 +2,37 @@
 
 import type { MouseEvent, ReactNode } from "react";
 import { useInfoDialog } from "./InfoDialog";
-import { useT } from "@/lib/i18n/client";
 
-// Illustrative receipts for the example card: [displayed value]; name, source and note come from the
-// dictionary (rc.<key>.*). They describe what a real receipt cites; no parcel is behind them.
+// English text for the keyed lookups below.
+const TEXT: Record<string, string> = {
+  "rc.steep.name": "Steep land share",
+  "rc.steep.source": "Terrain mask / parcel intersection",
+  "rc.steep.note": "USGS lidar and a verified parcel boundary would be required.",
+  "rc.slope.name": "Average slope",
+  "rc.slope.source": "Slope aggregation across the parcel",
+  "rc.slope.note": "The averaging method and terrain date must be supplied.",
+  "rc.transit.name": "Frequent transit distance",
+  "rc.transit.source": "Transit stop distance",
+  "rc.transit.note": "Stop data, service frequency, date and distance method must be supplied.",
+  "rc.zoning.name": "Zoning",
+  "rc.zoning.source": "City zoning code and district map",
+  "rc.zoning.note": "The district, applicable code sections and factor calculation must be supplied.",
+  "rc.terrain.name": "Terrain",
+  "rc.terrain.source": "USGS 1-meter lidar",
+  "rc.terrain.note": "A dated terrain surface, slope calculation and scoring rule must be supplied.",
+  "rc.hazards.name": "Hazards",
+  "rc.hazards.source": "Flood, mine and landslide records",
+  "rc.hazards.note": "The mapped intersections, dataset dates and hazard rules must be supplied.",
+  "rc.access.name": "Access",
+  "rc.access.source": "Transportation and access records",
+  "rc.access.note": "The access inputs and calculation must be supplied.",
+  "rc.approvals.name": "Approvals",
+  "rc.approvals.source": "Permitting requirements and decisions",
+  "rc.approvals.note": "The applicable approval path, code sections and dated decisions must be supplied.",
+};
+
+// Illustrative receipts for the example card: [displayed value]; name, source and note are in TEXT
+// (rc.<key>.*). They describe what a real receipt cites; no parcel is behind them.
 const RECEIPTS = {
   steep: "62%",
   slope: "31%",
@@ -22,24 +49,23 @@ export type ReceiptKey = keyof typeof RECEIPTS;
 /** A fact or factor bar on the example card that opens its source receipt. */
 export function ReceiptButton({ id, className, children }: { id: ReceiptKey; className?: string; children: ReactNode }) {
   const show = useInfoDialog();
-  const t = useT();
   return (
     <button
       type="button"
       className={className}
       onClick={() => {
         const value = RECEIPTS[id];
-        show(t("rc.sourceReceipt", { name: t(`rc.${id}.name`) }), (
+        show(`${TEXT[`rc.${id}.name`]} · Source receipt`, (
           <>
-            <span className="tag">{t("rc.tag")}</span>
+            <span className="tag">Illustrative value · Unverified</span>
             <dl>
-              <dt>{t("rc.displayed")}</dt><dd>{value}</dd>
-              <dt>{t("rc.origin")}</dt><dd>{t("rc.originValue")}</dd>
-              <dt>{t("rc.sourceNeeded")}</dt><dd>{t(`rc.${id}.source`)}</dd>
-              <dt>{t("rc.sourceDate")}</dt><dd>{t("rc.notSupplied")}</dd>
+              <dt>Displayed value</dt><dd>{value}</dd>
+              <dt>Value origin</dt><dd>Illustrative example on this page</dd>
+              <dt>Source needed</dt><dd>{TEXT[`rc.${id}.source`]}</dd>
+              <dt>Source date</dt><dd>Not supplied</dd>
             </dl>
-            <p>{t(`rc.${id}.note`)}</p>
-            <p>{t("rc.demo")}</p>
+            <p>{TEXT[`rc.${id}.note`]}</p>
+            <p>This demonstrates a source receipt. It is not evidence about any real parcel.</p>
           </>
         ));
       }}
@@ -51,7 +77,6 @@ export function ReceiptButton({ id, className, children }: { id: ReceiptKey; cla
 
 /** "Open the full report" on the example card: for now it returns to the example and focuses its first factor. */
 export function ExampleReportLink() {
-  const t = useT();
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -60,7 +85,7 @@ export function ExampleReportLink() {
   };
   return (
     <a className="report-link" href="#example-parcel" onClick={onClick}>
-      {t("ex.reportLink")} <span aria-hidden="true">↗</span>
+      {"Open the full report"} <span aria-hidden="true">↗</span>
     </a>
   );
 }

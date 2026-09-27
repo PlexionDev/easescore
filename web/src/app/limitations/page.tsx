@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Shell from "../_docs/Shell";
 import d from "../_docs/docs.module.css";
-import { getLocale } from "@/lib/i18n/server";
-import LimitationsEs from "./LimitationsEs";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return (await getLocale()) === "es"
-    ? { title: "Limitaciones — EaseScore.AI", description: "Lo que EaseScore.AI no sabe, dónde sus datos son antiguos o parciales, a quién puede ayudar o perjudicar, y lo que no es." }
-    : { title: "Limitations — EaseScore.AI", description: "What EaseScore.AI does not know, where its data is old or partial, who it may help or harm, and what it is not." };
-}
+export const metadata: Metadata = {
+  title: "Limitations — EaseScore.AI",
+  description: "What EaseScore.AI does not know, where its data is old or partial, who it may help or harm, and what it is not.",
+};
 
 const GAPS: { what: string; detail: string; vintage: string }[] = [
   {
@@ -125,9 +122,7 @@ const TOC: [string, string][] = [
   ["terms", "Third-party terms"],
 ];
 
-export default async function LimitationsPage() {
-  // Spanish (language menu): the full Spanish page. When this English page changes, update LimitationsEs.tsx too.
-  if ((await getLocale()) === "es") return <LimitationsEs />;
+export default function LimitationsPage() {
   return (
     <Shell current="limitations">
       <section className={d.pageHead} aria-labelledby="page-title">
