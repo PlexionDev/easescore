@@ -7,13 +7,43 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 const headers = { apikey: KEY, "Content-Type": "application/json" };
 
+/** One RPC call. `error` is true on an HTTP or network error (e.g. a statement timeout), false when the call worked. */
+async function rpcResult<T>(fn: string, body: Record<string, unknown>): Promise<{ data: T | null; error: boolean }> {
+  try {
+    const r = await fetch(`${URL}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(body), cache: "no-store" });
+    if (!r.ok) return { data: null, error: true };
+    return { data: (await r.json()) as T, error: false };
+  } catch {
+    return { data: null, error: true };
+  }
+}
+
 async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T | null> {
-  const r = await fetch(`${URL}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(body), cache: "no-store" });
-  if (!r.ok) return null;
-  return (await r.json()) as T;
+  return (await rpcResult<T>(fn, body)).data;
 }
 
 export const parcelFacts = (parid: string) => rpc<Record<string, unknown>>("parcel_facts", { p_parid: parid });
+
+/**
+ * Parcel facts, keeping a data error apart from "no such parcel": one retry after an error.
+ * `error: true` means the facts could not be read right now (not that the parcel is missing).
+ */
+export async function parcelFactsChecked(parid: string): Promise<{ facts: Record<string, unknown> | null; error: boolean }> {
+  let r = await rpcResult<Record<string, unknown>>("parcel_facts", { p_parid: parid });
+  if (r.error) r = await rpcResult<Record<string, unknown>>("parcel_facts", { p_parid: parid });
+  return { facts: r.data, error: r.error };
+}
+
+/** Whether the parcel ID exists (primary-key lookup); null when that could not be checked. */
+export async function parcelExists(parid: string): Promise<boolean | null> {
+  try {
+    const r = await fetch(`${URL}/rest/v1/parcels?select=parid&parid=eq.${encodeURIComponent(parid)}&limit=1`, { headers: { apikey: KEY }, cache: "no-store" });
+    if (!r.ok) return null;
+    return ((await r.json()) as unknown[]).length > 0;
+  } catch {
+    return null;
+  }
+}
 export const salesComps = (parid: string) => rpc<Record<string, unknown>>("parcel_sales_comps", { p_parid: parid });
 export const rentComps = (parid: string) => rpc<Record<string, unknown>>("parcel_rent_comps", { p_parid: parid });
 export const parcelMap = (parid: string) => rpc<any>("parcel_map", { p_parid: parid });
@@ -48,7 +78,7 @@ export type SearchHit = { parid: string; house_num: string | null; address: stri
 
 // Forgiving search in the database: parcel IDs with/without dashes, map-block-lot, and addresses with
 // extra city/state/ZIP words, spelled-out suffixes, directionals, and small typos.
-export async function searchParcels(q: string): Promise<SearchHit[]> {
+export async function searchParcels(q: string, max = 25): Promise<SearchHit[]> {
   if (!q.trim()) return [];
-  return (await rpc<SearchHit[]>("search_parcels", { q, max_results: 25 })) ?? [];
+  return (await rpc<SearchHit[]>("search_parcels", { q, max_results: max })) ?? [];
 }

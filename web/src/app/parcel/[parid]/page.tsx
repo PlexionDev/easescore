@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
-import { easeInputs, parcelFacts, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
+import { easeInputs, parcelExists, parcelFactsChecked, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newCompsFor, primeRate, readCostOverrides, rehabComps, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
@@ -11,6 +11,7 @@ import ParcelShell from "./ParcelShell";
 import ParcelThumb from "./ParcelThumb";
 import SummaryText from "./SummaryText";
 import DownloadReport from "./report/DownloadReport";
+import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -83,20 +84,41 @@ function money(v: unknown) {
   return typeof v === "number" ? `$${Math.round(v).toLocaleString()}` : "—";
 }
 
+/** Shown when the parcel's data could not be read right now (never a 404 for an existing parcel). */
+function DataUnavailable({ parid }: { parid: string }) {
+  return (
+    <main className="mx-auto max-w-xl p-6">
+      <Link href="/check" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+      <h1 className="mt-4 text-xl font-bold text-slate-900">Parcel {parid}</h1>
+      <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        Some data for this parcel is temporarily unavailable. Our database is busy right now; please refresh in a moment.
+      </p>
+      <a href={`/parcel/${encodeURIComponent(parid)}`} className="mt-4 inline-block rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Refresh</a>
+    </main>
+  );
+}
+
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
   const asOf = new Date().toISOString().slice(0, 10);
-  const factsP = parcelFacts(parid);
-  const salesP = salesComps(parid);
-  const [facts, sales, rent, mapData, qfInput, ease, zba, permits, sfComps, prime, tapFees] = await Promise.all([
-    factsP, salesP, rentComps(parid), parcelMap(parid), quickfitInput(parid), easeInputs(parid),
-    factsP.then((x) => zbaGrantRates((x as ParcelFacts | null)?.zoning?.code)).catch(() => null), permitTimes(),
-    salesP.then((x) => singleFamilyComps(parid, x as assumptions.SalesCompsLike | null)).catch(() => null),
-    primeRate(),
-    factsP.then((x) => tapFeesPerHome((x as { assessment?: { is_pittsburgh?: boolean } } | null)?.assessment?.is_pittsburgh === true)).catch(() => null),
-  ]);
-  if (!facts) notFound();
+  const T = new Timing("parcel", parid);
+  const factsR = T.time("rpc_parcel_facts", parcelFactsChecked(parid));
+  const factsP = factsR.then((x) => x.facts);
+  const salesP = T.time("rpc_sales_comps", salesComps(parid));
+  const [facts, sales, rent, mapData, qfInput, ease, zba, permits, sfComps, prime, tapFees] = await T.time("data_all", Promise.all([
+    factsP, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_parcel_map", parcelMap(parid)), T.time("rpc_quickfit_input", quickfitInput(parid)), T.time("rpc_ease_inputs", easeInputs(parid)),
+    factsP.then((x) => T.time("rpc_zba", zbaGrantRates((x as ParcelFacts | null)?.zoning?.code))).catch(() => null), T.time("rpc_permit_times", permitTimes()),
+    salesP.then((x) => T.time("rpc_sf_comps", singleFamilyComps(parid, x as assumptions.SalesCompsLike | null))).catch(() => null),
+    T.time("rest_prime_rate", primeRate()),
+    factsP.then((x) => T.time("rest_tap_fees", tapFeesPerHome((x as { assessment?: { is_pittsburgh?: boolean } } | null)?.assessment?.is_pittsburgh === true))).catch(() => null),
+  ]));
+  if (!facts) {
+    // 404 only when the parcel ID truly does not exist; a data error (e.g. a database timeout) gets a retry page.
+    const exists = await T.time("rest_parcel_exists", parcelExists(parid));
+    if (exists === false) notFound();
+    return <DataUnavailable parid={parid} />;
+  }
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
   const results = evaluateRequirements(f, project);
@@ -105,7 +127,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   let easeResult: score.EaseScoreResult | null = null;
   try {
     // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
-    easeResult = score.scoreParcel(f, { quickfitInput: qfInput ?? null, easeInputs: ease, zba, permitTimes: score.isCityParcel(f) ? permits : undefined, unlocks: true });
+    easeResult = T.timeSync("score", () => score.scoreParcel(f, { quickfitInput: qfInput ?? null, easeInputs: ease, zba, permitTimes: score.isCityParcel(f) ? permits : undefined, unlocks: true }));
   } catch {
     easeResult = null;
   }
@@ -120,7 +142,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     try {
       const rehab = selected.strategy === "rehab_existing";
       const [newComps, matched] = await Promise.all([
-        newCompsFor(selected.strategy, parid, f.centroid, asOf),
+        T.time("new_construction_comps", newCompsFor(selected.strategy, parid, f.centroid, asOf)),
         rehab ? rehabComps(sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
       ]);
       const plan = assumptions.buildDevelopmentInputs({
@@ -136,7 +158,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         tapFeesPerUnit: tapFees,
         overrides: readCostOverrides(sp),
       });
-      pf = assumptions.evaluateDevelopment(plan);
+      pf = T.timeSync("proforma", () => assumptions.evaluateDevelopment(plan));
     } catch {
       pf = null;
     }
@@ -167,16 +189,17 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   let plans: PlanComparison | null = null;
   if (easeResult) {
     try {
-      plans = await comparePlans({
+      plans = await T.time("compare_plans", comparePlans({
         parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
         sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides: readCostOverrides(sp), asOf,
         known: selected ? { strategy: selected.strategy, pf } : null,
-      });
+      }));
     } catch {
       plans = null;
     }
   }
 
+  T.add("server_total", T.total());
   const a = f.assessment as (Record<string, any> & { address?: string; municipality?: string; year_built?: number | null; living_area_sqft?: number | null; lot_area_sqft?: number | null }) | undefined;
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   const counts = results.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
