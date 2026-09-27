@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_QUERY, SEARCH_ID } from "./constants";
 import type { SearchHit } from "@/lib/data";
+import { useT } from "@/lib/i18n/client";
 
-const EMPTY = "Enter an address or parcel ID.";
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 150;
 
@@ -23,7 +23,7 @@ export default function SearchBox({
   tryExample = false,
   defaultValue,
   autoFocus = false,
-  landmarkLabel = "Parcel search",
+  landmarkLabel,
 }: {
   id: string;
   /** Name of the search landmark; give each search on a page its own (axe landmark-unique). */
@@ -37,6 +37,8 @@ export default function SearchBox({
   const input = useRef<HTMLInputElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const t = useT();
+  const EMPTY = t("search.empty");
 
   const [value, setValue] = useState(defaultValue ?? "");
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -77,7 +79,7 @@ export default function SearchBox({
         const data = (await res.json()) as { hits: SearchHit[] };
         setHits(data.hits);
         setActive(-1);
-        setAnnounce(`${data.hits.length} result${data.hits.length === 1 ? "" : "s"}`);
+        setAnnounce(data.hits.length === 1 ? t("search.results1") : t("search.resultsN", { n: data.hits.length }));
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
           setHits([]);
@@ -112,7 +114,7 @@ export default function SearchBox({
       if (data.hits.length === 1) { goToHit(data.hits[0]); return; }
       setHits(data.hits);
       setActive(data.hits.length ? 0 : -1);
-      setAnnounce(`${data.hits.length} result${data.hits.length === 1 ? "" : "s"}`);
+      setAnnounce(data.hits.length === 1 ? t("search.results1") : t("search.resultsN", { n: data.hits.length }));
       input.current?.focus();
     } catch (err) {
       if ((err as { name?: string }).name !== "AbortError") setHits([]);
@@ -143,7 +145,7 @@ export default function SearchBox({
       className="search-form"
       action="/check"
       role="search"
-      aria-label={landmarkLabel}
+      aria-label={landmarkLabel ?? t("search.landmark")}
       onSubmit={(e) => {
         const el = input.current;
         if (el && !el.value.trim()) {
@@ -157,7 +159,7 @@ export default function SearchBox({
         if (el) void submitSearch(el.value.trim());
       }}
     >
-      <label className="sr-only" htmlFor={id}>Address or parcel ID</label>
+      <label className="sr-only" htmlFor={id}>{t("search.label")}</label>
       <div className="search-field-wrap" ref={wrap}>
         <div className="search-field">
           {icon && (
@@ -171,7 +173,7 @@ export default function SearchBox({
             id={id}
             name="q"
             type="search"
-            placeholder="Enter an address or parcel ID"
+            placeholder={t("search.placeholder")}
             required
             maxLength={180}
             autoComplete="street-address"
@@ -214,15 +216,15 @@ export default function SearchBox({
             }}
           />
           {shortcut && <kbd aria-hidden="true">⌘ K</kbd>}
-          <button type="submit" aria-label="Check this lot">
-            <span className="search-label">Check this lot</span>
+          <button type="submit" aria-label={t("search.submit")}>
+            <span className="search-label">{t("search.submit")}</span>
             <span aria-hidden="true">↗</span>
           </button>
         </div>
         {showDropdown && (
-          <div className="search-suggest" id={listboxId} role="listbox" aria-label="Matching parcels">
+          <div className="search-suggest" id={listboxId} role="listbox" aria-label={t("search.suggest")}>
             {loading && hits.length === 0 ? (
-              <p className="search-suggest-note">Searching…</p>
+              <p className="search-suggest-note">{t("search.searching")}</p>
             ) : hits.length ? (
               hits.map((h, i) => (
                 <button
@@ -241,7 +243,7 @@ export default function SearchBox({
                 </button>
               ))
             ) : (
-              <p className="search-suggest-note">No matches — try the parcel ID.</p>
+              <p className="search-suggest-note">{t("search.none")}</p>
             )}
           </div>
         )}
@@ -249,7 +251,7 @@ export default function SearchBox({
       </div>
       {tryExample && (
         <p className="search-hint">
-          No account needed.{" "}
+          {t("search.noAccount")}{" "}
           <button
             type="button"
             onClick={() => {
@@ -263,7 +265,7 @@ export default function SearchBox({
               scheduleSearch(EXAMPLE_QUERY);
             }}
           >
-            Try a URA-owned housing site in the Lower Hill <span aria-hidden="true">→</span>
+            {t("search.try")} <span aria-hidden="true">→</span>
           </button>
         </p>
       )}

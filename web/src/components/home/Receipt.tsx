@@ -2,17 +2,19 @@
 
 import type { MouseEvent, ReactNode } from "react";
 import { useInfoDialog } from "./InfoDialog";
+import { useT } from "@/lib/i18n/client";
 
-// Illustrative receipts for the example card. They describe what a real receipt cites; no parcel is behind them.
+// Illustrative receipts for the example card: [displayed value]; name, source and note come from the
+// dictionary (rc.<key>.*). They describe what a real receipt cites; no parcel is behind them.
 const RECEIPTS = {
-  steep: ["Steep land share", "62%", "Terrain mask / parcel intersection", "USGS lidar and a verified parcel boundary would be required."],
-  slope: ["Average slope", "31%", "Slope aggregation across the parcel", "The averaging method and terrain date must be supplied."],
-  transit: ["Frequent transit distance", "380 m", "Transit stop distance", "Stop data, service frequency, date and distance method must be supplied."],
-  zoning: ["Zoning", "70 / 100", "City zoning code and district map", "The district, applicable code sections and factor calculation must be supplied."],
-  terrain: ["Terrain", "15 / 100", "USGS 1-meter lidar", "A dated terrain surface, slope calculation and scoring rule must be supplied."],
-  hazards: ["Hazards", "65 / 100", "Flood, mine and landslide records", "The mapped intersections, dataset dates and hazard rules must be supplied."],
-  access: ["Access", "60 / 100", "Transportation and access records", "The access inputs and calculation must be supplied."],
-  approvals: ["Approvals", "55 / 100", "Permitting requirements and decisions", "The applicable approval path, code sections and dated decisions must be supplied."],
+  steep: "62%",
+  slope: "31%",
+  transit: "380 m",
+  zoning: "70 / 100",
+  terrain: "15 / 100",
+  hazards: "65 / 100",
+  access: "60 / 100",
+  approvals: "55 / 100",
 } as const;
 
 export type ReceiptKey = keyof typeof RECEIPTS;
@@ -20,23 +22,24 @@ export type ReceiptKey = keyof typeof RECEIPTS;
 /** A fact or factor bar on the example card that opens its source receipt. */
 export function ReceiptButton({ id, className, children }: { id: ReceiptKey; className?: string; children: ReactNode }) {
   const show = useInfoDialog();
+  const t = useT();
   return (
     <button
       type="button"
       className={className}
       onClick={() => {
-        const [name, value, source, note] = RECEIPTS[id];
-        show(`${name} · Source receipt`, (
+        const value = RECEIPTS[id];
+        show(t("rc.sourceReceipt", { name: t(`rc.${id}.name`) }), (
           <>
-            <span className="tag">Illustrative value · Unverified</span>
+            <span className="tag">{t("rc.tag")}</span>
             <dl>
-              <dt>Displayed value</dt><dd>{value}</dd>
-              <dt>Value origin</dt><dd>Illustrative example on this page</dd>
-              <dt>Source needed</dt><dd>{source}</dd>
-              <dt>Source date</dt><dd>Not supplied</dd>
+              <dt>{t("rc.displayed")}</dt><dd>{value}</dd>
+              <dt>{t("rc.origin")}</dt><dd>{t("rc.originValue")}</dd>
+              <dt>{t("rc.sourceNeeded")}</dt><dd>{t(`rc.${id}.source`)}</dd>
+              <dt>{t("rc.sourceDate")}</dt><dd>{t("rc.notSupplied")}</dd>
             </dl>
-            <p>{note}</p>
-            <p>This demonstrates a source receipt. It is not evidence about any real parcel.</p>
+            <p>{t(`rc.${id}.note`)}</p>
+            <p>{t("rc.demo")}</p>
           </>
         ));
       }}
@@ -48,6 +51,7 @@ export function ReceiptButton({ id, className, children }: { id: ReceiptKey; cla
 
 /** "Open the full report" on the example card: for now it returns to the example and focuses its first factor. */
 export function ExampleReportLink() {
+  const t = useT();
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -56,7 +60,7 @@ export function ExampleReportLink() {
   };
   return (
     <a className="report-link" href="#example-parcel" onClick={onClick}>
-      Open the full report <span aria-hidden="true">↗</span>
+      {t("ex.reportLink")} <span aria-hidden="true">↗</span>
     </a>
   );
 }

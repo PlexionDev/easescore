@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, type MouseEvent } from "react";
 import { SEARCH_ID } from "./constants";
+import LanguageMenu from "@/components/i18n/LanguageMenu";
+import { useT } from "@/lib/i18n/client";
 
 /** Focus the page's main parcel search, if this page has one. */
 export function focusSearch(): boolean {
@@ -33,6 +35,7 @@ export function BrandMark() {
  */
 export default function Header({ home = false }: { home?: boolean }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const base = home ? "" : "/";
 
   useEffect(() => {
@@ -57,19 +60,20 @@ export default function Header({ home = false }: { home?: boolean }) {
 
   return (
     <header className="header" id="site-header">
-      <Link className="brand" href="/" aria-label="EaseScore.AI home">
+      <Link className="brand" href="/" aria-label={t("brand.home")}>
         <BrandMark />
         <span>
           EaseScore<span className="brand-ai">.AI</span>
-          <small>Intelligent Feasibility</small>
+          <small>{t("brand.tagline")}</small>
         </span>
       </Link>
+      <LanguageMenu />
       <button
         type="button"
         className="menu-toggle"
         aria-expanded={open}
         aria-controls="main-nav"
-        aria-label={open ? "Close navigation" : "Open navigation"}
+        aria-label={open ? t("nav.close") : t("nav.open")}
         onClick={() => setOpen((o) => !o)}
       >
         <span />
@@ -77,15 +81,15 @@ export default function Header({ home = false }: { home?: boolean }) {
       </button>
       <nav
         id="main-nav"
-        aria-label="Main navigation"
+        aria-label={t("nav.main")}
         className={open ? "open" : undefined}
         onClick={(e) => { if ((e.target as Element).closest("a")) setOpen(false); }}
       >
-        <a href={`${base}#who-its-for`}>Who it’s for</a>
-        <a href={`${base}#how-it-works`}>How it works</a>
-        <a href={`${base}#data`}>Data &amp; methods</a>
+        <a href={`${base}#who-its-for`}>{t("nav.who")}</a>
+        <a href={`${base}#how-it-works`}>{t("nav.how")}</a>
+        <a href={`${base}#data`}>{t("nav.data")}</a>
         <a className="nav-cta" href={home ? `#${SEARCH_ID}` : `/#${SEARCH_ID}`} onClick={onCta}>
-          Check a lot <span aria-hidden="true">↗</span>
+          {t("nav.cta")} <span aria-hidden="true">↗</span>
         </a>
       </nav>
     </header>

@@ -1,59 +1,32 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { getT } from "@/lib/i18n/server";
+import type { Key } from "@/lib/i18n";
+
 type Seat = {
-  title: string;
-  question: string;
-  gets: string[];
+  key: "planner" | "developer" | "nonprofit" | "policy";
   href: string;
-  go: string;
   src: string;
-  alt: string;
   imgClass?: string;
 };
 
 const SEATS: Seat[] = [
-  {
-    title: "Municipal Planner",
-    question: "“Which sites can take new housing, and what’s holding the rest back?”",
-    gets: ["Compare and rank parcels", "Zoning, environmental, infrastructure and policy flags", "Filtered export for staff reports"],
-    href: "/planner", go: "Open the site finder",
-    src: "/home/images/seat-planner.webp", imgClass: "planning-photo",
-    alt: "AI-generated overhead view of a planner’s table with a parcel map marked with colored dots.",
-  },
-  {
-    title: "Small & Mid-Size Developer",
-    question: "“What can I build on this lot, and does it pencil?”",
-    gets: ["Ease Score with a receipt for every factor", "What fits by right and with approval", "Pro forma and full feasibility study"],
-    href: "/#parcel-search", go: "Check a lot",
-    src: "/home/images/seat-developer.webp",
-    alt: "AI-generated vacant hillside infill lot between brick rowhouses, with survey stakes and a small excavator.",
-  },
-  {
-    title: "Housing Nonprofit / CDC",
-    question: "“Can we build homes families can afford here, and what’s the gap?”",
-    gets: ["Rents set to income targets", "Funding gap and likely funding sources", "How to acquire public land"],
-    href: "/nonprofit", go: "Model a project",
-    src: "/home/images/seat-nonprofit.webp", imgClass: "community-photo",
-    alt: "AI-generated row of newly built modest townhomes with families moving in and a community garden next door.",
-  },
-  {
-    title: "Policy Analyst",
-    question: "“If we change this rule, how many homes does it unlock, and at what cost?”",
-    gets: ["Test zoning rules and incentives", "Homes unlocked, mapped by neighborhood", "Fiscal effect by taxing body"],
-    href: "/policy", go: "Open the simulator",
-    src: "/home/images/seat-policy.webp",
-    alt: "AI-generated empty public meeting room with a dais, microphones and a projected zoning map.",
-  },
+  { key: "planner", href: "/planner", src: "/home/images/seat-planner.webp", imgClass: "planning-photo" },
+  { key: "developer", href: "/#parcel-search", src: "/home/images/seat-developer.webp" },
+  { key: "nonprofit", href: "/nonprofit", src: "/home/images/seat-nonprofit.webp", imgClass: "community-photo" },
+  { key: "policy", href: "/policy", src: "/home/images/seat-policy.webp" },
 ];
 
-export default function AudienceDoors() {
+export default async function AudienceDoors() {
+  const { t } = await getT();
+  const k = (seat: Seat, f: string) => t(`seat.${seat.key}.${f}` as Key);
   return (
     <section className="audiences seats-section" id="who-its-for" aria-labelledby="audience-heading">
       <div className="wrap">
         <div className="seats-intro reveal">
-          <h2 id="audience-heading">Four seats, one set of facts.</h2>
-          <p>Each seat opens its own workspace, built on the same parcels, the same score and the same sources.</p>
+          <h2 id="audience-heading">{t("seats.heading")}</h2>
+          <p>{t("seats.intro")}</p>
         </div>
         <div className="seats-grid">
           {SEATS.map((s) => (
@@ -64,21 +37,21 @@ export default function AudienceDoors() {
                     src={s.src}
                     width={1200}
                     height={675}
-                    alt={s.alt}
+                    alt={k(s, "alt")}
                     className={s.imgClass}
                     loading="lazy"
                     sizes="(max-width:620px) 100vw, (max-width:1080px) 50vw, 25vw"
                   />
                 </div>
                 <div className="seat-body">
-                  <h3>{s.title}</h3>
-                  <p className="seat-q">{s.question}</p>
+                  <h3>{k(s, "title")}</h3>
+                  <p className="seat-q">{k(s, "q")}</p>
                   <ul className="seat-gets">
-                    {s.gets.map((g) => (
-                      <li key={g}>{g}</li>
+                    {(["g1", "g2", "g3"] as const).map((g) => (
+                      <li key={g}>{k(s, g)}</li>
                     ))}
                   </ul>
-                  <span className="seat-cta">{s.go} <span aria-hidden="true">↗</span></span>
+                  <span className="seat-cta">{k(s, "go")} <span aria-hidden="true">↗</span></span>
                 </div>
               </Link>
             </article>

@@ -1,10 +1,11 @@
 import { getImageProps } from "next/image";
 import SearchBox from "./SearchBox";
 import { SEARCH_ID } from "./constants";
+import { getT } from "@/lib/i18n/server";
 
-const HERO_ALT = "AI-generated aerial interpretation of Pittsburgh’s three rivers, Point State Park, downtown skyline, and green hills.";
-
-export default function Hero() {
+export default async function Hero() {
+  const { t } = await getT();
+  const HERO_ALT = t("hero.alt");
   // Art direction: a lighter crop-safe image on phones, the full-size scene elsewhere.
   const common = { alt: HERO_ALT, sizes: "100vw", fetchPriority: "high" as const, loading: "eager" as const };
   const { props: { srcSet: mobile } } = getImageProps({
@@ -24,17 +25,17 @@ export default function Hero() {
       </picture>
       <div className="hero-shade" />
       <div className="hero-content">
-        <p className="eyebrow light">Pittsburgh &amp; Allegheny County</p>
-        <h1 id="hero-title">See what it takes<br />to build.</h1>
-        <p className="hero-location">On any lot in Allegheny County.</p>
+        <p className="eyebrow light">{t("hero.eyebrow")}</p>
+        <h1 id="hero-title">{t("hero.title1")}<br />{t("hero.title2")}</h1>
+        <p className="hero-location">{t("hero.location")}</p>
         <p className="hero-description">
-          Zoning, slope, old mines, flood risk and cost,<br className="desktop-break" /> with a source behind every number.
+          {t("hero.desc1")}<br className="desktop-break" /> {t("hero.desc2")}
         </p>
         <SearchBox id={SEARCH_ID} icon shortcut tryExample />
       </div>
       <div className="hero-bottom">
-        <a href="#who-its-for">Explore what’s possible <span aria-hidden="true">↓</span></a>
-        <span>AI-generated regional imagery</span>
+        <a href="#who-its-for">{t("hero.explore")} <span aria-hidden="true">↓</span></a>
+        <span>{t("hero.imageNote")}</span>
       </div>
     </section>
   );

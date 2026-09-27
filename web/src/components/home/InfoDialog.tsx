@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useT } from "@/lib/i18n/client";
 
 type Content = { title: string; body: ReactNode };
 type Show = (title: string, body: ReactNode) => void;
@@ -14,6 +15,7 @@ export function useInfoDialog() {
 
 export default function InfoDialogProvider({ children, scopeClass }: { children: ReactNode; scopeClass?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<Element | null>(null);
   const [content, setContent] = useState<Content | null>(null);
@@ -55,7 +57,7 @@ export default function InfoDialogProvider({ children, scopeClass }: { children:
     <dialog ref={ref} aria-labelledby="dialog-title">
       <div className="dialog-header">
         <h2 id="dialog-title">{content?.title}</h2>
-        <button ref={closeRef} type="button" aria-label="Close dialog" onClick={() => ref.current?.close()}>×</button>
+        <button ref={closeRef} type="button" aria-label={t("dialog.close")} onClick={() => ref.current?.close()}>×</button>
       </div>
       <div className="dialog-body">{content?.body}</div>
     </dialog>

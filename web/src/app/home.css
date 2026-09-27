@@ -357,3 +357,9 @@ body:has(.es-home){background:#fbfcfd}
 /* Long-form docs pages keep their own stylesheet; only the header and footer come from the design. */
 .es-frame{background:#f6f7f5;font-family:var(--font-brand),system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .es-frame>.es-home{background:transparent}
+/* Language menu (components/i18n/LanguageMenu): right of the nav on desktop, beside the menu button on phones. */
+.es-home .lang-menu{order:3;border-bottom:0;flex:none}
+.es-home .lang-menu button[aria-pressed="true"]{color:#fff}
+.es-home .lang-menu summary{color:var(--ink)}
+@media(max-width:850px){.es-home .lang-menu{order:0;margin-left:auto}}
+@media(min-width:851px){.es-home .header>nav{margin-left:auto}}

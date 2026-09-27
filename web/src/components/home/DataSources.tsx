@@ -1,29 +1,24 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
 
-const SOURCES: [string, string][] = [
-  ["Allegheny County", "Parcels, assessments and sales"],
-  ["City of Pittsburgh", "Zoning map, zoning code and permits"],
-  ["USGS", "1-meter lidar for slope and terrain"],
-  ["FEMA", "Flood hazard maps"],
-  ["PA DEP", "Mine and environmental records"],
-  ["HUD and Census", "Income limits, rents and housing data"],
-];
+const SOURCES = [1, 2, 3, 4, 5, 6] as const;
 
-export default function DataSources() {
+export default async function DataSources() {
+  const { t } = await getT();
   return (
     <section className="data-section section" id="data" aria-labelledby="data-title">
       <div className="wrap data-grid">
         <div className="data-heading reveal">
-          <p className="eyebrow">Evidence you can follow</p>
-          <h2 id="data-title">Built on public records<br />you can check.</h2>
-          <p>Missing data is shown as missing. The date on every source is listed in each report.</p>
-          <Link className="text-link" href="/methods">Explore data &amp; methods <span aria-hidden="true">↗</span></Link>
+          <p className="eyebrow">{t("data.eyebrow")}</p>
+          <h2 id="data-title">{t("data.title1")}<br />{t("data.title2")}</h2>
+          <p>{t("data.intro")}</p>
+          <Link className="text-link" href="/methods">{t("data.link")} <span aria-hidden="true">↗</span></Link>
         </div>
         <div className="sources reveal">
-          {SOURCES.map(([name, what], i) => (
-            <div key={name} className="source">
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              <div><h3>{name}</h3><p>{what}</p></div>
+          {SOURCES.map((n) => (
+            <div key={n} className="source">
+              <span>{String(n).padStart(2, "0")}</span>
+              <div><h3>{t(`data.s${n}.name`)}</h3><p>{t(`data.s${n}.what`)}</p></div>
             </div>
           ))}
         </div>
