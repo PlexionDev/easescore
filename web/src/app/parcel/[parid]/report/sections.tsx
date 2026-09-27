@@ -1580,7 +1580,7 @@ export function S11(x: Ctx) {
       <p>
         Sensitivity shows which assumption moves the result most{fn(x, "finance_engine")}. {sv.moves.join(" ")}{fn(x, "cost_config")}
       </p>
-      <div className="tcap">Table {t}. Scenario comparison ({sale ? "built to sell" : "built to rent"})</div>
+      <div className="tcap">Table {t}. Sensitivity scenarios, not the estimate&apos;s range ({sale ? "built to sell" : "built to rent"})</div>
       <table>
         <thead><tr><th>Measure</th>{sv.scenarios.map((sc) => <th key={sc.id} className="num">{sc.label}</th>)}</tr></thead>
         <tbody>
@@ -1589,6 +1589,19 @@ export function S11(x: Ctx) {
           <tr><td>{sv.ratioLabel}</td>{sv.scenarios.map((sc) => <td key={sc.id} className="num">{sc.ratio != null ? `${sc.ratio < 0 ? "−" : ""}${pct(Math.abs(sc.ratio), 1)}` : "—"}</td>)}</tr>
         </tbody>
       </table>
+      {(() => {
+        // The range the parcel page, metrics bar and Section 9 show comes from each input's documented range
+        // (combined as independent uncertainties); these scenarios move three inputs together instead.
+        const rg = m.proForma.ranges;
+        const ratio = sale ? rg.sale.marginPct : rg.rent.yieldOnCostPct;
+        const pr = (v: number) => `${v < 0 ? "−" : ""}${num(Math.abs(v), 1)}%`;
+        return rg.tdc && ratio ? (
+          <p className="small">
+            These scenarios are what-ifs that move construction cost, {sale ? "sale price" : "rent"} and the interest rate together. The estimate&apos;s range shown on the parcel page
+            comes from each input&apos;s documented range instead: total cost {money(rg.tdc.low)} to {money(rg.tdc.high)}, {sale ? "profit margin" : "yield on cost"} {pr(ratio.low)} to {pr(ratio.high)} (likely {pr(ratio.likely)}).
+          </p>
+        ) : null;
+      })()}
       <figure>
         {sv.base != null && rows.some((r) => r.valueAtLow != null || r.valueAtHigh != null) ? (
           <Tornado rows={rows} base={sv.base} money={(n) => money(n)} />
