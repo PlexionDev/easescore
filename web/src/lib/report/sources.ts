@@ -14,7 +14,7 @@ export function buildSources(m: ReportModel): CiteRegistry {
   const rules = f.zoning?.rules as { citation?: string | null } | null | undefined;
 
   c.define("assessment", { title: "Property Assessments", publisher: "Allegheny County Office of Property Assessments", date: a?.as_of ? `as of ${a.as_of}` : NOT_RECORDED, url: "https://data.wprdc.org/dataset/property-assessments", note: "Address, lot size, use, assessed values, year built, condition, owner category (never names)." });
-  c.define("parcels", { title: "Parcel boundaries (GIS)", publisher: "Allegheny County", date: NOT_RECORDED, note: "Lot outline, GIS lot area and the lot plan in Figure 2." });
+  c.define("parcels", { title: "Parcel boundaries (GIS)", publisher: "Allegheny County", date: NOT_RECORDED, note: "Lot outline, GIS lot area and the site plan (sheet EA-101)." });
   c.define("zoning", { title: "Zoning districts", publisher: "City of Pittsburgh Department of City Planning", date: NOT_RECORDED });
   c.define("zoning_rules", { title: "Pittsburgh Zoning Code, Title Nine (transcribed rules table)", publisher: "City of Pittsburgh", date: "code as transcribed Sept. 2026", url: "https://library.municode.com/pa/pittsburgh", note: rules?.citation ? `Sections used: ${rules.citation}` : undefined });
   c.define("overlays", { title: "Zoning overlays and Registered Community Organizations", publisher: "City of Pittsburgh", date: NOT_RECORDED });

@@ -50,26 +50,26 @@ export function LotPlan({
   const legendX = W - 150;
 
   const legend: { swatch: ReactNode; label: string }[] = [
-    { swatch: <rect width="14" height="10" fill="none" stroke="#8a6d1d" strokeWidth="2" />, label: "Lot line" },
+    { swatch: <rect width="14" height="10" fill="none" stroke={INK} strokeWidth="2" />, label: "Lot line" },
     { swatch: <line x1="0" y1="5" x2="14" y2="5" stroke={INK} strokeWidth="4" />, label: "Street frontage" },
-    { swatch: <rect width="14" height="10" fill="#2f855a" fillOpacity="0.18" stroke="#2f855a" strokeDasharray="3 2" />, label: "Buildable area" },
-    ...(masks.some((mm) => mm.mode === "flag") ? [{ swatch: <rect width="14" height="10" fill="#c05621" fillOpacity="0.22" />, label: "Review overlay" }] : []),
-    ...(masks.some((mm) => mm.mode === "cut") ? [{ swatch: <rect width="14" height="10" fill="#2b6cb0" fillOpacity="0.25" />, label: "Removed (floodway)" }] : []),
+    { swatch: <rect width="14" height="10" fill="#6b7785" fillOpacity="0.12" stroke="#555c65" strokeDasharray="3 2" />, label: "Buildable area" },
+    ...(masks.some((mm) => mm.mode === "flag") ? [{ swatch: <rect width="14" height="10" fill="#8a939c" fillOpacity="0.3" />, label: "Review overlay" }] : []),
+    ...(masks.some((mm) => mm.mode === "cut") ? [{ swatch: <rect width="14" height="10" fill="#234e70" fillOpacity="0.25" />, label: "Removed (floodway)" }] : []),
     ...(footprints.length ? [{ swatch: <rect width="14" height="10" fill="#234e70" />, label: "Scheme footprint" }] : []),
   ];
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Plan of the lot, its buildable area and the studied footprint" style={{ fontFamily: "inherit" }}>
-      <rect x="0" y="0" width={W} height={H} fill="#fbfaf7" />
+      <rect x="0" y="0" width={W} height={H} fill="#fff" />
       {masks.map((mm, i) =>
         mm.polygon.map((r, j) => (
-          <path key={`m${i}-${j}`} d={path(r)} fill={mm.mode === "cut" ? "#2b6cb0" : "#c05621"} fillOpacity={mm.mode === "cut" ? 0.25 : 0.14} stroke="none" />
+          <path key={`m${i}-${j}`} d={path(r)} fill={mm.mode === "cut" ? "#234e70" : "#8a939c"} fillOpacity={mm.mode === "cut" ? 0.25 : 0.22} stroke="none" />
         )),
       )}
       {envelope.map((poly, i) =>
-        poly.map((r, j) => <path key={`e${i}-${j}`} d={path(r)} fill="#2f855a" fillOpacity="0.16" stroke="#2f855a" strokeDasharray="5 3" strokeWidth="1.2" />),
+        poly.map((r, j) => <path key={`e${i}-${j}`} d={path(r)} fill="#6b7785" fillOpacity="0.1" stroke="#555c65" strokeDasharray="5 3" strokeWidth="1.2" />),
       )}
-      <path d={path(parcel)} fill="none" stroke="#8a6d1d" strokeWidth="2.2" />
+      <path d={path(parcel)} fill="none" stroke={INK} strokeWidth="2.2" />
       {frontEdges.map((i) => {
         const a = parcel[i]!;
         const b = parcel[(i + 1) % n]!;
@@ -107,10 +107,10 @@ export function LotPlan({
 
 export function SlopeBar({ over15, over25, over40 }: { over15: number; over25: number; over40: number }) {
   const parts = [
-    { label: "Under 15%", share: Math.max(0, 1 - over15), color: "#c6dbb2" },
-    { label: "15–25%", share: Math.max(0, over15 - over25), color: "#e8d18a" },
-    { label: "25–40%", share: Math.max(0, over25 - over40), color: "#d9894a" },
-    { label: "Over 40%", share: Math.max(0, over40), color: "#a33a26" },
+    { label: "Under 15%", share: Math.max(0, 1 - over15), color: "#eceef0" },
+    { label: "15–25%", share: Math.max(0, over15 - over25), color: "#c9ced4" },
+    { label: "25–40%", share: Math.max(0, over25 - over40), color: "#7f8b97" },
+    { label: "Over 40%", share: Math.max(0, over40), color: "#2f3740" },
   ];
   const W = 640;
   const barW = 600;
@@ -124,7 +124,7 @@ export function SlopeBar({ over15, over25, over40 }: { over15: number; over25: n
           <g key={p.label}>
             <rect x={x} y="18" width={w} height="34" fill={p.color} />
             {w > 44 && (
-              <text x={x + w / 2} y="40" fontSize="13" textAnchor="middle" fill={p.label === "Over 40%" ? "#fff" : INK} fontWeight="600">
+              <text x={x + w / 2} y="40" fontSize="13" textAnchor="middle" fill={p.label === "Over 40%" || p.label === "25–40%" ? "#fff" : INK} fontWeight="600">
                 {fmt(p.share * 100)}%
               </text>
             )}
@@ -189,7 +189,7 @@ export function CompsScatter({ comps, median }: { comps: { date: string; ppsf: n
         </g>
       )}
       {pts.map((p, i) => (
-        <circle key={i} cx={X(p.date)} cy={Y(p.ppsf)} r="4" fill="#b7791f" fillOpacity="0.8" stroke="#fff" strokeWidth="0.8" />
+        <circle key={i} cx={X(p.date)} cy={Y(p.ppsf)} r="4" fill={INK} fillOpacity="0.75" stroke="#fff" strokeWidth="0.8" />
       ))}
     </svg>
   );
@@ -293,8 +293,8 @@ export function CapitalStack({ uses, sources, money }: { uses: { label: string; 
   const top = 24;
   const barH = H - top - 16;
   const total = Math.max(1, uses.reduce((t, u) => t + u.amount, 0), sources.reduce((t, s) => t + s.amount, 0));
-  const USE_COLORS = ["#8aa1b8", "#234e70", "#5b7fa3", "#c9a227", "#b86b4b"];
-  const SRC_COLORS: Record<string, string> = { debt: "#234e70", equity: "#c9a227", subsidy: "#3f8f6b" };
+  const USE_COLORS = ["#c9ced4", "#234e70", "#7f8b97", "#4a5561", "#a9b2bb"];
+  const SRC_COLORS: Record<string, string> = { debt: "#234e70", equity: "#8a939c", subsidy: "#4a5561" };
   const stack = (items: { label: string; amount: number }[], x: number, colors: (i: number) => string, labelSide: "left" | "right") => {
     let y = top;
     return items.map((it, i) => {

@@ -15,10 +15,12 @@
 }
 
 .rpt {
-  --ink: #1f2933;
-  --muted: #5f6b7a;
-  --rule: #d4d9df;
-  --soft: #f4f2ec;
+  /* Print palette: black and dark-gray text on white, light rules, one accent (used sparingly).
+     Red and amber only mark flags; nothing prints as a filled background. */
+  --ink: #1a1d21;
+  --muted: #555c65;
+  --rule: #c9ced4;
+  --soft: #ffffff;
   --accent: #234e70;
   --red: #9b2c2c;
   --red-bg: #fdf1ef;
@@ -74,14 +76,14 @@
   letter-spacing: -0.01em;
   margin: 0 0 0.12in;
   padding-bottom: 0.08in;
-  border-bottom: 2px solid var(--accent);
-  color: var(--accent);
+  border-bottom: 1.2px solid var(--ink);
+  color: var(--ink);
 }
 .rpt section.sec > h1 {
   break-after: avoid;
 }
 .rpt section.sec > h1 .secno {
-  color: var(--muted);
+  color: var(--accent);
   font-weight: 500;
   margin-right: 0.12in;
 }
@@ -95,7 +97,7 @@
   font-size: 10.5pt;
   font-weight: 600;
   margin: 0.16in 0 0.04in;
-  color: var(--accent);
+  color: var(--ink);
   break-after: avoid;
 }
 .rpt p {
@@ -163,10 +165,18 @@
 .rpt tr {
   break-inside: avoid;
 }
+/* Short tables (under 16 body rows) move to the next page whole instead of leaving one or two rows behind. */
+.rpt table:not(:has(> tbody > tr:nth-child(16))) {
+  break-inside: avoid;
+}
+.rpt h2 + p,
+.rpt h3 + p {
+  break-before: avoid;
+}
 .rpt th {
   text-align: left;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--ink);
   font-size: 7.5pt;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -222,7 +232,7 @@
 }
 .rpt .slot {
   border: 1px dashed var(--rule);
-  background: var(--soft);
+  background: #fff;
   color: var(--muted);
   font-family: var(--font-sans), Arial, sans-serif;
   font-size: 8.5pt;
@@ -232,8 +242,9 @@
 
 /* Callouts */
 .rpt .callout {
-  border-left: 3px solid var(--rule);
-  background: var(--soft);
+  border: 0.6px solid var(--rule);
+  border-left: 3px solid #8a939c;
+  background: #fff;
   padding: 7px 10px;
   margin: 0 0 0.08in;
   break-inside: avoid;
@@ -243,23 +254,20 @@
   font-size: 9.5pt;
 }
 .rpt .callout.red {
-  border-color: var(--red);
-  background: var(--red-bg);
+  border-left-color: var(--red);
 }
 .rpt .callout.red .callout-title {
   color: var(--red);
 }
 .rpt .callout.amber {
-  border-color: #c77d2e;
-  background: var(--amber-bg);
+  border-left-color: #c77d2e;
 }
 .rpt .callout.amber .callout-title {
   color: var(--amber);
 }
 .rpt .callout.pending {
-  border: 1px dashed #9aa5b1;
+  border: 0.8px dashed #9aa5b1;
   border-left-width: 3px;
-  background: #fafbfc;
 }
 .rpt .callout.pending .callout-title {
   color: var(--muted);
@@ -278,14 +286,15 @@
   padding: 1px 5px;
   white-space: nowrap;
 }
-.rpt .pill.REQUIRED { background: #f6d6d3; color: #7f1d1d; }
-.rpt .pill.LIKELY { background: #fbe3c8; color: #7c3d0c; }
-.rpt .pill.POSSIBLE { background: #f7efc4; color: #6b5510; }
-.rpt .pill.ASK { background: #d9e8f5; color: #1e4a73; }
-.rpt .pill.NOT_NEEDED { background: #eceff2; color: #56606b; }
-.rpt .pill.ok { background: #d8efe1; color: #1f5a3a; }
-.rpt .pill.no { background: #f6d6d3; color: #7f1d1d; }
-.rpt .pill.wait { background: #eceff2; color: #56606b; }
+.rpt .pill { border: 0.7px solid currentColor; background: #fff; }
+.rpt .pill.REQUIRED { color: #8b1c1c; }
+.rpt .pill.LIKELY { color: #8a4b0f; }
+.rpt .pill.POSSIBLE { color: #6b5510; }
+.rpt .pill.ASK { color: #234e70; }
+.rpt .pill.NOT_NEEDED { color: #56606b; }
+.rpt .pill.ok { color: #1f5a3a; }
+.rpt .pill.no { color: #8b1c1c; }
+.rpt .pill.wait { color: #56606b; }
 
 .rpt .assume {
   font-family: var(--font-sans), Arial, sans-serif;
@@ -303,7 +312,7 @@
 }
 .rpt .answer {
   border: 0.8px solid var(--rule);
-  border-top: 3px solid var(--accent);
+  border-top: 2px solid var(--ink);
   padding: 8px 10px;
   break-inside: avoid;
 }
@@ -445,8 +454,9 @@
   gap: 0.2in;
 }
 .rpt .sources li {
-  font-size: 8.5pt;
-  margin-bottom: 5px;
+  font-size: 8pt;
+  line-height: 1.4;
+  margin-bottom: 3px;
   break-inside: avoid;
 }
 .rpt .sources a,

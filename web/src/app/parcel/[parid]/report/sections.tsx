@@ -208,7 +208,7 @@ export function Cover(x: Ctx) {
                 frontEdges={m.qfInput.frontEdges}
               />
             </div>
-            <figcaption>Lot plan with the buildable area and the studied footprint (see Figure 2).</figcaption>
+            <figcaption>Lot plan with the buildable area and the studied footprint. The true-scale site plan is sheet EA-101 in Section 3.</figcaption>
           </figure>
         ) : (
           <div className="slot">Map figure: use “Capture view” in the app to add one.</div>
@@ -554,14 +554,15 @@ export function S3(x: Ctx) {
   const slide = overlay(m, "landslide_prone_pgh");
   const under = overlay(m, "undermined_pgh");
   const rco = f.overlays?.filter((o) => o.layer === "zoning_overlay_pgh" && /^RCO/i.test(o.label ?? "")) ?? [];
-  const planFig = m.qfInput?.parcel?.length ? x.fig() : 0;
+  // With the site plan sheet, its figure number is taken where the sheet sits (end of this section).
+  const planFig = !m.sitePlan && m.qfInput?.parcel?.length ? x.fig() : 0;
   const slopeFig = s1 ? x.fig() : 0;
   const tHaz = x.tab();
   const env = m.ease?.env_sites;
   const tInfo = x.tab();
 
   return (
-    <Sec id="s3" no="3" title="Site analysis">
+    <Sec flow id="s3" no="3" title="Site analysis">
       <h2>3.1 Location and neighborhood</h2>
       <p>
         {titleCase(a?.address)} is in {f.context?.neighborhood ?? "an unnamed neighborhood"}, {titleCase(a?.municipality)}{fn(x, "assessment", "context")}.
@@ -606,23 +607,13 @@ export function S3(x: Ctx) {
           " No building stands on the lot in the county footprint data."
         )}
       </p>
-      {planFig > 0 && m.sitePlan ? (
-        <>
-          <p>
-            Figure {planFig} (sheet EA-101, next page) draws the lot to scale at 1&Prime; = {m.sitePlan.scaleFt}&prime;
-            {m.sitePlan.extended ? ", a smaller scale than the usual 1″ = 10′ to 40′ because the lot is large" : ""}: lot lines and dimensions, zoning setbacks,
-            the buildable area, the studied footprint, neighboring buildings, the street
-            {m.sitePlan.terrain ? ", 2-foot lidar contours, ground steeper than 25%" : ""} and mapped hazard limits. Keynotes on the sheet explain each item.
-          </p>
-          <figure className="sheet-page">
-            <div className="sheet" dangerouslySetInnerHTML={{ __html: m.sitePlan.svg }} />
-            <figcaption>
-              <b>Figure {planFig}.</b> Site plan, sheet EA-101 (screening drawing from public data, not a survey)
-              {fn(x, "parcels", "zoning_rules", "quickfit", "buildings", "streets", "slope_1m", "overlays")}. Street curb, walk and right-of-way widths are typical-width
-              assumptions, not surveyed.
-            </figcaption>
-          </figure>
-        </>
+      {m.sitePlan ? (
+        <p>
+          The site plan (sheet EA-101, at the end of this section) draws the lot to scale at 1&Prime; = {m.sitePlan.scaleFt}&prime;
+          {m.sitePlan.extended ? ", a smaller scale than the usual 1″ = 10′ to 40′ because the lot is large" : ""}: lot lines and dimensions, zoning setbacks,
+          the buildable area, the studied footprint, neighboring buildings, the street
+          {m.sitePlan.terrain ? ", 2-foot lidar contours, ground steeper than 25%" : ""} and mapped hazard limits. Keynotes on the sheet explain each item.
+        </p>
       ) : planFig > 0 && (
         <figure>
           <div className="frame">
@@ -773,6 +764,21 @@ export function S3(x: Ctx) {
           </tr>
         </tbody>
       </table>
+      {m.sitePlan
+        ? (() => {
+            const n = x.fig();
+            return (
+              <figure className="sheet-page">
+                <div className="sheet" dangerouslySetInnerHTML={{ __html: m.sitePlan.svg }} />
+                <figcaption>
+                  <b>Figure {n}.</b> Site plan, sheet EA-101 (screening drawing from public data, not a survey)
+                  {fn(x, "parcels", "zoning_rules", "quickfit", "buildings", "streets", "slope_1m", "overlays")}. Street curb, walk and right-of-way widths are
+                  typical-width assumptions, not surveyed.
+                </figcaption>
+              </figure>
+            );
+          })()
+        : null}
     </Sec>
   );
 }
@@ -788,7 +794,7 @@ export function S4(x: Ctx) {
   const lot = f.lot_area_sqft_gis ?? f.assessment?.lot_area_sqft ?? null;
   if (!f.zoning?.code || !r) {
     return (
-      <Sec id="s4" no="4" title="Zoning and approvals">
+      <Sec flow id="s4" no="4" title="Zoning and approvals">
         <Callout tone="pending" title="Zoning not loaded here">
           <p>
             Zoning rules are loaded for the City of Pittsburgh only. Confirm zoning with {titleCase(f.assessment?.municipality) || "the municipality"}.
@@ -828,7 +834,7 @@ export function S4(x: Ctx) {
   const zr = f.zoning.rules as { notes?: string | null; confidence?: string | null } | null | undefined;
 
   return (
-    <Sec id="s4" no="4" title="Zoning and approvals">
+    <Sec flow id="s4" no="4" title="Zoning and approvals">
       <p>
         The lot is zoned <b>{f.zoning.code}</b> ({titleCase(r.district_name ?? f.zoning.type)}){fn(x, "zoning")}. The rules below are transcribed from the Pittsburgh
         Zoning Code{fn(x, "zoning_rules")}; transcription confidence: {zr?.confidence ?? "not recorded"}.
@@ -946,7 +952,7 @@ export function S5(x: Ctx) {
   const tabOf = (ph: string) => tabs.find((t) => t[0] === ph)?.[1];
 
   return (
-    <Sec id="s5" no="5" title="Process and timeline">
+    <Sec flow id="s5" no="5" title="Process and timeline">
       <p>
         Our requirements engine checks {m.requirements.length} possible steps against this lot and project{fn(x, "requirements")}:{" "}
         {["REQUIRED", "LIKELY", "POSSIBLE", "ASK", "NOT_NEEDED"].filter((k) => counts[k]).map((k) => `${counts[k]} ${STATUS_TEXT[k]!.toLowerCase()}`).join(", ")}. “Required” means a cited law or rule
@@ -1052,7 +1058,7 @@ export function S6(x: Ctx) {
   const mk = m.ease?.market;
   const zChange = r?.zori?.rent_12m_ago ? r.zori.latest_rent / r.zori.rent_12m_ago - 1 : null;
   return (
-    <Sec id="s6" no="6" title="Market analysis">
+    <Sec flow id="s6" no="6" title="Market analysis">
       <h2>Sales comparables</h2>
       {s ? (
         <>
@@ -1633,7 +1639,7 @@ export function S12(x: Ctx) {
   const tG = x.tab();
   const permission = m.scheme?.permission;
   return (
-    <Sec id="s12" no="12" title="Risks and mitigations">
+    <Sec flow id="s12" no="12" title="Risks and mitigations">
       <h2>Red flags</h2>
       <p className="small muted">Only three things are red flags: the FEMA floodway, no legal access, or an active contamination site on the parcel.</p>
       {flags.length ? (
@@ -1985,7 +1991,7 @@ export function AppE(x: Ctx) {
   const gaps = dataGaps(m);
   const noDate = x.c.list().filter((s) => (s.date ?? NOT_RECORDED) === NOT_RECORDED).length;
   return (
-    <Sec id="appE" no="E" title="Limitations">
+    <Sec flow id="appE" no="E" title="Limitations">
       <h2>What this study is and is not</h2>
       <p>
         It is a screening study built from public data and published rules, computed the same way every time. It is not an appraisal, a zoning determination, a
@@ -2287,7 +2293,7 @@ export function S14(x: Ctx) {
   const cited = x.c.list();
   const t = x.tab();
   return (
-    <Sec id="s14" no="14" title="Limiting conditions">
+    <Sec flow id="s14" no="14" title="Limiting conditions">
       <p>This study rests on the assumptions and limits below. Read the results with them in mind.</p>
       <h2>What the analysis assumes</h2>
       <ul>
