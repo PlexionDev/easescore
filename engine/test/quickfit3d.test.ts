@@ -187,14 +187,15 @@ describe("Hillside stepping in the pro forma (assumptions builder input)", () =>
     const l = p.lines.filter((x) => x.id === "slope_adder");
     expect(l).toHaveLength(1);
     expect(l[0]!.label).toMatch(/Stepped foundation/);
-    expect(l[0]!.amount).toBe(assumptions.COST_CONFIG.siteAdders.steepSlope.value * p.finishedSf!);
+    // Priced on the footprint (1,000 sq ft), not the finished area of every floor.
+    expect(l[0]!.amount).toBe(assumptions.COST_CONFIG.siteAdders.steepSlope.value * 1000);
     expect(p.stepping?.pricedBy).toBe("stepping");
   });
 
   it("replaces (never adds to) the moderate-slope adder", () => {
     const p = base(f(12, 0), ST);
     expect(p.lines.filter((x) => x.id === "slope_adder")).toHaveLength(1);
-    expect(p.adders.map((a) => a.id)).toEqual(["steep_slope"]);
+    expect(p.adders.map((a) => a.id)).toEqual(["steep_slope", "retaining_walls"]);
   });
 
   it("adds nothing when the lot already gets the steep-slope adder", () => {

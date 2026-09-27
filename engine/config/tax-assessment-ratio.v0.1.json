@@ -1,0 +1,82 @@
+{
+ "_note": "County assessed value (county_total, the value the tax bill uses) of new homes built 2019 or later ÷ the price of their first valid sale after completion. Groups: City of Pittsburgh or rest of County × detached (single family) or attached (townhouse, rowhouse). ratio is [25th, median, 75th percentile]. City building-permit values for the same homes are shown as a diagnostic only and never used. Source: Allegheny County Property Assessments, Property Sale Transactions; City of Pittsburgh PLI permits. Regenerate with node scripts/cost_tables.mjs.",
+ "asOf": "2026-09-27",
+ "builtFrom": 2019,
+ "minSales": 20,
+ "groups": {
+  "county_attached": {
+   "sales": 278,
+   "soldFrom": "2019-09-04",
+   "soldTo": "2026-08-06",
+   "builtFrom": 2019,
+   "builtTo": 2025,
+   "ratio": [
+    0.536,
+    0.597,
+    0.65
+   ],
+   "permitDiagnostic": null
+  },
+  "county_detached": {
+   "sales": 387,
+   "soldFrom": "2020-02-08",
+   "soldTo": "2026-08-03",
+   "builtFrom": 2019,
+   "builtTo": 2025,
+   "ratio": [
+    0.503,
+    0.568,
+    0.643
+   ],
+   "permitDiagnostic": null
+  },
+  "city_attached": {
+   "sales": 38,
+   "soldFrom": "2020-09-11",
+   "soldTo": "2026-07-03",
+   "builtFrom": 2019,
+   "builtTo": 2024,
+   "ratio": [
+    0.439,
+    0.501,
+    0.608
+   ],
+   "permitDiagnostic": {
+    "permits": 9,
+    "medianPermitValueToPrice": 0.278
+   }
+  },
+  "city_detached": {
+   "sales": 51,
+   "soldFrom": "2020-07-30",
+   "soldTo": "2026-07-03",
+   "builtFrom": 2019,
+   "builtTo": 2025,
+   "ratio": [
+    0.467,
+    0.521,
+    0.621
+   ],
+   "permitDiagnostic": {
+    "permits": 26,
+    "medianPermitValueToPrice": 0.29
+   }
+  },
+  "all": {
+   "sales": 754,
+   "soldFrom": "2019-09-04",
+   "soldTo": "2026-08-06",
+   "builtFrom": 2019,
+   "builtTo": 2025,
+   "ratio": [
+    0.507,
+    0.576,
+    0.642
+   ],
+   "permitDiagnostic": {
+    "permits": 35,
+    "medianPermitValueToPrice": 0.29
+   }
+  }
+ }
+}

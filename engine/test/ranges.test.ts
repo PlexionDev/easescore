@@ -39,17 +39,27 @@ describe("ranges: no false precision", () => {
       const step = l.group === "total" ? 10000 : 1000;
       for (const x of [l.range.low, l.range.likely, l.range.high]) expect(Math.abs(x % step)).toBe(0);
     }
-    for (const t of [g.tdc, g.sale.profit, g.sale.grossSales, g.sale.netSales]) for (const x of Object.values(t!)) expect(Math.abs(x % 10000)).toBe(0);
+    for (const t of [g.tdc, g.sale.grossSales, g.sale.netSales]) for (const x of Object.values(t!)) expect(Math.abs(x % 10000)).toBe(0);
+    // Profit's low / high to $10,000; its "likely" is the exact difference of the rounded figures (sales − selling − cost), to $1,000.
+    for (const x of [g.sale.profit!.low, g.sale.profit!.high]) expect(Math.abs(x % 10000)).toBe(0);
+    expect(g.sale.profit!.likely).toBe(res.sale.profit);
+    expect(Math.abs(g.sale.profit!.likely % 1000)).toBe(0);
     for (const x of Object.values(g.sale.marginPct!)) expect(Math.round(x * 10) / 10).toBe(x);
     expect(Math.abs(g.tdc!.likely - res.tdc!)).toBeLessThanOrEqual(5000);
   });
 
   it("ranges come from the documented input ranges", () => {
     const hard = g.lines.find((l) => l.id === "hard_base")!;
-    expect(hard.triangulation!.used).toEqual({ low: 225, likely: 250, high: 275 });
+    expect(hard.triangulation!.used).toEqual({ low: 130, likely: 150, high: 175 });
     const slope = g.lines.find((l) => l.id === "slope_adder")!;
-    expect(slope.triangulation!.used).toEqual({ low: 40, likely: 60, high: 90 });
-    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 5, likely: 8, high: 12 });
+    // Per sq ft of building footprint.
+    expect(slope.triangulation!.unit).toBe("$/SF of footprint");
+    expect(slope.triangulation!.used).toEqual({ low: 30, likely: 45, high: 70 });
+    // Production (spec) tier: stock plans, A&E 2–5% (likely 3%).
+    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 2, likely: 3, high: 5 });
+    const good = pf("new_sf", { salePricePerSf: 300, tier: "good" }).ranges;
+    expect(good.lines.find((l) => l.id === "hard_base")!.triangulation!.used).toEqual({ low: 225, likely: 250, high: 275 });
+    expect(good.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 5, likely: 8, high: 12 });
     expect(g.tdc!.low).toBeLessThan(g.tdc!.likely);
     expect(g.tdc!.high).toBeGreaterThan(g.tdc!.likely);
   });
@@ -73,11 +83,13 @@ describe("ranges: no false precision", () => {
   });
 
   it("land and rent carry source and year", () => {
-    expect(g.land.source).toMatchObject({ kind: "data", asOf: "2026" });
-    expect(g.land.source.label).toMatch(/tax year 2026/);
-    expect(g.rent.source.label).toBe("Zillow Observed Rent Index, ZIP 15219, 2026-08");
+    // Land from vacant-land sales (never the assessed land value), with the sales' dates.
+    expect(g.land.source).toMatchObject({ kind: "data", asOf: "2019-01 to 2026-08" });
+    expect(g.land.source.label).toMatch(/^Allegheny County vacant-land sales, the City of Pittsburgh, \d+ sales/);
+    // Rent by bedroom count: a 3-bedroom for a single-family home, a 2-bedroom in a 3–4 unit building.
+    expect(g.rent.source.label).toBe("HUD Small Area Fair Market Rent FY2026, ZIP 15219 (benchmark, not listings), 3-bedroom");
     const fmrOnly = pf("three_four_unit", {}, { ...fx.rent, zori: null }).ranges.rent.source;
-    expect(fmrOnly.label).toBe("HUD Fair Market Rent FY2026, ZIP 15219, 2 bedrooms");
+    expect(fmrOnly.label).toBe("HUD Small Area Fair Market Rent FY2026, ZIP 15219 (benchmark, not listings), 2-bedroom");
     const none = pf("three_four_unit", {}, null).ranges.rent.source;
     expect(none).toMatchObject({ kind: "assumption", label: "Assumption, edit me" });
   });

@@ -72,37 +72,50 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   const hard = v(c.hard);
 
   // ---- Budget lines (same numbers the finance module totals)
-  const budget: BudgetLine[] = plan.lines.filter((l) => l.group === "land" || l.group === "hard").map((l) => ({ ...l }));
+  const own = (l: { id: string; sourceLabel: string }) => plan.userLines.includes(l.id) || l.sourceLabel === "Your number" || l.sourceLabel === "Your input";
+  const r1kLine = <T extends { id: string; sourceLabel: string; amount: number }>(l: T): T => (own(l) ? { ...l } : { ...l, amount: Math.round(l.amount / 1000) * 1000 + 0 });
+  const budget: BudgetLine[] = plan.lines.filter((l) => l.group === "land" || l.group === "hard").map(r1kLine);
+  const mine = (id: string) => plan.userLines.includes(id);
+  const r1k = (x: number | null) => (x == null ? null : Math.round(x / 1000) * 1000 + 0);
   const share = (id: string, label: string, s: number, basis: string, sourceLabel: string): BudgetLine => ({
-    id, group: "soft", label, amount: hard != null ? s * hard : null, basis, sourceLabel,
+    id, group: "soft", label, amount: hard != null ? r1k(s * hard) : null, basis: mine(id) ? "Your number" : basis, sourceLabel: mine(id) ? "Your number" : sourceLabel,
   });
   budget.push(share("ae", "Architecture and engineering", plan.shares.ae, `${pct1(plan.shares.ae)} of hard cost`, sourceOf(plan, "ae")));
   budget.push(share("permits", "Building permit and fees", plan.shares.permits, plan.shares.permitsBasis, sourceOf(plan, "permits")));
   budget.push(share("other_soft", "Survey, title, legal and insurance", plan.shares.other, `${pct1(plan.shares.other)} of hard cost`, sourceOf(plan, "other")));
-  for (const l of plan.lines.filter((x) => x.group === "soft")) budget.push({ ...l });
+  for (const l of plan.lines.filter((x) => x.group === "soft")) budget.push(r1kLine(l));
   budget.push({
-    id: "contingency", group: "contingency", label: `Contingency (${plan.shares.contingencyKind})`, amount: v(c.contingency),
-    basis: `${pct1(plan.shares.contingency)} of hard cost`, sourceLabel: sourceOf(plan, "contingency"),
+    id: "contingency", group: "contingency", label: `Contingency (${plan.shares.contingencyKind})`, amount: r1k(v(c.contingency)),
+    basis: mine("contingency") ? "Your number" : `${pct1(plan.shares.contingency)} of hard cost`, sourceLabel: mine("contingency") ? "Your number" : sourceOf(plan, "contingency"),
   });
-  budget.push({ id: "interest", group: "financing", label: "Construction loan interest", amount: v(c.constructionInterest), basis: c.constructionInterest.formula, sourceLabel: sourceOf(plan, "constructionRate") });
-  budget.push({ id: "loan_fees", group: "financing", label: "Lender fees", amount: v(c.constructionLoan) != null ? v(c.constructionLoan)! * plan.loanFeeShare : null, basis: `${pct1(plan.loanFeeShare)} of the loan`, sourceLabel: sourceOf(plan, "loanFees") });
-  budget.push({ id: "holding", group: "financing", label: "Property taxes while approving and building", amount: v(c.holdingCosts), basis: c.holdingCosts.formula, sourceLabel: "County assessment × millage" });
-  const tdc = v(c.tdc);
+  budget.push({ id: "interest", group: "financing", label: "Construction loan interest", amount: r1k(v(c.constructionInterest)), basis: c.constructionInterest.formula, sourceLabel: sourceOf(plan, "constructionRate") });
+  budget.push({ id: "loan_fees", group: "financing", label: "Lender fees", amount: v(c.constructionLoan) != null ? r1k(v(c.constructionLoan)! * plan.loanFeeShare) : null, basis: `${pct1(plan.loanFeeShare)} of the loan`, sourceLabel: sourceOf(plan, "loanFees") });
+  budget.push({ id: "holding", group: "financing", label: "Property taxes while approving and building", amount: r1k(v(c.holdingCosts)), basis: c.holdingCosts.formula, sourceLabel: "County assessment × millage" });
+  // Totals to $10,000; profit, margin and yield use the rounded figures shown.
+  const tdcRaw = v(c.tdc);
+  const tdc = tdcRaw != null ? Math.round(tdcRaw / 10000) * 10000 + 0 : null;
   budget.push({ id: "tdc", group: "total", label: "Total development cost (TDC)", amount: tdc, basis: "land + hard + soft + contingency + financing", sourceLabel: "Finance module" });
 
   // ---- Sale
   const s = forSale.sales;
-  const sale = { grossSales: v(s.grossSales), sellingCosts: v(s.sellingCosts), netSales: v(s.netSales), profit: v(s.profit), margin: v(s.profitMargin) };
+  const gs = v(s.grossSales);
+  const sellR = r1k(v(s.sellingCosts));
+  const netR = gs != null && sellR != null ? gs - sellR : null;
+  const profitR = netR != null && tdc != null ? netR - tdc : null;
+  const sale = { grossSales: gs, sellingCosts: sellR, netSales: netR, profit: profitR, margin: profitR != null && tdc ? Math.round((profitR / tdc) * 1000) / 1000 : null };
   // ---- Rent
   const inc = rental.income;
   const gpr = v(inc.gpr);
+  const vac = r1k(v(inc.vacancyLoss));
+  const opx = r1k(v(rental.opex.total));
+  const noiR = gpr != null && vac != null && opx != null ? gpr - vac - opx : r1k(v(rental.noi));
   const rent = {
     monthlyRent: gpr != null ? gpr / 12 : null,
     annualRent: gpr,
-    vacancy: v(inc.vacancyLoss),
-    opex: v(rental.opex.total),
-    noi: v(rental.noi),
-    yieldOnCost: v(rental.yieldOnCost),
+    vacancy: vac,
+    opex: opx,
+    noi: noiR,
+    yieldOnCost: noiR != null && tdc ? Math.round((noiR / tdc) * 1000) / 1000 : v(rental.yieldOnCost),
   };
 
   const thin = config.pencils.thinMarginBelow.value;
@@ -126,8 +139,8 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
       plan.land.value != null ? `${plan.strategy === "rehab_existing" ? "purchase" : "land"} ${usd(plan.land.value)}` : null,
       ...hardLines.map((x) => `${x.short ?? x.label.toLowerCase()} ${usd(x.amount!)}`),
       design.length ? `design and engineering ${usd(sumOf(design))}` : null,
-      v(c.contingency) != null ? `contingency ${usd(v(c.contingency)!)}` : null,
-      v(c.constructionInterest) != null ? `loan interest ${usd(v(c.constructionInterest)!)}` : null,
+      budget.find((b) => b.id === "contingency")?.amount != null ? `contingency ${usd(budget.find((b) => b.id === "contingency")!.amount!)}` : null,
+      budget.find((b) => b.id === "interest")?.amount != null ? `loan interest ${usd(budget.find((b) => b.id === "interest")!.amount!)}` : null,
       minor.length ? `closing, permit and carrying costs ${usd(sumOf(minor))}` : null,
     ].filter(Boolean);
     sentences.push(`Cost: ${parts.join(" + ")} = ${usd(tdc)} total.`);
@@ -137,6 +150,8 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     if (sale.grossSales != null) {
       if (plan.revenue.sale.basis === "Your sale price per home")
         sentences.push(`Value: ${usd(plan.revenue.sale.pricePerUnit!)} per home × ${u} home${u === 1 ? "" : "s"} = ${usd(sale.grossSales)} in sales.`);
+      else if (plan.rounding.sale && plan.revenue.sale.pricePerUnit != null)
+        sentences.push(`Value: ${plan.rounding.sale}; × ${u} home${u === 1 ? "" : "s"} = ${usd(sale.grossSales)} in sales.`);
       else if (plan.revenue.sale.pricePerSf != null && plan.finishedSf != null)
         sentences.push(`Value: ${usd(plan.revenue.sale.pricePerSf)} per sq ft × ${plan.finishedSf.toLocaleString("en-US")} finished sq ft = ${usd(sale.grossSales)} in sales.`);
     }
@@ -147,7 +162,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   } else {
     const units = plan.units ?? 0;
     if (plan.revenue.rent.perUnit != null && rent.annualRent != null && rent.vacancy != null)
-      sentences.push(`Rent: ${usd(plan.revenue.rent.perUnit)} a month × ${units} home${units === 1 ? "" : "s"} × 12 = ${usd(rent.annualRent)} a year; minus ${usd(rent.vacancy)} for vacancy = ${usd(rent.annualRent - rent.vacancy)} collected.`);
+      sentences.push(`Rent: ${usd(plan.revenue.rent.perUnit)} a month${plan.rounding.rent ? ` (${plan.rounding.rent})` : ""} × ${units} home${units === 1 ? "" : "s"} × 12 = ${usd(rent.annualRent)} a year; minus ${usd(rent.vacancy)} for vacancy = ${usd(rent.annualRent - rent.vacancy)} collected.`);
     if (rent.annualRent != null && rent.vacancy != null && rent.opex != null && rent.noi != null)
       sentences.push(`${usd(rent.annualRent - rent.vacancy)} collected − ${usd(rent.opex)} running costs (taxes, insurance, upkeep, management, reserves) = ${usd(rent.noi)} a year before loan payments (NOI).`);
     if (rent.noi != null && tdc != null && rent.yieldOnCost != null)
@@ -223,7 +238,20 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     sentences,
     narrative,
     benchmark: { perUnit: tdc != null ? perUnit : null, line, projects },
-    ranges: proFormaRanges(plan, budget, config),
+    ranges: alignRanges(proFormaRanges(plan, budget, config), sale, rent, tdc),
+  };
+}
+
+/** The ranges' "likely" figures equal the rounded numbers the sentences use (low <= likely <= high). */
+function alignRanges(r: ProFormaRanges, sale: ProFormaResult["sale"], rent: ProFormaResult["rent"], tdc: number | null): ProFormaRanges {
+  const fit = <T extends { low: number; likely: number; high: number }>(x: T | null, likely: number | null): T | null =>
+    x && likely != null ? { ...x, likely, low: Math.min(x.low, likely), high: Math.max(x.high, likely) } : x;
+  return {
+    ...r,
+    tdc: fit(r.tdc, tdc),
+    sale: { ...r.sale, profit: fit(r.sale.profit, sale.profit), marginPct: fit(r.sale.marginPct, sale.margin != null ? Math.round(sale.margin * 1000) / 10 : null) },
+    rent: { ...r.rent, noi: fit(r.rent.noi, rent.noi), yieldOnCostPct: fit(r.rent.yieldOnCostPct, rent.yieldOnCost != null ? Math.round(rent.yieldOnCost * 1000) / 10 : null) },
+    lines: r.lines.map((l) => (l.id === "tdc" ? { ...l, range: fit(l.range, tdc) } : l)),
   };
 }
 

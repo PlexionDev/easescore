@@ -11,9 +11,11 @@ const FLAT: Facts = {
   overlays: [],
   mines: { in_city_undermined: false, in_mined_out: false, msi_risk: null },
   site: { building_count: 0 },
-  assessment: { use: "VACANT LAND", fmv_land: 10000, fmv_total: 10000, is_pittsburgh: true },
+  assessment: { use: "VACANT LAND", fmv_land: 10000, fmv_total: 10000, is_pittsburgh: true, lot_area_sqft: 3000 },
   property_tax: { general_mills: 24 },
   transfer_tax: { total_pct: 4 },
+  owner_class: "private",
+  area: "Larimer",
 };
 const STEEP: Facts = {
   ...FLAT,
@@ -48,11 +50,15 @@ const plan = (facts: Facts, extra: Partial<assumptions.PlanArgs> = {}) =>
   buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: SCHEME, comps: COMPS, newComps: NEW, rents: RENTS, primeRate: 0.07, permitMonths: 4, tapFeesPerUnit: 1000, ...extra });
 
 describe("cost config", () => {
-  it("has a version stamp and the Good tier at $250 as the default", () => {
+  it("has a version stamp and the backtested Production (spec) tier at $150 as the default", () => {
     expect(COST_CONFIG.version).toMatch(/^cost-assumptions\.v\d/);
     const def = assumptions.tierOf(COST_CONFIG, undefined);
-    expect(def.label).toBe("Good (standard infill)");
-    expect(def.costPerSf.value).toBe(250);
+    expect(def.label).toBe("Production (spec)");
+    expect(def.costPerSf.value).toBe(150);
+    // The slider stops after it: the published Pittsburgh builder ranges.
+    expect(COST_CONFIG.construction.tiers.map((t) => `${t.label} ${t.costPerSf.range.join("–")}`)).toEqual([
+      "Production (spec) 130–175", "Basic 175–225", "Good spec 225–275", "Better 275–350", "High-end 350–450", "Custom 450–600",
+    ]);
   });
   it("labels the grouting default as owner-provided local data", () => {
     expect(COST_CONFIG.siteAdders.mineGrouting.value).toBe(40000);
@@ -128,18 +134,20 @@ describe("your own program", () => {
     const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: prog });
     expect(p.program).toMatchObject({ units: 4, footprintPerUnitSf: 400, finishedPerUnitSf: 680, garagePerUnitSf: 400, grossSf: 4800 });
     expect(p.finishedSf).toBe(2720);
-    // Tier cost: finished area at $250 + garage level at half the tier rate.
-    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 250 * 0.5);
-    expect(p.forSale.hardCost).toBe(2720 * 250 + 1600 * 125);
+    // Tier cost: finished area at $150 + garage level at half the tier rate.
+    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 150 * 0.5);
+    expect(p.forSale.hardCost).toBe(2720 * 150 + 1600 * 75);
   });
   it("uses your cost per home without double counting the garage, and adds site adders unless they are included", () => {
     const no = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000 } });
     expect(no.forSale.hardCost).toBe(800000);
     expect(no.lines.some((l) => l.id === "garage_level")).toBe(false);
-    expect(no.lines.find((l) => l.id === "slope_adder")?.amount).toBe(60 * 2720);
+    // Slope premium on the footprint (1,600 sq ft), never on the 2,720 finished sq ft of every floor.
+    expect(no.lines.find((l) => l.id === "slope_adder")?.amount).toBe(45 * 1600);
+    expect(no.lines.find((l) => l.id === "retaining_walls")?.amount).toBe(15000);
     expect(no.lines.find((l) => l.id === "hard_base")?.sourceLabel).toBe("Your number");
     const yes = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000, costIncludesSite: true } });
-    expect(yes.lines.some((l) => l.id === "slope_adder")).toBe(false);
+    expect(yes.lines.some((l) => l.id === "slope_adder" || l.id === "retaining_walls")).toBe(false);
     expect(yes.adders[0]!.reason).toBe("Steep slope under 80% of the lot → included in your per-home cost");
     expect(yes.exclusions.map((e) => e.id)).toEqual(["geotech"]);
   });
@@ -160,14 +168,18 @@ describe("site adders", () => {
   });
   it("fires the steep adder with a plain reason", () => {
     const p = plan(STEEP);
-    expect(p.adders.map((a) => a.id)).toEqual(["steep_slope"]);
-    expect(p.adders[0]!.reason).toBe("Steep slope under 80% of the lot → +$60/SF");
-    expect(p.adders[0]!.amount).toBe(60 * 1700);
+    expect(p.adders.map((a) => a.id)).toEqual(["steep_slope", "retaining_walls"]);
+    expect(p.adders[0]!.reason).toBe("Steep slope under 80% of the lot → +$45 per sq ft of footprint");
+    // Footprint 1,000 sq ft × $45, not 1,700 finished sq ft × a per-floor rate.
+    expect(p.adders[0]!.amount).toBe(45 * 1000);
+    expect(p.adders[1]!.amount).toBe(15000);
   });
   it("fires the moderate adder from the average slope", () => {
     const p = plan(MINE);
     expect(p.adders[0]!.id).toBe("moderate_slope");
-    expect(p.adders[0]!.reason).toBe("Moderate slope: the lot averages 15% (8–25%) → +$25/SF");
+    expect(p.adders[0]!.reason).toBe("Moderate slope: the lot averages 15% (8–25%) → +$20 per sq ft of footprint");
+    expect(p.adders[0]!.amount).toBe(20 * 1000);
+    expect(p.adders.some((a) => a.id === "retaining_walls")).toBe(false);
   });
   it("lists missing slope data instead of assuming flat", () => {
     const p = plan({ ...FLAT, slope_1m: null });
@@ -184,8 +196,8 @@ describe("site adders", () => {
     expect(i.minePath).toBe("insurance");
     expect(i.forSale.hardSiteLines?.grouting).toBeUndefined();
     // PA DEP chart: $3.75 + $0.25 per $1,000 of coverage; coverage = construction cost.
-    expect(i.msiCoverage).toBe(250 * 1700);
-    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 250 * 1700) / 1000, 6);
+    expect(i.msiCoverage).toBe(150 * 1700);
+    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 150 * 1700) / 1000, 6);
     expect(finance.msiAnnualPremium(i.msiCoverage).value).toBe(i.msiPremium?.value);
   });
   it("lets the user switch the mine path", () => {
@@ -200,9 +212,12 @@ describe("contingency", () => {
     expect(plan(FLAT).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.07 });
     expect(plan(STEEP).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.12 });
     expect(plan(UNDERMINED).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.12 });
-    const r = buildDevelopmentInputs({ strategy: "rehab_existing", facts: { ...FLAT, assessment: { ...FLAT.assessment, use: "SINGLE FAMILY", living_area_sqft: 1200, fmv_total: 50000 } }, scheme: null, comps: COMPS, rents: RENTS, primeRate: 0.07, permitMonths: 3 });
+    // A moderate slope alone is a normal lot: flat contingency (its footing premium is its own line).
+    expect(plan({ ...FLAT, slope_1m: { mean_pct: 12, share_over_15: 0.2, share_over_25: 0 } }).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.07 });
+    const r = buildDevelopmentInputs({ strategy: "rehab_existing", facts: { ...FLAT, assessment: { ...FLAT.assessment, use: "SINGLE FAMILY", living_area_sqft: 1200, fmv_total: 50000 } }, scheme: null, comps: COMPS, asIsComps: COMPS, rents: RENTS, primeRate: 0.07, permitMonths: 3 });
     expect(r.shares).toMatchObject({ contingencyKind: "rehab", contingency: 0.15 });
-    expect(r.land.sourceLabel).toBe("County assessed total value (not a price)");
+    // Purchase price from nearby as-is sales ($300/SF × 1,200 sq ft), never the assessed value.
+    expect(r.land).toMatchObject({ value: 360000, sourceLabel: "Nearby home sales (as-is)" });
   });
 });
 
@@ -236,25 +251,28 @@ describe("items that apply but have no cost yet", () => {
 describe("pro forma", () => {
   it("adds up: TDC equals the sum of the budget lines (hand-checked flat lot)", () => {
     const r = evaluateDevelopment(plan(FLAT));
-    const hard = 250 * 1700; // 425,000
-    const soft = hard * (0.08 + 0.006 + 0.03) + 1000; // A&E + PLI $6/$1,000 + survey/legal + tap fees
+    const hard = 150 * 1700; // 255,000
+    const soft = hard * (0.03 + 0.006 + 0.03) + 1000; // A&E (stock plans) + PLI $6/$1,000 + survey/legal + tap fees
     const contingency = hard * 0.07;
-    const land = 10000;
+    const land = 13000; // Larimer vacant-land sales: $4.46/sq ft × 3,000 sq ft = $13,380, rounded
     const before = land + hard + soft + contingency;
     const loan = 0.8 * before;
     const interest = (loan * 0.5 * 0.08 * 9) / 12; // prime 7% + 1%, 9 months, half drawn
     const fees = loan * 0.01;
     const holding = ((10000 * 24) / 1000 / 12) * (4 + 9);
     const tdc = before + interest + fees + holding;
-    expect(r.tdc).toBeCloseTo(tdc, 6);
+    // Totals to $10,000; lines to $1,000 (their sum is within rounding of the total).
+    expect(r.tdc).toBe(Math.round(tdc / 10000) * 10000);
     const parts = r.budget.filter((b) => b.group !== "total").reduce((t, b) => t + (b.amount ?? 0), 0);
-    expect(parts).toBeCloseTo(r.tdc!, 6);
-    // Sale: $300/SF × 1,700 SF, selling costs 5% broker + half of 4% transfer tax.
+    expect(Math.abs(parts - tdc)).toBeLessThanOrEqual(5000);
+    for (const b of r.budget) if (b.amount != null && b.group !== "total") expect(b.amount % 1000).toBe(0);
+    // Sale: $300/SF × 1,700 SF = $510,000 (to $5,000); selling costs 5% broker + half of 4% transfer tax, to $1,000.
     expect(r.sale.grossSales).toBe(510000);
-    expect(r.sale.sellingCosts).toBeCloseTo(510000 * 0.07, 6);
-    expect(r.sale.profit).toBeCloseTo(510000 * 0.93 - tdc, 6);
+    expect(r.sale.sellingCosts).toBe(36000);
+    // The math uses the rounded figures: sales − selling costs − total cost.
+    expect(r.sale.profit).toBe(510000 - 36000 - r.tdc!);
     expect(r.narrative).toMatchObject({ tenure: "sale", totalCost: r.tdc, value: r.sale.netSales });
-    expect(r.sentences[0]).toMatch(/^Cost: land \$10,000 \+ construction \$425,000 \+ design and engineering \$34,000 \+ contingency/);
+    expect(r.sentences[0]).toMatch(/^Cost: land \$13,000 \+ construction \$255,000 \+ design and engineering \$8,000 \+ contingency/);
   });
   it("says so plainly when there are not enough comps", () => {
     const p = plan(FLAT, { newComps: null });
@@ -269,14 +287,14 @@ describe("pro forma", () => {
   it("prices rent from the ZIP index and reports NOI and yield on cost", () => {
     const r = evaluateDevelopment(plan(FLAT, { overrides: { tenure: "rent" } }));
     expect(r.rent.annualRent).toBe(1500 * 12);
-    expect(r.rent.vacancy).toBeCloseTo(18000 * 0.05, 6);
-    expect(r.rent.noi).toBeCloseTo(18000 - r.rent.vacancy! - r.rent.opex!, 6);
+    expect(r.rent.vacancy).toBe(1000); // 5% of $18,000 = $900, to $1,000
+    expect(r.rent.noi).toBe(18000 - r.rent.vacancy! - r.rent.opex!);
     expect(r.narrative).toMatchObject({ tenure: "rent", monthlyRent: 1500, noi: r.rent.noi });
   });
   it("applies overrides and marks them as the user's", () => {
     const p = plan(FLAT, { overrides: { tier: "better", land: 30000, aeShare: 0.13 } });
     expect(p.costPerSf).toBe(310);
-    expect(p.land).toEqual({ value: 30000, sourceLabel: "Your input" });
+    expect(p.land).toMatchObject({ value: 30000, sourceLabel: "Your number", flag: null });
     expect(p.assumptions.find((a) => a.key === "ae")).toMatchObject({ edited: true, sourceLabel: "Your input" });
     expect(p.outliers[0]).toMatch(/unusually high — verify/);
   });

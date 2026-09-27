@@ -157,18 +157,23 @@ export function proFormaRanges(
   const amt = (id: string) => budget.find((b) => b.id === id)?.amount ?? plan.lines.find((l) => l.id === id)?.amount ?? null;
 
   // ---- Hard-cost pieces: [low, high] multipliers on each line's likely amount
-  const tierLo = tier.costPerSf.range[0]! / tier.costPerSf.value;
-  const tierHi = tier.costPerSf.range[1]! / tier.costPerSf.value;
+  const rh = plan.rehab;
+  const tierLo = rh ? rh.perSf[0] / rh.perSf[1] : tier.costPerSf.range[0]! / tier.costPerSf.value;
+  const tierHi = rh ? rh.perSf[2] / rh.perSf[1] : tier.costPerSf.range[1]! / tier.costPerSf.value;
+  const mineLine = (id: string) => plan.userLines.includes(id);
   const hardBase = plan.lines.find((l) => l.id === "hard_base");
   const baseUser = hardBase ? isUser(hardBase.sourceLabel) : false;
   const mult: Record<string, [number, number]> = {};
-  if (hardBase) mult.hard_base = baseUser ? [1, 1] : [tierLo, tierHi];
+  if (hardBase) mult.hard_base = baseUser || mineLine("hard_base") || edited("costPerSf") ? [1, 1] : [tierLo, tierHi];
   if (plan.lines.some((l) => l.id === "garage_level")) mult.garage_level = baseUser ? [1, 1] : [tierLo, tierHi];
   const slope = plan.adders.find((a) => a.id === "steep_slope" || a.id === "moderate_slope");
   if (slope && slope.perSf != null) {
     const def = slope.id === "steep_slope" ? config.siteAdders.steepSlope : config.siteAdders.moderateSlope;
-    mult.slope_adder = edited("slopeAdder") ? [1, 1] : [def.range[0]! / slope.perSf, def.range[1]! / slope.perSf];
+    mult.slope_adder = edited("slopeAdder") || mineLine("slope_adder") ? [1, 1] : [def.range[0]! / slope.perSf, def.range[1]! / slope.perSf];
   }
+  const rwAmt = amt("retaining_walls");
+  const rwDef = config.siteAdders.retainingWalls;
+  if (rwAmt) mult.retaining_walls = mineLine("retaining_walls") ? [1, 1] : [rwDef.range[0]! / rwDef.value, rwDef.range[1]! / rwDef.value];
   const grout = config.siteAdders.mineGrouting;
   const groutAmt = amt("grouting");
   if (groutAmt != null) mult.grouting = edited("grouting") ? [1, 1] : [grout.range[0]! / groutAmt, grout.range[1]! / groutAmt];
@@ -185,7 +190,7 @@ export function proFormaRanges(
     edited(key) || !range ? [likely, likely] : [Math.min(range[0]!, likely), Math.max(range[1]!, likely)];
   const pgh = plan.shares.permitsBasis.includes("per $1,000");
   const shares: Record<string, [number, number, number]> = {
-    ae: [...shareRange("ae", plan.shares.ae, sc.architectureEngineering.range), plan.shares.ae] as unknown as [number, number, number],
+    ae: [...shareRange("ae", plan.shares.ae, plan.shares.aeRange ?? sc.architectureEngineering.range), plan.shares.ae] as unknown as [number, number, number],
     permits: [...(pgh ? [plan.shares.permits, plan.shares.permits] : shareRange("permits", plan.shares.permits, sc.permitsAndFees.range)), plan.shares.permits] as unknown as [number, number, number],
     other_soft: [...shareRange("other", plan.shares.other, sc.surveyTitleLegalInsurance.range), plan.shares.other] as unknown as [number, number, number],
   };
@@ -193,14 +198,17 @@ export function proFormaRanges(
   // ---- Low / high finance inputs (cost side only)
   const land = plan.land.value;
   const landUser = plan.sources.land.kind === "user";
-  const landLo = land != null ? (landUser ? land : land * (1 - sv.landShare.value)) : null;
-  const landHi = land != null ? (landUser ? land : land * (1 + sv.landShare.value)) : null;
+  const le = plan.land.estimate;
+  const rps = config.land.rehabPurchase.rangeShare;
+  const landLo = land != null ? (landUser ? land : le ? le.low : land * (1 - rps)) : null;
+  const landHi = land != null ? (landUser ? land : le ? le.high : land * (1 + rps)) : null;
   const costInputs = <I extends ForSaleInputs | RentalInputs>(i: I, k: 0 | 1): I => {
     const siteLines = { ...(i.hardSiteLines ?? {}) } as Record<string, number>;
     if ("grouting" in siteLines && mult.grouting) siteLines.grouting = siteLines.grouting! * mult.grouting[k];
-    if ("siteWork" in siteLines && slope) {
+    if ("siteWork" in siteLines && (slope || rwAmt)) {
       const s = amt("slope_adder") ?? 0;
-      siteLines.siteWork = siteLines.siteWork! - s + s * (mult.slope_adder?.[k] ?? 1);
+      const w = rwAmt ?? 0;
+      siteLines.siteWork = siteLines.siteWork! - s - w + s * (mult.slope_adder?.[k] ?? 1) + w * (mult.retaining_walls?.[k] ?? 1);
     }
     const baseAmt = (amt("hard_base") ?? 0) + (amt("garage_level") ?? 0);
     const baseMult = mult.hard_base?.[k] ?? 1;
@@ -235,11 +243,17 @@ export function proFormaRanges(
       case "land":
         lo = landLo; hi = landHi;
         source = landUser ? USER : plan.sources.land.kind === "data" ? data(plan.sources.land.label, plan.sources.land.asOf) : badge(ASSUMPTION_BADGE);
-        basis = landUser ? "Your price" : `±${Math.round(sv.landShare.value * 100)}% around the assessed value (Assumption, edit me: the assessment is not a price)`;
+        basis = landUser ? "Your price" : le ? (le.public ? "Public land: price set by the agency. From agency sales of vacant lots up to the private market" : "Middle half of nearby vacant-land sales (per sq ft of lot)") : `±${Math.round(rps * 100)}% around nearby as-is home sales (Assumption, edit me)`;
         break;
       case "hard_base": {
-        source = baseUser ? USER : badge("Pittsburgh builders (2026)", `${tier.costPerSf.sourceLabel} (${tier.label})`);
-        basis = baseUser ? "Your number" : `${tier.label} tier range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (Pittsburgh builders)`;
+        if (rh) {
+          const you = baseUser || mineLine("hard_base") || edited("costPerSf");
+          source = you ? USER : badge(ASSUMPTION_BADGE, rh.sourceLabel);
+          basis = you ? "Your number" : `${rh.basis} (Assumption, edit me)`;
+          break;
+        }
+        source = baseUser || mineLine("hard_base") ? USER : badge("Pittsburgh builders (2026)", `${tier.costPerSf.sourceLabel} (${tier.label})`);
+        basis = baseUser || mineLine("hard_base") ? "Your number" : `${tier.label} range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (Pittsburgh builders)`;
         if (plan.finishedSf) {
           const used = roundRange((lo ?? 0) / plan.finishedSf, (likely ?? 0) / plan.finishedSf, (hi ?? 0) / plan.finishedSf, 1);
           const nr = config.construction.nationalReference;
@@ -264,13 +278,18 @@ export function proFormaRanges(
         break;
       case "slope_adder": {
         const def = slope?.id === "steep_slope" ? config.siteAdders.steepSlope : config.siteAdders.moderateSlope;
-        source = edited("slopeAdder") ? USER : badge(ASSUMPTION_BADGE, def.sourceLabel);
-        basis = edited("slopeAdder") ? "Your number" : `Adder range $${def.range[0]}–$${def.range[1]}/SF (Assumption, edit me: confirm with bids)`;
-        if (plan.finishedSf && likely != null)
-          tri = { unit: "$/finished SF", used: roundRange((lo ?? 0) / plan.finishedSf, likely / plan.finishedSf, (hi ?? 0) / plan.finishedSf, 1),
+        const you = edited("slopeAdder") || mineLine("slope_adder");
+        source = you ? USER : badge(ASSUMPTION_BADGE, def.sourceLabel);
+        basis = you ? "Your number" : `$${def.range[0]}–$${def.range[1]} per sq ft of building footprint (Assumption, edit me: confirm with bids)`;
+        if (plan.footprintSf && likely != null)
+          tri = { unit: "$/SF of footprint", used: roundRange((lo ?? 0) / plan.footprintSf, likely / plan.footprintSf, (hi ?? 0) / plan.footprintSf, 1),
             points: [{ label: def.label, badge: ASSUMPTION_BADGE, low: def.range[0]!, high: def.range[1]!, value: def.value, note: "Estimate; confirm with bids." }] };
         break;
       }
+      case "retaining_walls":
+        source = mineLine("retaining_walls") ? USER : badge(ASSUMPTION_BADGE, rwDef.sourceLabel);
+        basis = mineLine("retaining_walls") ? "Your number" : `$${rwDef.range[0]!.toLocaleString("en-US")}–$${rwDef.range[1]!.toLocaleString("en-US")} per building (Assumption, edit me: confirm with bids)`;
+        break;
       case "grouting":
         source = edited("grouting") ? USER : badge("Local project data (owner-provided)");
         basis = edited("grouting") ? "Your number" : `Grouting range $${grout.range[0]!.toLocaleString("en-US")}–$${grout.range[1]!.toLocaleString("en-US")} (Local project data (owner-provided); not a quote)`;
@@ -286,7 +305,7 @@ export function proFormaRanges(
         const hardMid = v(cMid.hard);
         if (hardMid != null) { lo = sl * (v(cLo.hard) ?? hardLo); hi = sh * (v(cHi.hard) ?? hardHi); }
         const key = b.id === "other_soft" ? "other" : b.id;
-        if (edited(key)) source = USER;
+        if (edited(key) || mineLine(b.id)) source = USER;
         else if (b.id === "permits" && pgh) source = data(`${config.softCosts.pittsburghBuildingPermitFee.sourceLabel}`, config.softCosts.pittsburghBuildingPermitFee.effectiveDate);
         else source = badge(ASSUMPTION_BADGE, b.sourceLabel);
         basis = sl === sh ? `${r1(sm * 100)}% of hard cost; moves with the hard-cost range` : `${r1(sl * 100)}–${r1(sh * 100)}% of hard cost (Assumption, edit me)`;
@@ -296,7 +315,7 @@ export function proFormaRanges(
       }
       case "contingency":
         lo = v(cLo.contingency); hi = v(cHi.contingency);
-        source = edited("contingency") ? USER : badge(ASSUMPTION_BADGE);
+        source = edited("contingency") || mineLine("contingency") ? USER : badge(ASSUMPTION_BADGE);
         basis = `${r1(plan.shares.contingency * 100)}% of hard cost; moves with the hard-cost range`;
         break;
       case "interest":
@@ -316,7 +335,7 @@ export function proFormaRanges(
         basis = "Monthly tax × months; one number";
         break;
       default:
-        if (isUser(b.sourceLabel)) basis = "Your number";
+        if (isUser(b.sourceLabel) || mineLine(b.id)) { basis = "Your number"; source = USER; }
     }
     lines.push({
       id: b.id, group: b.group, label: b.label,
@@ -388,11 +407,14 @@ export function proFormaRanges(
 
   // ---- Revenue: rent (no rent comps: the index / FMR is one number, so the sensitivity move sets the range)
   const rentUser = plan.sources.rent.kind === "user";
-  const rr = rentUser ? 0 : sv.revenueShare.value;
-  const rLow = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, -rr));
-  const rMid = rentalProForma(plan.rental);
-  const rHigh = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, rr));
   const rpu = plan.revenue.rent.perUnit;
+  const re = plan.rentEstimate;
+  const fromEst = !rentUser && re && re.low != null && re.high != null && rpu;
+  const rrLo = rentUser ? 0 : fromEst ? 1 - re!.low! / rpu! : sv.revenueShare.value;
+  const rrHi = rentUser ? 0 : fromEst ? re!.high! / rpu! - 1 : sv.revenueShare.value;
+  const rLow = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, -rrLo));
+  const rMid = rentalProForma(plan.rental);
+  const rHigh = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, rrHi));
   const noiMid = v(rMid.noi), noiLo = v(rLow.noi), noiHi = v(rHigh.noi);
   let yieldOnCostPct: PctRange | null = null;
   if (noiMid != null && noiLo != null && noiHi != null && tMid != null && tLo != null && tHi != null && tMid > 0) {
@@ -402,10 +424,10 @@ export function proFormaRanges(
     yieldOnCostPct = pctRange(y - rel(noiMid - noiLo, tHi - tMid), y, y + rel(noiHi - noiMid, tMid - tLo));
   }
   const rent = {
-    monthlyPerUnit: rpu != null ? roundRange(rpu * (1 - rr), rpu, rpu * (1 + rr), 10) : null,
+    monthlyPerUnit: rpu != null ? roundRange(rpu * (1 - rrLo), rpu, rpu * (1 + rrHi), rentUser ? 1 : 50) : null,
     noi: tri3(rLow.noi, rMid.noi, rHigh.noi, 1000),
     yieldOnCostPct,
-    basis: rentUser ? "Your rent" : `±${Math.round(rr * 100)}% around the ${plan.sources.rent.kind === "data" ? "published index" : "assumed rent"} (Assumption, edit me: no listing-level rent comps)`,
+    basis: rentUser ? "Your rent" : fromEst ? `${re!.method}` : `±${Math.round(sv.revenueShare.value * 100)}% around the assumed rent (Assumption, edit me)`,
     method: RANGE_METHOD,
     source: plan.sources.rent,
   };

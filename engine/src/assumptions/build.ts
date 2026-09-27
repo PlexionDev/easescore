@@ -10,6 +10,10 @@ import type { StrategyId } from "../score/types";
 import { selectScheme, type ParkingProgram, type SelectedScheme } from "../score/selected";
 import type { CompSet } from "./comps";
 import { COST_CONFIG, tierOf, type CostConfig } from "./config";
+import { landEstimate, type LandEstimate } from "./land";
+import { assessedAfterCompletion, type AssessedEstimate } from "./tax";
+import { rehabEstimate, type RehabEstimate } from "./rehab";
+import { rentForBedrooms, type RentEstimate, type RentsByBedroom } from "../rents";
 
 export type Tenure = "sale" | "rent";
 export type Evidence = "complete" | "partial" | "missing";
@@ -20,7 +24,12 @@ export interface ProFormaFacts {
   overlays?: { layer: string; share: number }[] | null;
   mines?: { in_city_undermined?: boolean | null; in_mined_out?: boolean | null; msi_risk?: string | null } | null;
   site?: { building_count?: number | null } | null;
-  assessment?: { use?: string | null; fmv_land?: number | null; fmv_total?: number | null; living_area_sqft?: number | null; is_pittsburgh?: boolean | null; tax_year?: number | null; as_of?: string | null } | null;
+  assessment?: { use?: string | null; fmv_land?: number | null; fmv_total?: number | null; living_area_sqft?: number | null; is_pittsburgh?: boolean | null; tax_year?: number | null; as_of?: string | null; condition?: string | null; year_built?: number | null; lot_area_sqft?: number | null } | null;
+  /** Owner class (parcel_owner_class: private, city, ura, county, hacp, other_public, nonprofit). */
+  owner_class?: string | null;
+  /** Comp area: City neighborhood inside Pittsburgh, municipality elsewhere. */
+  area?: string | null;
+  lot_area_sqft_gis?: number | null;
   property_tax?: { general_mills?: number | null } | null;
   transfer_tax?: { total_pct?: number | null } | null;
   building_footprint_sqft?: number | null;
@@ -94,6 +103,8 @@ export interface CostOverrides {
   costIncludesSite?: boolean;
   /** Your sale price per home; replaces the comps value. */
   salePricePerUnit?: number;
+  /** "Your number" for a budget line, in dollars, by line id (land, hard_base, slope_adder, ae, contingency...). */
+  lineAmounts?: Record<string, number>;
 }
 
 export interface PlanArgs {
@@ -108,6 +119,8 @@ export interface PlanArgs {
    * matching); for new builds they are only a labeled floor, never the value.
    */
   comps: SalesCompsLike | null;
+  /** Nearby home sales, all conditions (parcel single-family comps): the rehab's as-is purchase price. */
+  asIsComps?: SalesCompsLike | null;
   /** New-construction comps (newConstructionComps). New builds are valued only from these. */
   newComps?: CompSet | null;
   rents: RentCompsLike | null;
@@ -127,6 +140,8 @@ export interface PlanArgs {
    * gets the steep-slope adder, nothing is added again. Ignored for the rehab option.
    */
   stepping?: SteppingInput | null;
+  /** Rents by bedroom count (engine rents module: RentCast comps, else HUD SAFMR, else ZORI). When absent, built from `rents` (HUD / ZORI only). */
+  rentsByBedroom?: RentsByBedroom | null;
 }
 
 /** Hillside stepping measured under the building footprint (computed by the caller from the lidar grid). */
@@ -158,7 +173,7 @@ export interface PlanLine {
 }
 
 export interface AdderFired {
-  id: "moderate_slope" | "steep_slope" | "mine_grouting" | "mine_insurance";
+  id: "moderate_slope" | "steep_slope" | "retaining_walls" | "mine_grouting" | "mine_insurance";
   label: string;
   /** Plain reason, e.g. "Steep slope under 84% of the lot → +$60/SF". */
   reason: string;
@@ -231,9 +246,22 @@ export interface DevelopmentPlan {
   perUnitCost: { value: number; includesSite: boolean } | null;
   tier: { id: string; label: string };
   costPerSf: number;
-  land: { value: number | null; sourceLabel: string };
+  land: { value: number | null; sourceLabel: string; estimate: LandEstimate | null; flag: string | null };
+  /** Rehab option: the condition-tier estimate that priced the construction line. */
+  rehab: RehabEstimate | null;
+  /** Assessed value after completion (rental taxes), from completed projects. */
+  assessedAfter: AssessedEstimate | null;
+  /** Rent estimate used (by bedroom count), when the plan has a rent. */
+  rentEstimate: RentEstimate | null;
+  bedrooms: number;
+  /** Raw values before rounding, shown once in each receipt ("comps median $1,483, rounded to $1,500"). */
+  rounding: { rent: string | null; sale: string | null; land: string | null };
+  /** Footprint the slope premium is priced on, sq ft. */
+  footprintSf: number | null;
+  /** Budget line ids that carry "Your number". */
+  userLines: string[];
   lines: PlanLine[];
-  shares: { ae: number; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab" };
+  shares: { ae: number; aeRange: number[] | null; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab" };
   loanFeeShare: number;
   adders: AdderFired[];
   /** Hillside stepping that priced the stepped-foundation line (or was covered by the lot's steep-slope adder). */
@@ -268,6 +296,8 @@ const rangeText = (r: number[] | undefined, kind: "usd" | "share" | "usdSf") =>
   r && r.length === 2 ? (kind === "share" ? `${pctText(r[0]!)}–${pctText(r[1]!)}` : kind === "usdSf" ? `${usd(r[0]!)}–${usd(r[1]!)}/SF` : `${usd(r[0]!)}–${usd(r[1]!)}`) : null;
 
 const has = (x: number | null | undefined): x is number => typeof x === "number" && Number.isFinite(x);
+const roundStep = (x: number, step: number) => Math.round(x / step) * step + 0;
+const r1000 = (x: number) => roundStep(x, 1000);
 
 // ---------------------------------------------------------------------------------------------
 
@@ -282,7 +312,13 @@ const DEFAULT_TENURE: Record<StrategyId, Tenure> = {
 
 export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const cfg = a.config ?? COST_CONFIG;
-  const o = a.overrides ?? {};
+  const o: CostOverrides = { ...(a.overrides ?? {}) };
+  // A "Your number" on a site line is the same as that line's own override.
+  const la0 = o.lineAmounts ?? {};
+  if (has(la0.grouting)) o.groutingCost = la0.grouting;
+  if (has(la0.demolition)) o.demolition = la0.demolition;
+  if (has(la0.geotech)) o.geotech = la0.geotech;
+  if (has(la0.dumpsters)) o.dumpsters = la0.dumpsters;
   const f = a.facts;
   const rows: AssumptionRow[] = [];
   const row = (key: string, label: string, value: string, src: { sourceLabel: string; sourceNote?: string | null }, range: string | null, edited: boolean) =>
@@ -319,41 +355,66 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     row("program", "Unit program", `${program.parking === "tuck_under" ? "Tuck-under garage + " : ""}${program.storiesAboveGarage} living floor${program.storiesAboveGarage === 1 ? "" : "s"}${program.bedrooms != null ? `, ${program.bedrooms} bed` : ""}${program.baths != null ? ` / ${program.baths} bath` : ""}; parking: ${program.parking.replace("_", "-")}`, { sourceLabel: "Your input" }, null, true);
   }
 
-  // ---- Land
-  const anchor = rehab ? f.assessment?.fmv_total : f.assessment?.fmv_land;
-  const anchorLabel = rehab ? "County assessed total value (not a price)" : "County assessed land value (not a price)";
-  const land = has(o.land) ? o.land : has(anchor) ? anchor : null;
-  const landSource = has(o.land) ? "Your input" : anchorLabel;
-  if (land == null) missing.push("No land price: enter the purchase price (the county assessment has no value to start from).");
+  // ---- Land: vacant-land sales (public lots: agency sales), never the assessed land value; the
+  // rehab's purchase price: nearby as-is home sales × living area. Your number always overrides.
+  const la = o.lineAmounts ?? {};
+  const userLand = has(la.land) ? la.land : has(o.land) ? o.land : null;
+  const isCity = f.assessment?.is_pittsburgh === true;
+  const lotSqft = f.assessment?.lot_area_sqft ?? f.lot_area_sqft_gis ?? null;
+  const landEst: LandEstimate | null = rehab ? null : landEstimate({ lotSqft, area: f.area, isCity, ownerClass: f.owner_class }, cfg);
+  let rehabPurchase: { likely: number; low: number; high: number; basis: string } | null = null;
+  if (rehab) {
+    const asIs = a.asIsComps;
+    const la2 = f.assessment?.living_area_sqft;
+    if (asIs && asIs.status === "ok" && asIs.sufficient !== false && has(asIs.median_price_per_sqft) && has(la2) && la2 > 0) {
+      const raw = asIs.median_price_per_sqft * la2;
+      const sh = cfg.land.rehabPurchase.rangeShare;
+      rehabPurchase = { likely: r1000(raw), low: r1000(raw * (1 - sh)), high: r1000(raw * (1 + sh)), basis: `Nearby home sales as-is (${asIs.count} sales within ${asIs.radius_mi} mi${asIs.date_range?.from ? `, ${asIs.date_range.from} to ${asIs.date_range.to}` : ""}): median ${usd(asIs.median_price_per_sqft)}/SF × ${la2.toLocaleString("en-US")} sq ft = ${usd(raw)}, rounded to ${usd(r1000(raw))}; range ±${Math.round(sh * 100)}% (Assumption, edit me)` };
+    }
+  }
+  const land = userLand != null ? userLand : rehab ? rehabPurchase?.likely ?? null : landEst?.likely ?? null;
+  const landLabel = rehab ? "Nearby home sales (as-is)" : landEst?.public ? cfg.land.publicFlag : cfg.land.sourceLabel;
+  const landSource = userLand != null ? "Your number" : landLabel;
+  if (land == null) missing.push(rehab
+    ? "No purchase price: too few nearby home sales to estimate it. Enter the purchase price (the assessed value is not a price)."
+    : "No land price: too few vacant-land sales to estimate it. Enter the purchase price (the assessed land value is not a price).");
   else {
-    lines.push({ id: "land", group: "land", label: rehab ? "Purchase price (land and building)" : "Land (purchase price)", short: rehab ? "purchase" : "land", amount: land, basis: has(o.land) ? "Your price" : "Starting point until you enter the agreed price", sourceLabel: landSource });
-    row("land", rehab ? "Purchase price" : "Land price", usd(land), { sourceLabel: anchorLabel }, null, has(o.land));
+    const basis = userLand != null ? "Your price" : rehab ? rehabPurchase!.basis : landEst!.basis;
+    lines.push({ id: "land", group: "land", label: rehab ? "Purchase price (land and building)" : "Land (purchase price)", short: rehab ? "purchase" : "land", amount: land, basis, sourceLabel: landSource });
+    row("land", rehab ? "Purchase price" : "Land price", usd(land), { sourceLabel: landLabel, sourceNote: rehab ? rehabPurchase?.basis ?? null : landEst?.basis ?? null }, userLand == null && (landEst || rehabPurchase) ? `${usd((landEst ?? rehabPurchase)!.low)}–${usd((landEst ?? rehabPurchase)!.high)}` : null, userLand != null);
+    if (landEst?.public && userLand == null) notes.push(`${cfg.land.publicFlag}. Ask the agency (URA, City or Land Bank) for its disposition price; enter it to replace the estimate.`);
   }
 
   // ---- Base construction
   const tier = tierOf(cfg, o.tier);
-  const costPerSf = has(o.costPerSf) ? o.costPerSf : tier.costPerSf.value;
-  row("tier", "Construction quality tier", `${tier.label} — ${tier.meaning}`, { sourceLabel: tier.costPerSf.sourceLabel }, null, o.tier !== undefined && o.tier !== cfg.construction.defaultTier);
-  row("costPerSf", "Construction cost per finished sq ft (includes builder overhead and profit)", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
-  if (rehab) notes.push(cfg.construction.rehabNote);
+  const rehabEst: RehabEstimate | null = rehab ? rehabEstimate({ condition: f.assessment?.condition, yearBuilt: f.assessment?.year_built, finishedSf }, cfg) : null;
+  const costPerSf = has(o.costPerSf) ? o.costPerSf : rehabEst ? rehabEst.perSf[1] : tier.costPerSf.value;
+  if (rehabEst) {
+    row("rehabTier", "Rehab scope (from the County condition)", rehabEst.tier.label, { sourceLabel: rehabEst.sourceLabel, sourceNote: rehabEst.basis }, null, false);
+    row("costPerSf", "Rehab cost per finished sq ft", `${usd(costPerSf)}/SF`, { sourceLabel: rehabEst.sourceLabel, sourceNote: rehabEst.basis }, `${usd(rehabEst.perSf[0])}–${usd(rehabEst.perSf[2])}/SF`, has(o.costPerSf));
+    notes.push(cfg.construction.rehabNote);
+  } else {
+    row("tier", "Build quality", `${tier.label} — ${tier.meaning}`, { sourceLabel: tier.costPerSf.sourceLabel }, null, o.tier !== undefined && o.tier !== cfg.construction.defaultTier);
+    row("costPerSf", "Construction cost per finished sq ft (includes builder overhead and profit)", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
+  }
   const garageShare = cfg.construction.garageLevelShareOfTier;
   const perUnitCost = has(o.costPerUnit) && units != null ? { value: o.costPerUnit, includesSite: o.costIncludesSite === true } : null;
   let hardBase: number | null = null;
-  if (perUnitCost) {
+  if (has(la.hard_base)) {
+    hardBase = la.hard_base;
+    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: "Your number", sourceLabel: "Your number" });
+  } else if (perUnitCost) {
     hardBase = perUnitCost.value * units!;
     lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction (your number per home)" : "Construction (your number per home)", short: "construction", amount: hardBase, basis: `${units} home${units === 1 ? "" : "s"} × ${usd(perUnitCost.value)}${perUnitCost.includesSite ? ", including site work and foundation" : ", building only (site adders added separately)"}${garageSf ? "; covers the garage level too" : ""}`, sourceLabel: "Your number" });
     row("costPerUnit", "Construction cost per home", usd(perUnitCost.value), { sourceLabel: "Your number" }, null, true);
     row("costIncludesSite", "Per-home cost includes site work and foundation", perUnitCost.includesSite ? "Yes: site adders not added" : "No: site adders added on top", { sourceLabel: "Your input" }, null, true);
-  } else if (rehab && !has(o.costPerSf)) {
-    // No local rehab cost yet: never price a rehab at new-construction rates.
-    missing.push("Enter your rehab cost (per sq ft or per home). No local rehab cost is set, and new-construction rates are not used for a rehab.");
   } else if (finishedSf != null) {
-    hardBase = costPerSf * finishedSf;
-    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : tier.costPerSf.sourceLabel });
+    hardBase = r1000(costPerSf * finishedSf);
+    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${rehabEst ? rehabEst.tier.label : tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : rehabEst ? rehabEst.sourceLabel : tier.costPerSf.sourceLabel });
     if (garageSf > 0) {
-      const g = garageSf * costPerSf * garageShare.value;
+      const g = has(la.garage_level) ? la.garage_level : r1000(garageSf * costPerSf * garageShare.value);
       hardBase += g;
-      lines.push({ id: "garage_level", group: "hard", label: "Tuck-under garage level", short: "garage level", amount: g, basis: `${garageSf.toLocaleString("en-US")} sq ft × ${usd(costPerSf)}/SF × ${Math.round(garageShare.value * 100)}%`, sourceLabel: garageShare.sourceLabel });
+      lines.push({ id: "garage_level", group: "hard", label: "Tuck-under garage level", short: "garage level", amount: g, basis: `${garageSf.toLocaleString("en-US")} sq ft × ${usd(costPerSf)}/SF × ${Math.round(garageShare.value * 100)}%`, sourceLabel: has(la.garage_level) ? "Your number" : garageShare.sourceLabel });
       row("garageShare", garageShare.label, `${Math.round(garageShare.value * 100)}% of the tier rate`, garageShare, null, false);
     }
   }
@@ -391,9 +452,15 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     row("stepping", "Hillside stepping (under the footprint)", `${st.steps} step${st.steps === 1 ? "" : "s"}, ${+st.dropFt.toFixed(1)} ft drop, ${Math.round(st.footprintSlopePct)}% slope`, { sourceLabel: "1 m lidar under the site-fit footprint", sourceNote: `Threshold ${st.thresholdPct}% and ${st.incrementFt} ft plate increments are editable placeholders` }, null, false);
   }
   const steppedOnly = stepping?.pricedBy === "stepping";
+  // The slope premium is priced on the building footprint (the foundation area), never on the finished
+  // floor area of every floor; a steep or stepped site also gets one retaining-wall lump sum per building.
+  const footprintSf: number | null = has(sel.footprintSf) && sel.footprintSf > 0
+    ? sel.footprintSf
+    : finishedSf != null ? Math.round(finishedSf / Math.max(1, sel.stories ?? 2)) : null;
+  const footprintBasis = has(sel.footprintSf) && sel.footprintSf > 0 ? "building footprint" : `footprint estimated as finished area ÷ ${Math.max(1, sel.stories ?? 2)} floors`;
   if (slopeKind) {
     const def0 = slopeKind === "steep" ? cfg.siteAdders.steepSlope : cfg.siteAdders.moderateSlope;
-    const def = steppedOnly ? { ...def0, label: "Stepped foundation and retaining walls (hillside stepping)" } : def0;
+    const def = steppedOnly ? { ...def0, label: "Stepped foundation (hillside stepping)" } : def0;
     const perSf = has(o.slopeAdderPerSf) ? o.slopeAdderPerSf : def.value;
     const why = steppedOnly
       ? `Stepped floor plates: ${st!.steps} step${st!.steps === 1 ? "" : "s"}, ${+st!.dropFt.toFixed(1)} ft drop under the footprint (steep-slope rate)`
@@ -402,21 +469,33 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
           ? `Steep slope under ${wholePct(sh25)} of the lot`
           : `Steep slope: the lot averages ${Math.round(mean!)}%`
         : `Moderate slope: the lot averages ${Math.round(mean!)}% (8–25%)`;
-    const amount = finishedSf != null && !siteSuppressed ? perSf * finishedSf : null;
+    const userLine = has(la.slope_adder) ? la.slope_adder : null;
+    const amount = siteSuppressed ? null : userLine ?? (footprintSf != null ? r1000(perSf * footprintSf) : null);
     adders.push({
       id: slopeKind === "steep" ? "steep_slope" : "moderate_slope", label: def.label,
-      reason: siteSuppressed ? `${why} → included in your per-home cost` : `${why} → +${usd(perSf)}/SF`,
-      perSf: siteSuppressed ? null : perSf, amount, sourceLabel: siteSuppressed ? "Your number" : has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel, range: rangeText(def.range, "usdSf"),
+      reason: siteSuppressed ? `${why} → included in your per-home cost` : `${why} → +${usd(perSf)} per sq ft of footprint`,
+      perSf: siteSuppressed ? null : perSf, amount, sourceLabel: siteSuppressed ? "Your number" : userLine != null ? "Your number" : has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel, range: rangeText(def.range, "usdSf"),
     });
     if (siteSuppressed) notes.push(`${def.label}: included in your per-home cost, so it is not added again.`);
-    row("slopeAdder", def.label, `${usd(perSf)}/SF`, def, rangeText(def.range, "usdSf"), has(o.slopeAdderPerSf));
-    notes.push(steppedOnly ? "Stepping is measured under the building footprint (1 m lidar)." : "Slope is measured across the whole lot (1 m lidar), not under the building footprint.");
+    row("slopeAdder", `${def.label} (per sq ft of footprint)`, `${usd(perSf)}/SF of footprint`, def, rangeText(def.range, "usdSf"), has(o.slopeAdderPerSf));
+    notes.push(steppedOnly ? "Stepping is measured under the building footprint (1 m lidar)." : "Slope is measured across the whole lot (1 m lidar); the premium is priced on the building footprint.");
     if (amount != null) {
       hardSite.siteWork += amount;
-      lines.push({ id: "slope_adder", group: "hard", label: def.label, short: steppedOnly ? "stepped foundation" : "hillside foundation", amount, basis: `${why}: ${finishedSf!.toLocaleString("en-US")} sq ft × ${usd(perSf)}/SF`, sourceLabel: has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel });
+      lines.push({ id: "slope_adder", group: "hard", label: def.label, short: steppedOnly ? "stepped foundation" : "hillside foundation", amount, basis: userLine != null ? "Your number" : `${why}: ${footprintSf!.toLocaleString("en-US")} sq ft ${footprintBasis} × ${usd(perSf)}/SF`, sourceLabel: userLine != null ? "Your number" : has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel });
     }
-    if (perSf > cfg.outliers.siteFoundationPerSfMax.value)
-      outliers.push(`Foundation and site work at ${usd(perSf)}/SF is above ${usd(cfg.outliers.siteFoundationPerSfMax.value)}/SF: unusually high — verify.`);
+    // Retaining walls: steep lot or stepped building, one lump sum per building.
+    if (slopeKind === "steep" && !siteSuppressed) {
+      const rw = cfg.siteAdders.retainingWalls;
+      const nb = Math.max(1, sel.buildings ?? 1);
+      const rwAmt = has(la.retaining_walls) ? la.retaining_walls : rw.value * nb;
+      hardSite.siteWork += rwAmt;
+      adders.push({ id: "retaining_walls", label: rw.label, reason: `${why} → retaining walls ${usd(rwAmt)}${nb > 1 ? ` (${nb} buildings)` : ""}`, perSf: null, amount: rwAmt, sourceLabel: has(la.retaining_walls) ? "Your number" : rw.sourceLabel, range: rangeText(rw.range, "usd") });
+      lines.push({ id: "retaining_walls", group: "hard", label: rw.label, short: "retaining walls", amount: rwAmt, basis: has(la.retaining_walls) ? "Your number" : `${nb} building${nb === 1 ? "" : "s"} × ${usd(rw.value)} lump sum`, sourceLabel: has(la.retaining_walls) ? "Your number" : rw.sourceLabel });
+      row("retainingWalls", rw.label, `${usd(rw.value)} per building`, rw, rangeText(rw.range, "usd"), false);
+    }
+    const perFinished = amount != null && finishedSf ? amount / finishedSf : 0;
+    if (perFinished > cfg.outliers.siteFoundationPerSfMax.value)
+      outliers.push(`Foundation and site work at ${usd(perFinished)} per finished sq ft is above ${usd(cfg.outliers.siteFoundationPerSfMax.value)}/SF: unusually high — verify.`);
   }
 
   // ---- Mine subsidence
@@ -507,16 +586,17 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   // ---- Soft costs
   const sc = cfg.softCosts;
   const pgh = f.assessment?.is_pittsburgh === true;
-  const ae = has(o.aeShare) ? o.aeShare : sc.architectureEngineering.value;
+  const tierAe = !rehab && !has(o.costPerUnit) ? ((tier as { aeShare?: number | null }).aeShare ?? null) : null;
+  let ae = has(o.aeShare) ? o.aeShare : tierAe ?? sc.architectureEngineering.value;
   const permitComputable = pgh && !has(o.permitShare);
-  const permits = has(o.permitShare) ? o.permitShare : pgh ? sc.pittsburghBuildingPermitFee.value / 1000 : sc.permitsAndFees.value;
+  let permits = has(o.permitShare) ? o.permitShare : pgh ? sc.pittsburghBuildingPermitFee.value / 1000 : sc.permitsAndFees.value;
   const permitsBasis = has(o.permitShare)
     ? "Your input"
     : permitComputable
       ? `${usd(sc.pittsburghBuildingPermitFee.value)} per $1,000 of construction value (verify with PLI schedule)`
       : `${pctText(permits)} of hard cost`;
-  const other = has(o.softOtherShare) ? o.softOtherShare : sc.surveyTitleLegalInsurance.value;
-  row("ae", sc.architectureEngineering.label, pctText(ae), sc.architectureEngineering, rangeText(sc.architectureEngineering.range, "share"), has(o.aeShare));
+  let other = has(o.softOtherShare) ? o.softOtherShare : sc.surveyTitleLegalInsurance.value;
+  row("ae", sc.architectureEngineering.label, pctText(ae), tierAe != null && !has(o.aeShare) ? { sourceLabel: "Assumption, edit me", sourceNote: `${tier.label}: stock plans` } : sc.architectureEngineering, rangeText(sc.architectureEngineering.range, "share"), has(o.aeShare));
   if (permitComputable) row("permits", sc.pittsburghBuildingPermitFee.label, `${usd(sc.pittsburghBuildingPermitFee.value)} per $1,000 (${pctText(permits)})`, sc.pittsburghBuildingPermitFee, null, false);
   else row("permits", sc.permitsAndFees.label, pctText(permits), sc.permitsAndFees, rangeText(sc.permitsAndFees.range, "share"), has(o.permitShare));
   row("other", sc.surveyTitleLegalInsurance.label, pctText(other), sc.surveyTitleLegalInsurance, rangeText(sc.surveyTitleLegalInsurance.range, "share"), has(o.softOtherShare));
@@ -524,11 +604,23 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   if (ae > cfg.outliers.aeShareMax.value) outliers.push(`Architecture and engineering at ${pctText(ae)} of hard cost is above ${pctText(cfg.outliers.aeShareMax.value)}: unusually high — verify.`);
 
   // ---- Contingency
-  const hazard = lotSlopeKind != null || landslide || mineApplies;
+  // Hillside contingency: steep or stepped site, landslide-prone overlay or undermined ground. A moderate
+  // slope alone is a normal Pittsburgh lot (its footing premium is its own line).
+  const hazard = slopeKind === "steep" || landslide || mineApplies;
   const contingencyKind: "flat" | "hillside" | "rehab" = rehab ? "rehab" : hazard ? "hillside" : "flat";
   const cdef = cfg.contingency[contingencyKind];
-  const contingency = has(o.contingencyShare) ? o.contingencyShare : cdef.value;
+  let contingency = has(o.contingencyShare) ? o.contingencyShare : cdef.value;
   row("contingency", cdef.label, pctText(contingency), cdef, null, has(o.contingencyShare));
+
+  // Share lines as dollars: a "Your number" sets the share (the line then equals your number).
+  const hardSum = (hardBase ?? 0) + hardSite.siteWork + (hardSite.grouting ?? 0) + (hardSite.demolition ?? 0);
+  if (hardSum > 0) {
+    const fix = (share: number, id: string) => (has(la[id]) ? la[id]! / hardSum : share);
+    ae = fix(ae, "ae");
+    permits = fix(permits, "permits");
+    other = fix(other, "other_soft");
+    contingency = fix(contingency, "contingency");
+  }
 
   // ---- Schedule, holding and financing
   const fin = cfg.financing;
@@ -620,7 +712,13 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     const why = saleBasis.replace(/^No value: /, "").replace(/\.?$/, ".");
     missing.push(`No sale value. ${why.charAt(0).toUpperCase()}${why.slice(1)}${floor ? ` ${floor.text}` : ""} Enter a sale price to test it.`);
   }
-  const grossSales = perUnitPrice != null ? perUnitPrice * units! : pricePerSf != null && finishedSf != null ? pricePerSf * finishedSf : null;
+  // Sale price per home rounded to $5,000; the math uses the rounded price.
+  const rawPerHome = perUnitPrice == null && pricePerSf != null && finishedSf != null && units ? (pricePerSf * finishedSf) / units : null;
+  const roundedPerHome = rawPerHome != null ? roundStep(rawPerHome, cfg.rounding.salePrice) : null;
+  const grossSales = perUnitPrice != null ? perUnitPrice * units! : roundedPerHome != null ? roundedPerHome * units! : null;
+  const saleRounding = rawPerHome != null && roundedPerHome != null
+    ? `${usd(pricePerSf!)}/SF × ${Math.round(finishedSf! / units!).toLocaleString("en-US")} sq ft = ${usd(rawPerHome)} per home, rounded to ${usd(roundedPerHome)}`
+    : null;
   if (perUnitPrice != null) row("salePricePerUnit", "Sale price per home", usd(perUnitPrice), { sourceLabel: "Your input" }, null, true);
   else row("salePricePerSf", "Sale price per finished sq ft", pricePerSf != null ? `${usd(pricePerSf)}/SF` : "not set", { sourceLabel: saleSource, sourceNote: saleBasis }, null, has(o.salePricePerSf));
   const nc = !rehab && c && c.status === "ok" && c.sufficient !== false ? (c as CompSet) : null;
@@ -646,19 +744,20 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
 
   // ---- Revenue: rent
   const r = a.rents;
-  const br = has(o.bedrooms) ? Math.min(4, Math.max(0, Math.round(o.bedrooms))) : units != null && units > 1 ? cfg.rent.fmrBedroomsFallback.multi : cfg.rent.fmrBedroomsFallback.single;
-  const fmr = r?.hud_fmr ? (r.hud_fmr as Record<string, number | undefined>)[`br${br}`] : undefined;
-  const zori = r?.zori?.latest_rent;
-  const rentPerUnit = has(o.rentPerUnit) ? o.rentPerUnit : has(zori) ? Math.round(zori) : has(fmr) ? fmr : null;
-  const rentBasis = has(o.rentPerUnit)
-    ? "Your rent"
-    : has(zori)
-      ? `Zillow Observed Rent Index, ZIP ${r!.zori!.zip ?? ""}, ${r!.zori!.latest_month ?? ""}`.trim()
-      : has(fmr)
-        ? `HUD Fair Market Rent ${r!.hud_fmr!.year ?? ""}, ${br} bedrooms`
-        : "No rent index for this ZIP code";
-  const rentSource = has(o.rentPerUnit) ? "Your input" : has(zori) ? "Zillow Observed Rent Index (ZORI)" : has(fmr) ? "HUD Fair Market Rents" : "Not available";
-  if (rentPerUnit == null && tenure === "rent") missing.push("No rent: there is no rent index or Fair Market Rent for this ZIP code. Enter a monthly rent to test it.");
+  const byOption = cfg.rent.bedroomsByOption as Record<string, number | string>;
+  const br = has(o.bedrooms) ? Math.min(4, Math.max(0, Math.round(o.bedrooms))) : Number(byOption[a.strategy] ?? 2);
+  const hudB = r?.hud_fmr ? { year: r.hud_fmr.year ?? null, zip: r.hud_fmr.zip ?? null, level: r.hud_fmr.level ?? null, br0: r.hud_fmr.br0 ?? null, br1: r.hud_fmr.br1 ?? null, br2: r.hud_fmr.br2 ?? null, br3: r.hud_fmr.br3 ?? null, br4: r.hud_fmr.br4 ?? null } : null;
+  const zoriB = r?.zori ? { zip: r.zori.zip ?? null, latest_rent: r.zori.latest_rent ?? null, latest_month: r.zori.latest_month ?? null } : null;
+  const rentEst: RentEstimate | null = a.rentsByBedroom?.byBedroom?.[br] ?? (hudB || zoriB ? rentForBedrooms(br, null, { asOf: "", hud: hudB, zori: zoriB }) : null);
+  const estOk = rentEst != null && rentEst.likely != null;
+  const rentPerUnit = has(o.rentPerUnit) ? o.rentPerUnit : estOk ? rentEst!.likely : null;
+  const rawRent = estOk ? (rentEst!.basis === "hud_safmr" ? rentEst!.hud : rentEst!.basis === "zori" ? rentEst!.zori : null) : null;
+  const rentRounding = rawRent != null && rentPerUnit != null && !has(o.rentPerUnit) ? `${rentEst!.basis === "hud_safmr" ? "HUD Fair Market Rent" : "ZIP rent index"} ${usd(rawRent)}, rounded to ${usd(rentPerUnit)}` : null;
+  const brText = br === 0 ? "studio" : `${br}-bedroom`;
+  const rentBasis = has(o.rentPerUnit) ? "Your rent" : estOk ? `${brText} home: ${rentEst!.basisLabel}` : "No rent evidence for this ZIP code";
+  const rentSource = has(o.rentPerUnit) ? "Your input" : estOk ? rentEst!.basisLabel : "Not available";
+  if (rentPerUnit == null && tenure === "rent") missing.push("No rent: no rental listings, Fair Market Rent or rent index for this ZIP code. Enter a monthly rent to test it.");
+  row("bedrooms", "Bedrooms per home (rent)", String(br), { sourceLabel: has(o.bedrooms) ? "Your input" : String(byOption.sourceLabel ?? "Assumption, edit me"), sourceNote: "Default mix by option: single-family, duplex and townhouse 3 bedrooms; 3–4 unit building 2; ADU 1" }, null, has(o.bedrooms));
   row("rentPerUnit", "Monthly rent per home", rentPerUnit != null ? usd(rentPerUnit) : "not set", { sourceLabel: rentSource, sourceNote: rentBasis }, null, has(o.rentPerUnit));
 
   const op = cfg.operating;
@@ -675,7 +774,13 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     } else if (tenure === "rent") exclude("flood_insurance", "Flood insurance", "Part of the lot is in the FEMA 1% flood zone", "no premium data for this tract");
   }
   const rentMix: UnitRow[] | undefined = units != null ? [{ label: "Market-rate home", count: units, monthlyRent: rentPerUnit }] : undefined;
-  const assessedAfter = has(f.assessment?.fmv_land) && hardTotal != null ? f.assessment!.fmv_land! + hardTotal : null;
+  // Assessed value after completion, from completed projects (ratio of assessed value to sale price) × the value.
+  const valueForTax = grossSales != null ? { v: grossSales, basis: perUnitPrice != null || has(o.salePricePerSf) ? "(your sale value)" : "(estimated sale value from new-construction comps)" }
+    : hardTotal != null ? { v: (land ?? 0) + hardTotal, basis: "(land + construction cost: no sale comps to value it)" } : null;
+  const attached = a.strategy !== "new_sf" && a.strategy !== "rehab_existing" && a.strategy !== "adu";
+  const assessedEst: AssessedEstimate | null = valueForTax ? assessedAfterCompletion({ value: valueForTax.v, isCity, attached, valueBasis: valueForTax.basis }) : null;
+  const assessedAfter = assessedEst ? assessedEst.assessed : null;
+  if (assessedEst && tenure === "rent") row("assessedAfter", "Assessed value after completion (for taxes)", usd(assessedEst.assessed), { sourceLabel: "Completed projects: County assessed value ÷ sale price", sourceNote: assessedEst.receipt }, `${Math.round(assessedEst.ratioRange[0] * 100)}–${Math.round(assessedEst.ratioRange[1] * 100)}% of value`, false);
   const rental: RentalInputs = {
     ...dev,
     unitMix: rentMix,
@@ -706,19 +811,21 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const USER: DataSource = { label: "Your input", asOf: null, kind: "user" };
   const taxYear = f.assessment?.tax_year ?? null;
   const assessAsOf = f.assessment?.as_of ?? null;
-  const landSrc: DataSource = has(o.land) ? USER : land == null ? ASSUME : {
-    label: `Allegheny County assessment, ${rehab ? "total" : "land"} value${taxYear ? `, tax year ${taxYear}` : assessAsOf ? `, data as of ${assessAsOf}` : ""} (not a price)`,
-    asOf: taxYear ? String(taxYear) : assessAsOf, kind: "data",
+  void taxYear; void assessAsOf;
+  const landSrc: DataSource = userLand != null ? USER : land == null ? ASSUME : rehab ? {
+    label: rehabPurchase!.basis.split(":")[0]!, asOf: a.asIsComps?.date_range?.from ? `${a.asIsComps.date_range.from} to ${a.asIsComps.date_range.to}` : null, kind: "data",
+  } : {
+    label: landEst!.public ? `${cfg.land.publicFlag}; agency and private vacant-land sales, ${landEst!.dateRange.from.slice(0, 7)} to ${landEst!.dateRange.to.slice(0, 7)}` : `Allegheny County vacant-land sales, ${landEst!.scope}, ${landEst!.sales} sales, ${landEst!.dateRange.from.slice(0, 7)} to ${landEst!.dateRange.to.slice(0, 7)}`,
+    asOf: `${landEst!.dateRange.from.slice(0, 7)} to ${landEst!.dateRange.to.slice(0, 7)}`, kind: "data",
   };
   const cr = c && compsOk ? c : null;
   const saleSrc: DataSource = perUnitPrice != null || has(o.salePricePerSf) ? USER : cr ? {
     label: `${compSource}, ${cr.count} sales within ${cr.radius_mi} mi${cr.date_range?.from ? `, ${cr.date_range.from} to ${cr.date_range.to}` : ""}`,
     asOf: cr.date_range?.from ? `${cr.date_range.from} to ${cr.date_range.to}` : null, kind: "data",
   } : ASSUME;
-  const rentSrc: DataSource = has(o.rentPerUnit) ? USER : has(zori) ? {
-    label: `Zillow Observed Rent Index, ZIP ${r!.zori!.zip ?? "?"}, ${(r!.zori!.latest_month ?? "").slice(0, 7)}`, asOf: (r!.zori!.latest_month ?? "").slice(0, 7) || null, kind: "data",
-  } : has(fmr) ? {
-    label: `HUD Fair Market Rent FY${r!.hud_fmr!.year ?? "?"}${r!.hud_fmr!.zip ? `, ZIP ${r!.hud_fmr!.zip}` : ""}, ${br} bedroom${br === 1 ? "" : "s"}`, asOf: r!.hud_fmr!.year != null ? `FY${r!.hud_fmr!.year}` : null, kind: "data",
+  const rentSrc: DataSource = has(o.rentPerUnit) ? USER : estOk ? {
+    label: `${rentEst!.basisLabel}, ${brText}`,
+    asOf: rentEst!.basis === "hud_safmr" ? (hudB?.year != null ? `FY${hudB.year}` : null) : rentEst!.basis === "zori" ? (zoriB?.latest_month ?? "").slice(0, 7) || null : a.rentsByBedroom?.asOf ?? null, kind: "data",
   } : ASSUME;
 
   const evidence: Evidence = missing.length ? "missing" : exclusions.length ? "partial" : "complete";
@@ -738,9 +845,20 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     perUnitCost,
     tier: { id: tier.id, label: tier.label },
     costPerSf,
-    land: { value: land, sourceLabel: landSource },
+    land: { value: land, sourceLabel: landSource, estimate: landEst, flag: landEst?.public && userLand == null ? cfg.land.publicFlag : null },
+    rehab: rehabEst,
+    assessedAfter: assessedEst,
+    rentEstimate: estOk ? rentEst : null,
+    bedrooms: br,
+    rounding: {
+      rent: rentRounding,
+      sale: saleRounding,
+      land: landEst && userLand == null && Math.abs(landEst.raw - landEst.likely) >= 1 ? `${usd(landEst.raw)}, rounded to ${usd(landEst.likely)}` : null,
+    },
+    footprintSf,
+    userLines: Object.keys(la).filter((k) => has(la[k])),
     lines,
-    shares: { ae, permits, other, permitsBasis, contingency, contingencyKind },
+    shares: { ae, aeRange: tierAe != null && !has(o.aeShare) ? ((tier as { aeRange?: number[] | null }).aeRange ?? null) : null, permits, other, permitsBasis, contingency, contingencyKind },
     loanFeeShare: fin.loanFeeShare.value,
     adders,
     stepping,
