@@ -360,6 +360,8 @@ body:has(.es-home){background:#fbfcfd}
 /* Language menu (components/i18n/LanguageMenu): right of the nav on desktop, beside the menu button on phones. */
 .es-home .lang-menu{order:3;border-bottom:0;flex:none}
 .es-home .lang-menu button[aria-pressed="true"]{color:#fff}
-.es-home .lang-menu summary{color:var(--ink)}
-@media(max-width:850px){.es-home .lang-menu{order:0;margin-left:auto}}
+.es-home .lang-menu summary{color:var(--ink);gap:6px;padding:4px 10px;font-size:13px;line-height:1.2;justify-content:flex-start}
+.es-home .lang-menu summary::after{content:none}
+.es-home .menu-toggle{flex:none}
+@media(max-width:850px){.es-home .lang-menu{order:0;margin-left:auto;margin-right:-14px}}
 @media(min-width:851px){.es-home .header>nav{margin-left:auto}}

@@ -7,11 +7,13 @@ import FAQ from "@/components/home/FAQ";
 import Hero from "@/components/home/Hero";
 import Reveal from "@/components/home/Reveal";
 import SiteFrame from "@/components/home/SiteFrame";
+import { getLocale } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "EaseScore.AI — Intelligent Feasibility",
-  description: "See what it takes to build on any lot in Allegheny County. Zoning, terrain, hazards and economics, with a source behind every number.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return (await getLocale()) === "es"
+    ? { title: "EaseScore.AI — Factibilidad inteligente", description: "Vea lo que se necesita para construir en cualquier lote del Condado de Allegheny. Zonificación, terreno, peligros y economía, con una fuente detrás de cada número." }
+    : { title: "EaseScore.AI — Intelligent Feasibility", description: "See what it takes to build on any lot in Allegheny County. Zoning, terrain, hazards and economics, with a source behind every number." };
+}
 
 export const viewport: Viewport = { themeColor: "#fbfcfd" };
 
