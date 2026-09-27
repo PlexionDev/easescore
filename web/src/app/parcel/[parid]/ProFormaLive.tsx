@@ -10,6 +10,7 @@ import { assumptions, finance, rents, type score } from "@easescore/engine";
 import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quickfit-gen";
 import type { quickfit } from "@easescore/engine";
 import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
+import { CommunityMedian, ScenarioShare, useCommunity } from "@/components/scenarios/ScenarioShare";
 
 export interface LiveInputs {
   fin: FinanceInputs;
@@ -148,6 +149,9 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
     }
   }, [live, over, rentsBr]);
 
+  // Scenario data loop (TODO 6): off unless the server enables it; see components/scenarios.
+  const community = useCommunity(parid, live.strategy, r?.plan.tier.id ?? null);
+
   const sync = useCallback((o: assumptions.CostOverrides) => {
     try {
       const u = new URL(window.location.href);
@@ -201,6 +205,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <td className="py-1 text-right text-slate-900">
           {l ? <RangeValue r={l.range} /> : usd(b.amount)}
           {EDITABLE.has(b.id) && <LineEditor id={b.id} value={b.amount} mine={you} onSet={setLine} onReset={resetLine} />}
+          {EDITABLE.has(b.id) && <CommunityMedian m={community.medians[b.id]} enabled={community.enabled} />}
         </td>
       </tr>
     );
@@ -355,6 +360,10 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <p className="text-[11px] text-slate-600">Size: {p.sizeBasis}.</p>
         {p.msiPremium?.status === "ok" && <p className="text-[11px] text-slate-600">Mine subsidence insurance: {usd(p.msiPremium.value)} a year on {usd(p.msiCoverage)} of coverage ({p.msiPremium.formula}).</p>}
         {p.notes.map((n) => <p key={n} className="text-[11px] text-slate-500">{n}</p>)}
+        <ScenarioShare enabled={community.enabled} parid={parid} strategy={live.strategy} scheme={live.scheme?.id ?? null} tier={p.tier.id}
+          anyEdits={anyEdits || Object.keys(initial).length > 0} editsKey={JSON.stringify(over)}
+          summary={{ units: p.units ?? undefined, finishedSf: p.finishedSf ?? undefined, tdc: rg.tdc?.likely, costPerSf: r.costPerSf ?? undefined, costPerUnit: r.costPerUnit ?? undefined,
+            marginPct: rg.sale.marginPct?.likely, yieldPct: rg.rent.yieldOnCostPct?.likely, verdict: r.verdict ?? undefined, tenure: p.tenure }} />
       </div>
 
       <p className="mt-2 text-[12px] text-slate-700">{r.benchmark.line}</p>
