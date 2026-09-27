@@ -14,13 +14,19 @@
 //  5. contextual — front setback = the average of the neighbors, by right, in residential districts. We do
 //                  not measure neighbors: the engine's own contextual-setback assumption stands in for it.
 //  6. height     — one more story (and 10 ft more height) in residential districts.
+//  7. matchBlock — "Match the block": a new building that matches its block face's prevailing pattern
+//                  (measured street precedent, migration 130) within MATCH_BLOCK tolerances is approved
+//                  administratively. Rules row: front setback down to the block's median minus the
+//                  tolerance, side setback down to the block's median (never under 3 ft, §925.06.C's
+//                  floor), minimum lot area down to 90% of the block's median lot. Needs 3+ measured
+//                  buildings on the face; residential districts only.
 
 import { DEFAULT_CONFIG } from "../score/adapter";
 import { existingUseColumn, solverRules } from "../score/strategies";
 import type { QuickFitRules } from "../quickfit/types";
 
 export type ParkingMode = "current" | "transit" | "none";
-export type LeverId = "attached" | "minLot" | "parking" | "adu" | "contextual" | "height";
+export type LeverId = "attached" | "minLot" | "parking" | "adu" | "contextual" | "height" | "matchBlock";
 
 export interface LeverState {
   attached: { on: boolean; maxWidthFt: number };
@@ -32,6 +38,8 @@ export interface LeverState {
   contextual: boolean;
   /** +1 story and +10 ft height (residential districts). */
   height: boolean;
+  /** "Match the block": the block face's prevailing pattern approved administratively (residential districts). */
+  matchBlock?: boolean;
 }
 
 export const LEVER_LABEL: Record<LeverId, string> = {
@@ -41,6 +49,7 @@ export const LEVER_LABEL: Record<LeverId, string> = {
   adu: "ADUs by right",
   contextual: "Contextual front setback",
   height: "One more story",
+  matchBlock: "Match the block",
 };
 
 /** Frequent-transit distance for the parking lever: a quarter mile, the Ease Score's own transit test. */
@@ -74,11 +83,23 @@ export const ADU_RULES = {
 
 /** The engine's contextual front-setback assumption (Ease Score config f1.contextualFrontSetbackFt), ft. */
 export const CONTEXTUAL_FRONT_FT: number = DEFAULT_CONFIG.f1.contextualFrontSetbackFt;
+/** Match-the-block tolerances (scenario settings, not code). */
+export const MATCH_BLOCK = {
+  /** Fewest measured buildings on the block face for a pattern to count. */
+  minBuildings: 3,
+  /** Front setback may sit this much closer than the block's median, ft. */
+  frontToleranceFt: 2,
+  /** Side setback never below this, ft (§925.06.C's contextual floor). */
+  sideFloorFt: 3,
+  /** Minimum lot area falls to this share of the block's median lot. */
+  lotAreaShare: 0.9,
+} as const;
+
 /** Height lever: stories and feet added to the district's limits. */
 export const HEIGHT_ADD = { stories: 1, ft: 10 } as const;
 
 export const OFF: LeverState = {
-  attached: { on: false, maxWidthFt: 35 }, minLot: { on: false, share: 1 }, parking: "current", adu: false, contextual: false, height: false,
+  attached: { on: false, maxWidthFt: 35 }, minLot: { on: false, share: 1 }, parking: "current", adu: false, contextual: false, height: false, matchBlock: false,
 };
 
 /** Clamp and snap a lever state so equal policies get equal keys. A lever that changes nothing is off. */
@@ -94,6 +115,7 @@ export function normalize(s: Partial<LeverState> | null | undefined): LeverState
     adu: s?.adu === true,
     contextual: s?.contextual === true,
     height: s?.height === true,
+    matchBlock: s?.matchBlock === true,
   };
 }
 
@@ -111,6 +133,7 @@ export function stateKey(s: LeverState): string {
   if (n.adu) parts.push("adu");
   if (n.contextual) parts.push("cs");
   if (n.height) parts.push("h1");
+  if (n.matchBlock) parts.push("mb");
   return parts.length ? parts.join(".") : "base";
 }
 
@@ -124,6 +147,7 @@ export function parseKey(key: string): LeverState {
     else if (p === "adu") s.adu = true;
     else if (p === "cs") s.contextual = true;
     else if (p === "h1") s.height = true;
+    else if (p === "mb") s.matchBlock = true;
   }
   return normalize(s);
 }
@@ -133,6 +157,7 @@ export const activeLevers = (s: LeverState): LeverId[] => {
   return [
     ...(n.attached.on ? ["attached" as const] : []), ...(n.minLot.on ? ["minLot" as const] : []), ...(n.parking !== "current" ? ["parking" as const] : []),
     ...(n.adu ? ["adu" as const] : []), ...(n.contextual ? ["contextual" as const] : []), ...(n.height ? ["height" as const] : []),
+    ...(n.matchBlock ? ["matchBlock" as const] : []),
   ];
 };
 
@@ -153,6 +178,16 @@ export interface LeverParcel {
   lotAreaSf?: number | null;
   /** Existing building footprint on the lot, sq ft (ADU fit check). */
   footprintSf?: number | null;
+  /** The lot's block face (public.block_faces): prevailing pattern for the match-the-block lever. */
+  block?: BlockPattern | null;
+}
+
+/** Prevailing values on a block face (medians over measured primary buildings / lots). */
+export interface BlockPattern {
+  nBuildings: number;
+  frontMedianFt: number | null;
+  sideMinMedianFt: number | null;
+  lotAreaMedianSf: number | null;
 }
 
 export interface LeverApplication {
@@ -165,7 +200,7 @@ export interface LeverApplication {
 const pos = (x: number | null | undefined) => x != null && x > 0;
 
 /** Levers that change the zoning-rules row (the ADU is counted beside the house instead). */
-export const RULES_LEVERS: LeverId[] = ["attached", "minLot", "parking", "contextual", "height"];
+export const RULES_LEVERS: LeverId[] = ["attached", "minLot", "parking", "contextual", "height", "matchBlock"];
 
 /** Which levers of `s` apply to this parcel. Pure; used both for the batch filter and the rules rewrite. */
 export function eligibility(p: LeverParcel, s: LeverState): LeverId[] {
@@ -188,6 +223,7 @@ export function eligibility(p: LeverParcel, s: LeverState): LeverId[] {
   if (n.adu && residential && existingUseColumn(p.use) === "single_unit_detached") out.push("adu");
   if (n.contextual && residential && (eff.min_front_setback_ft ?? 0) > CONTEXTUAL_FRONT_FT) out.push("contextual");
   if (n.height && residential && (pos(eff.max_height_stories) || pos(eff.max_height_ft))) out.push("height");
+  if (n.matchBlock && residential && matchBlockRules(eff, p.block) !== null) out.push("matchBlock");
   return out;
 }
 
@@ -215,11 +251,34 @@ export function applyLevers(p: LeverParcel, s: LeverState): LeverApplication {
     r.attached_parking_per_unit = 0;
   }
   if (touched.includes("contextual")) r.min_front_setback_ft = CONTEXTUAL_FRONT_FT;
+  if (touched.includes("matchBlock")) Object.assign(r, matchBlockRules(eff, p.block));
   if (touched.includes("height")) {
     if (pos(eff.max_height_stories)) r.max_height_stories = eff.max_height_stories! + HEIGHT_ADD.stories;
     if (pos(eff.max_height_ft)) r.max_height_ft = eff.max_height_ft! + HEIGHT_ADD.ft;
   }
   return { rules: r, touched };
+}
+
+/**
+ * The rules the match-the-block lever relaxes for a block pattern, or null when the block has too few
+ * measured buildings or matching it would relax nothing. Only ever lowers a requirement.
+ */
+export function matchBlockRules(eff: QuickFitRules, b: BlockPattern | null | undefined): Partial<QuickFitRules> | null {
+  if (!b || b.nBuildings < MATCH_BLOCK.minBuildings) return null;
+  const out: Partial<QuickFitRules> = {};
+  if (b.frontMedianFt != null && pos(eff.min_front_setback_ft)) {
+    const ft = Math.max(0, Math.floor(b.frontMedianFt - MATCH_BLOCK.frontToleranceFt));
+    if (ft < eff.min_front_setback_ft!) out.min_front_setback_ft = ft;
+  }
+  if (b.sideMinMedianFt != null && pos(eff.min_side_setback_ft)) {
+    const ft = Math.max(MATCH_BLOCK.sideFloorFt, Math.floor(b.sideMinMedianFt));
+    if (ft < eff.min_side_setback_ft!) out.min_side_setback_ft = ft;
+  }
+  if (b.lotAreaMedianSf != null && pos(eff.min_lot_area_sqft)) {
+    const sf = Math.round(b.lotAreaMedianSf * MATCH_BLOCK.lotAreaShare);
+    if (sf < eff.min_lot_area_sqft!) out.min_lot_area_sqft = sf;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /**
@@ -251,6 +310,7 @@ export function restrict(s: LeverState, keep: LeverId[]): LeverState {
     adu: keep.includes("adu") && n.adu,
     contextual: keep.includes("contextual") && n.contextual,
     height: keep.includes("height") && n.height,
+    matchBlock: keep.includes("matchBlock") && !!n.matchBlock,
   });
 }
 

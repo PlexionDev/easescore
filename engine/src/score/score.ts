@@ -2,6 +2,7 @@
 // Pure and deterministic. Takes precomputed dimensional fits (see strategies.ts) so it never runs
 // the QuickFit solver itself.
 
+import { matchesBlockPattern } from "./precedent";
 import type { QuickFitRules } from "../quickfit/types";
 import { bandFor, pctText, r1 } from "./curves";
 import { f1Zoning, f2Terrain, f3Hazards, f4Access, f5Approvals, f6Readiness, f7Market, type F1Out } from "./factors";
@@ -170,6 +171,8 @@ export function planningBadge(inp: EaseScoreInput, all: Internal[], strategy: St
         const m = vacant && inp.ownership.taxDelinquent;
         return { ...base, matched: m, note: m ? "Vacant or condemned and tax-delinquent." : "Not both vacant/blighted and tax-delinquent." };
       }
+      case "matches_block_pattern":
+        return { ...base, ...matchesBlockPattern(inp.blockPattern, strategy.units) };
       default:
         return { ...base, matched: null, note: "Not evaluated." };
     }

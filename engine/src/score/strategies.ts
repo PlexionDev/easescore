@@ -174,6 +174,8 @@ export function schemeFromQuickFit(strategy: StrategyId, runs: Runs): Scheme | n
 export interface FitRunOptions {
   /** Front setback when the contextual rule applies; undefined skips the contextual run. */
   contextualFrontFt?: number;
+  /** Where contextualFrontFt came from: measured neighbors (street precedent) or the config assumption. */
+  contextualBasis?: "measured" | "assumed";
   /** Setbacks tried for the "could a variance make it fit" probe. */
   probeSetbacksFt: { front: number; rear: number; side: number };
 }
@@ -213,7 +215,7 @@ export function runStrategyFits(
   const base = solveQuickFit({ ...common, rules });
   const contextual =
     opts.contextualFrontFt != null && rules.contextual_front_setback && (rules.min_front_setback_ft ?? 0) > opts.contextualFrontFt
-      ? solveQuickFit({ ...common, rules, setbackOverrides: { front: opts.contextualFrontFt, note: "contextual front setback (assumed)" } })
+      ? solveQuickFit({ ...common, rules, setbackOverrides: { front: opts.contextualFrontFt, note: `contextual front setback (${opts.contextualBasis ?? "assumed"})` } })
       : null;
   const p = opts.probeSetbacksFt;
   const toggles: VarianceToggle[] = [];

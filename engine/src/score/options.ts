@@ -49,7 +49,7 @@ export const LEAD_SUBSIDY = "Needs subsidy or lower costs";
 
 type F1In = {
   permissionCode?: string | null; fitStatus?: string | null; varianceRules?: string[]; lotOfRecordPath?: boolean;
-  nonconforming?: boolean; status?: string;
+  nonconforming?: boolean; status?: string; contextualBasis?: "measured" | "assumed"; contextualFrontSetbackFt?: number;
 };
 
 const ruleWords = (rs: string[] | undefined) =>
@@ -72,13 +72,16 @@ export function optionZoningPath(s: StrategyResult): { kind: ZoningPathKind; tex
   if (i.lotOfRecordPath) return { kind: "administrator_exception", text: "Needs an administrator exception (undersized lot of record)" };
   const variance = i.fitStatus === "variance";
   const vText = variance ? `a variance${i.varianceRules?.length ? ` (${ruleWords(i.varianceRules)})` : ""}` : "";
-  if (code === "P") return variance ? { kind: "variance", text: `Allowed use; needs ${vText}` } : { kind: "allowed", text: i.fitStatus === "contextual" ? "Allowed (with the contextual front setback)" : "Allowed" };
+  if (code === "P") return variance ? { kind: "variance", text: `Allowed use; needs ${vText}` } : { kind: "allowed", text: i.fitStatus === "contextual"
+    ? (i.contextualBasis === "measured" ? `Allowed by matching neighbors (§925.06 front setback ${i.contextualFrontSetbackFt} ft)` : "Allowed (with the contextual front setback)")
+    : "Allowed" };
   const [kind, base]: [ZoningPathKind, string] =
     code === "A" ? ["administrator_exception", "Needs an administrator exception"]
     : code === "S" ? ["special_exception", "Needs a special exception"]
     : code === "C" ? ["conditional_use", "Needs conditional use approval"]
     : ["unknown", `Permission code ${code}: check the use table`];
-  return { kind, text: variance ? `${base} and ${vText}` : base };
+  const ctx = i.fitStatus === "contextual" && i.contextualBasis === "measured" ? " (front line matches the neighbors, §925.06)" : "";
+  return { kind, text: variance ? `${base} and ${vText}` : base + ctx };
 }
 
 const BLOCKED_KINDS: ZoningPathKind[] = ["not_allowed", "no_fit"];

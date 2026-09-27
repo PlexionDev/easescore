@@ -205,6 +205,8 @@ export interface ZbaReliefCounts {
 }
 
 export interface EaseScoreInput {
+  /** Street precedent for the lot's block face (planning-badge input); absent = not evaluated. */
+  blockPattern?: import("./precedent").StreetPrecedent | null;
   parid: string;
   municipality: string | null;
   isPittsburgh: boolean;

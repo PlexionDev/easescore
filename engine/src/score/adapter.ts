@@ -8,6 +8,7 @@ import { evaluateRequirements } from "../evaluate";
 import type { ParcelFacts, ProjectAnswers } from "../types";
 import type { QuickFitRules } from "../quickfit/types";
 import { SRC } from "./factors";
+import { contextualInputFt, type StreetPrecedent } from "./precedent";
 import { computeEaseScore, type ScoreContext } from "./score";
 import { NEW_BUILD, existingUseColumn, runStrategyFits, solverRules, type QuickFitParcelInput } from "./strategies";
 import type {
@@ -40,6 +41,12 @@ export interface ScoreExtras {
   project?: { affordableUnitsProposed?: boolean | null };
   /** Measured contextual front setback (neighbors), when known; else the config assumption is used. */
   contextualFrontSetbackFt?: number;
+  /**
+   * Street precedent for the lot's block face (precedent.ts). When given, its §925.06.B setback replaces
+   * the config assumption (or the district setback when the rule does not reach), and it feeds the
+   * planning badge's "matches block pattern" input.
+   */
+  precedent?: StreetPrecedent | null;
   /** Precomputed fits; when given, QuickFit is not run for the base scenario. */
   fits?: Partial<Record<StrategyId, StrategyFit>>;
   /** Compute policy unlocks (reruns QuickFit per policy). Default true. */
@@ -143,6 +150,7 @@ export function toEaseInput(facts: ParcelFacts, extras: ScoreExtras = {}): EaseS
     zbaCitywide: extras.zbaCitywide ?? null,
     qct: f.tract_designations ? f.tract_designations.qct ?? null : null,
     geotechRequired,
+    ...(extras.precedent !== undefined ? { blockPattern: extras.precedent } : {}),
     ...(extras.project ? { project: extras.project } : {}),
     // City permit targets and queue describe City of Pittsburgh review only; other towns fall back to the estimate.
     ...(extras.permitTimes && pgh ? { permitTimes: extras.permitTimes } : {}),
@@ -165,10 +173,19 @@ function unitsFromUse(use: string | null | undefined): number | undefined {
 
 function fitsFor(inp: EaseScoreInput, rules: QuickFitRules | null, extras: ScoreExtras, cfg: EaseScoreConfig): ReturnType<typeof runStrategyFits> {
   if (!rules || !extras.quickfitInput) return { fits: {}, schemes: {}, notes: extras.quickfitInput ? [] : ["Lot outline not supplied; the fit test did not run."] };
+  const c = contextualFor(extras, cfg);
   return runStrategyFits(extras.quickfitInput, rules, {
-    contextualFrontFt: extras.contextualFrontSetbackFt ?? cfg.f1.contextualFrontSetbackFt,
+    contextualFrontFt: c.ft,
+    contextualBasis: c.basis,
     probeSetbacksFt: cfg.f1.varianceProbeSetbacksFt,
   });
+}
+
+/** Contextual front setback for the fit test: explicit extra, else measured precedent, else the config assumption. */
+export function contextualFor(extras: ScoreExtras, cfg: EaseScoreConfig): { ft: number; basis: "measured" | "assumed" } {
+  if (extras.contextualFrontSetbackFt != null) return { ft: extras.contextualFrontSetbackFt, basis: "measured" };
+  const m = contextualInputFt(extras.precedent);
+  return m != null ? { ft: m, basis: "measured" } : { ft: cfg.f1.contextualFrontSetbackFt, basis: "assumed" };
 }
 
 const UNLOCK_LABEL: Record<UnlockId, string> = {
@@ -205,11 +222,18 @@ export function scoreParcel(facts: ParcelFacts, extras: ScoreExtras = {}, cfg: E
     extras.fits ? { fits: extras.fits, notes: [] } : fitsFor(inp, rules, extras, cfg);
   const ctx: ScoreContext = { rules, fits: base.fits, fitNotes: base.notes };
   const result: EaseScoreResult = { ...computeEaseScore(inp, ctx, cfg), schemes: base.schemes ?? {} };
+  // Record which contextual setback the fit used (F1 inputs; the option text reads the basis).
+  const cf = contextualFor(extras, cfg);
+  for (const s of result.strategies) {
+    const f1 = s.factors.find((f) => f.id === "F1");
+    if (f1?.inputs && (f1.inputs as { fitStatus?: string }).fitStatus === "contextual")
+      Object.assign(f1.inputs, { contextualFrontSetbackFt: cf.ft, contextualBasis: cf.basis });
+  }
   if (extras.unlocks === false) return result;
 
   const bestScore = result.strategies.find((s) => s.strategy === result.best)?.score ?? null;
   const baseUnits = byRightUnits(base.fits);
-  const ctxFt = extras.contextualFrontSetbackFt ?? cfg.f1.contextualFrontSetbackFt;
+  const ctxFt = cf.ft;
   const why = !inp.isPittsburgh || !inp.zoning ? "Zoning is not loaded for this parcel."
     : !rules ? "This district has no transcribed rules."
       : !extras.quickfitInput ? "Lot outline not supplied, so the fit test cannot be rerun." : null;

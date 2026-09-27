@@ -270,6 +270,11 @@
         "id": "vacant_tax_delinquent",
         "label": "Vacant or blighted and tax-delinquent",
         "weight": 5
+      },
+      {
+        "id": "matches_block_pattern",
+        "label": "Project matches the block's pattern (street precedent)",
+        "weight": 10
       }
     ],
     "tiers": [
