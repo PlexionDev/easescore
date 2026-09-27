@@ -107,7 +107,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const T = new Timing("parcel", parid);
   // Map data and lot geometry stream to the browser after the pane (never awaited here).
   const quickfitP = quickfitInput(parid);
-  const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid)), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
+  // One retry for the map (a busy database can time a call out).
+  const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid).then((m) => m ?? parcelMap(parid))), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
   stage.catch(() => undefined);
   // Pane data: one precomputed row (parcel_pane), or computed live when the parcel has no row yet.
   const loaded = await loadPane(parid, asOf, quickfitP, T);
