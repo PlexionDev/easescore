@@ -5,5 +5,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 out="${TMPDIR:-/tmp}/easescore-pane-all.mjs"
 engine/node_modules/.bin/esbuild scripts/pane_all.ts --bundle --platform=node --format=esm --target=node20 \
-  --alias:@easescore/engine=./engine/src/index.ts --log-level=warning --outfile="$out"
+  --alias:@easescore/engine/src=./engine/src --alias:@easescore/engine=./engine/src/index.ts --log-level=warning --outfile="$out"
 exec node "$out" "$@"
