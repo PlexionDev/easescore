@@ -6,7 +6,10 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
-import { BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, STRATEGY_TEXT, ownerLabel, parcelLabel, titleCase, type PlannerRow } from "@/lib/planner";
+import {
+  BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, approvalNeeded, bestOptionHeadline, monthsRangeText, ownerLabel, parcelLabel, titleCase,
+  type PlannerRow,
+} from "@/lib/planner";
 
 export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
   row: PlannerRow | null; onClose: () => void; pinned: boolean; onPin: () => void; badge: string | null;
@@ -38,7 +41,11 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
               {r.range_lo != null ? <span className="pl-hint">{r.preliminary ? "Preliminary: " : "Range with missing data: "}{r.range_lo} to {r.range_hi}</span> : null}
             </div>
             {!r.zoning ? <p className="pl-callout amber">Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded, so the zoning factor is left out and the score is shown as a range. Confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
-            <p className="pl-hint" style={{ marginTop: -10 }}>Best option that adds homes: {r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}. Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "no building"}.</p>
+            <p className="pl-hint" style={{ marginTop: -10 }}>
+              {bestOptionHeadline(r)}.
+              {!r.vacant ? <> Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "not scored"}.</> : null}
+              {!r.by_right_units ? <> Homes by right: 0{approvalNeeded(r) ? ` — needs approval for ${approvalNeeded(r)!.toLowerCase()}.` : "."}</> : null}
+            </p>
             {r.red_flags.map((f) => <p key={f.id} className="pl-callout red"><strong>Blocked unless resolved:</strong> {f.title}</p>)}
             {r.cap_label ? <p className="pl-callout amber">{r.cap_label}</p> : null}
             {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
@@ -50,7 +57,7 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
             <div className="pl-facts">
               <div className="pl-fact"><span>Homes by right</span><b>{r.by_right_units ?? "—"}</b></div>
               <div className="pl-fact"><span>With relief</span><b>{r.units_with_relief ?? "—"}</b></div>
-              <div className="pl-fact"><span>Months to permit (est.)</span><b>{r.months_to_permit != null ? `~${r.months_to_permit}` : "—"}</b></div>
+              <div className="pl-fact"><span>Months to permit (est.)</span><b>{monthsRangeText(r.months_to_permit)}</b></div>
               <div className="pl-fact"><span>Lot</span><b>{r.lot_sqft != null ? `${Math.round(r.lot_sqft).toLocaleString("en-US")} sq ft` : "—"}</b></div>
               <div className="pl-fact"><span>To frequent transit</span><b>{r.transit_m != null ? `${Math.round((r.transit_m * FT_PER_M) / 10) * 10} ft` : "—"}</b></div>
               <div className="pl-fact"><span>Planning badge</span><b style={{ fontSize: 13 }}>{badge ?? "None"}</b></div>

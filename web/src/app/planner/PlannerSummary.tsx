@@ -99,6 +99,15 @@ export default function PlannerSummary({ s, f, set, loading }: {
         <p className="pl-card-sub">{pl.buildable_count.toLocaleString("en-US")} buildable ({pl.buildable_acres.toLocaleString("en-US")} acres): no red flag and room for at least one home.</p>
         <p className="pl-card-sub">{Object.entries(pl.by_agency).map(([a, n]) => `${a} ${n.toLocaleString("en-US")}`).join(" · ") || "No publicly owned lots match."}</p>
       </section>
+
+      {s.other_public_land.count ? (
+        <section className="pl-card" aria-label="Other public land">
+          <p className="pl-card-label">Other public land</p>
+          <p className="pl-card-big">{s.other_public_land.count.toLocaleString("en-US")} lots · {s.other_public_land.acres.toLocaleString("en-US")} acres</p>
+          <p className="pl-card-sub">Not ranked for housing: alleys, streets and rights-of-way, parks and plazas, parking structures and lots, and utility and transit land.</p>
+          <p className="pl-card-sub">{Object.entries(s.other_public_land.by_reason).map(([r, n]) => `${r} ${n.toLocaleString("en-US")}`).join(" · ")}</p>
+        </section>
+      ) : null}
     </div>
   );
 }

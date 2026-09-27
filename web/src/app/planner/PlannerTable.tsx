@@ -3,10 +3,10 @@
 // Ranked table: sortable headers, a column chooser (remembered in this browser), pin checkboxes,
 // hazard icons, row hover synced with the map, row click opens the parcel drawer.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BandPill, CheckboxField } from "@/components/seats";
-import { BADGE_NOTE, FT_PER_M, ownerShort, parcelLabel, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
+import { BADGE_NOTE, FT_PER_M, MONTHS_RANGE_NOTE, duplicateAddresses, monthsRangeText, ownerShort, parcelLabel, titleCase, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
 
 type ColId = "neighborhood" | "zoning" | "lot" | "owner" | "score" | "blocker" | "byright" | "relief" | "hazards" | "months" | "badge" | "transit" | "rehab" | "district";
 type Col = { id: ColId; label: string; title?: string; sort?: Sort; num?: boolean; cell: (r: PlannerRow) => ReactNode; always?: boolean };
@@ -41,7 +41,7 @@ const COLS: Col[] = [
       return hz.length ? <span className="pl-hz">{hz.map((h) => <span key={h.k} title={h.t} className={h.red ? "red" : undefined} aria-label={h.t}>{h.k}</span>)}</span> : <span className="pl-muted">—</span>;
     },
   },
-  { id: "months", label: "Months to permit", title: "Predicted months to a building permit for the best option (estimate)", sort: "months", num: true, cell: (r) => (r.months_to_permit != null ? `~${r.months_to_permit}` : "—") },
+  { id: "months", label: "Months to permit", title: `Predicted months to a building permit for the best option (estimate). ${MONTHS_RANGE_NOTE}`, sort: "months", num: true, cell: (r) => monthsRangeText(r.months_to_permit) },
   { id: "badge", label: "Planning badge", title: BADGE_NOTE, cell: (r) => r.planning_badge ?? <span className="pl-muted">None</span> },
   { id: "transit", label: "To frequent transit", sort: "transit", num: true, cell: (r) => (r.transit_m != null ? `${Math.round((r.transit_m * FT_PER_M) / 10) * 10} ft` : "—") },
   { id: "rehab", label: "Rehab existing", title: "Ease Score for rehabbing the existing building (not used for ranking)", cell: (r) => (r.rehab_score != null ? `${r.rehab_score} ${r.rehab_band ?? ""}` : <span className="pl-muted">No building</span>) },
@@ -75,6 +75,8 @@ export default function PlannerTable({ rows, offset, sort, dir, onSort, hover, s
   const [cols, setCols] = useState<ColId[]>(DEFAULT_COLS);
   const [chooser, setChooser] = useState(false);
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  // Several parcels can share one street address (e.g. a front and back lot); label those by parcel ID too.
+  const dupAddr = useMemo(() => duplicateAddresses(rows), [rows]);
   useEffect(() => {
     try {
       const v = JSON.parse(window.localStorage.getItem(COLS_KEY) ?? "null");
@@ -114,7 +116,7 @@ export default function PlannerTable({ rows, offset, sort, dir, onSort, hover, s
               <input type="checkbox" className="pl-pin" checked={isPinned} onChange={() => onPin(r)} disabled={!isPinned && pinned.length >= 5}
                 aria-label={`Pin ${parcelLabel(r)} to compare`} />
               <button type="button" className="pl-card-btn" onClick={() => onOpen(r)}>
-                <span className="pl-card-top"><span className="pl-rank">{offset + i + 1}</span> <b>{parcelLabel(r)}</b></span>
+                <span className="pl-card-top"><span className="pl-rank">{offset + i + 1}</span> <b>{parcelLabel(r, dupAddr.has(titleCase(r.address)))}</b></span>
                 <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {r.top_blocker ?? "None major"}</span>
                 <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right, ${r.units_with_relief ?? "—"} with relief`].filter(Boolean).join(" · ")}</span>
               </button>
@@ -124,17 +126,18 @@ export default function PlannerTable({ rows, offset, sort, dir, onSort, hover, s
       </ul>
       <div className="pl-scroll">
         <TableBody rows={rows} offset={offset} shown={shown} arrow={arrow} onSort={onSort} hover={hover} selected={selected} pinned={pinned}
-          onHover={onHover} onOpen={onOpen} onPin={onPin} loading={loading} rowRefs={rowRefs} sort={sort} dir={dir} />
+          onHover={onHover} onOpen={onOpen} onPin={onPin} loading={loading} rowRefs={rowRefs} sort={sort} dir={dir} dupAddr={dupAddr} />
       </div>
       {foot}
     </section>
   );
 }
 
-function TableBody({ rows, offset, shown, arrow, onSort, hover, selected, pinned, onHover, onOpen, onPin, loading, rowRefs, sort, dir }: {
+function TableBody({ rows, offset, shown, arrow, onSort, hover, selected, pinned, onHover, onOpen, onPin, loading, rowRefs, sort, dir, dupAddr }: {
   rows: PlannerRow[]; offset: number; shown: Col[]; arrow: (s?: Sort) => string; onSort: (s: Sort) => void;
   hover: string | null; selected: string | null; pinned: string[]; onHover: (p: string | null) => void; onOpen: (r: PlannerRow) => void;
   onPin: (r: PlannerRow) => void; loading: boolean; rowRefs: React.RefObject<Map<string, HTMLTableRowElement>>; sort: Sort; dir: Dir;
+  dupAddr: Set<string>;
 }) {
   return (
     <table className="pl-table">
@@ -165,7 +168,7 @@ function TableBody({ rows, offset, shown, arrow, onSort, hover, selected, pinned
               </td>
               <td className="pl-rank">{offset + i + 1}</td>
               <td className="pl-parcel">
-                <Link href={`/parcel/${encodeURIComponent(r.parid.trim())}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(r); }}>{parcelLabel(r)}</Link>
+                <Link href={`/parcel/${encodeURIComponent(r.parid.trim())}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(r); }}>{parcelLabel(r, dupAddr.has(titleCase(r.address)))}</Link>
               </td>
               {shown.map((c) => <td key={c.id} className={c.num ? "num" : undefined}>{c.cell(r)}</td>)}
             </tr>
