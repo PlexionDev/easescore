@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { preconnect } from "react-dom";
+import { remoteTilesBase } from "@/lib/tiles";
 import type { quickfit, score } from "@easescore/engine";
 import MapStage, { markSubject, type MapMassing } from "./MapStage";
 import QuickFitPanel from "./QuickFitPanel";
@@ -83,6 +84,8 @@ function useStable<T>(v: T): T {
   return useMemo(() => v, [key]);
 }
 
+const TILES_ORIGIN = (() => { const b = remoteTilesBase(); return b ? new URL(b).origin : null; })();
+
 export default function ParcelShell({ parid, pane, planExtras, drawers, stage, outline, center, gen, viewFacts }: {
   parid: string;
   /** The pane, top to bottom (server-rendered). */
@@ -117,6 +120,10 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const mapData = loaded?.mapData ?? null;
   const qfInput = loaded?.qfInput ?? null;
   if (HAS_KEY) preconnect("https://tile.googleapis.com");
+  // The terrain and 2D maps fetch (CORS) from the hosted tiles bucket and the basemap glyph/sprite host: open
+  // those connections while the page loads, not when a map first asks.
+  if (TILES_ORIGIN) preconnect(TILES_ORIGIN, { crossOrigin: "anonymous" });
+  preconnect("https://protomaps.github.io", { crossOrigin: "anonymous" });
   const a: Affine | undefined = qfInput?.toLonLat;
   const toLonLat = (p: [number, number]): [number, number] =>
     a ? [a.lon0 + a.lon_per_x * p[0] + a.lon_per_y * p[1], a.lat0 + a.lat_per_x * p[0] + a.lat_per_y * p[1]] : p;

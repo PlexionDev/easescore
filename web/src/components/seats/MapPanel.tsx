@@ -8,11 +8,14 @@
 //   import MapPanel, { GeoJSONLayer, useMapPanel } from "@/components/seats/MapPanel";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { preconnect } from "react-dom";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor, type Flavor } from "@protomaps/basemaps";
-import { tilesBase } from "@/lib/tiles";
+import { remoteTilesBase, tilesBase } from "@/lib/tiles";
+
+const TILES_ORIGIN = (() => { const b = remoteTilesBase(); return b ? new URL(b).origin : null; })();
 import "./seats.css";
 
 maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
@@ -77,6 +80,9 @@ export default function MapPanel({
   minHeight?: number;
 }) {
   const el = useRef<HTMLDivElement>(null);
+  // Open the (CORS) connections to the hosted tiles bucket and the glyph/sprite host before the map asks.
+  if (TILES_ORIGIN) preconnect(TILES_ORIGIN, { crossOrigin: "anonymous" });
+  preconnect("https://protomaps.github.io", { crossOrigin: "anonymous" });
   const [state, setState] = useState<Ctx>({ map: null, ready: false });
   const [failed, setFailed] = useState(false);
   const readyCb = useRef(onReady);
