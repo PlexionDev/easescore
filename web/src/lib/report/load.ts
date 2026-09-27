@@ -20,7 +20,7 @@ import { parcelMap, quickfitInput } from "@/lib/data";
 import { homeTapFees, readCostOverrides } from "@/lib/proforma";
 import { PANE_VERSION, type PanePayload } from "@/lib/pane-core";
 import { loadEaseScore, type EaseScoreView } from "./score";
-import { comparePlans, type PlanComparison } from "@/lib/summary";
+import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { buildSitePlanSheet, type SitePlanSheet } from "./sitesheet";
 import { loadPane, type PaneLoad } from "@/lib/pane";
 import { loadRents } from "@/lib/rents";
@@ -387,6 +387,21 @@ export interface ReportHead {
 }
 
 /**
+ * The parcel page's best option from one plan comparison (the pane's ranking): the easiest option that is
+ * allowed and fits, never a renovation. The study opens on it when the URL names no option.
+ */
+function paneBestOf(res: easeEngine.EaseScoreResult, pc: PlanComparison | null): easeEngine.StrategyId | null {
+  const rows = easeEngine.rankOptions(res, Object.fromEntries(res.strategies.map((x) => {
+    const pf = pc?.options.find((q) => q.strategy === x.strategy)?.pf;
+    const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
+    const rehab = x.strategy === "rehab_existing";
+    const v: easeEngine.PencilState = pf ? (pf.plan.missing.length ? (rehab ? "none" : "unknown") : pf.verdict ?? "unknown") : fit === "no_fit" || rehab ? "none" : "unknown";
+    return [x.strategy, v];
+  })));
+  return (rows.find((r) => r.evaluable) ?? rows.find((r) => r.applicable && r.strategy !== "rehab_existing"))?.strategy ?? null;
+}
+
+/**
  * The report's first section, from the pane alone (one row read for a precomputed parcel): address,
  * best option, and the two-sentence summary. Shown while the full study streams in. null = no such parcel.
  */
@@ -397,7 +412,7 @@ export async function loadReportHead(parid: string, sp: SP): Promise<ReportHead 
   const P = loaded.payload;
   const f = P.facts as Facts;
   const res = P.score;
-  const best = res ? res.strategies.find((x) => x.strategy === res.best) ?? null : null;
+  let bestId = res?.best ?? null;
   let summary: string[] = [];
   if (res) {
     try {
@@ -405,11 +420,15 @@ export async function loadReportHead(parid: string, sp: SP): Promise<ReportHead 
         parid, facts: f as unknown as ParcelFacts & Record<string, unknown>, result: res, zba: P.zba, sfComps: P.sfComps, sales: P.sales, rent: P.rent, prime: P.prime,
         tapFeesPerUnit: P.tapFees, overrides: readCostOverrides(sp), asOf: todayIso(sp), precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
       });
-      summary = [...plans.summary.sentences];
+      bestId = paneBestOf(res, plans) ?? bestId;
+      // Sentence 1 describes the parcel page's best option (the option the study opens on).
+      const led = bestId && bestId !== plans.byRight?.strategy ? withSelected(plans, bestId, plans.options.find((o) => o.strategy === bestId)?.pf ?? null, true) : plans;
+      summary = [...led.summary.sentences];
     } catch {
       summary = [];
     }
   }
+  const best = res ? res.strategies.find((x) => x.strategy === bestId) ?? null : null;
   return {
     parid,
     address: (f.assessment?.address as string | undefined) ?? null,
@@ -524,9 +543,21 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
       return null;
     }
   })();
+  // No option in the URL (the Developer seat's link, a bare /api/report/<id>): study the parcel page's best option.
+  let paneBestId: easeEngine.StrategyId | null = null;
+  if (!ubPlan?.pf && !pageStrategyFromReport(sp) && scenario.strategy === "best" && P.score) {
+    try {
+      paneBestId = paneBestOf(P.score, await T.time("compare_plans_best", comparePlans({
+        parid, facts: P.facts as unknown as ParcelFacts & Record<string, unknown>, result: P.score, zba: P.zba, sfComps: P.sfComps, sales: P.sales, rent: P.rent, prime: P.prime,
+        tapFeesPerUnit: P.tapFees, overrides: readCostOverrides(pageQueryFromReport(sp)), asOf: todayIso(sp), precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
+      })));
+    } catch {
+      paneBestId = null;
+    }
+  }
   if (ubPlan?.pf) pagePlan = { strategy: ubPlan.strategy, scheme: null, stepping: null, selected: ubPlan.selected, pf: ubPlan.pf };
   else try {
-    const pageStrategy = pageStrategyFromReport(sp) ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
+    const pageStrategy = pageStrategyFromReport(sp) ?? paneBestId ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
     if (pageStrategy) {
       const psp = pageQueryFromReport(sp);
       const ov = { ...(str(sp, "tenure") ? { tenure: scenario.tenure } : {}), ...readCostOverrides(psp) };
@@ -643,10 +674,12 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
       project: { affordableUnitsProposed: scenario.affordable },
     }));
     const tapPerUnit = homeFees.length ? homeFees.reduce((t, x) => t + x.amount, 0) : null;
-    plans = await T.time("compare_plans", comparePlans({
+    const cmp = await T.time("compare_plans", comparePlans({
       parid, facts: facts as unknown as ParcelFacts & Record<string, unknown>, result: raw, zba, sfComps, sales, rent, prime,
       tapFeesPerUnit: tapPerUnit, overrides, asOf, precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
     }));
+    // The summary's first sentence describes the studied option (the page's best option or the visitor's pick).
+    plans = pagePlan && !ubPlan?.pf && cmp.byRight?.strategy !== pagePlan.strategy ? withSelected(cmp, pagePlan.strategy as easeEngine.StrategyId, pagePlan.pf, true) : cmp;
     // Same ranking as the parcel page: the pro forma's verdict per option (the page's own for the studied one).
     const pc = plans;
     const verdictOf = (x: assumptions.ProFormaResult | null | undefined, rehab: boolean): easeEngine.PencilState =>

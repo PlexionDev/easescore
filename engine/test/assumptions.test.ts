@@ -234,7 +234,10 @@ describe("items that apply but have no cost yet", () => {
     const p = plan(MINE);
     expect(p.exclusions.map((e) => e.text)).toContain("Not included: Demolition of the existing building — cost not set yet");
     expect(p.forSale.hardSiteLines?.demolition).toBeUndefined();
-    expect(p.evidence).toBe("partial");
+    // A new build with the demolition unpriced has no verdict (never "Pencils" on a partial answer).
+    expect(p.evidence).toBe("missing");
+    expect(p.missing.some((m) => /^Demolition of the existing building is not priced yet/.test(m))).toBe(true);
+    expect(evaluateDevelopment(p).verdict).toBeNull();
     const s = plan(STEEP);
     // A steep City lot stages in the street: a labeled DOMI staging-permit estimate, no longer "not included".
     expect(s.exclusions).toEqual([]);

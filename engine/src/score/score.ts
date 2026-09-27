@@ -155,7 +155,8 @@ export function planningBadge(inp: EaseScoreInput, all: Internal[], strategy: St
         return { ...base, matched: null, note: "Awaiting planning input: no target-area layer yet." };
       case "missing_middle_by_right": {
         if (!inp.isPittsburgh || !inp.zoning) return { ...base, matched: null, note: "Zoning not loaded here." };
-        const hits = all.filter((x) => MISSING_MIDDLE.includes(x.result.strategy) && x.f1?.permissionCode === "P"
+        // Missing middle is 2+ homes: a one-home "townhouse row" is an attached single-family home, not missing middle.
+        const hits = all.filter((x) => MISSING_MIDDLE.includes(x.result.strategy) && (x.result.units ?? 0) >= 2 && x.f1?.permissionCode === "P"
           && (x.f1.fitStatus === "by_right" || x.f1.fitStatus === "contextual"));
         return { ...base, matched: hits.length > 0, note: hits.length ? `By right: ${hits.map((x) => x.result.strategyLabel.toLowerCase()).join(", ")}.` : "No 2-4 unit or townhouse option fits by right." };
       }
@@ -190,7 +191,11 @@ export function planningBadge(inp: EaseScoreInput, all: Internal[], strategy: St
 /** Best strategy: no red flags first, then highest score, then more evidence, then strategy order. */
 export function pickBest(results: StrategyResult[], order: readonly string[]): StrategyId | null {
   // Renovation is never estimated automatically (condition inside unknown), so it is never the best option.
-  const ok = results.filter((r) => r.applicable && r.score != null && r.strategy !== "rehab_existing");
+  const ok0 = results.filter((r) => r.applicable && r.score != null && r.strategy !== "rehab_existing");
+  // Options whose zoning could not be checked (e.g. backyard units, whose rules are not transcribed) are never
+  // the best when another option has a zoning answer (same rule as the planner batch and rankOptions).
+  const zoned = ok0.filter((r) => r.factors.some((f) => f.id === "F1" && f.subscore != null));
+  const ok = zoned.length ? zoned : ok0;
   if (!ok.length) return null;
   return [...ok].sort(
     (a, b) => a.redFlags.length - b.redFlags.length || b.score! - a.score! || b.evidenceShare - a.evidenceShare || order.indexOf(a.strategy) - order.indexOf(b.strategy),

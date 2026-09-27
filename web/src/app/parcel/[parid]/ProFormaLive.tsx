@@ -262,6 +262,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-live-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
+            {!r.verdict && p.missing.some((t) => /^Demolition of the existing building is not priced/.test(t)) ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-800">Can&apos;t tell yet: demolition not priced</span> : null}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
             {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
           </div>

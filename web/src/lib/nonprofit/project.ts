@@ -86,13 +86,14 @@ async function lotCost(parid: string, units: number, bedrooms: number, asOf: str
   // Renovation is never the best option (never estimated automatically); a stored row may predate that rule.
   const bestId = res.best === "rehab_existing" ? score.pickBest(res.strategies, res.strategies.map((x) => x.strategy)) : res.best;
   const bestRes = res.strategies.find((x) => x.strategy === bestId) ?? null;
-  const byRightUnits = res.strategies.filter((x) => x.applicable && (fitOf(x) === "by_right" || fitOf(x) === "contextual")).reduce<number | null>((m, x) => Math.max(m ?? 0, x.units ?? 0), null);
+  const byRightUnits = res.strategies.filter((x) => x.applicable && (fitOf(x) === "by_right" || fitOf(x) === "contextual") && score.optionZoningPath(x).kind === "allowed").reduce<number | null>((m, x) => Math.max(m ?? 0, x.units ?? 0), null);
   const lotSqft = (f as { lot_area_sqft_gis?: number | null }).lot_area_sqft_gis ?? (f.assessment as { lot_area_sqft?: number | null } | undefined)?.lot_area_sqft ?? null;
   Object.assign(base, { bestLabel: bestRes ? `${bestRes.strategyLabel}${bestRes.units ? ` · ${bestRes.units} home${bestRes.units === 1 ? "" : "s"}` : ""}` : null, byRightUnits, lotSqft: lotSqft != null ? Math.round(lotSqft) : null });
   const tries = TRY[units] ?? TRY[2]!;
   const cands = res.strategies.filter((s) => s.applicable && tries.includes(s.strategy) && res.schemes?.[s.strategy]);
   // Prefer a type that fits this many homes by right; otherwise the first that fits with relief.
-  const easy = (s: score.StrategyResult) => fitOf(s) === "by_right" || fitOf(s) === "contextual";
+  // By right = the use is allowed AND the building fits (the zoning path the parcel page shows), never fit alone.
+  const easy = (s: score.StrategyResult) => (fitOf(s) === "by_right" || fitOf(s) === "contextual") && score.optionZoningPath(s).kind === "allowed";
   const byRight = cands.find((s) => (s.units ?? 0) >= units && easy(s));
   const pick = byRight ?? cands.find((s) => (s.units ?? 0) >= units) ?? cands[0] ?? null;
   if (!pick) return { ...base, source: loaded.source, notes: [`No ${units}-home building type fits this lot in the site-fit check.`] };
@@ -128,6 +129,7 @@ async function lotCost(parid: string, units: number, bedrooms: number, asOf: str
       finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
       tdc: r.tdc, hard: hardOf(pf), land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
       notes: [
+        ...(!easy(pick) ? [`Zoning relief: this ${pick.strategyLabel.toLowerCase()} is not allowed by right here (${score.optionZoningPath(pick).text.replace(/^./, (m) => m.toLowerCase())}).`] : []),
         ...(bestRes && bestRes.strategy !== pick.strategy ? [`The parcel page's best option for this lot is ${bestRes.strategyLabel.toLowerCase()}; this project places ${units} home${units === 1 ? "" : "s"} on it as a ${pick.strategyLabel.toLowerCase()}${easy(pick) ? ", which the site-fit check allows by right" : ", which needs zoning relief"}.`] : []),
         ...(plan.exclusions.length ? [`Not included yet: ${plan.exclusions.map((e) => e.label.toLowerCase()).join("; ")}.`] : []),
         // Rents come from HUD limits in this seat, so the market-rent gap does not apply.

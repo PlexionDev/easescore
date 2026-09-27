@@ -122,7 +122,8 @@ export function rankOptions(result: Pick<EaseScoreResult, "strategies">, pencils
   rows.sort((a, b) => a.g - b.g || easeOf(b.s) - easeOf(a.s) || order.indexOf(a.s.strategy) - order.indexOf(b.s.strategy));
   return rows.map(({ s, zoning, p, g }, i) => ({
     strategy: s.strategy,
-    name: OPTION_NAME[s.strategy],
+    // A one-home "townhouse row" is an attached single-family home.
+    name: s.strategy === "townhouse_row" && s.units === 1 ? "Attached single-family home" : OPTION_NAME[s.strategy],
     applicable: s.applicable,
     score: s.score,
     range: s.range ?? null,

@@ -278,7 +278,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   let plans: PlanComparison | null = null;
   if (plans0) {
     try {
-      plans = selected ? withSelected(plans0, selected.strategy, pf, wanted != null && wanted !== plans0.byRight?.strategy) : plans0;
+      // Sentence 1 describes the option the pane shows (the best option, or the visitor's pick), never a different one.
+      plans = selected ? withSelected(plans0, selected.strategy, pf, selected.strategy !== plans0.byRight?.strategy) : plans0;
     } catch {
       plans = plans0;
     }
@@ -290,6 +291,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   for (const o of plans?.options ?? []) {
     const y = o.pf?.rent.yieldOnCost;
     if (o.pf && !o.pf.plan.missing.length && o.pf.verdict == null && o.pf.plan.tenure === "rent" && y != null) pencilDetail[o.strategy] = `Rental: ${Math.round(y * 100)}% yield`;
+    // A required cost that is not priced (demolition of the existing building): no verdict, and it says why.
+    else if (o.pf?.plan.missing.some((t) => /^Demolition of the existing building is not priced/.test(t))) pencilDetail[o.strategy] = "Can't tell yet: demolition not priced";
   }
 
   T.add("server_total", T.total(), `pane ${loaded.source}`);

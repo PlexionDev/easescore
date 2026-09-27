@@ -130,6 +130,8 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   // and same profit ÷ TDC as decisionBox); otherwise "Doesn't pencil". No in-between for sale plans.
   if (plan.tenure === "sale" && profitR != null && tdc) verdict = profitR / tdc + 1e-9 >= DEFAULT_CRITERIA.targetMargin ? "yes" : "no";
   if (plan.tenure === "rent" && rent.noi != null) verdict = rent.noi <= 0 ? "no" : thinYoc != null && rent.yieldOnCost != null ? (rent.yieldOnCost < thinYoc ? "thin" : "yes") : null;
+  // No verdict while an input is missing (e.g. demolition not priced): never "Pencils" on a partial answer.
+  if (plan.missing.length) verdict = null;
 
   // ---- Sentences
   const MINOR = new Set(["permits", "other_soft", "tap_fees", "loan_fees", "holding"]);

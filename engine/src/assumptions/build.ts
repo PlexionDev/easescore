@@ -585,6 +585,8 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     } else {
       exclude("demolition", label, reason);
       row("demolition", label, "not set", d, null, false);
+      // A new build on a lot with a building: no verdict while demolition is unpriced (never "Pencils" without it).
+      if (!rehab) missing.push("Demolition of the existing building is not priced yet (no local cost). Enter a demolition cost to see whether it pencils.");
     }
   }
   const landslide = overlay("landslide_prone_pgh");

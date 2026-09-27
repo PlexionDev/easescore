@@ -142,6 +142,18 @@ describe("ordering", () => {
     expect(b.find((x) => x.strategy === "new_sf")!.score).toBe(64);
   });
 
+  it("pickBest skips options whose zoning is unknown and renovation (344 Blvd of the Allies ADU case)", () => {
+    const r = fake([{ id: "adu", score: 96, code: "" }, { id: "rehab_existing", score: 99 }, { id: "new_sf", score: 60 }]);
+    r.strategies[0]!.factors[0]!.subscore = null;
+    expect(score.pickBest(r.strategies, ["adu", "rehab_existing", "new_sf"])).toBe("new_sf");
+  });
+
+  it("a one-home townhouse row reads as an attached single-family home", () => {
+    const r = fake([{ id: "townhouse_row", score: 80 }]);
+    r.strategies[0]!.units = 1;
+    expect(score.rankOptions(r, {})[0]!.name).toBe("Attached single-family home");
+  });
+
   it("ties break on the config's strategy order; deterministic", () => {
     const r = fake([{ id: "new_sf", score: 70 }, { id: "duplex", score: 70 }]);
     expect(score.rankOptions(r, {}).map((x) => x.strategy)).toEqual(["new_sf", "duplex"]);
