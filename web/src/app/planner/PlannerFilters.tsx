@@ -88,7 +88,7 @@ export default function PlannerFilters({ f, options, set, reset, counts }: {
         <CheckboxField label="Privately owned" checked={f.owner === "private"} onChange={(c) => set({ owner: c ? "private" : undefined })} />
         <CheckboxField label="Tax-delinquent" hint="Open county tax lien" checked={!!f.delinquent} onChange={(c) => set({ delinquent: c || undefined })} />
         <details style={{ marginTop: 4 }}>
-          <summary className="es-field-label" style={{ cursor: "pointer" }}>Owner type{f.ownerTypes?.length ? ` (${f.ownerTypes.length})` : ""}</summary>
+          <summary className="es-field-label" style={{ cursor: "pointer", display: "list-item" }}>Owner type{f.ownerTypes?.length ? ` (${f.ownerTypes.length})` : ""}</summary>
           {OWNER_TYPES.map((o) => (
             <CheckboxField key={o.id} label={o.label} checked={!!f.ownerTypes?.includes(o.id)}
               onChange={(c) => set({ ownerTypes: c ? [...(f.ownerTypes ?? []), o.id] : (f.ownerTypes ?? []).filter((x) => x !== o.id) })} />
