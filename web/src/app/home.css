@@ -181,8 +181,9 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home footer{padding:68px 0 26px}
 .es-home .footer-top{display:flex;justify-content:space-between;gap:65px}
 .es-home .footer-brand>.brand{gap:0}
-.es-home .footer-logo{height:64px;width:auto;display:block}
-.es-home .footer-brand p{font-size:.8125rem;margin-top:12px}
+.es-home .footer-brand{display:flex;flex-direction:column;align-items:center;text-align:center}
+.es-home .footer-logo{height:150px;width:auto;display:block}
+.es-home .footer-brand p{font-size:1.75rem;font-weight:400;color:var(--muted);letter-spacing:-.005em;line-height:1.2;margin-top:6px}
 .es-home .footer-links{display:grid;grid-template-columns:repeat(3,1fr);gap:60px}
 .es-home .footer-links h2{font-size:.75rem;letter-spacing:.02em;font-weight:600;margin:4px 0 17px}
 .es-home .footer-links a,.es-home .footer-links button{display:block;background:none;border:0;padding:0;color:var(--muted);font-size:.8125rem;margin-top:9px;text-align:left}
