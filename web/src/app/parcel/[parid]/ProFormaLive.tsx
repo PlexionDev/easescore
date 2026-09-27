@@ -252,6 +252,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500">{sale ? (gap ? "Gap (short)" : "Profit") : "NOI / year"}</p>
           <p className="text-sm"><RangeValue r={sale ? (gap && rg.sale.profit ? { low: -rg.sale.profit.high, likely: -rg.sale.profit.likely, high: -rg.sale.profit.low } : rg.sale.profit) : rg.rent.noi} strong /></p>
+          {sale && r.sellOutCarry ? <p className="text-[10px] leading-tight text-slate-600">before about ${Math.round(r.sellOutCarry / 1000)}K of loan interest after completion</p> : null}
         </div>
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500" title={sale ? "Profit ÷ total cost" : "NOI ÷ total cost"}>{sale ? "Margin" : "Yield on cost"}</p>

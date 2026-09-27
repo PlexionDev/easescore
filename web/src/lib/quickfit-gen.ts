@@ -621,6 +621,8 @@ export interface GenMetrics {
   profit: Money3 | null;
   yieldOnCostPct: Money3 | null;
   marginPct: Money3 | null;
+  /** Sale: loan interest from completion to the last closing (not in the budget or in profit). */
+  sellOutCarry?: number | null;
   verdict: "yes" | "thin" | "no" | null;
   headline: string | null;
   missing: string[];
@@ -646,6 +648,7 @@ export function metricsOf(selected: score.SelectedScheme, pf: assumptions.ProFor
     profit: tenure === "rent" ? r?.rent.noi ?? null : r?.sale.profit ?? null,
     yieldOnCostPct: r?.rent.yieldOnCostPct ?? null,
     marginPct: r?.sale.marginPct ?? null,
+    sellOutCarry: pf?.sellOutCarry ?? null,
     verdict: pf?.verdict ?? null,
     headline: r?.headline ?? null,
     missing: pf ? pf.plan.missing : selected.missing ? [selected.missing] : [],

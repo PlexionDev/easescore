@@ -24,6 +24,7 @@ import {
 } from "../finance";
 import type { NarrativeProForma } from "../narrative/types";
 import { COST_CONFIG, type CostConfig } from "./config";
+import { sellOutCarry } from "./decision";
 import type { DevelopmentPlan, LineGroup } from "./build";
 import { proFormaRanges, rangeHeadline, type ProFormaRanges } from "./ranges";
 
@@ -48,6 +49,8 @@ export interface ProFormaResult {
   costPerUnit: number | null;
   costPerSf: number | null;
   sale: { grossSales: number | null; sellingCosts: number | null; netSales: number | null; profit: number | null; margin: number | null };
+  /** Loan interest between completion and the last closing (for-sale plans; not in the budget or in sale.profit). */
+  sellOutCarry: number | null;
   rent: { monthlyRent: number | null; annualRent: number | null; vacancy: number | null; opex: number | null; noi: number | null; yieldOnCost: number | null };
   verdict: "yes" | "thin" | "no" | null;
   /** One plain sentence answering "does it pencil?" (or why it can't be answered). */
@@ -103,6 +106,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   const netR = gs != null && sellR != null ? gs - sellR : null;
   const profitR = netR != null && tdc != null ? netR - tdc : null;
   const sale = { grossSales: gs, sellingCosts: sellR, netSales: netR, profit: profitR, margin: profitR != null && tdc ? Math.round((profitR / tdc) * 1000) / 1000 : null };
+  const sellOutCarryR = plan.tenure === "sale" && plan.strategy !== "rehab_existing" ? sellOutCarry(v(c.constructionLoan), plan.forSale.constructionRate, plan.units) : null;
   // ---- Rent
   const inc = rental.income;
   const gpr = v(inc.gpr);
@@ -176,8 +180,8 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   else if (plan.tenure === "sale" && sale.profit != null && tdc != null && sale.netSales != null)
     headline =
       verdict === "no"
-        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${usd(-sale.profit)} short.`
-        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}).`;
+        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${usd(-sale.profit)} short${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
+        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)})${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale (${usd(sale.profit - sellOutCarryR)} after it)` : ""}.`;
   else if (plan.tenure === "rent" && rent.noi != null && tdc != null)
     headline =
       verdict === "no"
@@ -232,25 +236,26 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     costPerUnit: tdc != null ? perUnit : null,
     costPerSf: tdc != null ? v(c.costPerSqFt) : null,
     sale,
+    sellOutCarry: sellOutCarryR,
     rent,
     verdict,
     headline,
     sentences,
     narrative,
     benchmark: { perUnit: tdc != null ? perUnit : null, line, projects },
-    ranges: alignRanges(proFormaRanges(plan, budget, config), sale, rent, tdc, plan.tenure),
+    ranges: alignRanges(proFormaRanges(plan, budget, config), sale, rent, tdc, plan.tenure, sellOutCarryR),
   };
 }
 
 /** The ranges' "likely" figures equal the rounded numbers the sentences use (low <= likely <= high). */
-function alignRanges(r: ProFormaRanges, sale: ProFormaResult["sale"], rent: ProFormaResult["rent"], tdc: number | null, tenure: "sale" | "rent"): ProFormaRanges {
+function alignRanges(r: ProFormaRanges, sale: ProFormaResult["sale"], rent: ProFormaResult["rent"], tdc: number | null, tenure: "sale" | "rent", carry: number | null = null): ProFormaRanges {
   const fit = <T extends { low: number; likely: number; high: number }>(x: T | null, likely: number | null): T | null =>
     x && likely != null ? { ...x, likely, low: Math.min(x.low, likely), high: Math.max(x.high, likely) } : x;
   const profit = fit(r.sale.profit, sale.profit);
   const tdcR = fit(r.tdc, tdc);
   return {
     ...r,
-    headline: rangeHeadline(tenure, profit, tdcR),
+    headline: ((h) => (h && tenure === "sale" && profit && carry ? `${h} (before about $${Math.round(carry / 1000)}K of loan interest after completion)` : h))(rangeHeadline(tenure, profit, tdcR)),
     tdc: tdcR,
     sale: { ...r.sale, profit, marginPct: fit(r.sale.marginPct, sale.margin != null ? Math.round(sale.margin * 1000) / 10 : null) },
     rent: { ...r.rent, noi: fit(r.rent.noi, rent.noi), yieldOnCostPct: fit(r.rent.yieldOnCostPct, rent.yieldOnCost != null ? Math.round(rent.yieldOnCost * 1000) / 10 : null) },

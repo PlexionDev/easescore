@@ -91,8 +91,10 @@ export default function DecisionLive({ result }: { result: assumptions.ProFormaR
               {row("Less selling and closing", `−${usd(d.sellingClosing)}`)}
               {row("Net sale proceeds", usd(d.netProceeds), true)}
               {row("Less total development cost", `−${usd(d.tdc)}`)}
-              {row("Developer profit", usd(d.profit), true)}
+              {row(d.sellOutCarry ? "Developer profit (before interest after completion)" : "Developer profit", usd(d.profit), true)}
               {row("Profit on cost · on revenue", `${pc(d.profitOnCost)} · ${pc(d.profitOnRevenue)}`)}
+              {d.sellOutCarry != null && d.profitAfterCarry != null && row("Less loan interest from completion to the last sale (not in the budget)", `−${usd(d.sellOutCarry)}`)}
+              {d.sellOutCarry != null && d.profitAfterCarry != null && d.tdc ? row("Profit after that interest · on cost", `${usd(d.profitAfterCarry)} · ${pc(d.profitAfterCarry / d.tdc)}`, true) : null}
               {d.levered && d.unleveredProfit != null && row("Unlevered profit (before loan interest and fees)", `${usd(d.unleveredProfit)} (${pc(d.unleveredOnCost)})`)}
               {row(`Sale price for ${pc(c.targetMargin, 0)}: per home · per sf`, `${usd(k1(d.breakEven.perUnit))} · ${usd(d.breakEven.perSf)}/sf`, true)}
               {row("Zero-profit price: per home · per sf", `${usd(k1(d.breakEven.zeroPerUnit))} · ${usd(d.breakEven.zeroPerSf)}/sf`)}

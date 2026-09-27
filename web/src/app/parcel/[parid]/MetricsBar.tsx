@@ -56,8 +56,9 @@ function cells(m: GenMetrics | null) {
     { k: "Parking", v: pk?.spaces != null ? String(pk.spaces) : pk?.kind === "none" ? "0" : "—", sub: pk?.required != null ? `${pk.required} required` : pk?.kind === "tuck" ? "tuck-under" : pk?.kind === "pad" ? "pad" : null },
     { k: "Total cost", v: money(m?.totalCost ?? null), sub: likely(m?.totalCost ?? null) },
     { k: rent ? "Rent a year" : "Value (sales)", v: money(m?.value ?? null), sub: likely(m?.value ?? null) },
-    { k: rent ? "NOI a year" : m?.profit && m.profit.low < 0 && m.profit.high > 0 ? "Profit or gap" : (m?.profit?.likely ?? 0) < 0 ? "Gap" : "Profit", v: money(m?.profit ?? null), sub: likely(m?.profit ?? null), tone: m?.profit ? (m.profit.likely < 0 ? "neg" : "pos") : null },
-    { k: "Yield on cost", v: pct(m?.yieldOnCostPct ?? null), sub: rent ? "a year" : m?.marginPct ? `sale margin ${pct(m.marginPct)}` : "if rented" },
+    { k: rent ? "NOI a year" : m?.profit && m.profit.low < 0 && m.profit.high > 0 ? "Profit or gap" : (m?.profit?.likely ?? 0) < 0 ? "Gap" : "Profit", v: money(m?.profit ?? null), sub: [likely(m?.profit ?? null), !rent && m?.sellOutCarry ? `before ${sm(m.sellOutCarry)} loan interest after completion` : null].filter(Boolean).join(" · ") || null, tone: m?.profit ? (m.profit.likely < 0 ? "neg" : "pos") : null },
+    // Yield on cost is a rental measure: for-sale schemes show the sale margin (profit ÷ total cost) instead.
+    rent || !m ? { k: "Yield on cost", v: pct(m?.yieldOnCostPct ?? null), sub: "a year" } : { k: "Margin", v: pct(m.marginPct ?? null), sub: "profit ÷ total cost" },
   ] as { k: string; v: string; sub: string | null; tone?: "neg" | "pos" | null }[];
 }
 
@@ -112,11 +113,11 @@ export default function MetricsBar({ metrics, binding, reason, controls, pins, o
       <div role="region" aria-label="Live metrics for the scheme on the map" aria-busy={busy}
         className="rounded-2xl border border-white/50 bg-slate-900/88 px-3 py-2 text-white shadow-2xl backdrop-blur-md">
         <div className={`grid items-start gap-x-3 gap-y-1 ${compact ? "grid-cols-4" : "grid-cols-[0.45fr_0.7fr_0.75fr_0.55fr_1.3fr_1.3fr_1.55fr_1fr_auto]"}`}>
-          {(compact ? [cs[0]!, { ...cs[4]!, v: m1(metrics?.totalCost ?? null) }, { ...cs[6]!, v: m1(metrics?.profit ?? null) }, { ...cs[7]!, k: "Yield" }] : cs).map((c) => (
+          {(compact ? [cs[0]!, { ...cs[4]!, v: m1(metrics?.totalCost ?? null) }, { ...cs[6]!, v: m1(metrics?.profit ?? null) }, metrics?.tenure === "rent" || !metrics ? { ...cs[7]!, k: "Yield" } : cs[7]!] : cs).map((c) => (
             <div key={c.k} className="min-w-0">
               <p className="truncate text-[10px] uppercase tracking-wide text-slate-400" title={c.k === "Yield" ? "Yield on cost" : undefined}>{c.k === "Yield" ? <abbr title="Yield on cost" className="no-underline">Yield</abbr> : c.k}</p>
               <p className={`truncate text-sm font-semibold tabular-nums ${c.tone === "neg" ? "text-red-300" : c.tone === "pos" ? "text-emerald-300" : ""}`}>{c.v}</p>
-              {!compact && c.sub && <p className="truncate text-[10px] text-slate-400">{c.sub}</p>}
+              {!compact && c.sub && <p className="truncate text-[10px] text-slate-400" title={c.sub}>{c.sub}</p>}
             </div>
           ))}
           {!compact && (

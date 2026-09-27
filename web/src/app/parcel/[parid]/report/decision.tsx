@@ -67,8 +67,14 @@ export function DecisionBlock(x: Ctx) {
           <tr><td>Less selling and closing costs</td><td className="num">−{money(d.sellingClosing)}</td></tr>
           <tr className="total"><td>Net sale proceeds</td><td className="num">{money(d.netProceeds)}</td></tr>
           <tr><td>Less total development cost (land, hard, soft, contingency, financing and holding; Section 7)</td><td className="num">−{money(d.tdc)}</td></tr>
-          <tr className="total"><td>Developer profit</td><td className="num">{money(d.profit)}</td></tr>
+          <tr className="total"><td>{d.sellOutCarry ? "Developer profit (before loan interest after completion)" : "Developer profit"}</td><td className="num">{money(d.profit)}</td></tr>
           <tr><td>Profit on cost · profit on revenue</td><td className="num">{pct(d.profitOnCost, 1)} · {pct(d.profitOnRevenue, 1)}</td></tr>
+          {d.sellOutCarry != null && d.profitAfterCarry != null && d.tdc ? (
+            <>
+              <tr><td>Less loan interest from completion to the last sale (not in the budget; closing schedule in Section 6)</td><td className="num">−{money(d.sellOutCarry)}</td></tr>
+              <tr className="total"><td>Profit after that interest · on cost</td><td className="num">{money(d.profitAfterCarry)} · {pct(d.profitAfterCarry / d.tdc, 1)}</td></tr>
+            </>
+          ) : null}
           {d.levered && d.unleveredProfit != null && (
             <tr><td>Unlevered profit (before loan interest and lender fees of {money(d.financingCost)})</td><td className="num">{money(d.unleveredProfit)} ({pct(d.unleveredOnCost, 1)})</td></tr>
           )}

@@ -79,6 +79,9 @@ export interface DecisionBox {
   profit: number | null;
   profitOnCost: number | null;
   profitOnRevenue: number | null;
+  /** Loan interest between completion and the last closing: not in the budget, so not in `profit` (see unitSellout). */
+  sellOutCarry: number | null;
+  profitAfterCarry: number | null;
   /** Loan interest + lender fees in the budget; profit before them is the unlevered profit. */
   financingCost: number | null;
   unleveredProfit: number | null;
@@ -178,7 +181,7 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
   const empty = (why: string): DecisionBox => ({
     criteria: c, edited, missing: why, rentalPlan: p.tenure === "rent", units, finishedSf: sf,
     grossSellout: gross, pricePerSf: null, pricePerUnit: null, sellingClosing: null, sellingShare: s, sellingBasis,
-    netProceeds: null, tdc, profit: null, profitOnCost: null, profitOnRevenue: null,
+    netProceeds: null, tdc, profit: null, profitOnCost: null, profitOnRevenue: null, sellOutCarry: null, profitAfterCarry: null,
     financingCost, unleveredProfit: null, unleveredOnCost: null, levered, financingBasis,
     breakEven: { targetGross: null, perUnit: null, perSf: null, zeroPerUnit: null, zeroPerSf: null },
     maxCost: null, costReduction: null,
@@ -214,7 +217,7 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
   const perSf = gross / sf;
   const bePerSf = targetGross / sf;
   const cut = tdc - maxCost;
-  const at = `At ${usd(round(perSf, 1))}/sf the project earns ${pct1(profit / tdc)} on cost`;
+  const at = `At ${usd(round(perSf, 1))}/sf the project earns ${pct1(profit / tdc)} on cost${r.sellOutCarry ? ` (${pct1((profit - r.sellOutCarry) / tdc)} after about ${usd(r.sellOutCarry)} of loan interest between completion and the last sale, which the budget leaves out)` : ""}`;
   const tgt = `the ${pct0(m)} target`;
   let sentence: string;
   if (profit / tdc < m) {
@@ -230,6 +233,7 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
     grossSellout: gross, pricePerSf: perSf, pricePerUnit: gross / units,
     sellingClosing: selling, sellingShare: s, sellingBasis,
     netProceeds: net, tdc, profit, profitOnCost: profit / tdc, profitOnRevenue: profit / gross,
+    sellOutCarry: r.sellOutCarry ?? null, profitAfterCarry: r.sellOutCarry ? profit - r.sellOutCarry : null,
     financingCost, unleveredProfit: unlev, unleveredOnCost: unlev != null ? unlev / tdc : null, levered, financingBasis,
     breakEven: { targetGross, perUnit: targetGross / units, perSf: bePerSf, zeroPerUnit: zeroGross / units, zeroPerSf: zeroGross / sf },
     maxCost, costReduction: cut,
@@ -351,6 +355,21 @@ export function bedroomBandsText(): string {
       return b.upToSf == null ? `${lo!.toLocaleString("en-US")} sq ft and up: ${n}` : lo == null ? `under ${b.upToSf.toLocaleString("en-US")} sq ft: ${n}` : `${lo.toLocaleString("en-US")}–${(b.upToSf - 1).toLocaleString("en-US")} sq ft: ${n}`;
     })
     .join("; ");
+}
+
+/**
+ * Construction-loan interest between completion and the last closing (not in the budget total): the loan is
+ * fully drawn at completion and each closing repays an equal share. Σ (loan ÷ n) × rate × months to closing ÷ 12,
+ * with the first closing salesMonths after completion and one every closingIntervalMonths after that.
+ * Rounded to $1,000. Null when there is no loan, rate or unit count.
+ */
+export function sellOutCarry(loan: number | null | undefined, rate: number | null | undefined, units: number | null | undefined, intervalMonths?: number): number | null {
+  if (loan == null || !(loan > 0) || rate == null || !(rate > 0) || !units || units < 1) return null;
+  const first = COST_CONFIG.sale.salesMonths.value;
+  const interval = intervalMonths ?? raw.closingIntervalMonths.value;
+  let t = 0;
+  for (let k = 0; k < units; k++) t += ((loan / units) * rate * (first + k * interval)) / 12;
+  return Math.round(t / 1000) * 1000;
 }
 
 export function unitSellout(r: ProFormaResult, opts: { closingIntervalMonths?: number; localNewSalesPerYear?: number | null } = {}): UnitSellout | null {
