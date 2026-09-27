@@ -47,41 +47,10 @@ const PHRASE: Record<score.StrategyId, (u: number | null) => string> = {
 /** Program keys that belong to one layout; not carried over to the other options. */
 const PROGRAM_KEYS: (keyof assumptions.CostOverrides)[] = ["units", "storiesAboveGarage", "parking", "bedrooms", "baths", "costPerUnit", "costIncludesSite", "salePricePerUnit"];
 
-function f1Inputs(s: Strategy) {
-  const f1 = s.factors.find((f) => f.id === "F1");
-  return { subscore: f1?.subscore ?? null, ...((f1?.inputs ?? {}) as { permissionCode?: string | null; fitStatus?: string | null; varianceRules?: string[]; lotOfRecordPath?: boolean; nonconforming?: boolean }) };
-}
-
-function precedentOf(zba: Record<string, ZbaRow> | null | undefined, relief: narrative.ReliefType | null): narrative.SummaryPrecedent | null {
-  if (!relief || relief === "administrator_exception") return null;
-  const c = zba?.[relief];
-  if (!c) return { granted: 0, decided: 0, sinceYear: null };
-  const year = c.from ? Number(c.from.slice(0, 4)) : null;
-  return { granted: c.granted, decided: c.granted + c.denied, sinceYear: Number.isFinite(year) ? year : null };
-}
-
-/** How a strategy is allowed: by right, with a named approval, or not classifiable from our data. */
+/** How a strategy is allowed: by right, with a named approval, or not classifiable from our data (engine: narrative.classifyPlan). */
 export function classify(s: Strategy, zba: Record<string, ZbaRow> | null | undefined): Pick<PlanOption, "path" | "approval" | "reliefType" | "precedent"> | null {
-  if (!s.applicable || s.strategy === "adu") return null;
-  const i = f1Inputs(s);
-  if (i.subscore == null || !i.permissionCode) return null;
-  const code = i.permissionCode;
-  const fit = i.fitStatus ?? null;
-  if (fit === "no_fit" || fit == null) return null;
-  if (i.lotOfRecordPath)
-    return { path: "approval", approval: "an administrator exception for a lot of record", reliefType: "administrator_exception", precedent: null };
-  const variance = fit === "variance";
-  const rules = (i.varianceRules ?? []).map((r) => r.replace(/_/g, " "));
-  const names = rules.map((r) => r.replace(/^min /, "minimum ").replace(/^max /, "maximum "));
-  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
-  const varianceText = names.length ? `a variance for the ${list}` : "a dimensional variance";
-  if (code === "P" || (s.strategy === "rehab_existing" && i.nonconforming)) {
-    if (!variance) return { path: "by_right", approval: null, reliefType: null, precedent: null };
-    return { path: "approval", approval: varianceText, reliefType: "dimensional_variance", precedent: precedentOf(zba, "dimensional_variance") };
-  }
-  const relief: narrative.ReliefType = code === "S" ? "special_exception" : code === "C" ? "conditional_use" : code === "A" ? "administrator_exception" : "use_variance";
-  const base = code === "S" ? "a special exception" : code === "C" ? "conditional use approval" : code === "A" ? "an administrator exception" : "a use variance";
-  return { path: "approval", approval: variance ? `${base} and ${varianceText}` : base, reliefType: relief, precedent: precedentOf(zba, relief) };
+  const c = narrative.classifyPlan(s, zba);
+  return c ? { path: c.path, approval: c.approval, reliefType: c.reliefType, precedent: c.precedent } : null;
 }
 
 /** Profit for a sale, yearly NOI for a rental; used to rank options by "most financial sense". */
@@ -168,6 +137,11 @@ export async function comparePlans(a: {
             strategy: s.strategy,
             facts: f as assumptions.ProFormaFacts,
             scheme: a.result.schemes?.[s.strategy] ?? null,
+            // The same SelectedScheme the score's fit read (no program edits: those belong to the page's selected option).
+            selected: score.selectScheme({
+              strategy: s.strategy, scheme: a.result.schemes?.[s.strategy] ?? null, result: s,
+              existing: { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, use: f.assessment?.use ?? null },
+            }),
             comps: rehab ? matched : a.sfComps,
             newComps,
             rents: a.rent as assumptions.RentCompsLike | null,
@@ -187,11 +161,7 @@ export async function comparePlans(a: {
     }),
   );
 
-  const rank = (xs: PlanOption[]) => [...xs].sort((x, y) => (value(y.pf) ?? -Infinity) - (value(x.pf) ?? -Infinity) || (y.units ?? 0) - (x.units ?? 0));
-  const byRight = rank(options.filter((o) => o.path === "by_right"))[0] ?? null;
-  const approvals = options.filter((o) => o.path === "approval" && (byRight == null || (o.units ?? 0) > (byRight.units ?? 0)));
-  const mostUnits = Math.max(0, ...approvals.map((o) => o.units ?? 0));
-  const withApproval = rank(approvals.filter((o) => (o.units ?? 0) === mostUnits))[0] ?? null;
+  const { byRight, withApproval } = narrative.pickPlans(options.map((o) => ({ ...o, value: value(o.pf) })));
 
   const best = a.result.strategies.find((s) => s.strategy === a.result.best) ?? a.result.strategies[0];
   const district = score.isCityParcel(f) ? f.zoning?.code ?? null : null;

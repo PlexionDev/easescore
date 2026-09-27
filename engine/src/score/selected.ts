@@ -162,6 +162,7 @@ export function selectScheme(a: SelectSchemeArgs): SelectedScheme {
     if (nUnits > sch.units) notes.push(`${nUnits} homes is more than the ${sch.units} the site-fit check placed; the extra homes are not checked against zoning.`);
     return {
       ...fromScheme, units: nUnits, finishedSf: finishedPerUnit * nUnits, garageSf, grossFloorAreaSf: grossSf, stories: above + (tuck ? 1 : 0),
+      heightFt: has(sch.heightFt) && has(sch.stories) && sch.stories > 0 ? Math.round((sch.heightFt / sch.stories) * (above + (tuck ? 1 : 0))) : fromScheme.heightFt,
       parking: { option: parking, spaces: null, required: fromScheme.parking?.required ?? null }, program, notes, overridden: true,
       sizeBasis: `Your program: ${nUnits} home${nUnits === 1 ? "" : "s"} on the site-fit footprint (${program.footprintPerUnitSf.toLocaleString("en-US")} sq ft each), ${tuck ? `a tuck-under garage level + ${above} living floor${above === 1 ? "" : "s"}` : `${above} living floor${above === 1 ? "" : "s"}`}${bb}: ${finishedPerUnit.toLocaleString("en-US")} sq ft finished per home (floor area × ${Math.round(eff * 100)}% livable share)${tuck ? `; the ${program.garagePerUnitSf.toLocaleString("en-US")} sq ft garage level is not counted as finished` : ""}`,
     };

@@ -129,6 +129,11 @@ export function ScoreBlock({ parid, result, selected, sp }: { parid: string; res
       ) : (
         <p className="text-sm text-slate-600">{s.strategyLabel} is not an option here: {s.notApplicableReason}</p>
       )}
+      {s.cap && (
+        <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-950" title={`Without the cap the factors average ${s.cap.uncappedScore}.`}>
+          {s.cap.label}. <span className="text-amber-900/70">Hazards like these hold the score at {s.cap.band} or lower.</span>
+        </p>
+      )}
       <nav aria-label="Housing strategy" className="mt-2 flex gap-1 overflow-x-auto pb-1">
         {result.strategies.map((x) => {
           const on = x.strategy === s.strategy;

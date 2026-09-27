@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { cpus } from "node:os";
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { assumptions, score } from "@easescore/engine";
-import { buildPane, PANE_VERSION, toStored, type PaneInputs } from "../web/src/lib/pane-core";
+import { buildPane, fetchZbaCitywide, PANE_VERSION, toStored, type PaneInputs } from "../web/src/lib/pane-core";
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 const ROOT = process.cwd();
@@ -27,6 +27,7 @@ const CITY_WHERE = "a.municode ~ '^1(0[1-9]|[12][0-9]|3[0-2])$'";
 interface Shared {
   asOf: string;
   zba: Record<string, Json>;
+  zbaCitywide: Record<string, score.ZbaReliefCounts> | null;
   permitTimes: Json;
   prime: { rate: number; date: string } | null;
   tapFeesCity: number | null;
@@ -45,7 +46,7 @@ if (!isMainThread) {
       const sales = r.sales ?? null;
       const inputs: PaneInputs = {
         parid: r.parid, asOf: sh.asOf, facts, quickfitInput: r.qf ?? null, easeInputs: r.ease ?? null,
-        zba: code ? sh.zba[code] ?? null : null, permitTimes: sh.permitTimes,
+        zba: code ? sh.zba[code] ?? null : null, zbaCitywide: sh.zbaCitywide, permitTimes: sh.permitTimes,
         sales, rent: r.rent ?? null,
         // Same as singleFamilyComps(): the parcel's own comps when they are single-family sales.
         sfComps: sales?.comparable_use === "single family" ? sales : r.sf ?? null,
@@ -157,7 +158,8 @@ async function loadShared(): Promise<Shared> {
       and a.year_built >= ${Number(asOf.slice(0, 4)) - r.years - r.maxAgeAtSaleYears} and a.living_area_sqft >= ${r.minLivingAreaSqft}
     order by s.sale_id`);
   return {
-    asOf, zba, permitTimes: Object.keys(permitTimes).length ? permitTimes : undefined,
+    asOf, zba, zbaCitywide: await fetchZbaCitywide(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!),
+    permitTimes: Object.keys(permitTimes).length ? permitTimes : undefined,
     prime: prime && Number.isFinite(prime.value) ? { rate: prime.value / 100, date: prime.date } : null,
     tapFeesCity: home.length ? home.reduce((s, t) => s + t.amount, 0) : null,
     newSales: newSales.map((x) => ({ ...x, parid: x.parid.trim() })),

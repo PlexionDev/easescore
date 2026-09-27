@@ -7,7 +7,7 @@ import "server-only";
 import { assumptions, score } from "@easescore/engine";
 import { easeInputs, parcelFactsChecked, permitTimes, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newConstructionSalesNear, primeRate, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
-import { buildPane, fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
+import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
 import type { Timing } from "@/lib/timing";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -49,7 +49,7 @@ async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: 
   const factsR = T.time("rpc_parcel_facts", parcelFactsChecked(parid));
   const factsP = factsR.then((x) => x.facts);
   const salesP = T.time("rpc_sales_comps", salesComps(parid));
-  const [fr, sales, rent, qf, ease, zba, permits, sfComps, prime, tapFees, newSales, details] = await Promise.all([
+  const [fr, sales, rent, qf, ease, zba, permits, sfComps, prime, tapFees, newSales, details, zbaCity] = await Promise.all([
     factsR, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_quickfit_input", quickfit), T.time("rpc_ease_inputs", easeInputs(parid)),
     factsP.then((f) => T.time("rpc_zba", zbaGrantRates((f as { zoning?: { code?: string } } | null)?.zoning?.code))),
     T.time("rpc_permit_times", permitTimes()),
@@ -58,11 +58,12 @@ async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: 
     factsP.then((f) => T.time("rest_tap_fees", tapFeesPerHome((f as { assessment?: { is_pittsburgh?: boolean } } | null)?.assessment?.is_pittsburgh === true))),
     T.time("rpc_new_construction_comps", newConstructionSalesNear(parid, asOf)),
     salesP.then((x) => T.time("rest_comp_details", compDetails(x as { comps?: { parid: string }[] } | null))),
+    T.time("rest_zba_citywide", fetchZbaCitywide(URL, KEY)),
   ]);
   if (!fr.facts) return { ok: false, error: fr.error };
   const payload = T.timeSync("score_and_comps", () => buildPane({
     parid, asOf, facts: fr.facts, quickfitInput: qf ?? null, easeInputs: (ease ?? null) as score.EaseInputsRpc | null,
-    zba: zba as PanePayload["zba"], permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details,
+    zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details,
   }));
   return { ok: true, payload, source: "live" };
 }

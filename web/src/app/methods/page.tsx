@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import ease from "@easescore/engine/config/ease-score.v0.1.json";
+import ease from "@easescore/engine/config/ease-score.v0.2.json";
 import costs from "@easescore/engine/config/cost-assumptions.v0.1.json";
 import Shell from "../_docs/Shell";
 import d from "../_docs/docs.module.css";
@@ -157,8 +157,11 @@ export default function MethodsPage() {
             <p>
               Lot fit: by right ×{ease.f1.dimensional.byRight}, with a contextual front setback ×{ease.f1.dimensional.contextualSetback},
               with a dimensional variance ×({ease.f1.dimensional.varianceBase} + {ease.f1.dimensional.varianceRateWeight} × the district&apos;s
-              Zoning Board grant rate), no fit ×{ease.f1.dimensional.noFit}. With fewer than {ease.f1.zba.minCases} decided cases in the district,
-              the grant rate defaults to {pct(ease.f1.zba.defaultGrantRate)} and says so.
+              Zoning Board grant rate) × {ease.caps.varianceF1Max}% (a variance path never scores like a sure thing), no fit ×{ease.f1.dimensional.noFit}.
+              With fewer than {ease.f1.zba.minCases} decided cases in the district, the citywide record for the same kind of request is used,
+              labeled with its case count and years; only when neither exists does the grant rate default to {pct(ease.f1.zba.defaultGrantRate)}, and it says so.
+              Hazard cap: when at least {pct(ease.caps.hazardBand.landslideProneShareMin)} of the lot is landslide-prone or at least {pct(ease.caps.hazardBand.steepShareOver25Min)} is
+              steeper than 25%, the score is held to {ease.caps.hazardBand.maxBand} or lower and labeled.
             </p>
 
             <h3>Geohazard multipliers</h3>

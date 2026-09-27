@@ -132,6 +132,21 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     : null;
   // Pro forma for the selected option: cost defaults from the versioned config, the user's pf_* edits,
   // comps and rents from the database. A failure hides the section, never the page.
+  // One SelectedScheme for the selected option (site-fit scheme + the user's program edits): the score's
+  // fit, the pro forma, the summary and the 3D massing all read this same building.
+  const overrides = readCostOverrides(sp);
+  let chosenScheme: score.SelectedScheme | null = null;
+  if (selected?.applicable) {
+    try {
+      chosenScheme = score.selectScheme({
+        strategy: selected.strategy, scheme: easeResult?.schemes?.[selected.strategy] ?? null, result: selected,
+        existing: { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, use: f.assessment?.use ?? null },
+        overrides: { units: overrides.units, storiesAboveGarage: overrides.storiesAboveGarage, parking: overrides.parking, bedrooms: overrides.bedrooms, baths: overrides.baths },
+      });
+    } catch {
+      chosenScheme = null;
+    }
+  }
   let pf: assumptions.ProFormaResult | null = null;
   if (selected?.applicable) {
     try {
@@ -142,6 +157,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         strategy: selected.strategy,
         facts: f as assumptions.ProFormaFacts,
         scheme: easeResult?.schemes?.[selected.strategy] ?? null,
+        selected: chosenScheme,
         comps: rehab ? matched : sfComps,
         newComps,
         rents: rent as assumptions.RentCompsLike | null,
@@ -149,7 +165,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         primeRateDate: prime?.date ?? null,
         permitMonths: selected.predictedMonthsToPermit?.months ?? null,
         tapFeesPerUnit: tapFees,
-        overrides: readCostOverrides(sp),
+        overrides,
       });
       pf = T.timeSync("proforma", () => assumptions.evaluateDevelopment(plan));
     } catch {
@@ -184,7 +200,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     try {
       plans = await T.time("compare_plans", comparePlans({
         parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
-        sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides: readCostOverrides(sp), asOf,
+        sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides, asOf,
         known: selected ? { strategy: selected.strategy, pf } : null,
         precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
       }));
@@ -233,12 +249,15 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   if (pf) {
     const pctTxt = (x: number) => `${Math.round(x * 100)}%`;
     const usdK = (x: number) => narrative.money(x);
+    const rg = pf.ranges;
+    const pctR = (x: { low: number; high: number } | null) => (x ? (x.low === x.high ? `${x.low}%` : `${x.low}% to ${x.high}%`) : null);
     if (pf.plan.missing.length) chip = pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "Enter your rehab cost to price this" : "Pencils? Can't tell yet: an input is missing";
     else if (pf.plan.tenure === "sale" && pf.sale.profit != null) {
-      if (pf.verdict === "no") { chip = `Gap of about ${usdK(-pf.sale.profit)} at market rate${selected ? ` (${selected.strategyLabel.toLowerCase()})` : ""}`; chipTone = "border-red-200 bg-red-50 text-red-900"; }
-      else { chip = `Pencils at market rate${selected ? ` (${selected.strategyLabel.toLowerCase()})` : ""}: ${pf.verdict === "thin" ? "barely" : "yes"}, about ${pctTxt(pf.sale.margin ?? 0)} margin`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
+      const what = selected ? ` (${selected.strategyLabel.toLowerCase()})` : "";
+      if (pf.verdict === "no") { chip = rg.headline ? `${rg.headline} at market rate${what}` : `Gap of about ${usdK(-pf.sale.profit)} at market rate${what}`; chipTone = "border-red-200 bg-red-50 text-red-900"; }
+      else { chip = `Pencils at market rate${what}: ${pf.verdict === "thin" ? "barely" : "yes"}, ${pctR(rg.sale.marginPct) ? `${pctR(rg.sale.marginPct)} margin` : `about ${pctTxt(pf.sale.margin ?? 0)} margin`}`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
     } else if (pf.plan.tenure === "rent" && pf.rent.noi != null) {
-      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: about ${pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost`;
+      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: ${pctR(rg.rent.yieldOnCostPct) ?? pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost`;
     }
   }
 
@@ -399,6 +418,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Details", content: details },
       ]}
-      stage={stage} outline={P.outline} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} />
+      stage={stage} outline={P.outline} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
+      selectedScheme={chosenScheme && chosenScheme.footprints.length ? {
+        schemeId: chosenScheme.schemeId, label: `${chosenScheme.strategyLabel}${chosenScheme.typologyLabel ? ` (${chosenScheme.typologyLabel})` : ""}`,
+        units: chosenScheme.units, stories: chosenScheme.stories, heightFt: chosenScheme.heightFt ?? 0, finishedSf: chosenScheme.finishedSf,
+        path: chosenScheme.path, variancesNeeded: chosenScheme.variancesNeeded, binding: chosenScheme.bindingConstraint?.label ?? null,
+        footprints: chosenScheme.footprints as [number, number][][],
+      } : null} />
   );
 }

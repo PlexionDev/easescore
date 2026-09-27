@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { preconnect } from "react-dom";
 import MapStage, { type Footprints } from "./MapStage";
-import QuickFitPanel from "./QuickFitPanel";
+import QuickFitPanel, { type PricedScheme } from "./QuickFitPanel";
 import { DrawerHost, type DrawerId } from "./Drawers";
 import PhotorealStill from "./PhotorealStill";
 import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
@@ -22,7 +22,7 @@ type Sheet = "peek" | "half" | "full";
 const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
 const PEEK_PX = 104;
 
-export default function ParcelShell({ pane, planExtras, drawers, stage, outline, rules, zoneCode }: {
+export default function ParcelShell({ pane, planExtras, drawers, stage, outline, rules, zoneCode, selectedScheme }: {
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
   /** Assumptions and project questions, shown in "Change the plan" under QuickFit. */
@@ -34,6 +34,8 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
   /** Lot outline in local feet, drawn as a still placeholder until the map data arrives. */
   outline: [number, number][] | null;
   rules: Record<string, unknown> | null; zoneCode: string | null;
+  /** The one scheme the score, pro forma and summary use; drawn in 3D until the visitor picks another layout. */
+  selectedScheme?: PricedScheme | null;
 }) {
   const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null);
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
   const qfInput = loaded?.qfInput ?? null;
   if (HAS_KEY) preconnect("https://tile.googleapis.com");
   const [footprints, setFootprints] = useState<Footprints>(null);
+  const [userPicked, setUserPicked] = useState(false);
   const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
   const a: Affine | undefined = qfInput?.toLonLat;
   const toLonLat = (p: [number, number]): [number, number] =>
@@ -108,6 +111,11 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
     setDragH(null);
   };
 
+  // Until QuickFit reports a layout, the 3D massing is the priced scheme (same building as the score and pro forma).
+  useEffect(() => {
+    if (userPicked || !a || !selectedScheme?.footprints.length) return;
+    setFootprints({ rings: selectedScheme.footprints.map((r) => r.map(toLonLat)), heightFt: selectedScheme.heightFt });
+  }, [qfInput, selectedScheme]); // eslint-disable-line react-hooks/exhaustive-deps
   const photoFootprints = useMemo(() => (footprints ? { rings: footprints.rings, heightFt: footprints.heightFt } : null), [footprints]);
   const maxHeightFt = typeof rules?.max_height_ft === "number" ? (rules.max_height_ft as number) : 40;
   const photoEnvelope = useMemo(() => (envelope ? { rings: envelope, heightFt: maxHeightFt } : null), [envelope, maxHeightFt]);
@@ -145,8 +153,8 @@ export default function ParcelShell({ pane, planExtras, drawers, stage, outline,
             <h3 className="text-sm font-semibold text-slate-900">What fits here (QuickFit)</h3>
             <p className="mb-2 text-xs text-slate-500">Single-family, duplex, townhouse row. The selected layout is drawn in 3D on the map.</p>
             {qfInput ? (
-              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode}
-                onScheme={(s) => setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null)}
+              <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode} priced={selectedScheme ?? null}
+                onScheme={(s, byUser) => { setUserPicked(byUser); setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null); }}
                 onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
             ) : <p className="text-sm text-slate-600">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}
           </section>

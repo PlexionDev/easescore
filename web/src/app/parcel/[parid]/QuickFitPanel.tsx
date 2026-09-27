@@ -17,9 +17,27 @@ const GOALS: { id: quickfit.Goal; label: string }[] = [
   { id: "by_right_only", label: "By-right only" },
 ];
 
+/** The one scheme the score, pro forma and summary use (score.SelectedScheme, trimmed for the client). */
+export interface PricedScheme {
+  schemeId: string | null;
+  label: string;
+  units: number | null;
+  stories: number | null;
+  heightFt: number;
+  finishedSf: number | null;
+  path: string | null;
+  variancesNeeded: string[];
+  binding: string | null;
+  footprints: [number, number][][];
+}
+
+const PATH_TEXT: Record<string, string> = {
+  by_right: "by right", contextual: "by right with the contextual front setback", variance: "needs a variance", existing: "existing building", no_fit: "does not fit",
+};
+
 const SHADES = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#ca8a04", "#4f46e5"];
 
-function Plan({ input, env, scheme }: { input: QFInput; env: [number, number][][][]; scheme: quickfit.Scheme | null }) {
+function Plan({ input, env, footprints }: { input: QFInput; env: [number, number][][][]; footprints: [number, number][][] }) {
   const all = input.parcel;
   const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
   const pad = 10;
@@ -38,24 +56,66 @@ function Plan({ input, env, scheme }: { input: QFInput; env: [number, number][][
         const a = all[i]!, b = all[(i + 1) % n]!;
         return <line key={`f${i}`} x1={a[0] - minX} y1={maxY - a[1]} x2={b[0] - minX} y2={maxY - b[1]} stroke="#111827" strokeWidth={Math.max(w, h) / 90} />;
       })}
-      {scheme?.footprints.map((r, i) => <path key={`u${i}`} d={path(r as [number, number][])} fill={SHADES[i % SHADES.length]} fillOpacity={0.75} stroke="#fff" strokeWidth={Math.max(w, h) / 400} />)}
+      {footprints.map((r, i) => <path key={`u${i}`} d={path(r)} fill={SHADES[i % SHADES.length]} fillOpacity={0.75} stroke="#fff" strokeWidth={Math.max(w, h) / 400} />)}
     </svg>
   );
 }
 
-export default function QuickFitPanel({ input, rules, zoneCode, onScheme, onEnvelope }: { input: QFInput; rules: Record<string, unknown> | null; zoneCode: string | null; onScheme?: (s: quickfit.Scheme | null) => void; onEnvelope?: (polygons: [number, number][][][] | null) => void }) {
+/** Legend with only the layers present on this lot; unit colors listed separately. */
+function Legend({ input, envArea, units }: { input: QFInput; envArea: number; units: number }) {
+  const cut = [...new Set(input.masks.filter((m) => m.mode === "cut").map((m) => m.label))];
+  const flag = [...new Set(input.masks.filter((m) => m.mode !== "cut").map((m) => m.label))];
+  const items: [string, string, string][] = [["#ca8a04", "line", "Lot line"]];
+  if (input.frontEdges.length) items.push(["#111827", "line", "Street frontage"]);
+  if (envArea > 0) items.push(["#16a34a", "dash", "Buildable envelope"]);
+  for (const l of cut) items.push(["#3b82f6", "fill", `${l} (cut from the buildable area)`]);
+  for (const l of flag) items.push(["#ef4444", "fill", `${l} (flagged, not cut)`]);
+  return (
+    <div className="mt-1 space-y-1 text-xs text-zinc-600">
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {items.map(([c, k, t]) => (
+          <li key={t} className="flex items-center gap-1">
+            <span aria-hidden className="inline-block h-2.5 w-3.5 rounded-sm" style={k === "fill" ? { background: c, opacity: 0.35 } : k === "dash" ? { border: `1.5px dashed ${c}` } : { borderBottom: `2.5px solid ${c}` }} />
+            {t}
+          </li>
+        ))}
+      </ul>
+      {units > 0 && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span>Units:</span>
+          {Array.from({ length: units }, (_, i) => (
+            <span key={i} className="flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: SHADES[i % SHADES.length] }} />{i + 1}</span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function QuickFitPanel({ input, rules, zoneCode, priced, onScheme, onEnvelope }: {
+  input: QFInput; rules: Record<string, unknown> | null; zoneCode: string | null;
+  /** The priced scheme (score + pro forma + summary); shown first and drawn until another layout is picked. */
+  priced?: PricedScheme | null;
+  onScheme?: (s: { footprints: [number, number][][]; heightFt: number } | null, byUser: boolean) => void;
+  onEnvelope?: (polygons: [number, number][][][] | null) => void;
+}) {
   const [goal, setGoal] = useState<quickfit.Goal>("most_units");
+  // What-if setbacks start blank (the placeholder shows the code value); only an entered value that
+  // differs from the code creates a what-if.
   const [frontVar, setFrontVar] = useState<string>("");
   const [sideVar, setSideVar] = useState<string>("");
-  const [pick, setPick] = useState(0);
+  // -1 = the priced scheme; 0.. = QuickFit's ranked layouts.
+  const [pick, setPick] = useState(priced ? -1 : 0);
 
   const result = useMemo(() => {
     if (!rules || !zoneCode || input.frontEdges.length === 0) return null;
     const merged = { ...(rules as unknown as quickfit.QuickFitRules), ...quickfit.attachedRulesForDistrict(zoneCode) };
-    const num = (x: string) => (x !== "" && !Number.isNaN(Number(x)) ? Number(x) : null);
+    const r = rules as { min_front_setback_ft?: number | null; min_side_setback_ft?: number | null };
+    const num = (x: string, code: number | null | undefined) => (x.trim() !== "" && !Number.isNaN(Number(x)) && Number(x) !== code ? Number(x) : null);
+    const front = num(frontVar, r.min_front_setback_ft), side = num(sideVar, r.min_side_setback_ft);
     const variances: quickfit.VarianceToggle[] = [];
-    if (num(frontVar) != null) variances.push({ rule: "front_setback", value: num(frontVar)!, reliefType: "dimensional_variance", codeSection: "903.03" });
-    if (num(sideVar) != null) variances.push({ rule: "side_setback", value: num(sideVar)!, reliefType: "dimensional_variance", codeSection: "903.03" });
+    if (front != null) variances.push({ rule: "front_setback", value: front, reliefType: "dimensional_variance", codeSection: "903.03" });
+    if (side != null) variances.push({ rule: "side_setback", value: side, reliefType: "dimensional_variance", codeSection: "903.03" });
     try {
       return quickfit.solveQuickFit({
         parcel: input.parcel, frontEdges: input.frontEdges, streetSideEdges: input.streetSideEdges,
@@ -67,12 +127,14 @@ export default function QuickFitPanel({ input, rules, zoneCode, onScheme, onEnve
   }, [input, rules, zoneCode, goal, frontVar, sideVar]);
 
   const chosenForMap = useMemo(() => {
+    if (pick < 0 && priced) return { footprints: priced.footprints, heightFt: priced.heightFt };
     if (!result || "error" in result) return null;
     const seen: quickfit.Scheme[] = [];
     for (const s of result.ranked) { if (!seen.some((t) => t.typology === s.typology)) seen.push(s); if (seen.length === 3) break; }
-    return seen[Math.min(pick, seen.length - 1)] ?? null;
-  }, [result, pick]);
-  useEffect(() => { onScheme?.(chosenForMap); }, [chosenForMap]); // eslint-disable-line react-hooks/exhaustive-deps
+    const s = seen[Math.min(Math.max(pick, 0), seen.length - 1)];
+    return s ? { footprints: s.footprints as [number, number][][], heightFt: s.heightFt } : null;
+  }, [result, pick, priced]);
+  useEffect(() => { onScheme?.(chosenForMap, pick >= 0); }, [chosenForMap]); // eslint-disable-line react-hooks/exhaustive-deps
   // Buildable envelope in the same local coordinates as the footprints (for the photoreal 3D view).
   useEffect(() => { onEnvelope?.(result && !("error" in result) ? (result.envelope.polygons as [number, number][][][]) : null); }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -86,7 +148,8 @@ export default function QuickFitPanel({ input, rules, zoneCode, onScheme, onEnve
     if (!top.some((t) => t.typology === s.typology)) top.push(s);
     if (top.length === 3) break;
   }
-  const chosen = top[Math.min(pick, top.length - 1)] ?? null;
+  const chosen = pick >= 0 ? top[Math.min(pick, top.length - 1)] ?? null : null;
+  const drawn = pick < 0 && priced ? priced.footprints : ((chosen?.footprints ?? []) as [number, number][][]);
   const v = result.variance;
 
   return (
@@ -98,20 +161,31 @@ export default function QuickFitPanel({ input, rules, zoneCode, onScheme, onEnve
           </select>
         </label>
         <label className="flex flex-col">What if the front setback were… (ft)
-          <input type="number" min={0} value={frontVar} placeholder={`code: ${String((rules as any).min_front_setback_ft ?? "?")}`} onChange={(e) => { setFrontVar(e.target.value); setPick(0); }} className="w-40 rounded border px-2 py-1" />
+          <input type="number" min={0} value={frontVar} placeholder={`code: ${String((rules as any).min_front_setback_ft ?? "?")}`} onChange={(e) => { setFrontVar(e.target.value); setPick(e.target.value.trim() === "" && sideVar.trim() === "" && priced ? -1 : 0); }} className="w-40 rounded border px-2 py-1" />
         </label>
         <label className="flex flex-col">…and the side setback (ft)
-          <input type="number" min={0} value={sideVar} placeholder={`code: ${String((rules as any).min_side_setback_ft ?? "?")}`} onChange={(e) => { setSideVar(e.target.value); setPick(0); }} className="w-40 rounded border px-2 py-1" />
+          <input type="number" min={0} value={sideVar} placeholder={`code: ${String((rules as any).min_side_setback_ft ?? "?")}`} onChange={(e) => { setSideVar(e.target.value); setPick(e.target.value.trim() === "" && frontVar.trim() === "" && priced ? -1 : 0); }} className="w-40 rounded border px-2 py-1" />
         </label>
         <p className="text-zinc-600">Lot {Math.round(result.lotAreaSf).toLocaleString()} sq ft · buildable envelope {Math.round(result.envelope.areaSf).toLocaleString()} sq ft · {result.all.length} layouts tried</p>
       </div>
 
       <div className="grid gap-4">
         <div>
-          <Plan input={input} env={result.envelope.polygons as [number, number][][][]} scheme={chosen} />
-          <p className="mt-1 text-xs text-zinc-500">Yellow: lot · black: street frontage · green dashed: buildable envelope · blue: floodway (cut) · red: hazard overlay (flag) · colored boxes: units</p>
+          <Plan input={input} env={result.envelope.polygons as [number, number][][][]} footprints={drawn} />
+          <Legend input={input} envArea={result.envelope.areaSf} units={drawn.length} />
         </div>
         <div className="space-y-2">
+          {priced && (
+            <button onClick={() => setPick(-1)} className={`block w-full rounded border px-3 py-2 text-left text-sm ${pick < 0 ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"}`}>
+              <div className="flex items-center justify-between">
+                <b>Priced layout: {priced.label}{priced.units != null ? `, ${priced.units} unit${priced.units === 1 ? "" : "s"}` : ""}</b>
+                <span className="rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-700">score + pro forma</span>
+              </div>
+              <p>{priced.stories != null ? `${priced.stories} stories · ` : ""}{priced.finishedSf != null ? `${Math.round(priced.finishedSf).toLocaleString()} sq ft finished · ` : ""}{PATH_TEXT[priced.path ?? ""] ?? "zoning path unknown"}{priced.variancesNeeded.length ? ` (${priced.variancesNeeded.map((v) => v.replace(/_/g, " ")).join(", ")})` : ""}</p>
+              {priced.binding && <p className="text-zinc-700">{priced.binding}.</p>}
+              <p className="text-xs text-zinc-500">The same building the Ease Score, the summary and the pro forma use. Other layouts below are for exploring.</p>
+            </button>
+          )}
           {top.length === 0 && (
             <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
               Nothing fits by right: the buildable envelope is {Math.round(result.envelope.areaSf).toLocaleString()} sq ft

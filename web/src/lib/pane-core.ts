@@ -27,6 +27,8 @@ export interface PaneInputs {
   quickfitInput: Json | null;
   easeInputs: score.EaseInputsRpc | null;
   zba: { by_relief?: Record<string, score.ZbaReliefCounts> } | null;
+  /** Citywide decided cases by relief type: the grant-odds fallback when the district has too few. */
+  zbaCitywide?: Record<string, score.ZbaReliefCounts> | null;
   permitTimes: Partial<Record<"new_build" | "rehab", score.PermitTimeStats>> | undefined;
   sales: Json | null;
   rent: Json | null;
@@ -97,7 +99,7 @@ export function buildPane(i: PaneInputs): PanePayload {
   try {
     // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
     result = score.scoreParcel(f, {
-      quickfitInput: i.quickfitInput ?? null, easeInputs: i.easeInputs, zba: i.zba,
+      quickfitInput: i.quickfitInput ?? null, easeInputs: i.easeInputs, zba: i.zba, zbaCitywide: i.zbaCitywide ?? null,
       permitTimes: score.isCityParcel(f) ? i.permitTimes : undefined, unlocks: true,
     });
   } catch {
@@ -135,4 +137,40 @@ export function buildPane(i: PaneInputs): PanePayload {
     newComps,
     rehabComps,
   };
+}
+
+// ------------------------------------------------------------------------------ citywide grant odds
+
+type ReqRow = { outcome: string | null; zoning_cases: { decision_date: string | null } | null };
+let citywideCache: { at: number; p: Promise<Record<string, score.ZbaReliefCounts> | null> } | null = null;
+
+/**
+ * Citywide decided dimensional-variance requests (granted / partially granted vs denied, with the
+ * decision-date span), read through the Data API. Cached 12 hours per process. null on any error.
+ */
+export function fetchZbaCitywide(url: string, key: string): Promise<Record<string, score.ZbaReliefCounts> | null> {
+  if (citywideCache && Date.now() - citywideCache.at < 12 * 3600 * 1000) return citywideCache.p;
+  const relief = score.DEFAULT_CONFIG.f1.zba.dimensionalReliefType;
+  const p = (async () => {
+    try {
+      const q = `zoning_requests?select=outcome,zoning_cases!inner(decision_date)&relief_type=eq.${relief}&or=(outcome.ilike.grant*,outcome.ilike.partial*,outcome.ilike.den*)&order=request_id`;
+      const rows: ReqRow[] = [];
+      for (let from = 0; ; from += 1000) {
+        const r = await fetch(`${url}/rest/v1/${q}`, { headers: { apikey: key, Range: `${from}-${from + 999}` }, cache: "no-store" });
+        if (!r.ok) return null;
+        const page = (await r.json()) as ReqRow[];
+        rows.push(...page);
+        if (page.length < 1000) break;
+      }
+      const granted = rows.filter((x) => /^(grant|partial)/i.test(x.outcome ?? "")).length;
+      const denied = rows.filter((x) => /^den/i.test(x.outcome ?? "")).length;
+      const dates = rows.map((x) => x.zoning_cases?.decision_date).filter((d): d is string => !!d).sort();
+      return { [relief]: { granted, denied, from: dates[0] ?? null, to: dates[dates.length - 1] ?? null } };
+    } catch {
+      return null;
+    }
+  })();
+  citywideCache = { at: Date.now(), p };
+  p.then((v) => { if (v === null && citywideCache?.p === p) citywideCache = null; });
+  return p;
 }

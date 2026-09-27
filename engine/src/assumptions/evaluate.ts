@@ -154,19 +154,20 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
       sentences.push(`${usd(rent.noi)} ÷ ${usd(tdc)} total cost = ${pct1(rent.yieldOnCost)} a year on cost (yield on cost).`);
   }
 
-  // ---- Headline
+  // ---- Headline (rounded: $10,000 for totals, no false precision; the exact math is in the sentences)
+  const about = (n: number) => usd(Math.round(n / 10000) * 10000);
   let headline: string;
-  if (plan.missing.length) headline = `Can't tell yet${tdc != null ? `: it costs about ${usd(tdc)}, but` : "."} ${tdc != null ? lcFirst(plan.missing[0]!) : plan.missing[0]}`;
+  if (plan.missing.length) headline = `Can't tell yet${tdc != null ? `: it costs about ${about(tdc)}, but` : "."} ${tdc != null ? lcFirst(plan.missing[0]!) : plan.missing[0]}`;
   else if (plan.tenure === "sale" && sale.profit != null && tdc != null && sale.netSales != null)
     headline =
       verdict === "no"
-        ? `No: it costs about ${usd(tdc)} and would net about ${usd(sale.netSales)} after selling costs, ${usd(-sale.profit)} short.`
-        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${usd(tdc)} and would net about ${usd(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}).`;
+        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${about(-sale.profit)} short.`
+        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${about(sale.profit)} profit (${pct1(sale.margin!)}).`;
   else if (plan.tenure === "rent" && rent.noi != null && tdc != null)
     headline =
       verdict === "no"
-        ? `No: it costs about ${usd(tdc)} and the rent would not cover running costs.`
-        : `It depends on the loan: it costs about ${usd(tdc)} and would bring in about ${usd(rent.noi)} a year after running costs, ${pct1(rent.yieldOnCost ?? 0)} on cost. A local cap rate is needed to call it.`;
+        ? `No: it costs about ${about(tdc)} and the rent would not cover running costs.`
+        : `It depends on the loan: it costs about ${about(tdc)} and would bring in about ${usd(Math.round(rent.noi / 1000) * 1000)} a year after running costs, ${pct1(rent.yieldOnCost ?? 0)} on cost. A local cap rate is needed to call it.`;
   else headline = "Can't tell yet: an input is missing.";
   if (!plan.missing.length && plan.exclusions.length) headline += ` Partial estimate: ${plan.exclusions.length} cost item${plan.exclusions.length === 1 ? " is" : "s are"} not included yet.`;
 
