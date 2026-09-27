@@ -322,6 +322,15 @@ export const es: Record<Key, string> = {
   "dl.preparing": "Preparando el estudio…",
   "dl.error": "No se pudo crear el PDF: {error}",
 
+  "describe.show": "Describir esta vista",
+  "describe.showShort": "Describir",
+  "describe.showRest": " esta vista",
+  "describe.hide": "Ocultar la descripción",
+  "describe.aria": "Descripción de la vista del mapa",
+  "describe.keys": "Teclado: use Tab para llegar al mapa; luego las flechas lo mueven (en 3D Photoreal giran e inclinan la vista), y + y − acercan o alejan. El panel de la izquierda y el estudio de factibilidad tienen los mismos números como texto. Esc cierra esto.",
+  "describe.updated": "Diseño actualizado.",
+  "describe.english": "La descripción de abajo aún está en inglés.",
+
   "drawer.close": "Cerrar",
   "drawer.closeNamed": "Cerrar {title}",
   "drawer.content": "Contenido de {title}",

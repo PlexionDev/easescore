@@ -334,6 +334,15 @@ export const en = {
   "dl.preparing": "Preparing the study…",
   "dl.error": "Could not create the PDF: {error}",
 
+  "describe.show": "Describe this view",
+  "describe.showShort": "Describe",
+  "describe.showRest": " this view",
+  "describe.hide": "Hide description",
+  "describe.aria": "Description of the map view",
+  "describe.keys": "Keyboard: Tab to the map, then arrow keys move (in 3D Photoreal they orbit and tilt), + and − zoom. The panel on the left and the Feasibility Study have the same numbers as text. Esc closes this.",
+  "describe.updated": "Layout updated.",
+  "describe.english": "",
+
   // Drawers
   "drawer.close": "Close",
   "drawer.closeNamed": "Close {title}",
