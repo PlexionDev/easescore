@@ -25,7 +25,9 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
   const sp = await searchParams;
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) if (typeof v === "string") q.set(k, v);
-  const filters = parseFilters(q);
+  // A bare /planner lands on a useful shortlist (vacant, publicly owned, no red flags) instead of all 142k
+  // parcels; "Clear filters" is one click away. Any query string (shared link, saved list) is taken as is.
+  const filters = q.size ? parseFilters(q) : { land: "vacant" as const, owner: "public" as const, clean: true };
   if (!filters.muni) filters.muni = CITY;
   const sort = parseSort(q.get("sort"));
   const dir = parseDir(q.get("dir"), sort);

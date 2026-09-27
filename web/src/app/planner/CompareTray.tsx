@@ -14,8 +14,8 @@ export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor
   onFocus: (r: PlannerRow) => void;
   badgeFor: (r: PlannerRow) => string | null;
 }) {
-  // Phones start collapsed to a one-line bar so the tray never covers the map and the list.
-  const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 767.98px)").matches);
+  // Starts collapsed to a one-line bar (pins restored from an earlier visit shouldn't cover the map and the list).
+  const [collapsed, setCollapsed] = useState(true);
   if (!rows.length) return null;
   return (
     <section className={`pl-tray${collapsed ? " is-collapsed" : ""}`} aria-label="Compare pinned parcels">

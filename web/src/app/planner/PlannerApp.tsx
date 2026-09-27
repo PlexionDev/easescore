@@ -6,10 +6,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
-  DataDateFooter, EmptyState, ExportMenu, SeatButton, SeatHeader, SeatLayout, SeatSelect, setSelection, type ExportAction,
+  DataDateFooter, EmptyState, ExportMenu, SeatButton, SeatHeader, SeatLayout, SeatSelect, Segmented, setSelection, type ExportAction,
 } from "@/components/seats";
 import {
-  CITY, DEFAULT_DIR, PAGE_SIZE, clean, filtersToQuery, parseDir, parseFilters, parseSort, titleCase,
+  CITY, DEFAULT_DIR, PAGE_SIZE, clean, describeFilters, filtersToQuery, parseDir, parseFilters, parseSort, titleCase,
   type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
 } from "@/lib/planner";
 import PlannerFilters from "./PlannerFilters";
@@ -64,6 +64,8 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
 }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [sort, setSort] = useState<Sort>(initialSort);
+  // "Table only" hides the map: the ranked table lists the same parcels and is the map's equal.
+  const [tableOnly, setTableOnly] = useState(false);
   const [dir, setDir] = useState<Dir>(initialDir);
   const [page, setPage] = useState(initialPage);
   const [result, setResult] = useState<PlannerResult | null>(initial);
@@ -144,6 +146,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
 
   const set = useCallback((patch: Partial<Filters>) => { setFilters((f) => clean({ ...f, ...patch })); setPage(0); }, []);
   const reset = () => { setFilters(clean({ muni: filters.muni })); setPage(0); };
+  const activeFilters = describeFilters(filters).slice(1); // [0] is the municipality
   const onSort = (s: Sort) => {
     if (s === sort) setDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSort(s); setDir(DEFAULT_DIR[s]); }
@@ -209,7 +212,13 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
           note={`${rescoring}Scores precomputed for ${(options?.total ?? 0).toLocaleString("en-US")} parcels (${["City of Pittsburgh", ...(options?.municipalities ?? []).filter((m) => m !== CITY).map(titleCase)].join(", ")}) with score config v${(options?.config_versions ?? []).join(", v")}${options?.computed_at ? ` (latest ${options.computed_at.slice(0, 10)})` : ""}; policy what-ifs off. Score and band describe the best option that adds homes. Outside the City, zoning rules are not loaded, so scores are ranges.`} />}
       >
         <div className="pl-top">
-          <div className="pl-map">
+          <p className="es-sr" role="status">{result ? `${total.toLocaleString("en-US")} parcel${total === 1 ? "" : "s"} match these filters, sorted by ${SORT_TEXT[sort]}.` : ""}</p>
+          <div className="pl-viewbar">
+            <Segmented<"map" | "table"> label="View" size="sm" value={tableOnly ? "table" : "map"} onChange={(v) => setTableOnly(v === "table")}
+              options={[{ value: "map", label: "Map and table" }, { value: "table", label: "Table view" }]} />
+            <span className="pl-sub">The ranked table lists the same parcels as the map, in score order, with every value as text.</span>
+          </div>
+          {tableOnly ? null : <div className="pl-map">
             <PlannerMap points={points} total={total} blockers={(result?.top_blockers ?? []).map((b) => b.blocker)} hover={hover} selected={open?.parid ?? null}
               pinned={pinned} onHover={setHover} onSelect={openParcel} fitKey={filterKey} />
             {pointsState !== "ok" ? (
@@ -217,7 +226,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
                 {pointsState === "loading" ? "Loading map points…" : <>Map points could not load. <button type="button" className="es-btn es-btn-ghost" onClick={() => setPointsTry((n) => n + 1)}>Retry</button></>}
               </div>
             ) : null}
-          </div>
+          </div>}
           {!muniScored ? (
             <div style={{ padding: 16 }}>
               <EmptyState dataset={`Scores for ${titleCase(filters.muni)}`}>
@@ -227,7 +236,8 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
             </div>
           ) : (
             <PlannerTable
-              head={<><h2>Ranked sites</h2><span className="pl-sub">sorted by {SORT_TEXT[sort]}{dir !== DEFAULT_DIR[sort] ? " (reversed)" : ""} · {pinned.length} pinned</span></>}
+              head={<><h2>Ranked sites</h2><span className="pl-sub">sorted by {SORT_TEXT[sort]}{dir !== DEFAULT_DIR[sort] ? " (reversed)" : ""} · {pinned.length} pinned</span>
+                {activeFilters.length ? <span className="pl-sub">Showing: {activeFilters.join(" · ")} · <button type="button" className="pl-linkbtn" onClick={reset}>Clear filters</button></span> : null}</>}
               actions={<>
                 <SeatButton onClick={() => void download(csvUrl, "easescore-planner.csv")} disabled={!total}>Export CSV</SeatButton>
                 <SeatButton variant="primary" onClick={() => void download(memoUrl, "easescore-staff-memo.pdf")} disabled={!total && !pinned.length}>Staff memo PDF</SeatButton>
@@ -235,7 +245,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
               foot={<>
                 <div className="pl-foot">
                   <span className="pl-spacer" />
-                  <span className="tabular" aria-live="polite">{from.toLocaleString("en-US")}-{to.toLocaleString("en-US")} of {total.toLocaleString("en-US")}</span>
+                  <span className="tabular">{from.toLocaleString("en-US")}-{to.toLocaleString("en-US")} of {total.toLocaleString("en-US")}</span>
                   <SeatButton variant="ghost" disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</SeatButton>
                   <SeatButton variant="ghost" disabled={to >= total || loading} onClick={() => setPage((p) => p + 1)}>Next</SeatButton>
                 </div>

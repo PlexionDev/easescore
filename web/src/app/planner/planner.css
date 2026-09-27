@@ -7,6 +7,8 @@
 .pl-tablehead{position:sticky;top:0;z-index:4;background:var(--es-paper);display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;border-bottom:1px solid var(--es-line)}
 .pl-tablehead h2{font-size:15px;font-weight:700}
 .pl-tablehead .pl-sub{font-size:13px;color:var(--es-muted)}
+.pl-linkbtn{background:none;border:0;padding:0 2px;min-height:24px;font:inherit;color:var(--es-deep);text-decoration:underline;cursor:pointer}
+.pl-linkbtn:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .pl-tablehead .pl-spacer{flex:1}
 .pl-scroll{overflow-x:auto}
 .pl-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
@@ -163,3 +165,5 @@
 .pl-mapstate{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fffffff0;border:1px solid var(--es-line);border-radius:8px;font-size:13px;box-shadow:var(--es-shadow)}
 .pl-tray.is-collapsed{padding:6px 16px}
 .pl-tray.is-collapsed .pl-tray-head{margin-bottom:0}
+.pl-viewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--es-line)}
+.pl-viewbar .es-seg-wrap{display:flex;align-items:center;gap:8px}
