@@ -14,7 +14,8 @@ import "server-only";
 // auto-detected location.
 //
 // VERCEL: uses @sparticuz/chromium (serverless Chromium). puppeteer-core and @sparticuz/chromium are on
-// Next's built-in serverExternalPackages list, so no next.config change is needed. PDF routes keep
+// Next's built-in serverExternalPackages list; next.config.ts adds the package's bin/ folder to the four
+// PDF routes' traced files (outputFileTracingIncludes), since the tracer misses it. PDF routes keep
 // `maxDuration` and need ~2 GB of function memory (see .planning deploy notes).
 
 import { existsSync } from "node:fs";
