@@ -68,8 +68,8 @@ export function topBlocker(best: score.StrategyResult | null, cfg: score.EaseSco
 }
 
 /**
- * Every factor or callout costing at least one score point on this strategy, most costly first, in plain
- * words. Red flags come first, then a v0.2 hazard band cap, then the point losses. Data gaps are not blockers.
+ * The factors or callouts holding this strategy back, most costly first, in plain words: red flags, then a
+ * v0.2 hazard band cap, then point losses (the first at 1+ points, the rest at 2+). Data gaps are not blockers.
  */
 export function blockerList(best: score.StrategyResult | null, cfg: score.EaseScoreConfig): string[] {
   if (!best) return [];
@@ -169,10 +169,13 @@ export function blockerList(best: score.StrategyResult | null, cfg: score.EaseSc
   const f7 = F.F7;
   if (f7 && f7.subscore != null) add("Low market activity", pts(f7, 100 - f7.subscore));
 
-  // At least one full point; ties broken by label so the order is deterministic.
+  // Ties broken by label so the order is deterministic. The top blocker needs at least one full point;
+  // the rest of the list needs two, so a small drag (e.g. slightly below-median market activity) does not
+  // count as holding a parcel back in the planner's share-of-parcels bars.
   const ranked = [...loss.entries()].filter(([, p]) => p > 1 + 1e-9)
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([l]) => l);
-  return [...new Set([...head, ...ranked])];
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  const listed = ranked.filter(([, p], i) => i === 0 || p > 2 + 1e-9).map(([l]) => l);
+  return [...new Set([...head, ...listed])];
 }
 
 function unitsSummary(res: score.EaseScoreResult): { byRight: number | null; withRelief: number | null } {
@@ -393,14 +396,23 @@ async function upload(rows: Json[]) {
   for (let i = 0; i < rows.length; i += 1000) {
     const chunk = rows.slice(i, i + 1000);
     for (let attempt = 0; ; attempt++) {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify(chunk),
-      });
+      let r: Response;
+      try {
+        r = await fetch(url, {
+          method: "POST",
+          headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(chunk),
+        });
+      } catch (e) {
+        // Network errors (e.g. "fetch failed") are retried like 5xx.
+        if (attempt >= 5) throw e;
+        console.log(`  upload request error (${(e as Error).message}); retrying`);
+        await sleep(2000 * 2 ** attempt);
+        continue;
+      }
       if (r.ok) break;
       const t = await r.text();
-      if (attempt >= 4 || (r.status < 500 && r.status !== 429)) throw new Error(`upload failed ${r.status}: ${t.slice(0, 400)}`);
+      if (attempt >= 5 || (r.status < 500 && r.status !== 429)) throw new Error(`upload failed ${r.status}: ${t.slice(0, 400)}`);
       await sleep(2000 * 2 ** attempt);
     }
   }

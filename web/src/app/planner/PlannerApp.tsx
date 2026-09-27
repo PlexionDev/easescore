@@ -95,16 +95,25 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
     return () => ctrl.abort();
   }, [filters, sort, dir, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Map points: only the filters matter.
+  // Map points: only the filters matter. One automatic retry, then a visible "Retry".
   const filterKey = filtersToQuery(filters).toString();
+  const [pointsState, setPointsState] = useState<"loading" | "ok" | "error">("loading");
+  const [pointsTry, setPointsTry] = useState(0);
   useEffect(() => {
     const ctrl = new AbortController();
-    fetch(`/api/planner/points?${filterKey}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((p: PlannerPoint[]) => setPoints(Array.isArray(p) ? p : []))
-      .catch(() => {});
+    setPointsState("loading");
+    const load = (attempt: number): Promise<void> =>
+      fetch(`/api/planner/points?${filterKey}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((p: PlannerPoint[]) => { setPoints(Array.isArray(p) ? p : []); setPointsState("ok"); })
+        .catch((e) => {
+          if ((e as Error).name === "AbortError") return;
+          if (attempt === 0) return new Promise<void>((res) => setTimeout(res, 1500)).then(() => load(1));
+          setPointsState("error");
+        });
+    void load(0);
     return () => ctrl.abort();
-  }, [filterKey]);
+  }, [filterKey, pointsTry]);
 
   // Pins: restore once, remember in this browser, and share with the other seats.
   const restorePins = useCallback((ids: string[]) => {
@@ -167,10 +176,13 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
   ];
 
   const muniOptions = useMemo(() => {
-    const scored = new Set(options?.municipalities ?? []);
+    // Only label a municipality "not scored yet" when the options loaded and it has no rows at all.
+    const scored = options ? new Set(options.municipalities) : null;
     const names = [...new Set([CITY, ...(options?.all_municipalities ?? []).map((m) => m.name)])];
-    return names.map((n) => ({ value: n, label: `${n === CITY ? "City of Pittsburgh" : titleCase(n)}${scored.has(n) ? "" : " (not scored yet)"}` }));
-  }, [options]);
+    return names.map((n) => ({ value: n, label: `${n === CITY ? "City of Pittsburgh" : titleCase(n)}${scored && !scored.has(n) && n !== filters.muni ? " (not scored yet)" : ""}` }));
+  }, [options, filters.muni]);
+  const versions = Object.entries(options?.version_counts ?? {}).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const rescoring = versions.length > 1 ? `Rescoring under score config v${versions[0]![0]}: ${versions[0]![1].toLocaleString("en-US")} of ${versions.reduce((t, [, n]) => t + n, 0).toLocaleString("en-US")} parcels done; the rest still show v${versions.slice(1).map(([v]) => v).join(", v")}. ` : "";
   const muniScored = !filters.muni || (options?.municipalities ?? []).includes(filters.muni) || total > 0;
 
   const header = (
@@ -194,12 +206,17 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
         right={<PlannerSummary s={muniScored ? result : null} f={filters} set={set} loading={loading} />}
         bottom={pins.length ? <CompareTray rows={pins} onRemove={(id) => setPins((ps) => ps.filter((p) => p.parid !== id))} onClear={() => setPins([])} onFocus={(r) => setOpen(r)} badgeFor={badgeFor} /> : null}
         footer={<DataDateFooter sources={dataDates}
-          note={`Scores precomputed for ${(options?.total ?? 0).toLocaleString("en-US")} City of Pittsburgh parcels with score config v${(options?.config_versions ?? []).join(", v")}${options?.computed_at ? ` (latest ${options.computed_at.slice(0, 10)})` : ""}; policy what-ifs off. Score and band describe the best option that adds homes. Outside the City, zoning rules are not loaded, so scores are ranges.`} />}
+          note={`${rescoring}Scores precomputed for ${(options?.total ?? 0).toLocaleString("en-US")} parcels (${["City of Pittsburgh", ...(options?.municipalities ?? []).filter((m) => m !== CITY).map(titleCase)].join(", ")}) with score config v${(options?.config_versions ?? []).join(", v")}${options?.computed_at ? ` (latest ${options.computed_at.slice(0, 10)})` : ""}; policy what-ifs off. Score and band describe the best option that adds homes. Outside the City, zoning rules are not loaded, so scores are ranges.`} />}
       >
         <div className="pl-top">
           <div className="pl-map">
             <PlannerMap points={points} total={total} blockers={(result?.top_blockers ?? []).map((b) => b.blocker)} hover={hover} selected={open?.parid ?? null}
               pinned={pinned} onHover={setHover} onSelect={openParcel} fitKey={filterKey} />
+            {pointsState !== "ok" ? (
+              <div className="pl-mapstate" role="status">
+                {pointsState === "loading" ? "Loading map points…" : <>Map points could not load. <button type="button" className="es-btn es-btn-ghost" onClick={() => setPointsTry((n) => n + 1)}>Retry</button></>}
+              </div>
+            ) : null}
           </div>
           {!muniScored ? (
             <div style={{ padding: 16 }}>

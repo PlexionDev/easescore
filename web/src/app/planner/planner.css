@@ -159,3 +159,7 @@
   .pl-card-mid{display:flex;align-items:center;gap:8px;font-size:13px}
   .pl-card-sub{font-size:12px;color:var(--es-muted)}
 }
+
+.pl-mapstate{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fffffff0;border:1px solid var(--es-line);border-radius:8px;font-size:13px;box-shadow:var(--es-shadow)}
+.pl-tray.is-collapsed{padding:6px 16px}
+.pl-tray.is-collapsed .pl-tray-head{margin-bottom:0}

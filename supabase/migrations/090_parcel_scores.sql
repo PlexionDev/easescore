@@ -219,6 +219,8 @@ create table if not exists public.planner_summary_cache (
   summary     jsonb not null,
   computed_at timestamptz not null default now()
 );
+-- Map points for the same broad views, and (under the key {"__options": true}) the filter options.
+alter table public.planner_summary_cache add column if not exists points jsonb;
 do $$
 declare t text;
 begin
@@ -241,9 +243,10 @@ declare k jsonb; n int := 0;
 begin
   delete from public.planner_summary_cache;
   for k in select '{}'::jsonb union all select jsonb_build_object('municipality', municipality) from (select distinct municipality from public.parcel_scores where municipality is not null) x loop
-    insert into public.planner_summary_cache (filters, summary) values (k, public.planner_summary(k));
+    insert into public.planner_summary_cache (filters, summary, points) values (k, public.planner_summary(k), public.planner_points_live(k, 12000));
     n := n + 1;
   end loop;
+  insert into public.planner_summary_cache (filters, summary) values ('{"__options": true}', public.planner_options_live());
   return n;
 end $$;
 revoke all on function public.planner_refresh_cache() from public, anon, authenticated;
@@ -288,7 +291,7 @@ end $$;
 
 -- Map points for the filtered set, highest scores first:
 -- [parid, lon, lat, score, band, top_blocker, address, by_right_units, units_with_relief].
-create or replace function public.planner_points(p_filters jsonb default '{}', p_limit int default 12000)
+create or replace function public.planner_points_live(p_filters jsonb default '{}', p_limit int default 12000)
 returns jsonb
 language plpgsql stable
 set search_path = public
@@ -309,7 +312,21 @@ begin
   return out;
 end $$;
 
-create or replace function public.planner_options()
+-- Cached for the broad views (see planner_refresh_cache), live otherwise.
+create or replace function public.planner_points(p_filters jsonb default '{}', p_limit int default 12000)
+returns jsonb
+language plpgsql stable
+set search_path = public
+as $$
+declare out jsonb;
+begin
+  if coalesce(p_limit, 12000) = 12000 then
+    select c.points into out from public.planner_summary_cache c where c.filters = coalesce(p_filters, '{}') and c.points is not null;
+  end if;
+  return coalesce(out, public.planner_points_live(p_filters, p_limit));
+end $$;
+
+create or replace function public.planner_options_live()
 returns jsonb
 language sql stable
 set search_path = public
@@ -324,18 +341,34 @@ as $$
                  from (select b, count(*) n from public.parcel_scores, unnest(blockers) b group by 1) x),
     'total', (select count(*) from public.parcel_scores),
     'config_versions', (select coalesce(jsonb_agg(distinct config_version), '[]') from public.parcel_scores),
+    'version_counts', (select coalesce(jsonb_object_agg(config_version, n), '{}') from (select config_version, count(*) n from public.parcel_scores group by 1) v),
     'computed_at', (select max(computed_at) from public.parcel_scores),
     'data_dates', (select coalesce(jsonb_object_agg(k, v), '{}') from (select k, max(v) v from public.parcel_scores, jsonb_each_text(data_dates) e(k, v)
                    where parid in (select parid from public.parcel_scores order by computed_at desc limit 200) group by 1) d));
 $$;
 
+create or replace function public.planner_options()
+returns jsonb
+language plpgsql stable
+set search_path = public
+as $$
+declare out jsonb;
+begin
+  select c.summary into out from public.planner_summary_cache c where c.filters = '{"__options": true}'::jsonb;
+  return coalesce(out, public.planner_options_live());
+end $$;
+
 revoke all on function public.planner_rows(jsonb) from public;
 revoke all on function public.planner_query(jsonb, int, int, text, text) from public;
 revoke all on function public.planner_summary(jsonb) from public;
 revoke all on function public.planner_points(jsonb, int) from public;
+revoke all on function public.planner_points_live(jsonb, int) from public;
+revoke all on function public.planner_options_live() from public;
 revoke all on function public.planner_options() from public;
 grant execute on function public.planner_rows(jsonb) to anon, authenticated, service_role;
 grant execute on function public.planner_query(jsonb, int, int, text, text) to anon, authenticated, service_role;
 grant execute on function public.planner_summary(jsonb) to anon, authenticated, service_role;
 grant execute on function public.planner_points(jsonb, int) to anon, authenticated, service_role;
+grant execute on function public.planner_points_live(jsonb, int) to anon, authenticated, service_role;
+grant execute on function public.planner_options_live() to anon, authenticated, service_role;
 grant execute on function public.planner_options() to anon, authenticated, service_role;

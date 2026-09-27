@@ -8,14 +8,25 @@ export * from "./planner-query";
 
 // ------------------------------------------------------------------------------ reads (server)
 
+/** One Data API call, retried once (a cold database or a busy batch can time a statement out). Errors are logged. */
 async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-  const r = await fetch(`${url}/rest/v1/rpc/${fn}`, {
-    method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
-  });
-  if (!r.ok) throw new Error(`${fn} failed (${r.status})`);
-  return (await r.json()) as T;
+  let last = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+        method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+      });
+      if (r.ok) return (await r.json()) as T;
+      last = `${r.status} ${(await r.text()).slice(0, 200)}`;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
+    console.error(`[planner] ${fn} attempt ${attempt + 1} failed: ${last}`);
+    if (attempt === 0) await new Promise((res) => setTimeout(res, 400));
+  }
+  throw new Error(`${fn} failed: ${last}`);
 }
 
 // Short in-memory cache: scores change only when the batch reruns, and the broadest queries take ~1 s.

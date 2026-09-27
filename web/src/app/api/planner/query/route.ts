@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const res = await plannerQuery(parseFilters(q), sort, parseDir(q.get("dir"), sort), PAGE_SIZE, page * PAGE_SIZE);
     return Response.json(res, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (e) {
+    console.error(`[planner] ${req.nextUrl.pathname} failed:`, e instanceof Error ? e.message : e);
     return Response.json({ error: "Could not load planner results." }, { status: 502 });
   }
 }

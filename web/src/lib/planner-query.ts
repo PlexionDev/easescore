@@ -150,6 +150,8 @@ export interface PlannerOptions {
   blockers: { blocker: string; n: number }[];
   total: number;
   config_versions: string[];
+  /** Rows per score config version (more than one while a rescore is running). */
+  version_counts?: Record<string, number>;
   computed_at: string | null;
   data_dates: Record<string, string>;
 }

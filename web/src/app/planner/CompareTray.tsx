@@ -14,13 +14,14 @@ export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor
   onFocus: (r: PlannerRow) => void;
   badgeFor: (r: PlannerRow) => string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Phones start collapsed to a one-line bar so the tray never covers the map and the list.
+  const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 767.98px)").matches);
   if (!rows.length) return null;
   return (
     <section className={`pl-tray${collapsed ? " is-collapsed" : ""}`} aria-label="Compare pinned parcels">
       <div className="pl-tray-head">
         <h2>Compare ({rows.length} of 5)</h2>
-        <p>Factor sub-scores 0-100, higher is easier.</p>
+        {collapsed ? null : <p>Factor sub-scores 0-100, higher is easier.</p>}
         <span className="pl-spacer" />
         <button type="button" className="pl-tray-btn" aria-expanded={!collapsed} onClick={() => setCollapsed((c) => !c)}>{collapsed ? "Show" : "Hide"}</button>
         <button type="button" className="pl-tray-btn" onClick={onClear}>Clear all</button>
