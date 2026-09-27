@@ -1392,8 +1392,17 @@ export function S9(x: Ctx) {
       <p>
         {m.proForma.sale.grossSales != null ? (
           <>
-            Sale value: {m.proForma.plan.revenue.sale.basis.charAt(0).toLowerCase() + m.proForma.plan.revenue.sale.basis.slice(1)}
-            {m.proForma.plan.revenue.sale.sourceLabel === "Your input" ? "" : fn(x, "nc_sales")} = <b>{money(m.proForma.sale.grossSales)}</b>. Selling costs: broker and closing{" "}
+            {(() => {
+              // The comps give a median price per finished sq ft; the total is that times this plan's finished area.
+              const sv = m.proForma.plan.revenue.sale;
+              const basis = sv.basis.charAt(0).toLowerCase() + sv.basis.slice(1);
+              const sf = sv.pricePerSf && !/^Your sale price per home/.test(sv.basis) ? m.proForma.sale.grossSales! / sv.pricePerSf : null;
+              return sf != null ? (
+                <>Sale value: {money(sv.pricePerSf)} per finished sq ft ({basis.replace(/ \((.+)\)$/, ", $1")}{sv.sourceLabel === "Your input" ? "" : fn(x, "nc_sales")}) × {num(sf)} finished sq ft = <b>{money(m.proForma.sale.grossSales)}</b>.</>
+              ) : (
+                <>Sale value: {basis}{sv.sourceLabel === "Your input" ? "" : fn(x, "nc_sales")} = <b>{money(m.proForma.sale.grossSales)}</b>.</>
+              );
+            })()} Selling costs: broker and closing{" "}
             {pct(assumptions.COST_CONFIG.sale.brokerShare.value)} plus the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}.
           </>
         ) : (
