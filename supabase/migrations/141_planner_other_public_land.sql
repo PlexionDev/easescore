@@ -11,6 +11,7 @@
 --   489  Commercial/utility            \  utility land
 --   389  Industrial/utility            /
 --   class_code = 'U' (Utilities)          utility land (broader class than the two use codes above)
+--   118  Condominium common property       shared condo grounds/parking/walkways, not an independent lot
 -- Transit land has no distinct land-use code in the county data; identified instead by ownership
 -- (owner_agency = 'Pittsburgh Regional Transit', set by planner_attach_owner_geo from
 -- parcel_owner_class). Additive only: a new lookup table plus create-or-replace function changes.
@@ -37,9 +38,10 @@ select a.parid,
   case when a.use_code in ('130', '530') then 'Alley / street / right-of-way'
        when a.use_code = '660' then 'Park or plaza'
        when a.use_code in ('456', '777') then 'Parking structure or lot'
+       when a.use_code = '118' then 'Shared property (condominium common area)'
        else 'Utility land' end
 from public.assessments a
-where a.use_code in ('130', '530', '660', '456', '777', '489', '389') or a.class_code = 'U'
+where a.use_code in ('130', '530', '660', '456', '777', '489', '389', '118') or a.class_code = 'U'
 on conflict (parid) do nothing;
 
 insert into public.planner_other_public_land (parid, reason)
