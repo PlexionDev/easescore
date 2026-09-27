@@ -116,7 +116,7 @@ export function TaxesAfterBlock(x: Ctx) {
       <h2>Taxes after construction</h2>
       <div className="tcap">Table {tt}. Property tax today and after completion{fn(x, "millage", "assessment")}</div>
       <table>
-        <thead><tr><th /><th className="num">Assessed value</th><th className="num">Mills</th><th className="num">Tax a year</th></tr></thead>
+        <thead><tr><th>When</th><th className="num">Assessed value</th><th className="num">Mills</th><th className="num">Tax a year</th></tr></thead>
         <tbody>
           <tr><td>Today (current County assessment)</td><td className="num">{money(t.assessedToday)}</td><td className="num">{num(t.mills, 3)}</td><td className="num">{money(t.taxToday)}</td></tr>
           <tr><td>After completion{units && units > 1 ? ` (all ${units} homes)` : ""}</td><td className="num">{money(r1k(t.assessedAfter))}</td><td className="num">{num(t.mills, 3)}</td><td className="num">{money(r1k(t.taxAfter))}</td></tr>

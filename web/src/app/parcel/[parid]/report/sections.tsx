@@ -2120,7 +2120,7 @@ export function AppD(x: Ctx) {
       )}
       {s.notes.length > 0 && (
         <>
-          <h3>Engine notes</h3>
+          <h2>Engine notes</h2>
           <ul className="small">{[...new Set(s.notes)].map((n) => <li key={n}>{n}</li>)}</ul>
         </>
       )}

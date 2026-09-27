@@ -296,7 +296,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Checklist on the Feasibility study's basis (lib/report/load.ts): a new build unless the visitor says
   // otherwise, sized by the selected option's homes, so the pane and the report count the same list.
   const checklistProject: ProjectAnswers = { ...project, type: project.type ?? "new_build", units: project.units ?? pf?.plan.units ?? undefined, tenure: pf?.plan.tenure };
-  const results = evaluateRequirements(f, checklistProject);
+  // The report's one approvals record (lib/report/load.ts): a variance the studied layout needs is Required here too.
+  const results = narrative.reconcileRequirements(evaluateRequirements(f, checklistProject), narrative.buildApprovalsRecord({
+    zoningLoaded: score.zoningLoaded(f) && !ubPlan?.pf, municipality: f.assessment?.municipality ?? null, district: f.zoning?.code ?? null,
+    rulesCitation: f.zoning?.rules?.citation?.split(";")[0]?.trim() || null, scheme: plan?.scheme ?? null,
+  }));
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   // County recorded lot area vs the mapped parcel outline: more than 25% apart is a survey question first.
   const lotCounty = Number(f.assessment?.lot_area_sqft) || null, lotMapped = Number(f.lot_area_sqft_gis) || null;
