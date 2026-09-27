@@ -138,6 +138,12 @@ export interface PlannerSummary {
   no_blocker: number;
   capacity: { by_right: number; by_right_clean: number; relief: number; relief_clean: number; parcels_with_by_right: number; units_unknown: number };
   public_land: { count: number; acres: number; buildable_count: number; buildable_acres: number; by_agency: Record<string, number> };
+  /**
+   * Alleys/streets/right-of-way, parks and plazas, parking structures and lots, and utility and
+   * transit land (§4.2): never ranked as housing sites (excluded in planner_rows by
+   * public.planner_other_public_land, migration 141), shown here as a separate count instead.
+   */
+  other_public_land: { count: number; acres: number; by_reason: Record<string, number> };
 }
 export interface PlannerResult extends PlannerSummary { rows: PlannerRow[] }
 
@@ -375,6 +381,61 @@ export function describeFilters(f: Filters): string[] {
   return out;
 }
 
+// ------------------------------------------------------------------------------ best-option headline (§4.1)
+
+/** Zoning-side blockers (mirrors scripts/score_all.ts's permission/dimensional labels) worth naming as "what approval is needed". */
+const ZONING_APPROVAL_BLOCKERS = [
+  "Administrator exception required", "Special exception required", "Conditional use required", "Use not permitted",
+  "Nonconforming use", "Minimum lot size", "Lot area per unit", "Parking minimum", "Lot coverage limit", "Floor area limit",
+  "Setbacks", "Height limit", "Lot too small for the building",
+];
+
+/**
+ * "by right" / "needs administrator exception" / "needs variance", for the headline
+ * "Best option: [type] ([...])" (§4.1). By right when at least one unit fits with no relief;
+ * otherwise an administrator exception if that is listed among the parcel's blockers, else a variance
+ * (special exception, conditional use, use variance or dimensional variance all collapse to "variance"
+ * for this one-word headline; the full blocker list still names the specific approval).
+ */
+export function approvalTag(r: Pick<PlannerRow, "by_right_units" | "blockers">): "by right" | "needs administrator exception" | "needs variance" {
+  if ((r.by_right_units ?? 0) > 0) return "by right";
+  if (r.blockers.includes("Administrator exception required")) return "needs administrator exception";
+  return "needs variance";
+}
+
+/** "Best option: [type] ([by right / needs administrator exception / needs variance])" (§4.1). */
+export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers">): string {
+  if (!r.best_strategy) return "Best option: none scored";
+  const type = STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy;
+  return `Best option: ${type} (${approvalTag(r)})`;
+}
+
+/** When homes by right = 0, name the specific approval the blockers point to (§4.1), or null if none is listed. */
+export function approvalNeeded(r: Pick<PlannerRow, "by_right_units" | "blockers">): string | null {
+  if ((r.by_right_units ?? 0) > 0) return null;
+  return r.blockers.find((b) => ZONING_APPROVAL_BLOCKERS.includes(b)) ?? null;
+}
+
+// ------------------------------------------------------------------------------ months to permit range (§4.4)
+
+/**
+ * months_to_permit is stored as a single point estimate (the engine's median-based prediction,
+ * see engine/src/score/factors.ts permitMonths); shown as a range to be honest about that
+ * uncertainty: the estimate x0.75 to x1.25, rounded to whole months (at least 1 month wide).
+ * With the typical ~2.8-month estimate this reads "2-4 months".
+ */
+export function monthsRange(m: number | null): [number, number] | null {
+  if (m == null) return null;
+  const lo = Math.max(1, Math.floor(m * 0.75));
+  const hi = Math.max(lo + 1, Math.ceil(m * 1.25));
+  return [lo, hi];
+}
+export const MONTHS_RANGE_NOTE = "Shown as a range (the estimate x0.75 to x1.25, rounded to whole months) to reflect the uncertainty in a single-point prediction.";
+export const monthsRangeText = (m: number | null): string => {
+  const r = monthsRange(m);
+  return r ? `${r[0]}-${r[1]} months` : "—";
+};
+
 // ------------------------------------------------------------------------------ text helpers
 
 const SMALL = new Set(["of", "and", "the", "on", "in"]);
@@ -385,8 +446,25 @@ export function titleCase(s: string | null | undefined): string {
   return s.toLowerCase().split(/(\s+|-)/).map((w, i) => (i > 0 && SMALL.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join("");
 }
 
-/** Address, or the parcel ID for lots without a street number. */
-export const parcelLabel = (r: Pick<PlannerRow, "address" | "parid">) => titleCase(r.address) || r.parid.trim();
+/**
+ * Address, or the parcel ID for lots without a street number. Pass `disambiguate` (§4.3, several
+ * parcels sharing one street address — e.g. a front and back lot) to append the parcel ID so the two
+ * are never confused; callers compute it by checking whether the address repeats in the rows shown.
+ */
+export const parcelLabel = (r: Pick<PlannerRow, "address" | "parid">, disambiguate = false) => {
+  const label = titleCase(r.address);
+  if (!label) return r.parid.trim();
+  return disambiguate ? `${label} (parcel ${r.parid.trim()})` : label;
+};
+/** Addresses that repeat among these rows (§4.3): pass to parcelLabel's `disambiguate` for those rows. */
+export function duplicateAddresses(rows: Pick<PlannerRow, "address">[]): Set<string> {
+  const seen = new Map<string, number>();
+  for (const r of rows) {
+    const label = titleCase(r.address);
+    if (label) seen.set(label, (seen.get(label) ?? 0) + 1);
+  }
+  return new Set([...seen].filter(([, n]) => n > 1).map(([a]) => a));
+}
 export const ownerLabel = (r: Pick<PlannerRow, "owner_class" | "owner_agency">) =>
   r.owner_class === "public" || r.owner_class === "nonprofit" ? r.owner_agency ?? "Public" : "Private";
 /** Short owner label for the table ("City", "URA / Land Bank", "HACP"). */
