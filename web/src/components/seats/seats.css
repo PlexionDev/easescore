@@ -280,7 +280,7 @@
 .es-legend-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .es-legend-item i{width:10px;height:10px;border-radius:2px}
 .es-map .maplibregl-ctrl-attrib{font-size:10.5px}
-@media (max-width:899.98px){.es-map-legend{left:8px;right:8px;bottom:36px}.es-map-tools{top:8px;right:8px}}
+@media (max-width:899.98px){.es-map-legend{left:8px;right:48px;bottom:36px} /* right: clear of the zoom buttons */.es-map-tools{top:8px;right:8px}}
 
 /* ---------- Motion ---------- */
 @media (prefers-reduced-motion:reduce){
