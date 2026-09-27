@@ -142,7 +142,7 @@ export default function PhotorealStill({ data, insets }: { data: StillData; inse
         </svg>
       )}
       <p className="absolute -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/70 px-3 py-1 text-xs text-slate-200"
-         style={{ bottom: insets.bottom + 16, left: `calc(${insets.left}px + (100% - ${insets.left}px) / 2)` }}>
+         style={{ top: 72, left: `calc(${insets.left}px + (100% - ${insets.left}px) / 2)` }}>
         Preview drawn from county parcel data · photoreal 3D loading
       </p>
     </div>
