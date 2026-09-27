@@ -5,6 +5,8 @@ import { filtersToQuery, parseDir, parseFilters, parseSort } from "@/lib/planner
 // GET /api/planner/memo?<filters>&ids=<shortlist>  -> staff memo PDF (cover + one page per shortlisted parcel)
 // Renders /planner/memo (print page) with headless Chromium, like the parcel report.
 export const maxDuration = 60;
+// Chromium (puppeteer-core + @sparticuz/chromium) needs the Node.js runtime; give the function ~2 GB in Vercel settings.
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

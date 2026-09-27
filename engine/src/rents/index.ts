@@ -203,7 +203,7 @@ export function rentForBedrooms(br: number, listings: RentListing[] | null, inpu
   }
 
   const why = listings == null
-    ? "RentCast listings are unavailable right now."
+    ? "Rent data temporarily unavailable (RentCast listings could not be reached or the monthly quota is used up)."
     : `Only ${comps.length} matching listing${comps.length === 1 ? "" : "s"} within ${RADII_MI[RADII_MI.length - 1]!} mi (need ${MIN_COMPS}).`;
   const bench = hud != null
     ? { v: hud, basis: "hud_safmr" as const, label: `HUD Small Area Fair Market Rent FY${input.hud?.year ?? "?"}, ZIP ${input.hud?.zip ?? "?"} (benchmark, not listings)` }

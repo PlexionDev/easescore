@@ -15,5 +15,6 @@ export async function GET(request: Request, ctx: RouteContext<"/api/pane/[parid]
   const [loaded] = await Promise.all([loadPane(parid, asOf, qf, T), withMap ? T.time("rpc_parcel_map", parcelMap(parid)) : null]);
   const headers = { "Server-Timing": T.header(), "Cache-Control": "no-store" };
   if (!loaded.ok) return Response.json({ error: loaded.error ? "Data temporarily unavailable" : "Parcel not found" }, { status: loaded.error ? 503 : 404, headers });
-  return Response.json({ source: loaded.source, payload: loaded.payload }, { headers });
+  // Parcel data changes at most daily: browsers keep it 5 min, the CDN 1 h, and may serve a stale copy for a day while refreshing.
+  return Response.json({ source: loaded.source, payload: loaded.payload }, { headers: { ...headers, "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400" } });
 }

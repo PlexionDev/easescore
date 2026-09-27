@@ -5,6 +5,8 @@ import { parseKey, scenarioFromQuery, scenarioToQuery, stateKey } from "@/lib/po
 // GET /api/policy/packet?s=<key>[&abate=100x10][&name=...] -> 3-page council packet PDF.
 // Renders the print page /policy/packet with headless Chromium (same pipeline as the parcel report).
 export const maxDuration = 60;
+// Chromium (puppeteer-core + @sparticuz/chromium) needs the Node.js runtime; give the function ~2 GB in Vercel settings.
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

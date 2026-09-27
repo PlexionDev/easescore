@@ -2,8 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { buildRow, dayET, dedupeMaterial, pickMedians, type MedianRow, type ScenarioInput } from "./core";
 
-// Scenario collection is OFF unless SCENARIO_COLLECTION=1 (unset in production until the owner
-// approves the notice text). Nothing in this file logs a request body, header or ID.
+// Scenario collection is OFF unless SCENARIO_COLLECTION=1 (the owner approved the notice on 9/27;
+// set in Vercel Production). Nothing in this file logs a request body, header or ID.
 export const collectionEnabled = () => process.env.SCENARIO_COLLECTION === "1";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;

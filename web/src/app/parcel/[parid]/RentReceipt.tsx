@@ -35,7 +35,7 @@ export default function RentReceipt({ parid, defaultBedrooms = 2 }: { parid: str
     return () => { live = false; };
   }, [parid, seen]);
 
-  if (failed) return <p className="text-sm text-zinc-600">Rents could not be loaded right now. The HUD and Zillow figures below still apply.</p>;
+  if (failed) return <p className="text-sm text-zinc-600" role="status">Rent data temporarily unavailable. The HUD and Zillow benchmarks below still apply.</p>;
   if (!data) return <div ref={ref}><p className="text-sm text-zinc-600" role="status" aria-live="polite">Loading rents…</p></div>;
 
   const brs = Object.keys(data.byBedroom).map(Number).sort((a, b) => a - b);

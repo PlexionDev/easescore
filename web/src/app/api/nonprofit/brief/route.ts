@@ -6,6 +6,8 @@ import { parseState, stateToQuery } from "@/lib/nonprofit/types";
 // /nonprofit/brief with the shared Chromium pipeline. Nothing is stored.
 
 export const maxDuration = 60;
+// Chromium (puppeteer-core + @sparticuz/chromium) needs the Node.js runtime; give the function ~2 GB in Vercel settings.
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

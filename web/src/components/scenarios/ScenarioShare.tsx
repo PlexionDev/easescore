@@ -9,9 +9,9 @@
 import { useEffect, useRef, useState } from "react";
 import { maybeSend, PREF_KEY, type MedianRow, type Pref, type ScenarioInput, type ScenarioSummary } from "@/lib/scenarios/core";
 
-// DRAFT notice — owner review pending. Final text goes in .planning/SCENARIO-NOTICE-DRAFT.md and here.
-const NOTICE_DRAFT =
-  "DRAFT: If you allow it, the numbers you type here (budget lines, build quality, plan settings) are saved with this parcel's ID and address to show community medians once 5 or more scenarios agree. We do not save your name, email, IP address, browser details, cookies or any text you type, and we keep only the day, not the time. Default numbers never change automatically.";
+// Notice text approved by the owner (TONIGHT-FOR-CODE A8), verbatim.
+const NOTICE =
+  "Scenarios you model help improve EaseScore's estimates. We keep the property and the numbers (like costs per square foot, rents and sale prices), never who entered them: no name, email, IP address or account.";
 
 function readPref(): Pref {
   try {
@@ -83,7 +83,7 @@ export function ScenarioShare({ enabled, parid, strategy, scheme, tier, summary,
   return (
     <div className={`mt-2 rounded-lg border px-3 py-2 text-[11px] ${enabled && pref == null ? "border-sky-200 bg-sky-50 text-sky-950" : "border-slate-200 bg-slate-50/70 text-slate-600"}`}>
       {enabled
-        ? <p>{NOTICE_DRAFT}</p>
+        ? <p>{NOTICE}</p>
         : <p>Your numbers stay in your browser: this site does not collect scenarios.</p>}
       <label className="mt-1 flex items-center gap-1.5 font-medium text-slate-800">
         <input type="checkbox" checked={dont} onChange={(e) => set(e.target.checked ? "dont" : enabled ? "share" : null)} />

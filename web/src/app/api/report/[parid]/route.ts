@@ -11,6 +11,8 @@ import { REPORT_VERSION } from "@/app/parcel/[parid]/report/sections";
 // ?fresh=1 renders again instead of serving the cached PDF. X-Report-Cache: hit | miss.
 
 export const maxDuration = 60;
+// Chromium (puppeteer-core + @sparticuz/chromium) needs the Node.js runtime; give the function ~2 GB in Vercel settings.
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PARID = /^[0-9A-Z]{16}$/i;
