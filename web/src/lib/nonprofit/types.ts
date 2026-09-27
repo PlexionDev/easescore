@@ -1,6 +1,8 @@
 // Nonprofit / CDC seat: shared types and pure helpers (safe for client and server).
 // Census numbers here are area context only; nothing in this file feeds a parcel score.
 
+import * as affordable from "@easescore/engine/src/affordable";
+
 export interface AreaTract {
   geoid: string;
   name: string;
@@ -142,11 +144,13 @@ export interface LotCost {
   /** Construction quality tier used for the cost per sq ft. */
   tier: string | null;
   tdc: { low: number; likely: number; high: number } | null;
+  /** Hard cost inside the total (construction and site lines), for the general contractor fee. */
+  hard?: { low: number; likely: number; high: number } | null;
   land: { low: number; likely: number; high: number } | null;
   landSource: string | null;
   headline: string | null;
   /** The same plan priced with for-sale tenure (cost only), or null when it could not be priced. */
-  sale: { tdc: { low: number; likely: number; high: number }; land: { low: number; likely: number; high: number } | null } | null;
+  sale: { tdc: { low: number; likely: number; high: number }; land: { low: number; likely: number; high: number } | null; hard?: { low: number; likely: number; high: number } | null } | null;
   /** The lot is over undermined ground (mine subsidence insurance applies to a homeowner). */
   mine: boolean;
   notes: string[];
@@ -164,8 +168,10 @@ export interface ProjectCost {
   lots: LotCost[];
   tdc: { low: number; likely: number; high: number } | null;
   land: { low: number; likely: number; high: number } | null;
+  /** Hard cost inside the total, all lots (null when any lot lacks it). */
+  hard?: { low: number; likely: number; high: number } | null;
   /** The same lots priced with for-sale tenure. */
-  sale: { tdc: { low: number; likely: number; high: number } | null; land: { low: number; likely: number; high: number } | null } | null;
+  sale: { tdc: { low: number; likely: number; high: number } | null; land: { low: number; likely: number; high: number } | null; hard?: { low: number; likely: number; high: number } | null } | null;
   /** Latest FRED 30-year mortgage rate (decimal), or null when not loaded. */
   mortgage: { rate: number; date: string; source: string } | null;
   context: { qct: boolean; dda: boolean; allPublicLand: boolean; inCity: boolean; lots: number; millsTotal: number | null; millsSource: string | null; mineSubsidence: boolean };
@@ -295,8 +301,8 @@ export interface ProjectState {
   tenure: Tenure;
   /** Need map level: census tracts or block groups. */
   geo: GeoLevel;
-  /** For-sale assumptions you changed (null = the labeled default): down payment share, insurance $/yr, PMI share of loan/yr. */
-  own: { down: number | null; ins: number | null; pmi: number | null };
+  /** Assumptions you changed (null = the labeled default): down payment share, insurance $/yr, PMI share of loan/yr (for-sale); general contractor fee share of hard cost (both). */
+  own: { down: number | null; ins: number | null; pmi: number | null; gc?: number | null };
   lots: string[];
   /** Homes per lot. */
   perLot: number;
@@ -345,7 +351,7 @@ export function parseState(q: URLSearchParams): ProjectState {
     step: step === "sites" || step === "project" ? step : "need",
     tenure,
     geo: q.get("geo") === "bg" ? "bg" : "tract",
-    own: { down: numIn(q.get("dp"), 0, 0.5), ins: numIn(q.get("hi"), 0, 10000), pmi: numIn(q.get("pmi"), 0, 0.02) },
+    own: { down: numIn(q.get("dp"), 0, 0.5), ins: numIn(q.get("hi"), 0, 10000), pmi: numIn(q.get("pmi"), 0, 0.02), gc: numIn(q.get("gc"), 0, 0.5) },
     lots: (q.get("lots") ?? "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => PARID.test(s)).slice(0, MAX_LOTS),
     perLot: clampInt(q.get("per"), 1, 4, 2),
     bedrooms: clampInt(q.get("br"), 0, 4, 2),
@@ -371,6 +377,7 @@ export function stateToQuery(s: ProjectState): URLSearchParams {
   if (s.own.down != null) q.set("dp", String(s.own.down));
   if (s.own.ins != null) q.set("hi", String(s.own.ins));
   if (s.own.pmi != null) q.set("pmi", String(s.own.pmi));
+  if (s.own.gc != null) q.set("gc", String(s.own.gc));
   if (s.lots.length) q.set("lots", s.lots.join(","));
   if (s.perLot !== 2) q.set("per", String(s.perLot));
   if (s.bedrooms !== 2) q.set("br", String(s.bedrooms));
@@ -412,9 +419,22 @@ export function suggestLots(rows: Site[], perLot: number): string[] {
  * priced for sale, plus the homebuyer's mortgage rate (FRED), the lots' millage and mine subsidence.
  * Shared by the page and the advocacy brief so both compute the same numbers.
  */
+/**
+ * General contractor fee (Nonprofit seat only): share × hard cost, added to the pro forma's cost. The pro forma's
+ * tiers exclude the builder fee; nonprofits typically hire a GC. Null when hard cost is not known.
+ */
+export function gcFeeOf(cost: ProjectCost, tenure: Tenure, own?: ProjectState["own"]) {
+  const hard = tenure === "sale" ? cost.sale?.hard ?? null : cost.hard ?? null;
+  if (!hard) return null;
+  const share = own?.gc ?? affordable.GC_FEE.share;
+  return { share, mine: own?.gc != null, hard, amount: affordable.gcFee(hard, share) };
+}
+
 export function projectInput(cost: ProjectCost, tenure: Tenure, units: { count: number; bedrooms: number; amiPct: number }[], own?: ProjectState["own"]) {
-  const tdc = tenure === "sale" ? cost.sale?.tdc ?? null : cost.tdc;
-  if (!tdc || !units.length) return null;
+  const base = tenure === "sale" ? cost.sale?.tdc ?? null : cost.tdc;
+  if (!base || !units.length) return null;
+  const gc = gcFeeOf(cost, tenure, own);
+  const tdc = gc ? { low: base.low + gc.amount.low, likely: base.likely + gc.amount.likely, high: base.high + gc.amount.high } : base;
   return {
     units, tdc,
     land: tenure === "sale" ? cost.sale?.land ?? null : cost.land,

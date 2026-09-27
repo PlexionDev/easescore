@@ -9,7 +9,7 @@ import { useId, useMemo, useState } from "react";
 import * as affordable from "@easescore/engine/src/affordable";
 import { EmptyState, RangeValue, ReceiptButton, Segmented, Switch, type Receipt } from "@/components/seats";
 import { ilReceipt } from "@/lib/nonprofit/receipts";
-import { AMI_BY_TENURE, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type ProjectState, type Tenure } from "@/lib/nonprofit/types";
+import { AMI_BY_TENURE, gcFeeOf, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type ProjectState, type Tenure } from "@/lib/nonprofit/types";
 
 const STACK_COLOR: Record<string, string> = {
   debt: "#5c6c66", lihtc4: "#2f7d63", lihtc9: "#1f6a52", home: "#5ea98a", cdbg: "#7fbfa4", phare: "#347660", hof: "#4f9c80",
@@ -92,7 +92,12 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
   const hood = need?.area?.hood ?? "the area";
   const sale = tenure === "sale";
   const AMIS = AMI_BY_TENURE[tenure];
-  const tdcShown = sale ? cost?.sale?.tdc ?? null : cost?.tdc ?? null;
+  const tdcBase = sale ? cost?.sale?.tdc ?? null : cost?.tdc ?? null;
+  // General contractor fee (this seat only): share × hard cost, added to the pro forma's cost; it flows into
+  // the cost per home, the gap and the brief (projectInput adds it the same way).
+  const gc = cost ? gcFeeOf(cost, tenure, own) : null;
+  const tdcShown = tdcBase && gc ? { low: tdcBase.low + gc.amount.low, likely: tdcBase.likely + gc.amount.likely, high: tdcBase.high + gc.amount.high } : tdcBase;
+  const [gcKey, setGcKey] = useState(0);
   // Headline gap: sources flagged ! (caution) never close it on their own; they are shown separately.
   const flaggedOn = r ? r.sources.filter((x) => r.flagged.includes(x.id)) : [];
   const firmOn = r ? r.sources.filter((x) => r.enabled.includes(x.id) && !r.flagged.includes(x.id)) : [];
@@ -126,7 +131,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
     value: `${usd(tdcShown.low)}–${usd(tdcShown.high)}, likely ${usd(tdcShown.likely)}`,
     source: `EaseScore.AI pro forma (${cost.costConfig}), the same model as the parcel page`,
     date: cost.asOf,
-    method: <>Each lot priced for {perLot} {sale ? "for-sale" : "rental"} home{perLot > 1 ? "s" : ""} of {bedrooms} bedroom{bedrooms === 1 ? "" : "s"}, then summed:<ul>{cost.lots.map((l) => <li key={l.parid}>{l.address ?? l.parid}: {l.strategyLabel ?? "—"}{l.finishedSf ? `, about ${Math.round(l.finishedSf / Math.max(1, l.units)).toLocaleString("en-US")} sq ft per home` : ""} — {l.headline ?? "not priced"}{l.needsRelief ? " (needs zoning relief)" : ""}</li>)}</ul>Low and high come from each input&apos;s documented range (construction tier, site adders, soft-cost shares, land).</>,
+    method: <>{gc ? <>Pro forma cost {usd(tdcBase!.likely)} (likely) + general contractor fee {usd(gc.amount.likely)} ({+(gc.share * 100).toFixed(1)}% of {usd(gc.hard.likely)} hard cost; {affordable.GC_FEE.source}). </> : null}Each lot priced for {perLot} {sale ? "for-sale" : "rental"} home{perLot > 1 ? "s" : ""} of {bedrooms} bedroom{bedrooms === 1 ? "" : "s"}, then summed:<ul>{cost.lots.map((l) => <li key={l.parid}>{l.address ?? l.parid}: {l.strategyLabel ?? "—"}{l.finishedSf ? `, about ${Math.round(l.finishedSf / Math.max(1, l.units)).toLocaleString("en-US")} sq ft per home` : ""} — {l.headline ?? "not priced"}{l.needsRelief ? " (needs zoning relief)" : ""}</li>)}</ul>Low and high come from each input&apos;s documented range (construction tier, site adders, soft-cost shares, land).</>,
     kind: "data",
     notes: cost.lots.flatMap((l) => l.notes).join(" ") || "Construction costs are estimates; confirm with local bids.",
   } : null;
@@ -170,7 +175,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
               <div className="np-own" role="group" aria-labelledby="own-h">
                 <div className="np-own-head">
                   <span id="own-h" className="es-field-label">Buyer&apos;s loan: change any assumption</span>
-                  {own.down != null || own.ins != null || own.pmi != null ? <button type="button" className="es-btn np-own-reset" onClick={() => { onOwn({ down: null, ins: null, pmi: null }); setOwnKey((k) => k + 1); }}>Reset to defaults</button> : null}
+                  {own.down != null || own.ins != null || own.pmi != null ? <button type="button" className="es-btn np-own-reset" onClick={() => { onOwn({ ...own, down: null, ins: null, pmi: null }); setOwnKey((k) => k + 1); }}>Reset to defaults</button> : null}
                 </div>
                 <p className="np-muted np-own-rate">
                   Mortgage rate <b>{(rate * 100).toFixed(2)}%</b> ± {(fs.rateSpread.value * 100).toFixed(1)} pt, 30-year fixed{" "}
@@ -232,7 +237,17 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
                   </li>
                 ))}
               </ul>
-              <p className="np-muted">Same pro forma as the parcel page and the Developer seat (cost to build + site, soft costs, financing, land). Like theirs, it leaves out a general contractor&apos;s fee (often 15–25%).</p>
+              <div className="np-own" role="group" aria-labelledby="gc-h">
+                <div className="np-own-head">
+                  <span id="gc-h" className="es-field-label">{affordable.GC_FEE.label}: {gc ? <b>{usd(gc.amount.likely)}</b> : "not priced (hard cost unknown)"}</span>
+                  {own.gc != null ? <button type="button" className="es-btn np-own-reset" onClick={() => { onOwn({ ...own, gc: null }); setGcKey((k) => k + 1); }}>Reset to default</button> : null}
+                </div>
+                <p className="np-muted">{affordable.GC_FEE.note}. {gc ? `${+(gc.share * 100).toFixed(1)}% of ${usd(gc.hard.likely)} hard cost (likely), included in the total and per-home cost above.` : ""} Source: {affordable.GC_FEE.source}.</p>
+                <div className="np-own-grid" key={gcKey}>
+                  <OwnField label="General contractor fee (% of hard cost)" value={own.gc ?? null} fallback={affordable.GC_FEE.share} scale={100} min={0} max={50} step={0.5} unit="%" onChange={(g) => onOwn({ ...own, gc: g })} />
+                </div>
+              </div>
+              <p className="np-muted">Same pro forma as the parcel page and the Developer seat (cost to build + site, soft costs, financing, land), plus the general contractor fee above (this seat only).</p>
               {cost.lots.some((l) => l.needsRelief) ? <p className="np-warn">Some lots need zoning relief for {perLot} homes; see the receipt.</p> : null}
             </>
           )}
@@ -308,7 +323,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
               <div className="np-card-head"><h3 id="per-h">{sale ? "Subsidy per home vs. a local estimate" : "Cost per home vs. local rental projects"}</h3></div>
               <p>{r.benchmark.compareLabel}: <b>{usd(r.benchmark.compare.low)}–{usd(r.benchmark.compare.high)}</b> per home. {r.benchmark.label}: <b>{usd(r.benchmark.low)}–{usd(r.benchmark.high)}</b> <span className="np-muted">({r.benchmark.source})</span>. {r.benchmark.note}</p>
               <p className="np-muted">
-                {r.benchmark.verdict === "below" ? `Below that range.${sale ? " A lower cost per home means a smaller subsidy; the cost here is the pro forma's cost to build (no general contractor's fee, often 15–25% more), so check it against local bids before reading the gap as small." : ""}` : r.benchmark.verdict === "above" ? "Above that range." : "Overlaps that range."}
+                {r.benchmark.verdict === "below" ? `Below that range.${sale ? " A lower cost per home means a smaller subsidy; check the cost against local bids before reading the gap as small." : ""}` : r.benchmark.verdict === "above" ? "Above that range." : "Overlaps that range."}
                 {!sale ? ` Money needed beyond the mortgage: ${usd(r.subsidyPerUnit.low)}–${usd(r.subsidyPerUnit.high)} per home.` : ""}
                 {sale && cost?.context.mineSubsidence ? " Prices include mine subsidence insurance (a lot is over undermined ground)." : ""}
               </p>

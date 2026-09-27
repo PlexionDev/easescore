@@ -15,6 +15,23 @@ export interface MoneyRange {
 
 export const TYPICAL_LABEL = "Typical, not an award";
 
+/**
+ * Nonprofit seat only: a general contractor fee on top of the pro forma's cost to build (its tiers exclude the
+ * builder fee). Default = the cost config's gcFee (15%), the low end of the builder fee it cites (often 15–25%).
+ */
+export const GC_FEE = {
+  share: COST_CONFIG.softCosts.gcFee.value,
+  label: "General contractor fee",
+  note: "Nonprofits typically hire a GC",
+  source: "EaseScore.AI cost assumptions v0.2: builder / general contractor fee often 15–25% of construction; 15% default (low end), editable",
+} as const;
+
+/** GC fee = share × hard cost (low / likely / high), to $1,000. */
+export function gcFee(hard: MoneyRange, share: number = GC_FEE.share): MoneyRange {
+  const r = (x: number) => Math.round((x * share) / 1000) * 1000 + 0;
+  return { low: r(hard.low), likely: r(hard.likely), high: r(hard.high) };
+}
+
 export interface UnitGroup {
   count: number;
   bedrooms: number;

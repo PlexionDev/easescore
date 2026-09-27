@@ -45,6 +45,13 @@ const TARGET_SF = [550, 700, 950, 1200, 1450];
 
 type Rng = { low: number; likely: number; high: number };
 const add = (a: Rng | null, b: Rng | null): Rng | null => (a && b ? { low: a.low + b.low, likely: a.likely + b.likely, high: a.high + b.high } : null);
+/** Hard cost inside the total (the budget's hard lines, low / likely / high), for the Nonprofit seat's GC fee. */
+function hardOf(pf: assumptions.ProFormaResult): Rng | null {
+  const ids = new Set(pf.budget.filter((b) => b.group === "hard").map((b) => b.id));
+  const ls = pf.ranges.lines.filter((l) => ids.has(l.id));
+  if (!ls.length || ls.some((l) => !l.range)) return null;
+  return ls.reduce<Rng>((t, l) => ({ low: t.low + l.range!.low, likely: t.likely + l.range!.likely, high: t.high + l.range!.high }), { low: 0, likely: 0, high: 0 });
+}
 
 /** Mine subsidence applies (same test as the pro forma's site adders). */
 function mineOf(f: Record<string, unknown>): boolean {
@@ -56,8 +63,9 @@ function mineOf(f: Record<string, unknown>): boolean {
 /** The same plan priced for sale: cost only (the sale price comes from HUD limits in this seat). */
 function saleCost(plan: () => assumptions.DevelopmentPlan): LotCost["sale"] {
   try {
-    const r = assumptions.evaluateDevelopment(plan()).ranges;
-    return r.tdc ? { tdc: r.tdc, land: r.land.range } : null;
+    const pf = assumptions.evaluateDevelopment(plan());
+    const r = pf.ranges;
+    return r.tdc ? { tdc: r.tdc, land: r.land.range, hard: hardOf(pf) } : null;
   } catch {
     return null;
   }
@@ -116,7 +124,7 @@ async function lotCost(parid: string, units: number, bedrooms: number, asOf: str
       sale: saleCost(() => build({ tenure: "sale", units, bedrooms: beds, storiesAboveGarage: floors })), mine: mineOf(f),
       needsRelief: !easy(pick) || (pick.units ?? 0) < units,
       finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
-      tdc: r.tdc, land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
+      tdc: r.tdc, hard: hardOf(pf), land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
       notes: [
         ...(bestRes && bestRes.strategy !== pick.strategy ? [`The parcel page's best option for this lot is ${bestRes.strategyLabel.toLowerCase()}; this project places ${units} home${units === 1 ? "" : "s"} on it as a ${pick.strategyLabel.toLowerCase()}${easy(pick) ? ", which the site-fit check allows by right" : ", which needs zoning relief"}.`] : []),
         ...(plan.exclusions.length ? [`Not included yet: ${plan.exclusions.map((e) => e.label.toLowerCase()).join("; ")}.`] : []),
@@ -168,10 +176,11 @@ async function standardProgram(base0: LotCost, parid: string, units: number, bed
       overrides: { tenure },
     });
     const plan = mk("rent");
-    const r = assumptions.evaluateDevelopment(plan).ranges;
+    const pf = assumptions.evaluateDevelopment(plan);
+    const r = pf.ranges;
     return {
       ...base, source: "facts", sale: saleCost(() => mk("sale")), mine: mineOf(f), strategy, strategyLabel: STRATEGY_LABEL[strategy] ?? null, finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
-      tdc: r.tdc, land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
+      tdc: r.tdc, hard: hardOf(pf), land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
       notes: [`Sized as a standard ${units}-home program of about ${per.toLocaleString("en-US")} sq ft per home (this lot's site-fit layout is not precomputed yet).`],
     };
   } catch {
@@ -237,11 +246,14 @@ export async function projectCost(lots: string[], perLot: number, bedrooms: numb
   const land = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.land : add(t, c.land)), null);
   const sTdc = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.sale?.tdc ?? null : add(t, c.sale?.tdc ?? null)), null);
   const sLand = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.sale?.land ?? null : add(t, c.sale?.land ?? null)), null);
+  const hard = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.hard ?? null : add(t, c.hard ?? null)), null);
+  const sHard = costs.reduce<Rng | null>((t, c, i) => (i === 0 ? c.sale?.hard ?? null : add(t, c.sale?.hard ?? null)), null);
   return {
     lots: costs,
     tdc: costs.every((c) => c.tdc) ? tdc : null,
     land: costs.every((c) => c.land) ? land : null,
-    sale: costs.every((c) => c.sale?.tdc) ? { tdc: sTdc, land: costs.every((c) => c.sale?.land) ? sLand : null } : null,
+    hard,
+    sale: costs.every((c) => c.sale?.tdc) ? { tdc: sTdc, land: costs.every((c) => c.sale?.land) ? sLand : null, hard: sHard } : null,
     mortgage: rate,
     context: {
       qct: known.some((s) => s!.qct), dda: known.some((s) => s!.dda),

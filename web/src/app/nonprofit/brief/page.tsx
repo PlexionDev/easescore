@@ -9,7 +9,7 @@ import { projectCost } from "@/lib/nonprofit/project";
 import { acquisitionPath, statusNote, TYPICAL_NOTE } from "@/lib/nonprofit/acquisition";
 import { EQUITY_NOTE, acsVintage } from "@/lib/nonprofit/receipts";
 import { fmtMoney, formatRange, roundRange } from "@/components/seats/format";
-import { inTen, needSummary, parseState, projectInput, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
+import { gcFeeOf, inTen, needSummary, parseState, projectInput, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
 import "./brief.css";
 
 export const metadata: Metadata = { title: "Advocacy brief — EaseScore.AI", robots: { index: false } };
@@ -58,6 +58,8 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
   const total = (cost?.lots.length ?? 0) * s.perLot;
   const groups = unitGroups(s.mix, total, s.bedrooms);
   const input = cost && il ? projectInput(cost, s.tenure, groups, s.own) : null;
+  const gc = cost ? gcFeeOf(cost, s.tenure, s.own) : null;
+  const gcLine = gc ? ` Includes a general contractor fee of about ${usd(gc.amount.likely)} (${+(gc.share * 100).toFixed(1)}% of hard cost${gc.mine ? ", your number" : ""}). ${affordable.GC_FEE.note}; source: ${affordable.GC_FEE.source}.` : "";
   const r = input && il ? affordable.evaluateProject(input, il, s.sources) : null;
   const sale = s.tenure === "sale";
   // Headline gap counts only sources with no caution (✓); flagged (!) sources are shown separately, as on the page.
@@ -166,7 +168,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               ))}
             </ul>
             <p className="br-small"><b>How the price is figured:</b> {r.saleAssumptions.map((a) => `${a.label} ${a.value}${a.assumption ? " (assumption)" : ""}`).join("; ")}.</p>
-            <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
+            <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).{gcLine}</p>
             <ul className="br-small">
               {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}{l.sale?.tdc ? `, ${rng(l.sale.tdc)}` : ", not priced"}{l.mine ? " (over undermined ground)" : ""}{l.notes.length ? ` (${l.notes.join(" ")})` : ""}</li>)}
             </ul>
@@ -179,7 +181,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
                 <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (assumption; replace with the HACP / ACHA schedule).</li>
               ))}
             </ul>
-            <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
+            <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).{gcLine}</p>
             <ul className="br-small">
               {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}, {l.headline ?? "not priced"}{l.notes.length ? ` (${l.notes.join(" ")})` : ""}</li>)}
             </ul>
@@ -216,7 +218,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
             </tbody>
           </table>
           {r.taxSavings && r.taxSavings.amount.high > 0 ? <p className="br-small"><b>Not construction money:</b> {r.taxSavings.label} lowers the {sale ? "owners'" : "operator's"} property taxes over the years, worth about {rng(r.taxSavings.amount)} in today&apos;s dollars (typical, not an award; {r.taxSavings.checks.map((c) => c.text).join("; ")}). It is not in the stack or the gap.</p> : null}
-          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {sale ? "" : `${r.benchmark.compareLabel.charAt(0).toLowerCase() + r.benchmark.compareLabel.slice(1)} here is ${usdK(r.benchmark.compare.low)}–${usdK(r.benchmark.compare.high)}; `}{r.benchmark.label.charAt(0).toLowerCase() + r.benchmark.label.slice(1)}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}). {r.benchmark.note}{r.benchmark.verdict === "below" && sale ? " The cost here is the pro forma's cost to build without a general contractor's fee (often 15–25% more); check it against local bids." : ""}</p>
+          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {sale ? "" : `${r.benchmark.compareLabel.charAt(0).toLowerCase() + r.benchmark.compareLabel.slice(1)} here is ${usdK(r.benchmark.compare.low)}–${usdK(r.benchmark.compare.high)}; `}{r.benchmark.label.charAt(0).toLowerCase() + r.benchmark.label.slice(1)}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}). {r.benchmark.note}{r.benchmark.verdict === "below" && sale ? " Check the cost against local bids." : ""}</p>
         </section>
       ) : null}
 
