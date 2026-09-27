@@ -40,7 +40,7 @@
 .br-gap b{font-size:13pt}
 .br-stack{display:flex;height:24px;border-radius:4px;overflow:hidden;font-size:8pt;color:#fff;font-weight:600}
 .br-stack i{display:flex;align-items:center;justify-content:center;font-style:normal;background:#2f7d63;border-right:1px solid #fff;overflow:hidden;white-space:nowrap}
-.br-stack i:first-child{background:#6b7c75}
+.br-stack i:first-child{background:#5c6c66}
 .br-stack i.gap{background:#fbe9d3;color:var(--amber)}
 .br-sources ul{margin:0 0 8px 18px;padding:0;font-size:9pt}
 .br-break{break-before:page}

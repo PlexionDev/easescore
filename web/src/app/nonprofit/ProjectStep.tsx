@@ -12,9 +12,15 @@ import { ilReceipt } from "@/lib/nonprofit/receipts";
 import { AMI_BY_TENURE, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type ProjectState, type Tenure } from "@/lib/nonprofit/types";
 
 const STACK_COLOR: Record<string, string> = {
-  debt: "#6b7c75", lihtc4: "#2f7d63", lihtc9: "#1f6a52", home: "#5ea98a", cdbg: "#7fbfa4", phare: "#3e8c70", hof: "#4f9c80",
-  ahp: "#8ccab0", lerta: "#a9d7c3", land: "#9fcdb6", philanthropy: "#b9dccd", hba: "#3e8c70", clt: "#2f7d63",
+  debt: "#5c6c66", lihtc4: "#2f7d63", lihtc9: "#1f6a52", home: "#5ea98a", cdbg: "#7fbfa4", phare: "#347660", hof: "#4f9c80",
+  ahp: "#8ccab0", lerta: "#a9d7c3", land: "#9fcdb6", philanthropy: "#b9dccd", hba: "#347660", clt: "#2f7d63",
 };
+
+/** White text on the darker stack colors, near-black on the light ones (WCAG AA for the 11.5px labels). */
+function stackText(bg: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b! > 0.18 ? "#10231c" : "#ffffff";
+}
 
 export function computeProject(cost: ProjectCost | null, il: affordable.IncomeLimits | null, mix: Record<number, number>, perLot: number, bedrooms: number, sources: string[], tenure: Tenure, own?: ProjectState["own"]) {
   if (!cost || !il) return null;
@@ -232,7 +238,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
               <p className="np-muted">Cost {usd(r.tdc.likely)} (likely) · {sale ? "Home sales" : "Loan"} {usd(r.debt.loan.likely)} · Gap before sources {usd(r.gapBefore.low)}–{usd(r.gapBefore.high)}</p>
               <div className="np-stack" role="img" aria-label={`Likely case: ${r.stack.map((p) => `${p.short} ${usd(p.applied)}`).join(", ")}`}>
                 {r.stack.filter((p) => p.applied > 0).map((p) => (
-                  <i key={p.id} className={p.id === "gap" ? "is-gap" : ""} style={{ flex: p.applied, background: p.id === "gap" ? undefined : STACK_COLOR[p.id] ?? "#5ea98a" }} title={`${p.short}: ${usd(p.applied)}`}>
+                  <i key={p.id} className={p.id === "gap" ? "is-gap" : ""} style={{ flex: p.applied, ...(p.id === "gap" ? {} : { background: STACK_COLOR[p.id] ?? "#5ea98a", color: stackText(STACK_COLOR[p.id] ?? "#5ea98a") }) }} title={`${p.short}: ${usd(p.applied)}`}>
                     <span>{p.applied / r.tdc.likely > 0.07 ? p.short : ""}</span>
                   </i>
                 ))}
