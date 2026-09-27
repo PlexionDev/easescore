@@ -35,7 +35,8 @@ function noFootprintReason(m: Model): string {
   return "the site-fit solver did not place a building.";
 }
 
-export async function buildSitePlanSheet(m: Model): Promise<SitePlanSheet | null> {
+/** `mapData`: parcel_map already requested by the caller (started early, in parallel with the other reads). */
+export async function buildSitePlanSheet(m: Model, mapData?: Promise<unknown>): Promise<SitePlanSheet | null> {
   const qi = m.qfInput as (QFInputPayload & { toLonLat?: LonLatAffine }) | null;
   if (!qi?.parcel?.length || !qi.toLonLat) return null;
   const f: Facts = m.facts;
@@ -44,7 +45,7 @@ export async function buildSitePlanSheet(m: Model): Promise<SitePlanSheet | null
   const setbacks = r
     ? { front, rear: r.min_rear_setback_ft ?? 0, side: r.min_side_setback_ft ?? 0, exterior_side: r.exterior_side_setback_ft ?? front }
     : null;
-  const map = (await parcelMap(m.parid).catch(() => null)) as ParcelMapFC | null;
+  const map = (await (mapData ?? parcelMap(m.parid)).catch(() => null)) as ParcelMapFC | null;
   const version = configVersionOf(m.score);
   const input: SitePlanInput = {
     parid: m.parid,

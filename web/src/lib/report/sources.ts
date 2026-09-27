@@ -27,6 +27,9 @@ export function buildSources(m: ReportModel): CiteRegistry {
   c.define("nfip", { title: "NFIP redacted policies and claims, aggregated by census tract", publisher: "OpenFEMA", date: NOT_RECORDED, url: "https://www.fema.gov/about/openfema/data-sets" });
   c.define("flood311", { title: "311 flooding requests (5 years), by census tract", publisher: "City of Pittsburgh 311", date: NOT_RECORDED, url: "https://data.wprdc.org/dataset/311-data" });
   c.define("sewer", { title: "Combined sewersheds", publisher: "PWSA / 3 Rivers Wet Weather", date: NOT_RECORDED });
+  const rb = m.rentsByBedroom;
+  const pulled = rb?.sources.find((x) => /RentCast/.test(x.label))?.asOf ?? null;
+  c.define("rentcast", { title: "Rental listings (asking rents) near the parcel", publisher: "RentCast", date: pulled ? `pulled ${pulled}` : NOT_RECORDED, url: "https://www.rentcast.io/api", note: rb?.caveat });
   c.define("env", { title: "Land Recycling Program sites; ACRES brownfields", publisher: "PA DEP; US EPA", date: NOT_RECORDED, note: m.ease?.env_sites?.rules });
   c.define("hydro", { title: "Streams (National Hydrography Dataset) and wetlands (National Wetlands Inventory)", publisher: "USGS; US Fish and Wildlife Service", date: NOT_RECORDED });
   c.define("streets", { title: "Street centerlines (opened and paper streets)", publisher: "Allegheny County; City of Pittsburgh", date: NOT_RECORDED, note: "Frontage = an opened street centerline within 20 m of the lot. Confirm on a survey." });

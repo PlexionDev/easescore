@@ -14,14 +14,17 @@ import {
   type ProjectAnswers,
   type RequirementResult,
 } from "@easescore/engine";
-import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
-import { homeTapFees, newCompsFor, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
-import { compArea } from "@/lib/pane-core";
+import type { rents as rentsEngine } from "@easescore/engine";
+import { parcelMap, quickfitInput } from "@/lib/data";
+import { homeTapFees, readCostOverrides } from "@/lib/proforma";
+import { PANE_VERSION, type PanePayload } from "@/lib/pane-core";
 import { loadEaseScore, type EaseScoreView } from "./score";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
 import { buildSitePlanSheet, type SitePlanSheet } from "./sitesheet";
-import { loadPane } from "@/lib/pane";
+import { loadPane, type PaneLoad } from "@/lib/pane";
+import { loadRents } from "@/lib/rents";
 import { Timing } from "@/lib/timing";
+import { memo as memoCore, reportQueryKey, type Entry } from "./cache-core";
 import { pageQueryFromReport, pageStrategyFromReport, parcelPlan, type ParcelPlan } from "@/lib/parcel-plan";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -290,6 +293,10 @@ export interface ReportModel {
   sitePlan: SitePlanSheet | null;
   /** The parcel page's plan for the same URL (lib/parcel-plan.ts): when set, `scheme` and `proForma` are the page's. */
   pagePlan: Pick<ParcelPlan, "scheme" | "stepping" | "selected" | "pf"> & { strategy: string } | null;
+  /** Rents by bedroom (RentCast listings with FULL comp addresses — this report only; HUD/ZORI fallback). */
+  rentsByBedroom: rentsEngine.RentsByBedroom | null;
+  /** Where the parcel data came from: the precomputed pane row, or computed now (and stored for next time). */
+  paneSource: "row" | "live";
 }
 
 /** Policy what-ifs for "What would unlock it". Each relaxes one rule; values are hypotheticals, not proposals. */
@@ -312,27 +319,130 @@ export function todayIso(sp: SP): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function loadReport(parid: string, sp: SP): Promise<ReportModel | null> {
-  // The heavier RPCs occasionally hit a statement timeout on a cold cache; one retry fixes it.
-  const [factsRaw, salesRaw, rentRaw, qfRaw, easeRaw] = await Promise.all([
-    retry(() => parcelFacts(parid)),
-    retry(() => salesComps(parid)),
-    retry(() => rentComps(parid)),
-    retry(() => quickfitInput(parid)),
-    retry(() => rpc<EaseInputs>("parcel_ease_inputs", { p_parid: parid })),
-  ]);
-  if (!factsRaw) return null;
-  const facts = factsRaw as unknown as Facts;
+// ---------------------------------------------------------------------------------------------
+// Caches (per server process). The pane is shared by the report's first section (loadReportHead) and the
+// full model; the model is shared by the HTML page and the PDF renderer (which prints that page).
+
+// Short in development, where the code behind the numbers changes between requests.
+const TTL_MS = process.env.NODE_ENV === "production" ? 10 * 60_000 : 60_000;
+const MAX_ENTRIES = 40;
+const memo = <T,>(map: Map<string, Entry<T>>, key: string, make: () => Promise<T>, keep: (v: T) => boolean) => memoCore(map, key, make, keep, TTL_MS, MAX_ENTRIES);
+
+// On globalThis: the PDF route and the report page are separate server bundles in one process, and
+// both read the same parcel (the route checks it exists, then prints the page).
+type Caches = {
+  pane: Map<string, Entry<PaneLoad>>;
+  model: Map<string, Entry<ReportModel | null>>;
+  ease: Map<string, Entry<EaseInputs | null>>;
+  qf: Map<string, Entry<unknown>>;
+  map: Map<string, Entry<unknown>>;
+};
+const G = globalThis as { __easescoreReport?: Caches };
+const C: Caches = (G.__easescoreReport ??= { pane: new Map(), model: new Map(), ease: new Map(), qf: new Map(), map: new Map() });
+const paneCache = C.pane;
+const modelCache = C.model;
+const easeCache = C.ease;
+const qfCache = C.qf;
+const mapCache = C.map;
+
+/** parcel_quickfit_input and parcel_map: read once per parcel for the first look, the HTML model and the PDF's model. */
+const quickfitFor = (parid: string) => memo(qfCache, parid, () => retry(() => quickfitInput(parid)), (v) => v !== null);
+const mapFor = (parid: string) => memo(mapCache, parid, () => parcelMap(parid).catch(() => null), (v) => v !== null);
+
+/** parcel_ease_inputs, shared by the live pane (when there is no row) and the report's own reads. */
+const easeFor = (parid: string) => memo(easeCache, parid, () => retry(() => rpc<EaseInputs>("parcel_ease_inputs", { p_parid: parid })), (v) => v !== null);
+
+/**
+ * The parcel pane (same data as the parcel page): the precomputed row, or computed once now and written
+ * as the row (lib/pane.ts, same buildPane as scripts/pane_all.ts) so the next request reads one row.
+ */
+export function reportPane(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing): Promise<PaneLoad> {
+  return memo(paneCache, `${parid}|${PANE_VERSION}`, () => loadPane(parid, asOf, quickfit, T, { save: true, easeInputs: easeFor(parid) }), (v) => v.ok);
+}
+
+const queryKey = (sp: SP) => reportQueryKey(sp, todayIso({}));
+
+export interface ReportHead {
+  parid: string;
+  address: string | null;
+  neighborhood: string | null;
+  municipality: string | null;
+  zoning: string | null;
+  lotAreaSf: number | null;
+  best: { label: string; score: number | null; band: string | null } | null;
+  summary: string[];
+  paneSource: "row" | "live";
+}
+
+/**
+ * The report's first section, from the pane alone (one row read for a precomputed parcel): address,
+ * best option, and the two-sentence summary. Shown while the full study streams in. null = no such parcel.
+ */
+export async function loadReportHead(parid: string, sp: SP): Promise<ReportHead | null> {
+  const T = new Timing("report_head", parid);
+  const loaded = await reportPane(parid, todayIso(sp), quickfitFor(parid), T);
+  if (!loaded.ok) return null;
+  const P = loaded.payload;
+  const f = P.facts as Facts;
+  const res = P.score;
+  const best = res ? res.strategies.find((x) => x.strategy === res.best) ?? null : null;
+  let summary: string[] = [];
+  if (res) {
+    try {
+      const plans = await comparePlans({
+        parid, facts: f as unknown as ParcelFacts & Record<string, unknown>, result: res, zba: P.zba, sfComps: P.sfComps, sales: P.sales, rent: P.rent, prime: P.prime,
+        tapFeesPerUnit: P.tapFees, overrides: readCostOverrides(sp), asOf: todayIso(sp), precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
+      });
+      summary = [...plans.summary.sentences];
+    } catch {
+      summary = [];
+    }
+  }
+  return {
+    parid,
+    address: (f.assessment?.address as string | undefined) ?? null,
+    neighborhood: (f.context?.neighborhood as string | undefined) ?? null,
+    municipality: (f.context?.municipality ?? f.assessment?.municipality ?? null) as string | null,
+    zoning: f.zoning?.code ?? null,
+    lotAreaSf: (f.lot_area_sqft_gis as number | undefined) ?? f.assessment?.lot_area_sqft ?? null,
+    best: best ? { label: best.strategyLabel, score: best.score, band: best.band } : null,
+    summary,
+    paneSource: loaded.source,
+  };
+}
+
+/** Everything the Feasibility Study shows, cached per parcel + query for 10 minutes (HTML view, then PDF). */
+export function loadReport(parid: string, sp: SP): Promise<ReportModel | null> {
+  if (str(sp, "fresh") === "1") return buildReport(parid, sp);
+  return memo(modelCache, `${parid}|${PANE_VERSION}|${queryKey(sp)}`, () => buildReport(parid, sp), (v) => v !== null);
+}
+
+async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
+  const T = new Timing("report", parid);
+  const asOf0 = todayIso(sp);
+  // Reads that are not in the pane start now, in parallel with it: the lot geometry (solver, site plan),
+  // the map layers (site plan), the Ease Score inputs (market activity, contamination), fees and rent limits.
+  const qfP = T.time("rpc_quickfit_input", quickfitFor(parid));
+  const mapP = T.time("rpc_parcel_map", mapFor(parid));
+  const easeP = T.time("rpc_ease_inputs", easeFor(parid));
+  const rentLimitsP = T.time("rest_rent_limits", select<RentLimit>("affordable_rent_limits?select=source,year,ami_pct,bedrooms,max_rent,effective_date,source_url&source=eq.phfa_lihtc&bedrooms=lte.4&order=year.desc,ami_pct,bedrooms"));
+  const loaded = await T.time("pane", reportPane(parid, asOf0, qfP, T));
+  if (!loaded.ok) return null;
+  const P: PanePayload = loaded.payload;
+  const facts = P.facts as Facts;
   const zone = facts.zoning?.code ?? null;
   const pgh = !!facts.assessment?.is_pittsburgh;
+  const rentsP = T.time("rents", loadRents(parid, asOf0, undefined, { facts: P.facts, rent: P.rent }).catch(() => null));
 
-  const [zba, tapFees, rentLimits] = await Promise.all([
-    zone ? retry(() => rpc<ZbaRates>("zba_grant_rates", { p_district: zone })) : Promise.resolve(null),
+  const [qfRaw, easeRaw, tapFees, rentLimits] = await Promise.all([
+    qfP,
+    easeP,
     pgh
-      ? select<TapFee>("utility_tap_fees?select=authority,service,fee_type,amount,unit,effective_date,source_url,confidence&authority=eq.Pittsburgh%20Water%20(PWSA)&order=service,fee_type")
+      ? T.time("rest_tap_fees", select<TapFee>("utility_tap_fees?select=authority,service,fee_type,amount,unit,effective_date,source_url,confidence&authority=eq.Pittsburgh%20Water%20(PWSA)&order=service,fee_type"))
       : Promise.resolve([] as TapFee[]),
-    select<RentLimit>("affordable_rent_limits?select=source,year,ami_pct,bedrooms,max_rent,effective_date,source_url&source=eq.phfa_lihtc&bedrooms=lte.4&order=year.desc,ami_pct,bedrooms"),
+    rentLimitsP,
   ]);
+  const zba = (zone ? P.zba : null) as ZbaRates | null;
 
   const scenario = readScenario(sp);
   let qfInput = (qfRaw as QFInputPayload | null) ?? null;
@@ -368,7 +478,7 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
       goal: scenario.goal,
     };
     try {
-      qf = quickfit.solveQuickFit(base);
+      qf = T.timeSync("quickfit_solve", () => quickfit.solveQuickFit(base));
       unlockRes = quickfit.solveQuickFit({
         ...base,
         goal: "most_units",
@@ -381,15 +491,13 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
 
   // The parcel page's plan for this URL (same pane, same scheme, same stepping and budget lines): the report
   // studies that building whenever the page priced one; otherwise it falls back to its own pick.
-  const asOf0 = todayIso(sp);
   let pagePlan: ReportModel["pagePlan"] = null;
   try {
     const pageStrategy = pageStrategyFromReport(sp) ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
-    const loaded = pageStrategy ? await loadPane(parid, asOf0, Promise.resolve(qfRaw), new Timing("report", parid)) : null;
-    if (loaded?.ok && pageStrategy) {
+    if (pageStrategy) {
       const psp = pageQueryFromReport(sp);
       const ov = { ...(str(sp, "tenure") ? { tenure: scenario.tenure } : {}), ...readCostOverrides(psp) };
-      const pp = parcelPlan({ P: loaded.payload, sp: psp, overrides: ov, strategy: pageStrategy, qf: (qfRaw as never) ?? null });
+      const pp = T.timeSync("page_plan", () => parcelPlan({ P, sp: psp, overrides: ov, strategy: pageStrategy, qf: (qfRaw as never) ?? null }));
       if (pp.pf && pp.scheme) pagePlan = { strategy: pageStrategy, scheme: pp.scheme, stepping: pp.stepping, selected: pp.selected, pf: pp.pf };
     }
   } catch {
@@ -422,8 +530,8 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
   scenario.project = project;
   const requirements = evaluateRequirements(facts as unknown as ParcelFacts, project);
 
-  const sales = (salesRaw as SalesPayload | null) ?? null;
-  const rent = (rentRaw as RentPayload | null) ?? null;
+  const sales = (P.sales as SalesPayload | null) ?? null;
+  const rent = (P.rent as RentPayload | null) ?? null;
 
   // Market references (clearly labeled in the report). Never a price opinion.
   const nsfPerUnit = scheme && scheme.units > 0 ? scheme.netFloorAreaSf / scheme.units : null;
@@ -441,24 +549,26 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
 
   const msiPer100k = finance.msiAnnualPremium(100_000);
 
-  const score = loadEaseScore({
+  // The page's scored result (pane) unless affordable mode changes the scoring inputs.
+  const paneScore = scenario.affordable ? null : P.score;
+  const score = T.timeSync("ease_score", () => loadEaseScore({
     facts: facts as unknown as ParcelFacts,
     quickfitInput: qfRaw,
     zbaRates: zba,
     easeInputs: easeRaw,
     typology: scheme?.typology ?? null,
     affordable: scenario.affordable,
-  });
+    result: paneScore,
+  }));
 
   // Pro forma: the cost config defaults, the pf_* edits, single-family comps, rents, the prime rate and
   // the published tap fees, through the same builder as the parcel page.
   const pfStrategy = TYPOLOGY_STRATEGY[(scheme ?? closest)?.typology ?? ""] ?? TYPOLOGY_STRATEGY[scenario.strategy] ?? "new_sf";
   const asOf = todayIso(sp);
-  const [sfComps, prime, newComps] = await Promise.all([
-    retry(() => singleFamilyComps(parid, sales as assumptions.SalesCompsLike | null)),
-    primeRate(),
-    newCompsFor(pfStrategy, parid, facts.centroid as { lat?: number; lon?: number } | null, asOf, compArea(facts)),
-  ]);
+  // Comps and the prime rate come from the pane (the page's own).
+  const sfComps = P.sfComps;
+  const prime = P.prime;
+  const newComps = P.newComps[pfStrategy] ?? null;
   const homeFees = homeTapFees(tapFees);
   const overrides = readCostOverrides(sp);
   const plan = assumptions.buildDevelopmentInputs({
@@ -483,17 +593,17 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
   let plans: PlanComparison | null = null;
   let affordable: ReportModel["affordable"] = null;
   try {
-    const raw = easeEngine.scoreParcel(facts as unknown as ParcelFacts, {
+    const raw = paneScore ?? T.timeSync("score_affordable", () => easeEngine.scoreParcel(facts as unknown as ParcelFacts, {
       quickfitInput: qfRaw as never,
       easeInputs: easeRaw as never,
       zba: zba as never,
       project: { affordableUnitsProposed: scenario.affordable },
-    });
+    }));
     const tapPerUnit = homeFees.length ? homeFees.reduce((t, x) => t + x.amount, 0) : null;
-    plans = await comparePlans({
+    plans = await T.time("compare_plans", comparePlans({
       parid, facts: facts as unknown as ParcelFacts & Record<string, unknown>, result: raw, zba, sfComps, sales, rent, prime,
-      tapFeesPerUnit: tapPerUnit, overrides, asOf,
-    });
+      tapFeesPerUnit: tapPerUnit, overrides, asOf, precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
+    }));
     const base = plans.byRight ?? plans.withApproval;
     const ami = 60;
     const bedrooms = base && (base.units ?? 1) > 1 ? 2 : 3;
@@ -525,9 +635,13 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     edited: !!(str(sp, "pf_abate_pct") || str(sp, "pf_abate_years")),
   };
 
-  const sitePlan = await buildSitePlanSheet({
-    parid, facts, qfInput, qf, qfError, rules, scheme, closest, frontInferred, generatedDate: todayIso(sp), score,
-  }).catch(() => null);
+  const [sitePlan, rentsByBedroom] = await Promise.all([
+    T.time("site_plan", buildSitePlanSheet({
+      parid, facts, qfInput, qf, qfError, rules, scheme, closest, frontInferred, generatedDate: todayIso(sp), score,
+    }, mapP).catch(() => null)),
+    rentsP,
+  ]);
+  T.add("total", T.total());
 
   return {
     parid,
@@ -567,5 +681,7 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     abatement,
     sitePlan,
     pagePlan,
+    rentsByBedroom,
+    paneSource: loaded.source,
   };
 }

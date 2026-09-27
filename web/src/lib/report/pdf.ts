@@ -2,9 +2,13 @@ import "server-only";
 
 // Renders the print-first report route to a US Letter PDF with headless Chromium.
 //
-// Two passes: the first PDF is only used to find which page each section starts on (Chromium writes a
-// named destination for every in-document link target, and the table of contents links to each
-// section). Those page numbers are written into the TOC, and the second pass is the final PDF.
+// Table of contents page numbers: Chromium writes a named destination for every in-document link
+// target (the TOC links to each section), so a printed PDF says which page each section starts on.
+// The last page map seen for the parcel is written into the TOC before the first print; when the
+// printed PDF agrees with it (the usual case once a parcel has been printed), that print is final.
+// Otherwise the numbers are corrected and the page is printed once more.
+//
+// One Chromium process is shared by all requests (a new tab per PDF), relaunched if it dies.
 //
 // LOCAL: uses puppeteer-core with an installed Chrome/Chromium. Set CHROME_PATH to override the
 // auto-detected location.
@@ -16,6 +20,8 @@ import "server-only";
 import { existsSync } from "node:fs";
 import type { Browser, Page } from "puppeteer-core";
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from "pdf-lib";
+import { samePageMap } from "./cache-core";
+import { PRINT_HEADER, printToken } from "./pdf-cache";
 
 const LOCAL_CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -25,6 +31,21 @@ const LOCAL_CHROME = [
   "/usr/bin/chromium",
   "/usr/bin/chromium-browser",
 ];
+
+let shared: Promise<Browser> | null = null;
+
+/** The shared browser (launched on first use; relaunched after a crash or disconnect). */
+function sharedBrowser(): Promise<Browser> {
+  if (!shared) {
+    const p = launchBrowser();
+    shared = p;
+    p.then((b) => b.on("disconnected", () => { if (shared === p) shared = null; }), () => { if (shared === p) shared = null; });
+  }
+  return shared;
+}
+
+/** Page maps by parcel (section id → page), so the TOC is usually right on the first print. */
+const pageMaps = new Map<string, Record<string, number>>();
 
 export async function launchBrowser(): Promise<Browser> {
   const puppeteer = (await import("puppeteer-core")).default;
@@ -45,6 +66,8 @@ export interface RenderOptions {
   title: string;
   /** YYYY-MM-DD; stamped as the PDF creation date so the file metadata is reproducible too. */
   generatedDate: string;
+  /** Key for the remembered page map (the parcel ID). */
+  mapKey?: string;
 }
 
 function decodeDataUrl(d: string): { type: string; body: Buffer } | null {
@@ -74,10 +97,34 @@ async function printPdf(page: Page): Promise<Uint8Array> {
   return page.pdf({ preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false, tagged: true, outline: true });
 }
 
+const fillToc = (page: Page, map: Record<string, number>) =>
+  page.evaluate((m: Record<string, number>) => {
+    let n = 0;
+    document.querySelectorAll<HTMLElement>("[data-toc]").forEach((el) => {
+      const p = m[el.dataset.toc ?? ""];
+      if (p) {
+        el.textContent = String(p);
+        n++;
+      }
+    });
+    return n;
+  }, map);
+
+
 export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> {
-  const browser = await launchBrowser();
+  const t0 = performance.now();
+  const lap = (step: string) => console.log(`[timing] report_pdf ${opts.mapKey ?? ""} ${step} ${(performance.now() - t0).toFixed(0)}ms`);
+  let browser = await sharedBrowser();
+  let page: Page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
+  } catch {
+    // The shared browser died between requests: start a new one.
+    shared = null;
+    browser = await sharedBrowser();
+    page = await browser.newPage();
+  }
+  try {
     if (opts.images && Object.keys(opts.images).length) {
       await page.setRequestInterception(true);
       page.on("request", (req) => {
@@ -89,27 +136,35 @@ export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> 
       });
     }
     await page.emulateMediaType("print");
-    const res = await page.goto(opts.url, { waitUntil: "networkidle0", timeout: 45_000 });
+    const token = printToken();
+    if (token) await page.setExtraHTTPHeaders({ [PRINT_HEADER]: token });
+    // "load" fires once the streamed page has fully arrived (sections, fonts, images); no idle wait.
+    const res = await page.goto(opts.url, { waitUntil: "load", timeout: 45_000 });
     if (!res || !res.ok()) throw new Error(`Report page returned ${res?.status() ?? "no response"}`);
-    await page.waitForSelector("[data-report-ready]", { timeout: 15_000 });
-    await page.evaluate(() => document.fonts.ready.then(() => true));
+    // Inside .rpt: streamed sections first arrive in a hidden holder and count only once React has
+    // swapped them in for the first look (the swap can lag the arrival by a frame or two).
+    const state = await page.waitForSelector(".rpt [data-report-ready], .rpt [data-report-error]", { timeout: 30_000 });
+    if (await state?.evaluate((el) => el.hasAttribute("data-report-error"))) throw new Error("No data for this parcel right now. Try again in a minute.");
+    await page.evaluate(() => Promise.all([document.fonts.ready, ...Array.from(document.images).filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; }))]).then(() => true));
+    lap("page");
 
-    const first = await printPdf(page);
-    const pages = await destinationPages(first);
-    const filled = await page.evaluate((map: Record<string, number>) => {
-      let n = 0;
-      document.querySelectorAll<HTMLElement>("[data-toc]").forEach((el) => {
-        const p = map[el.dataset.toc ?? ""];
-        if (p) {
-          el.textContent = String(p);
-          n++;
-        }
-      });
-      return n;
-    }, pages);
-    const final = filled ? await printPdf(page) : first;
+    const known = opts.mapKey ? pageMaps.get(opts.mapKey) : undefined;
+    if (known) await fillToc(page, known);
+    let out = await printPdf(page);
+    lap("print1");
+    const pages = await destinationPages(out);
+    if (!known || !samePageMap(known, pages)) {
+      if (await fillToc(page, pages)) {
+        out = await printPdf(page);
+        lap("print2");
+      }
+    }
+    if (opts.mapKey) {
+      pageMaps.set(opts.mapKey, pages);
+      if (pageMaps.size > 200) pageMaps.delete(pageMaps.keys().next().value!);
+    }
 
-    const doc = await PDFDocument.load(final);
+    const doc = await PDFDocument.load(out);
     const when = new Date(`${opts.generatedDate}T12:00:00Z`);
     doc.setTitle(opts.title);
     doc.setAuthor("EaseScore.AI");
@@ -118,8 +173,10 @@ export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> 
     doc.setProducer("EaseScore.AI");
     doc.setCreationDate(when);
     doc.setModificationDate(when);
-    return await doc.save();
+    const bytes = await doc.save();
+    lap("save");
+    return bytes;
   } finally {
-    await browser.close();
+    await page.close().catch(() => undefined);
   }
 }

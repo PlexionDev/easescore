@@ -18,6 +18,8 @@ export interface Ctx {
   c: CiteRegistry;
   fig: () => number;
   tab: () => number;
+  /** Rendering for the downloadable PDF: full rent-comp street addresses (on screen: block level only). */
+  print?: boolean;
 }
 
 export const REPORT_VERSION = "report v0.1";
@@ -1138,9 +1140,7 @@ export function S6(x: Ctx) {
           </table>
         </>
       )}
-      <p>
-        Listing-level rent comps are not loaded ({r?.rentease?.note ?? "no licensed listing data"}). {r?.rules ? `${r.rules}.` : ""}
-      </p>
+      {RentsByBedroomBlock(x)}
 
       <h2>Market activity</h2>
       {mk ? (
@@ -1155,6 +1155,69 @@ export function S6(x: Ctx) {
       )}
       {AbsorptionBlock(x)}
     </Sec>
+  );
+}
+
+/** Rents by bedroom count and the listing comps behind them. Full street addresses: this downloadable report only (the screen shows block level). */
+function RentsByBedroomBlock(x: Ctx) {
+  const { m } = x;
+  const rb = m.rentsByBedroom;
+  const est = rb ? Object.values(rb.byBedroom).sort((a, b) => a.bedrooms - b.bedrooms) : [];
+  if (!rb || !est.length) {
+    const r = m.rent;
+    return <p>Listing-level rent comps are not available here ({r?.rentease?.note ?? "no listing data"}). {r?.rules ? `${r.rules}.` : ""}</p>;
+  }
+  const withComps = est.filter((e) => e.comps.length > 0);
+  const tE = x.tab();
+  const brLabel = (n: number) => (n === 0 ? "Studio" : `${n} bedroom${n > 1 ? "s" : ""}`);
+  const cite = (e: (typeof est)[number]) => (e.basis === "rentcast_comps" ? fn(x, "rentcast") : e.basis === "hud_safmr" ? fn(x, "hud_fmr") : e.basis === "zori" ? fn(x, "zori") : null);
+  return (
+    <>
+      <div className="tcap">Table {tE}. Rent by bedroom count (monthly, rounded to $50)</div>
+      <table>
+        <thead><tr><th>Home</th><th className="num">Likely</th><th className="num">Range</th><th>Basis</th><th className="num">HUD FMR</th></tr></thead>
+        <tbody>
+          {est.map((e) => (
+            <tr key={e.bedrooms}>
+              <td>{brLabel(e.bedrooms)}</td>
+              <td className="num">{money(e.likely)}</td>
+              <td className="num">{e.low != null && e.high != null ? `${money(e.low)}–${money(e.high)}` : "—"}</td>
+              <td>{e.basisLabel}{cite(e)}{e.note ? ` ${e.note}` : ""}</td>
+              <td className="num">{money(e.hud)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted">
+        {est[0]!.method} {est[0]!.rules} {rb.caveat}
+        {withComps.length && !x.print ? " On screen, listings show the block only; the downloadable PDF lists full street addresses." : ""}
+      </p>
+      {withComps.map((e) => {
+        const t = x.tab();
+        return (
+          <div key={e.bedrooms}>
+            <div className="tcap">Table {t}. {brLabel(e.bedrooms)}: nearby rental listings used ({e.comps.length} of {e.compCount}{e.radiusMi != null ? `, within ${num(e.radiusMi, 1)} mi` : ""}){fn(x, "rentcast")}</div>
+            <table className="dense">
+              <thead><tr><th>Address</th><th className="num">Asking rent</th><th className="num">Size-adjusted</th><th className="num">Sq ft</th><th className="num">Baths</th><th>Type</th><th className="num">Distance</th><th>Last seen</th></tr></thead>
+              <tbody>
+                {e.comps.map((c, i) => (
+                  <tr key={`${c.address}-${i}`}>
+                    <td>{x.print ? c.address : c.block}</td>
+                    <td className="num">{money(c.price)}</td>
+                    <td className="num">{money(c.adjusted)}</td>
+                    <td className="num">{num(c.squareFootage)}</td>
+                    <td className="num">{c.bathrooms ?? "—"}</td>
+                    <td>{c.propertyType ?? "—"}</td>
+                    <td className="num">{num(c.distanceMi, 2)} mi</td>
+                    <td className="nowrap">{c.lastSeen ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </>
   );
 }
 

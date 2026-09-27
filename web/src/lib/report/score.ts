@@ -85,6 +85,8 @@ export interface EaseScoreInput {
   /** QuickFit typology of the studied scheme ("single_family" | "duplex" | "townhouse_row"), or null. */
   typology: string | null;
   affordable: boolean;
+  /** The parcel page's scored result for the same parcel (the pane row), used as is instead of scoring again. */
+  result?: ease.EaseScoreResult | null;
 }
 
 export const SCORE_PENDING_REASON = "The Ease Score engine did not return a score for this parcel.";
@@ -101,7 +103,7 @@ type Extras = Parameters<typeof ease.scoreParcel>[1];
 export function loadEaseScore(input: EaseScoreInput): EaseScoreView {
   let res: ReturnType<typeof ease.scoreParcel>;
   try {
-    res = ease.scoreParcel(input.facts, {
+    res = input.result ?? ease.scoreParcel(input.facts, {
       quickfitInput: input.quickfitInput as NonNullable<Extras>["quickfitInput"],
       easeInputs: input.easeInputs as NonNullable<Extras>["easeInputs"],
       zba: input.zbaRates as NonNullable<Extras>["zba"],

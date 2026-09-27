@@ -4,10 +4,11 @@ import "server-only";
 // config version, otherwise computed live from the per-parcel database functions (same result).
 // Every step is timed (lib/timing.ts).
 
+import { after } from "next/server";
 import { assumptions, score } from "@easescore/engine";
 import { easeInputs, parcelFactsChecked, permitTimes, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newConstructionSalesNear, primeRate, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
-import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, type PaneInputs, type PanePayload, type StoredPane } from "@/lib/pane-core";
+import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, toStored, type PaneInputs, type PanePayload, type StoredPane } from "@/lib/pane-core";
 import type { Timing } from "@/lib/timing";
 import { terrainGridFor } from "@/lib/terrain-tiles";
 
@@ -67,14 +68,34 @@ async function streetPrecedent(parid: string): Promise<PaneInputs["precedent"]> 
   }
 }
 
+/**
+ * Stores a live-computed pane as the parcel's row (same shape as scripts/pane_all.ts writes), so the next
+ * request for this parcel reads one row. Service key, server only; skipped when the key is not set or
+ * PANE_WRITE_BACK=0. Never throws.
+ */
+async function saveRow(p: PanePayload): Promise<void> {
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  if (!secret || process.env.PANE_WRITE_BACK === "0") return;
+  try {
+    await fetch(`${URL}/rest/v1/parcel_pane?on_conflict=parid`, {
+      method: "POST",
+      headers: { apikey: secret, Authorization: `Bearer ${secret}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([{ parid: p.parid, config_version: PANE_VERSION, payload: toStored(p), computed_at: new Date().toISOString() }]),
+      cache: "no-store", signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // The row is an optimization: the next request computes live again.
+  }
+}
+
 /** Computes the pane live (no stored row): per-parcel database calls in parallel, then the engine. */
-async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing): Promise<PaneLoad> {
+async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing, pre?: LoadPaneOptions): Promise<PaneLoad> {
   const factsR = T.time("rpc_parcel_facts", parcelFactsChecked(parid));
   const factsP = factsR.then((x) => x.facts);
   const salesP = T.time("rpc_sales_comps", salesComps(parid));
   const precedentP = T.time("rpc_street_precedent", streetPrecedent(parid));
   const [fr, sales, rent, qf, ease, zba, permits, sfComps, prime, tapFees, newSales, details, zbaCity, owner] = await Promise.all([
-    factsR, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_quickfit_input", quickfit), T.time("rpc_ease_inputs", easeInputs(parid)),
+    factsR, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_quickfit_input", quickfit), T.time("rpc_ease_inputs", pre?.easeInputs ?? easeInputs(parid)),
     factsP.then((f) => T.time("rpc_zba", zbaGrantRates((f as { zoning?: { code?: string } } | null)?.zoning?.code))),
     T.time("rpc_permit_times", permitTimes()),
     salesP.then((x) => T.time("rpc_sf_comps", singleFamilyComps(parid, x as assumptions.SalesCompsLike | null))),
@@ -92,15 +113,31 @@ async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: 
     parid, asOf, facts: fr.facts, quickfitInput: qf ?? null, easeInputs: (ease ?? null) as score.EaseInputsRpc | null,
     zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details, terrain, owner, precedent,
   }));
+  // Write the row only from complete inputs (a failed call returns null), so a degraded result is never stored.
+  // after(): the upsert runs once the response is sent (outside a request it just runs).
+  if (pre?.save && sales && rent && qf && ease && newSales && payload.score) {
+    try {
+      after(() => T.time("pane_save", saveRow(payload)));
+    } catch {
+      void saveRow(payload);
+    }
+  }
   return { ok: true, payload, source: "live" };
+}
+
+export interface LoadPaneOptions {
+  /** Store a live-computed pane as the parcel's row (the Feasibility Study does; see saveRow). */
+  save?: boolean;
+  /** parcel_ease_inputs already requested by the caller (shared instead of a second call). */
+  easeInputs?: Promise<unknown>;
 }
 
 /**
  * The pane data for a parcel: the stored row when there is one for the current config version,
  * otherwise computed live. `quickfit` is the parcel_quickfit_input call (shared with the map).
  */
-export async function loadPane(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing): Promise<PaneLoad> {
+export async function loadPane(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing, opts?: LoadPaneOptions): Promise<PaneLoad> {
   const row = await T.time("pane_row", readRow(parid));
   if (row) return { ok: true, payload: row, source: "row" };
-  return T.time("pane_live", live(parid, asOf, quickfit, T));
+  return T.time("pane_live", live(parid, asOf, quickfit, T, opts));
 }

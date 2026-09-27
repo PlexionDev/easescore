@@ -198,6 +198,14 @@
   border-top: 1.2px solid var(--ink);
   font-weight: 600;
 }
+/* Long listing tables (rent comps): smaller type so eight columns fit the page width. */
+.rpt table.dense {
+  font-size: 7.5pt;
+}
+.rpt table.dense .nowrap {
+  white-space: nowrap;
+}
+
 .rpt table.kv td:first-child {
   width: 36%;
   color: var(--muted);

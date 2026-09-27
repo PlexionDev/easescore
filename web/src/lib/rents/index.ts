@@ -11,8 +11,14 @@ export const RENT_BEDROOMS = [1, 2, 3];
  * RentCast it falls back to the labeled HUD/ZORI benchmark. Full comp addresses are included — use
  * forScreen() before sending to a browser.
  */
-export async function loadRents(parid: string, asOf: string, bedrooms: number[] = RENT_BEDROOMS): Promise<rents.RentsByBedroom | null> {
-  const [facts, rc] = await Promise.all([parcelFacts(parid).catch(() => null), rentComps(parid).catch(() => null)]);
+export async function loadRents(
+  parid: string, asOf: string, bedrooms: number[] = RENT_BEDROOMS,
+  /** parcel_facts and parcel_rent_comps the caller already has (e.g. the pane row), instead of two more calls. */
+  pre?: { facts: Record<string, unknown> | null; rent: unknown },
+): Promise<rents.RentsByBedroom | null> {
+  const [facts, rc] = pre
+    ? [pre.facts, pre.rent]
+    : await Promise.all([parcelFacts(parid).catch(() => null), rentComps(parid).catch(() => null)]);
   if (!facts) return null;
   const c = facts.centroid as { lat?: number; lon?: number } | undefined;
   const r = rc as { hud_fmr?: rents.HudBenchmark | null; zori?: rents.ZoriBenchmark | null } | null;
