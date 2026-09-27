@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { EmptyState, RangeValue, ReceiptButton, type Receipt } from "@/components/seats";
-import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, NO_BAND_COLOR, policyKey, type Filters, type PlannerSummary } from "@/lib/planner";
+import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, NO_BAND_COLOR, policyKey, SMALL_INFILL_CAP, type Filters, type PlannerSummary } from "@/lib/planner";
 
 const BLOCKER_RECEIPT: Receipt = {
   label: "Site constraints",
@@ -19,7 +19,7 @@ const CAPACITY_RECEIPT: Receipt = {
   source: "QuickFit lot-fit test on the county parcel outline and the City zoning rules table",
   date: "Scores as of the computed date in the footer",
   method: "By right: the most homes any new building fits with the use allowed by right and no dimensional variance, summed over matching parcels. With relief: the most homes on any path short of a use variance (special exception, conditional use, dimensional variance). The low end counts only parcels with no red flag and no hazard band cap; the high end counts every matching parcel.",
-  notes: "Lots whose fit test did not run in the batch (large or irregular lots) have no unit count and are left out; open them for the full result.",
+  notes: `${SMALL_INFILL_CAP} Lots whose fit test did not run in the batch (large or irregular lots) have no unit count and are left out; open them for the full result.`,
   kind: "data",
 };
 

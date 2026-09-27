@@ -232,6 +232,8 @@ export const HIGH_DENSITY_ZONES = [
 export const isHighDensityZone = (z: string | null | undefined): boolean => !!z && HIGH_DENSITY_ZONES.includes(z);
 /** Shown on parcels in those districts (Highest and best use, report). */
 export const HIGH_DENSITY_NOTE = "EaseScore models buildings of 1–4 homes. Larger buildings allowed in this district aren't modeled.";
+/** Wherever a capacity (homes these lots could hold) is shown: Planner receipt, staff memo, CSV, Policy. */
+export const SMALL_INFILL_CAP = "Small-infill building types only (1–4 homes per lot); larger buildings allowed in some districts aren't modeled.";
 export type Sort = "score" | "months" | "by_right_units" | "units_with_relief" | "lot" | "transit" | "address" | "neighborhood" | "zoning";
 export const SORTS: Sort[] = ["score", "months", "by_right_units", "units_with_relief", "lot", "transit", "address", "neighborhood", "zoning"];
 export type Dir = "asc" | "desc";
@@ -540,7 +542,7 @@ export const CSV_COLUMNS = [
   "frequent_transit_ft", "floodway", "landslide_prone", "undermined", "share_steeper_than_25pct",
   "rehab_existing_score", "rehab_existing_band", "planning_badge", "planning_badge_status", "badge_points",
   ...FACTORS.map((f) => `${f.id}_${f.label.toLowerCase().replace(/[^a-z]+/g, "_").replace(/_$/, "")}`),
-  ...CSV_DATE_SOURCES.map(([c]) => c), "config_version", "computed_at", "note", "parcel_url",
+  ...CSV_DATE_SOURCES.map(([c]) => c), "config_version", "computed_at", "note", "parcel_url", "unit_count_scope",
 ];
 
 function cell(v: unknown): string {
@@ -560,7 +562,7 @@ export function csvLine(r: PlannerRow, rank: number, origin: string): string {
     r.owner_class === "public" ? r.planning_badge : BADGE_PRIVATE_NOTE, BADGE_NOTE, r.owner_class === "public" ? r.badge_score : null,
     ...FACTORS.map((f) => r.factor_scores?.[f.id] ?? null),
     ...CSV_DATE_SOURCES.map(([, src]) => r.data_dates?.[src] ?? null), r.config_version, r.computed_at, r.note,
-    `${origin}/parcel/${encodeURIComponent(r.parid.trim())}`,
+    `${origin}/parcel/${encodeURIComponent(r.parid.trim())}`, SMALL_INFILL_CAP,
   ];
   return vals.map(cell).join(",");
 }
@@ -586,6 +588,7 @@ export const SOURCES: { name: string; used_for: string; key?: string; url?: stri
 export function sourcesCsv(dates: Record<string, string | null | undefined>, configVersions: string[], computedAt: string | null): string {
   const lines = [["source", "used_for", "data_date", "url"].join(",")];
   for (const s of SOURCES) lines.push([s.name, s.used_for, s.key ? dates[s.key] ?? "" : "", s.url ?? ""].map(cell).join(","));
+  lines.push(["Unit counts (scope)", SMALL_INFILL_CAP, "", ""].map(cell).join(","));
   lines.push(["EaseScore.AI score config", "Weights, curves and caps", `v${configVersions.join(", v")}${computedAt ? `, computed ${computedAt.slice(0, 10)}` : ""}`, ""].map(cell).join(","));
   return lines.join("\n") + "\n";
 }

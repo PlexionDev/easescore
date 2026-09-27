@@ -3,7 +3,7 @@ import { bandLabel, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
 import {
   BADGE_NOTE, BADGE_PRIVATE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
-  parseFilters, parseSort, partialBest, partialNote, plannerOptions, plannerQuery, titleCase, type PlannerRow,
+  parseFilters, parseSort, partialBest, partialNote, plannerOptions, plannerQuery, SMALL_INFILL_CAP, titleCase, type PlannerRow,
 } from "@/lib/planner";
 import "./memo.css";
 
@@ -118,7 +118,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
             <div className="kv"><span>Buildable public lots</span><b>{n(sum.public_land.buildable_count)} ({sum.public_land.buildable_acres} acres)</b></div>
           </div>
         </div>
-        <p className="fine">Home counts: the low end counts parcels with no red flag and no hazard band cap; the high end counts every matching parcel.</p>
+        <p className="fine">Home counts: the low end counts parcels with no red flag and no hazard band cap; the high end counts every matching parcel. {SMALL_INFILL_CAP}</p>
 
         <h3>What holds these sites back (share of matching parcels; a parcel can have several)</h3>
         <table>
