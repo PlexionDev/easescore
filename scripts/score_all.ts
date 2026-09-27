@@ -246,7 +246,8 @@ export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: 
     // parcel_owner_class and parcel_geo (planner_attach_owner_geo, run at the end), so they are not sent here.
     zoning: facts.zoning?.code ?? null,
     neighborhood: facts.context?.neighborhood ?? null,
-    municipality: facts.context?.municipality ?? a.municipality ?? null,
+    // City wards ("16th Ward - PITTSBURGH") roll up to PITTSBURGH when parcel_context has no row.
+    municipality: facts.context?.municipality ?? (a.is_pittsburgh ? "PITTSBURGH" : a.municipality ?? null),
     lot_sqft: facts.lot_area_sqft_gis ?? a.lot_area_sqft ?? null,
     lon: facts.centroid?.lon ?? null,
     lat: facts.centroid?.lat ?? null,
