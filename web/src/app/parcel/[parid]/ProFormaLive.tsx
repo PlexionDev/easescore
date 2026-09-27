@@ -5,7 +5,7 @@
 // instantly. Edits are kept in the URL (pf_tier, pf_line_<id>) with history.replaceState, so a reload
 // or the report keeps them.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assumptions, finance, rents, type score } from "@easescore/engine";
 import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quickfit-gen";
 import type { quickfit } from "@easescore/engine";
@@ -213,6 +213,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
 
   return (
     <section aria-label="Does it pencil?" className="rounded-xl border border-slate-200 bg-white/80 p-3">
+      <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
@@ -393,4 +394,16 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       <p className="mt-2 text-[11px] text-slate-500">{finance.FINANCE_DISCLAIMER}</p>
     </section>
   );
+}
+
+/** Announces the result politely after an edit (a slider, tier or line change), never on first render. */
+function LiveResult({ text }: { text: string }) {
+  const first = useRef(text);
+  const [said, setSaid] = useState("");
+  useEffect(() => {
+    if (text === first.current) return;
+    const t = setTimeout(() => setSaid(`Updated. ${text}`), 700);
+    return () => clearTimeout(t);
+  }, [text]);
+  return <p className="sr-only" role="status">{said}</p>;
 }

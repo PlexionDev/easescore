@@ -520,3 +520,13 @@
     border: 0.6px solid var(--rule);
   }
 }
+/* Row headers (first column of a comparison table) read like body cells, in bold. */
+.rpt tbody th[scope="row"] {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: inherit;
+  font-weight: 700;
+  border-bottom: 0.6px solid var(--rule);
+  padding: 4px 6px;
+  vertical-align: top;
+}

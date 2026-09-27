@@ -2224,10 +2224,10 @@ export function ProductTable(x: Ctx) {
       </p>
       <div className="tcap">Table {t}. By-right best vs. with-approval best vs. affordable</div>
       <table>
-        <thead><tr><th style={{ width: "20%" }}></th>{cols.map((c) => <th key={c.head}>{c.head}</th>)}</tr></thead>
+        <thead><tr><th scope="col" style={{ width: "20%" }}>Measure</th>{cols.map((c) => <th scope="col" key={c.head}>{c.head}</th>)}</tr></thead>
         <tbody>
           {rows.map(([label, f]) => (
-            <tr key={label}><td><b>{label}</b></td>{cols.map((c) => <td key={c.head} className="small">{f(c)}</td>)}</tr>
+            <tr key={label}><th scope="row">{label}</th>{cols.map((c) => <td key={c.head} className="small">{f(c)}</td>)}</tr>
           ))}
         </tbody>
       </table>
