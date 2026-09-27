@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { preconnect } from "react-dom";
 import MapStage, { type Footprints } from "./MapStage";
 import QuickFitPanel from "./QuickFitPanel";
 import { DrawerHost, type DrawerId } from "./Drawers";
-import { ViewSwitch, KeyNeeded, PhotorealSkeleton, VIEW_MODES, type ViewMode } from "./ViewModes";
+import PhotorealStill from "./PhotorealStill";
+import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
 
-// Cesium + Google tiles load only when the photoreal view is shown (never in the initial JS).
-const Photoreal3D = dynamic(() => import("./Photoreal3D"), { ssr: false, loading: () => <PhotorealSkeleton /> });
+// Cesium + Google tiles load only when the photoreal view is shown (never in the initial JS). Until the live
+// view is ready, PhotorealStill (server-rendered, our own data) stands in for it.
+const Photoreal3D = dynamic(() => import("./Photoreal3D"), { ssr: false, loading: () => null });
 
 // Inlined at build time; true when a Google Map Tiles key is configured.
 const HAS_KEY = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
@@ -28,6 +31,7 @@ export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInpu
   drawers: { id: DrawerId; title: string; content: ReactNode }[];
   mapData: any; qfInput: any; rules: Record<string, unknown> | null; zoneCode: string | null;
 }) {
+  if (HAS_KEY) preconnect("https://tile.googleapis.com");
   const [footprints, setFootprints] = useState<Footprints>(null);
   const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
   const a: Affine | undefined = qfInput?.toLonLat;
@@ -105,7 +109,10 @@ export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInpu
         </div>
       )}
       {mapData && mode === "photoreal" && (HAS_KEY
-        ? <Photoreal3D parcelKey={parcelKey} data={mapData} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
+        ? <>
+            <PhotorealStill data={mapData} insets={insets} />
+            <Photoreal3D parcelKey={parcelKey} data={mapData} massing={photoFootprints} envelope={photoEnvelope} insets={insets} onFallback={() => choose("terrain")} />
+          </>
         : <KeyNeeded onFallback={() => choose("terrain")} />)}
       {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} />}
 

@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as CesiumNS from "cesium";
-import { acquire, groundHeights, prefersReducedMotion, release, sunTime, tileErrorOf, type Shared, type TileError } from "@/lib/photoreal";
+import { acquire, groundHeights, prefersReducedMotion, release, sunTime, tileErrorOf, warm, type Shared, type TileError } from "@/lib/photoreal";
+import { frameParcel, START_RANGE } from "./PhotorealStill";
 
 type Ring = [number, number][];
 type Geom = { type: string; coordinates: unknown };
@@ -17,8 +18,8 @@ export type Massing = { rings: Ring[]; heightFt: number } | null;
 export type Envelope = { rings: Ring[]; heightFt: number } | null;
 export type Insets = { left: number; bottom: number };
 
-const HEADING_DEG = 20; // a slightly rotated arrival reads better than dead north-up
-const PITCH_DEG = -45;
+const SETTLE_S = 1.2; // short settle from the slightly wider opening framing (none under reduced motion)
+const LIFT_M = 0.4; // lines ride just above the lidar ground so they don't flicker against the mesh
 const DESATURATE = 0; // share of luminance mixed into the surroundings; 0 turns it off
 const SHADES = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#ca8a04", "#4f46e5"];
 
@@ -74,6 +75,30 @@ function touches(parcel: Ring[], polys: Ring[][]) {
 const open = (r: Ring): Ring => (r.length > 1 && r[0]![0] === r[r.length - 1]![0] && r[0]![1] === r[r.length - 1]![1] ? r.slice(0, -1) : r);
 const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] ?? 0; };
 
+/** Vertices every ~2 m along a ring (closed) or line, so a line drawn at lidar heights follows the ground. */
+function densify(r: Ring, closed: boolean, stepM = 2): Ring {
+  const pts = closed && r.length ? [...r, r[0]!] : r;
+  const kx = 111320 * Math.cos(((pts[0]?.[1] ?? 40) * Math.PI) / 180), ky = 110950;
+  const out: Ring = [];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [a, b] = [pts[i]!, pts[i + 1]!];
+    const n = Math.max(1, Math.ceil(Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * ky) / stepM));
+    for (let j = 0; j < n; j++) out.push([a[0] + ((b[0] - a[0]) * j) / n, a[1] + ((b[1] - a[1]) * j) / n]);
+  }
+  if (pts.length) out.push(pts[pts.length - 1]!);
+  return out;
+}
+
+/** A line's positions on bare earth: our 1 m lidar DTM sampled at every densified vertex. groundHeights() turns the
+ *  DTM's NAVD88 orthometric heights into WGS84 ellipsoid heights (Google's frame) with a fixed county geoid offset
+ *  (GEOID_OFFSET_M, about -33.7 m around Allegheny County). Never draped on Google's mesh, so it doesn't climb
+ *  trees or roofs. */
+async function groundLine(C: typeof CesiumNS, r: Ring, closed: boolean, fallback: number) {
+  const d = densify(r, closed);
+  const hs = await groundHeights(d);
+  return d.map((p, i) => C.Cartesian3.fromDegrees(p[0], p[1], (hs[i] ?? fallback) + LIFT_M));
+}
+
 type Status = { phase: "engine" | "tiles" | "ready" } | { phase: "error"; error: TileError };
 
 export default function Photoreal3D({ parcelKey, data, massing, envelope, insets, onFallback }: {
@@ -113,7 +138,14 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
   // Layers default ON only where they touch the parcel; the user's toggles override that.
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const on = useMemo(() => Object.fromEntries(LAYERS.map((L) => [L.id, override[L.id] ?? present[L.id]!.touches])), [override, present]);
-  useEffect(() => { orbitRef.current = orbit; }, [orbit]);
+  // Start Cesium, the viewer and the tileset root request while our ground heights load.
+  useEffect(() => { warm().catch(() => { /* surfaced by acquire */ }); }, []);
+  useEffect(() => {
+    orbitRef.current = orbit;
+    // The slow presentation orbit counts as "at rest" for detail: keep full quality while it turns.
+    const s = sh.current;
+    if (s) { s.steady = orbit; s.refreshQuality(); }
+  }, [orbit]);
   useEffect(() => { insetsRef.current = insets; }, [insets]);
 
   // Ground heights for the parcel ring, from our lidar DEM.
@@ -144,6 +176,11 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       const { C, viewer } = s;
       const scene = viewer.scene;
       setStatus({ phase: "tiles" });
+      // A new place is streaming in: load-time detail until it is revealed.
+      s.loading = true;
+      s.steady = false;
+      s.refreshQuality();
+      cleanups.push(() => { s.steady = false; s.refreshQuality(); });
 
       // Look: fixed early-afternoon sun, soft shadows, sky.
       viewer.clock.shouldAnimate = false;
@@ -152,7 +189,6 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       viewer.shadowMap.softShadows = true;
       viewer.shadowMap.size = 2048;
       viewer.shadowMap.maximumDistance = 1500;
-      viewer.resolutionScale = 1; // = full devicePixelRatio (browser-recommended resolution is off)
       scene.globe.show = false;
       scene.screenSpaceCameraController.enableInputs = true;
       scene.screenSpaceCameraController.enableCollisionDetection = true;
@@ -172,9 +208,15 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         C.Cartesian3.fromDegreesArray(open(poly[0]!).flat()),
         poly.slice(1).map((h) => new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(h).flat()))),
       );
-      const line = (r: Ring) => C.Cartesian3.fromDegreesArray([...r, r[0]!].flat());
 
-      // Hazards and zoning, draped (classification) with crisp outlines.
+      // Lines sit on the lidar ground (see groundLine); where trees or buildings hide them they show dashed and lighter.
+      const lineOnGround = async (r: Ring, color: string, width: number, hidden: string, alpha = 1) => src.entities.add({ polyline: {
+        positions: await groundLine(C, r, true, ground.base), width, arcType: C.ArcType.NONE, material: col(color, alpha),
+        depthFailMaterial: new C.PolylineDashMaterialProperty({ color: col(hidden, 0.85), dashLength: 12 }),
+      } });
+
+      // Hazards and zoning: near-invisible draped fills (for picking out the area) and crisp outlines on the ground.
+      const outlines: Promise<void>[] = [];
       const labelPts: { at: [number, number]; text: string; offsetUp: boolean }[] = [];
       const pc = data.center;
       for (const L of LAYERS) {
@@ -186,7 +228,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
           for (const poly of polysOf(f.geometry)) {
             if (!poly[0] || poly[0].length < 3) continue;
             if (!zoning) ents.push(src.entities.add({ polygon: { hierarchy: hier(poly), material: col(color, 0.01), classificationType: CT } }));
-            ents.push(src.entities.add({ polyline: { positions: line(open(poly[0])), width: zoning ? 2.5 : 2, material: col(zoning ? "#0f172a" : color, 0.95), clampToGround: true, classificationType: CT } }));
+            outlines.push(lineOnGround(open(poly[0]), zoning ? "#0f172a" : color, zoning ? 2.5 : 2, zoning ? "#94a3b8" : color, 0.95).then((e) => { ents.push(e); }));
             if (zoning && f.properties.label) {
               const outer = open(poly[0]);
               if (inRing(pc, outer)) labelPts.push({ at: pc, text: f.properties.label, offsetUp: true });
@@ -210,7 +252,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         kept.push(p);
       }
       labelPts.splice(0, labelPts.length, ...kept);
-      const lh = await groundHeights(labelPts.map((p) => p.at));
+      const [lh] = await Promise.all([groundHeights(labelPts.map((p) => p.at)), Promise.all(outlines)]);
       if (dead) return;
       layerEnts.current.zoning ??= [];
       labelPts.forEach((p, i) => {
@@ -225,43 +267,32 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         }));
       });
 
-      // The parcel: no fill; soft glow and a crisp bright edge.
+      // The parcel: no fill; soft glow and a crisp bright edge, on the lidar ground.
       for (const r of parcelRings) {
-        src.entities.add({ polyline: { positions: line(r), width: 12, material: col("#facc15", 0.22), clampToGround: true, classificationType: CT } });
-        src.entities.add({ polyline: { positions: line(r), width: 3, material: col("#fde047", 1), clampToGround: true, classificationType: CT } });
+        const positions = await groundLine(C, r, true, ground.base);
+        if (dead) return;
+        src.entities.add({ polyline: { positions, width: 12, arcType: C.ArcType.NONE, material: col("#facc15", 0.22) } });
+        src.entities.add({ polyline: { positions, width: 3, arcType: C.ArcType.NONE, material: col("#fde047", 1),
+          depthFailMaterial: new C.PolylineDashMaterialProperty({ color: col("#fef9c3", 0.9), dashLength: 12 }) } });
       }
 
-      // Camera: frame the parcel at ~45 degrees, clear of the floating panel.
-      const pts = parcelRings.flat().map((p, i) => C.Cartesian3.fromDegrees(p[0], p[1], ground.parcel[i] ?? ground.base));
-      const sphere = C.BoundingSphere.fromPoints(pts);
-      pivot.current = sphere.center;
+      // Camera: frame the parcel at ~45 degrees, clear of the floating panel. Same framing as the still preview
+      // (PhotorealStill), which the view opens on, so the live tiles fade in over it without a jump.
+      const hs = ground.parcel;
+      const frame0 = frameParcel(parcelRings, 1, 1, insetsRef.current, 1);
+      const center = C.Cartesian3.fromDegrees(frame0.lon0, frame0.lat0, (Math.min(...hs) + Math.max(...hs)) / 2);
+      const enu = C.Transforms.eastNorthUpToFixedFrame(center);
+      pivot.current = center;
       const view = (rangeMul: number) => {
-        const canvas = viewer.canvas;
-        const W = canvas.clientWidth || 1, H = canvas.clientHeight || 1;
-        const ins = insetsRef.current;
-        const fov = (viewer.camera.frustum as CesiumNS.PerspectiveFrustum).fov ?? C.Math.toRadians(60);
-        const t = Math.tan(fov / 2);
-        const halfW = W >= H ? 1 : W / H, halfH = W >= H ? H / W : 1; // per unit range, in units of tan(fov/2)
-        const visW = Math.max(W - ins.left, W * 0.4), visH = Math.max(H - ins.bottom, H * 0.35);
-        const fit = Math.max(sphere.radius, 12) * 2.4 / t / Math.min((halfW * visW) / W, (halfH * visH) / H);
-        const R = Math.max(70, fit) * rangeMul;
-        const h = C.Math.toRadians(HEADING_DEG), p = C.Math.toRadians(PITCH_DEG);
-        const dir = new C.Cartesian3(Math.sin(h) * Math.cos(p), Math.cos(h) * Math.cos(p), Math.sin(p));
-        const right = new C.Cartesian3(Math.cos(h), -Math.sin(h), 0);
-        const up = C.Cartesian3.cross(right, dir, new C.Cartesian3());
-        const sx = R * t * halfW * (ins.left / W), sy = R * t * halfH * (ins.bottom / H);
-        const local = C.Cartesian3.multiplyByScalar(dir, -R, new C.Cartesian3());
-        C.Cartesian3.subtract(local, C.Cartesian3.multiplyByScalar(right, sx, new C.Cartesian3()), local);
-        C.Cartesian3.subtract(local, C.Cartesian3.multiplyByScalar(up, sy, new C.Cartesian3()), local);
-        const enu = C.Transforms.eastNorthUpToFixedFrame(sphere.center);
-        return { destination: C.Matrix4.multiplyByPoint(enu, local, new C.Cartesian3()), orientation: { heading: h, pitch: p, roll: 0 } };
+        const f = frameParcel(parcelRings, viewer.canvas.clientWidth, viewer.canvas.clientHeight, insetsRef.current, rangeMul);
+        return { destination: C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(...f.cam), new C.Cartesian3()), orientation: { heading: f.heading, pitch: f.pitch, roll: 0 } };
       };
       home.current = view(1);
       const remembered = lastView.get(parcelKey);
       const reduced = prefersReducedMotion();
       if (remembered) viewer.camera.setView({ destination: remembered.position, orientation: remembered });
-      else viewer.camera.setView(reduced ? home.current : view(4));
-      let arrived = !!remembered || reduced; // don't remember a half-finished fly-in
+      else viewer.camera.setView(reduced ? home.current : view(START_RANGE)); // reduced motion: a jump cut, no settle
+      let arrived = !!remembered || reduced; // don't remember a half-finished settle
       cleanups.push(() => {
         const c = viewer.camera;
         if (!arrived) return;
@@ -290,14 +321,13 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       try { ts = await s.tileset; } catch (e) { if (!dead) setStatus({ phase: "error", error: tileErrorOf(e) }); return; }
       if (dead) return;
       tiles.current = ts;
-      ts.maximumScreenSpaceError = 8;
       // Receive only: the mesh already has baked shadows; only our massing casts new ones onto it.
       ts.shadows = C.ShadowMode.RECEIVE_ONLY;
       // Subtle desaturation away from the parcel so the lot pops.
       ts.customShader = new C.CustomShader({
         uniforms: {
-          u_center: { type: C.UniformType.VEC3, value: sphere.center },
-          u_radius: { type: C.UniformType.FLOAT, value: Math.max(sphere.radius * 1.4, 25) },
+          u_center: { type: C.UniformType.VEC3, value: center },
+          u_radius: { type: C.UniformType.FLOAT, value: Math.max(frame0.radius * 1.4, 25) },
           u_amount: { type: C.UniformType.FLOAT, value: DESATURATE },
         },
         fragmentShaderText: `
@@ -321,18 +351,28 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
 
       const onProgress = (p: number, q: number) => setPending(p + q);
       cleanups.push(ts.loadProgress.addEventListener(onProgress));
+      // Reveal (crossfade over the still) once this view's tiles are in: the tileset's first full load, any later
+      // full load, or, when everything needed is already cached, the first quiet frames.
+      const stats = (ts as unknown as { statistics: { numberOfCommands: number } }).statistics;
       await new Promise<void>((resolve) => {
+        let frames = 0, fin = false;
         const t = setTimeout(done, 12000);
-        const un = ts.allTilesLoaded.addEventListener(done);
-        function done() { clearTimeout(t); un(); resolve(); }
+        const un = [
+          ts.initialTilesLoaded.addEventListener(done),
+          ts.allTilesLoaded.addEventListener(done),
+          scene.postRender.addEventListener(() => { if (++frames > 5 && ts.tilesLoaded && stats.numberOfCommands > 0) done(); }),
+        ];
+        function done() { if (fin) return; fin = true; clearTimeout(t); un.forEach((u) => u()); resolve(); }
         cleanups.push(done);
       });
       if (dead) return;
       if (s.failedTiles > 20 && !ts.tilesLoaded) { setStatus({ phase: "error", error: { kind: "network" } }); return; }
+      s.loading = false;
+      s.refreshQuality();
       setStatus({ phase: "ready" });
       setReady(true);
       if (!remembered && !reduced) {
-        viewer.camera.flyTo({ ...home.current, duration: 4, easingFunction: C.EasingFunction.QUADRATIC_IN_OUT,
+        viewer.camera.flyTo({ ...home.current, duration: SETTLE_S, easingFunction: C.EasingFunction.QUADRATIC_IN_OUT,
           complete: () => { arrived = true; if (!dead) setOrbit(true); }, cancel: () => { arrived = true; } });
       } else if (!reduced) setOrbit(true); // auto-orbit on load; any user input stops it
     })();
@@ -380,7 +420,10 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
       src.entities.removeAll();
       const envRings = envelope?.rings.filter((r) => r.length >= 3) ?? [];
       const massRings = massing?.rings.filter((r) => r.length >= 3) ?? [];
-      const hs = await groundHeights([...envRings.flat(), ...massRings.flat()]);
+      const [hs, envLines] = await Promise.all([
+        groundHeights([...envRings.flat(), ...massRings.flat()]),
+        Promise.all(envRings.map((r) => groundLine(C, open(r), true, ground.base))),
+      ]);
       if (dead) return;
       let k = 0;
       const take = (n: number) => hs.slice(k, (k += n)).map((h) => h ?? ground.base);
@@ -406,6 +449,13 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
         src.entities.add({ polygon: {
           hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(r).flat())), height: base, extrudedHeight: top,
           material: alpha("#22c55e", 0.22), outline: true, outlineColor: new C.CallbackProperty(() => col("#16a34a", 0.9 * fade.current), false), show: shown,
+        } });
+      }
+      // The setback line (envelope footprint) on the lidar ground; dashed where the mesh hides it.
+      for (const positions of envLines) {
+        src.entities.add({ polyline: {
+          positions, width: 3, arcType: C.ArcType.NONE, material: alpha("#16a34a", 1), show: shown,
+          depthFailMaterial: new C.PolylineDashMaterialProperty({ color: new C.CallbackProperty(() => col("#86efac", 0.9 * fade.current), false), dashLength: 12 }),
         } });
       }
       // QuickFit massing: solid blocks that cast shadows.
@@ -543,20 +593,20 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
   const loading = status.phase === "engine" || status.phase === "tiles";
 
   return (
-    <div className="absolute inset-0 bg-slate-900">
-      <div ref={host} className="absolute inset-0" aria-label="Photoreal 3D view of the parcel" role="img" />
+    <div className="absolute inset-0">
+      {/* Transparent until the first view has loaded, then fades in over the still preview underneath. */}
+      <div ref={host} className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${loading ? "opacity-0" : "opacity-100"}`}
+           aria-label="Photoreal 3D view of the parcel" role="img" />
 
-      {/* Loading skeleton: never a blank box */}
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-700 ${loading ? "opacity-100" : "opacity-0"}`}
-           style={{ background: "radial-gradient(900px 500px at 60% 40%, #1e3a5f, #0f172a)" }} aria-hidden={!loading}>
-        <div className="absolute inset-0 animate-pulse opacity-30" style={{ backgroundImage: "repeating-linear-gradient(115deg, transparent 0 38px, rgba(148,163,184,0.18) 38px 39px)" }} />
-        <div className="absolute left-1/2 top-1/2 w-72 -translate-y-1/2 text-center text-slate-200 md:left-[calc(50%+220px)]" style={{ transform: "translate(-50%, -50%)" }}>
-          <p className="text-sm font-semibold">{status.phase === "engine" ? "Starting the 3D engine…" : "Streaming photoreal 3D tiles…"}</p>
-          <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full w-1/3 animate-[es-bar_1.4s_ease-in-out_infinite] rounded-full bg-sky-400" /></div>
-          {status.phase === "tiles" && pending > 0 && <p className="mt-2 text-xs text-slate-400">{pending} tiles in flight</p>}
+      {loading && (
+        <div className="pointer-events-none absolute z-10 w-60 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-slate-900/75 px-4 py-2.5 text-center text-slate-100 shadow-xl backdrop-blur-md"
+             style={{ top: `calc((100% - ${insets.bottom}px) / 2)`, left: `calc(${insets.left}px + (100% - ${insets.left}px) / 2)` }}>
+          <p className="text-xs font-semibold">{status.phase === "engine" ? "Starting the 3D engine…" : "Streaming photoreal 3D tiles…"}</p>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full w-1/3 animate-[es-bar_1.4s_ease-in-out_infinite] rounded-full bg-sky-400" /></div>
+          {status.phase === "tiles" && pending > 0 && <p className="mt-1.5 text-[11px] text-slate-400">{pending} tiles in flight</p>}
+          <style>{`@keyframes es-bar{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}`}</style>
         </div>
-        <style>{`@keyframes es-bar{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}`}</style>
-      </div>
+      )}
 
       {err && (
         <div className="absolute inset-0 flex items-center justify-center p-6 md:pl-[470px]" style={{ background: "radial-gradient(900px 500px at 60% 40%, #1e293b, #0f172a)" }}>

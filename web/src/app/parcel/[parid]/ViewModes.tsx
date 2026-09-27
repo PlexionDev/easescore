@@ -58,13 +58,3 @@ export function KeyNeeded({ onFallback }: { onFallback: () => void }) {
     </div>
   );
 }
-
-/** Placeholder while the photoreal chunk downloads. */
-export function PhotorealSkeleton() {
-  return (
-    <div className="absolute inset-0" style={{ background: BG }}>
-      <div className="absolute inset-0 animate-pulse opacity-30" style={{ backgroundImage: "repeating-linear-gradient(115deg, transparent 0 38px, rgba(148,163,184,0.18) 38px 39px)" }} />
-      <p className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-semibold text-slate-200 md:left-[calc(50%+220px)]">Loading photoreal 3D…</p>
-    </div>
-  );
-}
