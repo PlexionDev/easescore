@@ -18,6 +18,7 @@ import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
 import { homeTapFees, newCompsFor, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
 import { loadEaseScore, type EaseScoreView } from "./score";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
+import { buildSitePlanSheet, type SitePlanSheet } from "./sitesheet";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -92,6 +93,8 @@ export interface QFInputPayload {
   zbaCounts: quickfit.ZbaCountRow[];
   notes: (string | null)[];
   edges?: { i: number; len: number; az: number; street_ft: number }[];
+  /** Affine from the local feet coordinates back to lon/lat (used by the site plan). */
+  toLonLat?: { lat0: number; lon0: number; lat_per_x: number; lat_per_y: number; lon_per_x: number; lon_per_y: number };
 }
 export interface ZbaRates {
   district: string;
@@ -279,6 +282,8 @@ export interface ReportModel {
   affordable: { option: string; ami: number; bedrooms: number; rent: number; year: number; pf: assumptions.ProFormaResult } | null;
   /** Tax abatement scenario inputs (defaults from the cost config, pf_abate_* overrides). */
   abatement: { share: number; years: number; edited: boolean };
+  /** Site plan sheet EA-101 (true-scale SVG); null when the lot outline is not available. */
+  sitePlan: SitePlanSheet | null;
 }
 
 /** Policy what-ifs for "What would unlock it". Each relaxes one rule; values are hypotheticals, not proposals. */
@@ -497,6 +502,10 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     edited: !!(str(sp, "pf_abate_pct") || str(sp, "pf_abate_years")),
   };
 
+  const sitePlan = await buildSitePlanSheet({
+    parid, facts, qfInput, qf, qfError, rules, scheme, closest, frontInferred, generatedDate: todayIso(sp), score,
+  }).catch(() => null);
+
   return {
     parid,
     facts,
@@ -533,5 +542,6 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     plans,
     affordable,
     abatement,
+    sitePlan,
   };
 }

@@ -1,0 +1,48 @@
+{
+  "version": "site-plan.v0.1",
+  "sourceLabel": "Assumption — drawn from typical widths, not surveyed",
+  "note": "Curb, sidewalk and right-of-way lines on the site plan are offsets from the street centerline at typical Pittsburgh widths. They are not surveyed and do not show the actual right-of-way.",
+  "streets": {
+    "local": {
+      "suffixes": [],
+      "rightOfWayFt": 40,
+      "curbToCurbFt": 26,
+      "sidewalkFt": 5
+    },
+    "major": {
+      "suffixes": [
+        "AVE",
+        "BLVD",
+        "PKWY",
+        "HWY",
+        "AVENUE",
+        "BOULEVARD",
+        "PARKWAY"
+      ],
+      "rightOfWayFt": 50,
+      "curbToCurbFt": 34,
+      "sidewalkFt": 6
+    },
+    "alley": {
+      "suffixes": [
+        "WAY",
+        "ALY",
+        "ALLEY"
+      ],
+      "rightOfWayFt": 20,
+      "curbToCurbFt": 16,
+      "sidewalkFt": 0
+    }
+  },
+  "buildingStories": {
+    "sourceLabel": "Assumption — stories estimated from building height",
+    "storyHeightM": 3.2,
+    "roofAllowanceM": 1.5
+  },
+  "contours": {
+    "intervalFt": 2,
+    "indexEveryFt": 10
+  },
+  "steepSlopePct": 25,
+  "streetsRule": "A street's class comes from the last word of its name (suffix); anything else is 'local'."
+}
