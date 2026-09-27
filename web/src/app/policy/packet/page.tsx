@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { formatRange, fmtMoney } from "@/components/seats/format";
 import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
 import {
@@ -11,7 +11,7 @@ import "./packet.css";
 // table, p3 assumptions, sources and limitations. /api/policy/packet renders it to PDF. Every number
 // comes from the lever state's summary and the stored inputs; nothing is typed in here.
 
-const sans = Inter({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--pk-sans", display: "block" });
+const sans = localFont({ src: "../../fonts/brand-sans.woff2", weight: "100 900", style: "normal", variable: "--pk-sans", display: "block" });
 export const metadata: Metadata = { title: "Council packet — EaseScore.AI", robots: { index: false } };
 
 const DOT: Record<string, string> = { attached: "#000000", minLot: "#7a7a7a", "attached+minLot": "#333333", parking: "#b0b0b0", adu: "#555555", contextual: "#999999", height: "#444444" };

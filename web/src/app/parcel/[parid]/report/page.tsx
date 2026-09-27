@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { PRINT_HEADER, printToken } from "@/lib/report/pdf-cache";
-import { Archivo_Narrow, Inter, Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import { loadReport, loadReportHead, type ReportHead, type ReportModel } from "@/lib/report/load";
 import { buildSources } from "@/lib/report/sources";
 import { configVersionOf } from "@/lib/report/score";
@@ -21,10 +21,21 @@ import "./report.css";
 
 // Static weights (not the variable fonts): Chromium embeds static fonts as real text fonts in the PDF,
 // which keeps the file small and the letter spacing exact in every viewer.
-const serif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], style: ["normal", "italic"], variable: "--font-serif", display: "block" });
-const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "block" });
-// Condensed sans for the site plan sheet (EA-101), self-hosted by next/font.
-const narrow = Archivo_Narrow({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-narrow", display: "block" });
+// All fonts are bundled with the app (no build-time download from Google Fonts): Source Serif 4 and
+// Archivo Narrow from @fontsource (SIL OFL 1.1), Inter from the homepage's brand font file.
+const serif = localFont({ variable: "--font-serif", display: "block", src: [
+  { path: "../../../../../node_modules/@fontsource/source-serif-4/files/source-serif-4-latin-400-normal.woff2", weight: "400", style: "normal" },
+  { path: "../../../../../node_modules/@fontsource/source-serif-4/files/source-serif-4-latin-400-italic.woff2", weight: "400", style: "italic" },
+  { path: "../../../../../node_modules/@fontsource/source-serif-4/files/source-serif-4-latin-600-normal.woff2", weight: "600", style: "normal" },
+  { path: "../../../../../node_modules/@fontsource/source-serif-4/files/source-serif-4-latin-600-italic.woff2", weight: "600", style: "italic" },
+] });
+const sans = localFont({ src: "../../../fonts/brand-sans.woff2", weight: "100 900", style: "normal", variable: "--font-sans", display: "block" });
+// Condensed sans for the site plan sheet (EA-101).
+const narrow = localFont({ variable: "--font-narrow", display: "block", src: [
+  { path: "../../../../../node_modules/@fontsource/archivo-narrow/files/archivo-narrow-latin-400-normal.woff2", weight: "400", style: "normal" },
+  { path: "../../../../../node_modules/@fontsource/archivo-narrow/files/archivo-narrow-latin-600-normal.woff2", weight: "600", style: "normal" },
+  { path: "../../../../../node_modules/@fontsource/archivo-narrow/files/archivo-narrow-latin-700-normal.woff2", weight: "700", style: "normal" },
+] });
 
 export const metadata: Metadata = {
   title: "Feasibility Study — EaseScore.AI",

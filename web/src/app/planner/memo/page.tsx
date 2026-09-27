@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import {
   BADGE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
   parseFilters, parseSort, plannerOptions, plannerQuery, titleCase, type PlannerRow,
@@ -9,7 +9,7 @@ import "./memo.css";
 // Staff memo (print page): a cover summarizing the filter, counts and blockers, then one page per
 // shortlisted parcel. /api/planner/memo renders it to PDF. Every number comes from parcel_scores.
 
-const sans = Inter({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--memo-sans", display: "block" });
+const sans = localFont({ src: "../../fonts/brand-sans.woff2", weight: "100 900", style: "normal", variable: "--memo-sans", display: "block" });
 
 export const metadata: Metadata = { title: "Staff memo — EaseScore.AI", robots: { index: false } };
 
