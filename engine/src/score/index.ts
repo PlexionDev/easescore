@@ -1,7 +1,7 @@
-// Ease Score v0.1. Config: engine/config/ease-score.v0.1.json (passed in; the default is imported).
+// Ease Score. Config: engine/config/ease-score.v0.2.json (v0.1 kept for history) (passed in; the default is imported).
 export { scoreParcel, toEaseInput, isCityParcel, DEFAULT_CONFIG, type ScoreExtras, type EaseInputsRpc } from "./adapter";
-export { computeEaseScore, combine, pickBest, planningBadge, BLOCKED, PRELIMINARY, type ScoreContext } from "./score";
-export { f1Zoning, f2Terrain, f3Hazards, f4Access, f5Approvals, f6Readiness, f7Market, permitMonths, grantRate, SRC } from "./factors";
+export { computeEaseScore, combine, hazardCap, pickBest, planningBadge, BLOCKED, PRELIMINARY, type ScoreContext } from "./score";
+export { f1Zoning, f2Terrain, f3Hazards, f4Access, f5Approvals, f6Readiness, f7Market, permitMonths, grantRate, SRC, type GrantOdds } from "./factors";
 export { redFlags, reviewCallouts } from "./flags";
 export {
   STRATEGY_LABEL, NEW_BUILD, SCORE_TYPOLOGIES, STACKED_TRIPLEX, STACKED_FOURPLEX, fitFromQuickFit, schemeFromQuickFit, runStrategyFits,

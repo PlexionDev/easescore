@@ -1,9 +1,9 @@
-// Ease Score v0.1 shapes. The score is computed per housing strategy from one input object;
+// Ease Score shapes (config v0.2). The score is computed per housing strategy from one input object;
 // every factor reports its evidence level, inputs, sources and data dates.
 
 import type { UsePermission } from "../types";
 import type { QuickFitRules, Scheme } from "../quickfit/types";
-import type config from "../../config/ease-score.v0.1.json";
+import type config from "../../config/ease-score.v0.2.json";
 
 export type EaseScoreConfig = typeof config;
 
@@ -155,6 +155,8 @@ export interface StrategyResult {
   unlocks: StrategyUnlock[];
   /** Most units the strategy fits on its easiest zoning path, when QuickFit ran. */
   units: number | null;
+  /** Set when a hazard held the score down to a band ceiling (v0.2). */
+  cap?: { band: Band; reason: string; uncappedScore: number; label: string } | null;
   notes: string[];
   configVersion: string;
 }
@@ -238,6 +240,8 @@ export interface EaseScoreInput {
   market: { sales3y: number; permits3y: number | null; percentile: number | null; scope: "city" | "county"; asOf: string | null } | null;
   /** Relief counts for this zoning district, by relief type. */
   zba: Record<string, ZbaReliefCounts> | null;
+  /** Citywide relief counts by relief type (fallback when the district has too few decided cases). */
+  zbaCitywide?: Record<string, ZbaReliefCounts> | null;
   qct: boolean | null;
   /** Per strategy: does the requirements catalog mark a geotechnical report REQUIRED? */
   geotechRequired: Partial<Record<StrategyId, boolean>>;

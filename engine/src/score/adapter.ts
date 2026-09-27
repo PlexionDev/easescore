@@ -3,7 +3,7 @@
 // Maps the RPC payloads to the score input, runs the QuickFit fit test per strategy, scores every
 // strategy, and computes the policy "unlocks". No I/O: the caller fetches the RPCs.
 
-import defaultConfig from "../../config/ease-score.v0.1.json";
+import defaultConfig from "../../config/ease-score.v0.2.json";
 import { evaluateRequirements } from "../evaluate";
 import type { ParcelFacts, ProjectAnswers } from "../types";
 import type { QuickFitRules } from "../quickfit/types";
@@ -33,6 +33,8 @@ export interface ScoreExtras {
   easeInputs?: EaseInputsRpc | null;
   /** public.zba_grant_rates(district) */
   zba?: { by_relief?: Record<string, ZbaReliefCounts> } | null;
+  /** Citywide decided cases by relief type (fallback when the district has too few). */
+  zbaCitywide?: Record<string, ZbaReliefCounts> | null;
   /** permit_time_estimate(...) rows for the queries named in config f5.permitTimeQueries. */
   permitTimes?: Partial<Record<"new_build" | "rehab", PermitTimeStats>>;
   project?: { affordableUnitsProposed?: boolean | null };
@@ -138,6 +140,7 @@ export function toEaseInput(facts: ParcelFacts, extras: ScoreExtras = {}): EaseS
     },
     market: m ? { sales3y: m.sales_3y_half_mile, permits3y: m.completed_permits_3y_half_mile ?? null, percentile: m.percentile, scope: m.scope, asOf: m.as_of ?? null } : null,
     zba: extras.zba?.by_relief ?? null,
+    zbaCitywide: extras.zbaCitywide ?? null,
     qct: f.tract_designations ? f.tract_designations.qct ?? null : null,
     geotechRequired,
     ...(extras.project ? { project: extras.project } : {}),

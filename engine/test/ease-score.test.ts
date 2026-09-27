@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { score, type ParcelFacts } from "../src";
-import config from "../config/ease-score.v0.1.json";
+import config from "../config/ease-score.v0.2.json";
 import parks from "./fixtures/score/parks-district-hillside.json";
 import steep from "./fixtures/score/steep-landslide-r1d-h.json";
 import narrow from "./fixtures/score/narrow-through-lot-r1d-h.json";
 import hillside from "./fixtures/score/hillside-r1d-h.json";
 import flat from "./fixtures/score/flat-vacant-r2-h.json";
+import ura from "./fixtures/score/ura-lot-rm-m.json";
 
 // Fixtures were captured from the live RPCs with ids, addresses and locations redacted.
 type Fixture = { facts: unknown; quickfitInput: unknown; easeInputs: unknown; zba: unknown };
@@ -28,8 +29,9 @@ function flatWith(mut: (f: any, x: any) => void) {
 }
 
 describe("config", () => {
-  it("is version 0.1 with weights summing to 100", () => {
-    expect(config.version).toBe("0.1");
+  it("is version 0.2 with weights summing to 100", () => {
+    expect(config.version).toBe("0.2");
+    expect(config.caps).toMatchObject({ varianceF1Max: 90, hazardBand: { maxBand: "Moderate", landslideProneShareMin: 0.5, steepShareOver25Min: 0.4 } });
     expect(Object.values(config.weights).reduce((a, b) => a + b, 0)).toBe(100);
     expect(config.evidence.minEvidenceShare).toBe(0.6);
     expect(config.evidence.coverageThreshold).toBe(0.9);
@@ -39,8 +41,8 @@ describe("config", () => {
 
   it("stamps the config version on every result", () => {
     const r = run(flat as Fixture, { unlocks: false });
-    expect(r.configVersion).toBe("0.1");
-    for (const s of r.strategies) expect(s.configVersion).toBe("0.1");
+    expect(r.configVersion).toBe("0.2");
+    for (const s of r.strategies) expect(s.configVersion).toBe("0.2");
   });
 });
 
@@ -164,18 +166,40 @@ describe("red flags vs review callouts", () => {
 });
 
 describe("F1 zoning permission", () => {
-  it("dimensional variance: permission x (0.5 + 0.5 x district grant rate) when 5+ cases", () => {
+  it("dimensional variance: permission x (0.5 + 0.5 x district grant rate) x 90% cap when 5+ cases", () => {
     const s = strat(run(narrow as Fixture, { unlocks: false }), "new_sf");
     const f1 = fac(s, "F1");
     expect(f1.inputs.fitStatus).toBe("variance");
     expect(f1.inputs.varianceRules).toContain("side_setback");
-    expect(f1.subscore).toBeCloseTo(100 * (0.5 + 0.5 * (23 / 28)), 1);
+    expect(f1.inputs.grantRateScope).toBe("district");
+    expect(f1.inputs.grantRateCases).toBe(28);
+    expect(f1.inputs.grantRateBasis).toMatch(/23 of 28 decided requests granted in R1D-H/);
+    expect(f1.subscore).toBeCloseTo(90 * (0.5 + 0.5 * (23 / 28)), 1);
+    expect(f1.subscore!).toBeLessThan(100);
   });
 
-  it("uses the 0.6 default when the district has fewer than 5 decided cases", () => {
+  it("any variance keeps F1 below 100, even with every past request granted", () => {
+    const fx = clone(narrow) as any;
+    fx.zba.by_relief.dimensional_variance = { granted: 40, denied: 0 };
+    const f1 = fac(strat(run(fx, { unlocks: false }), "new_sf"), "F1");
+    expect(f1.inputs.fitStatus).toBe("variance");
+    expect(f1.subscore).toBe(90);
+  });
+
+  it("falls back to citywide dimensional variances, labeled with the case count and years", () => {
+    const f1 = fac(strat(run(parks as Fixture, { unlocks: false, zbaCitywide: { dimensional_variance: { granted: 207, denied: 35, from: "2025-02-10", to: "2026-08-28" } } }), "new_sf"), "F1");
+    expect(f1.inputs.grantRateScope).toBe("citywide");
+    expect(f1.inputs.grantRateCases).toBe(242);
+    expect(f1.inputs.grantRateBasis).toMatch(/^citywide dimensional variances \(242 cases, 2025–2026\)/);
+    expect(f1.subscore).toBeCloseTo(90 * (0.5 + 0.5 * (207 / 242)), 1);
+  });
+
+  it("uses the 0.6 default only when no record is available, and says it is a default with the case count", () => {
     const f1 = fac(strat(run(parks as Fixture, { unlocks: false }), "new_sf"), "F1");
-    expect(f1.inputs.grantRateBasis).toMatch(/fewer than 5/);
-    expect(f1.subscore).toBeCloseTo(100 * (0.5 + 0.5 * 0.6), 6);
+    expect(f1.inputs.grantRateScope).toBe("default");
+    expect(f1.inputs.grantRateBasis).toMatch(/^default 60%, not from case records \(\d+ decided cases in /);
+    expect(f1.oneLiner).toMatch(/default 60%/);
+    expect(f1.subscore).toBeCloseTo(90 * (0.5 + 0.5 * 0.6), 6);
   });
 
   it("ADU rules are not loaded: F1 missing, never guessed", () => {
@@ -329,5 +353,29 @@ describe("validation parcels", () => {
     expect(fac(s, "F6").subscore).toBe(100);
     expect(s.reviewCallouts.map((c) => c.id)).toContain("landslide_prone");
     expect(s.redFlags).toHaveLength(0);
+  });
+});
+
+describe("v0.2 hazard cap", () => {
+  it("a mostly landslide-prone, steep lot is held to Moderate with a labeled reason", () => {
+    const r = run(ura as unknown as Fixture, { unlocks: false });
+    for (const id of score.NEW_BUILD) {
+      const s = strat(r, id);
+      expect(s.band).toBe("Moderate");
+      expect(s.score!).toBeLessThanOrEqual(74);
+    }
+    const s = strat(r, "new_sf");
+    expect(s.cap).toMatchObject({ band: "Moderate", uncappedScore: 77, reason: "75% of the lot is landslide-prone; 47% of the lot is steeper than 25%" });
+    expect(s.labels).toContain("Capped at Moderate: 75% of the lot is landslide-prone; 47% of the lot is steeper than 25%");
+  });
+
+  it("either trigger alone caps; below both thresholds nothing is capped", () => {
+    const steepOnly = flatWith((f) => { f.slope_1m = { ...(f.slope_1m ?? {}), share_over_25: 0.4 }; });
+    const s1 = strat(run(steepOnly, { unlocks: false }), "new_sf");
+    if (s1.cap) expect(s1.cap.reason).toBe("40% of the lot is steeper than 25%");
+    expect(s1.band === "Easy").toBe(false);
+    const s0 = strat(run(flat as Fixture, { unlocks: false }), "new_sf");
+    expect(s0.cap ?? null).toBeNull();
+    expect(s0.labels.some((l) => l.startsWith("Capped"))).toBe(false);
   });
 });

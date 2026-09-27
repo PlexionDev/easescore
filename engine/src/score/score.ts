@@ -1,14 +1,14 @@
-// Ease Score v0.1: combine factors into a per-strategy score, band, range and labels.
+// Ease Score (config v0.2): combine factors into a per-strategy score, band, range and labels.
 // Pure and deterministic. Takes precomputed dimensional fits (see strategies.ts) so it never runs
 // the QuickFit solver itself.
 
 import type { QuickFitRules } from "../quickfit/types";
-import { bandFor, r1 } from "./curves";
+import { bandFor, pctText, r1 } from "./curves";
 import { f1Zoning, f2Terrain, f3Hazards, f4Access, f5Approvals, f6Readiness, f7Market, type F1Out } from "./factors";
 import { redFlags, reviewCallouts } from "./flags";
 import { STRATEGY_LABEL } from "./strategies";
 import type {
-  BadgeCriterion, EaseScoreConfig, EaseScoreInput, EaseScoreResult, FactorResult, PlanningBadge, StrategyFit, StrategyId,
+  Band, BadgeCriterion, EaseScoreConfig, EaseScoreInput, EaseScoreResult, FactorResult, PlanningBadge, StrategyFit, StrategyId,
   StrategyResult,
 } from "./types";
 
@@ -70,11 +70,18 @@ function scoreOne(inp: EaseScoreInput, s: StrategyId, ctx: ScoreContext, cfg: Ea
   const f1 = f1Zoning(inp, s, fit, ctx.rules, cfg);
   const f5 = f5Approvals(inp, s, f1, cfg);
   const factors = [f1.factor, f2Terrain(inp, s, fit, cfg), f3Hazards(inp, cfg), f4Access(inp, cfg), f5.factor, f6Readiness(inp, s, cfg), f7Market(inp, cfg)];
-  const { score, range, evidenceShare } = combine(factors, cfg);
+  const combined = combine(factors, cfg);
+  const cap = hazardCap(inp, combined.score, cfg);
+  const score = cap ? Math.min(combined.score!, cap.ceiling) : combined.score;
+  const range = combined.range && cap
+    ? ([Math.min(combined.range[0], cap.ceiling), Math.min(combined.range[1], cap.ceiling)] as [number, number])
+    : combined.range;
+  const evidenceShare = combined.evidenceShare;
   const flags = redFlags(inp, cfg);
   const labels: string[] = [];
   if (flags.length) labels.push(BLOCKED);
   if (evidenceShare < cfg.evidence.minEvidenceShare) labels.push(PRELIMINARY);
+  if (cap) labels.push(cap.label);
   const notes: string[] = [...(fit?.notes ?? [])];
   if (!inp.isPittsburgh) notes.push(`Zoning for ${inp.municipality ?? "this municipality"} is not loaded: confirm zoning with ${inp.municipality ?? "the municipality"}.`);
   return {
@@ -94,9 +101,32 @@ function scoreOne(inp: EaseScoreInput, s: StrategyId, ctx: ScoreContext, cfg: Ea
       planningBadge: emptyBadge(cfg),
       unlocks: [],
       units: s === "rehab_existing" ? null : fit?.units ?? null,
+      cap: cap ? { band: cap.band, reason: cap.reason, uncappedScore: combined.score!, label: cap.label } : null,
       notes,
     },
   };
+}
+
+/**
+ * v0.2 hazard cap: a lot that is mostly landslide-prone, or largely steeper than 25%, cannot score
+ * above caps.hazardBand.maxBand. Returns the ceiling score and the label, or null when no cap applies
+ * (or the score already sits at or below the ceiling).
+ */
+export function hazardCap(inp: EaseScoreInput, score: number | null, cfg: EaseScoreConfig) {
+  if (score == null) return null;
+  const h = cfg.caps.hazardBand;
+  const reasons: string[] = [];
+  const ls = inp.hazards.landslideProneShare;
+  if (ls != null && ls >= h.landslideProneShareMin) reasons.push(`${pctText(ls)} of the lot is landslide-prone`);
+  const st = inp.slope?.shareOver25;
+  if (st != null && st >= h.steepShareOver25Min) reasons.push(`${pctText(st)} of the lot is steeper than 25%`);
+  if (!reasons.length) return null;
+  const i = cfg.bands.findIndex((b) => b.band === h.maxBand);
+  if (i <= 0) return null;
+  const ceiling = cfg.bands[i - 1]!.min - 1;
+  if (score <= ceiling) return null;
+  const reason = reasons.join("; ");
+  return { ceiling, band: h.maxBand as Band, reason, label: `Capped at ${h.maxBand}: ${reason}` };
 }
 
 function emptyBadge(cfg: EaseScoreConfig): PlanningBadge {

@@ -108,16 +108,50 @@ export interface F1Out {
   fitStatus: StrategyFit["status"] | null;
 }
 
-export function grantRate(inp: EaseScoreInput, cfg: EaseScoreConfig, reliefType: string) {
+const yearSpan = (c: { from?: string | null; to?: string | null }) => {
+  const a = c.from?.slice(0, 4);
+  const b = c.to?.slice(0, 4);
+  return a && b ? (a === b ? a : `${a}–${b}`) : a ?? b ?? null;
+};
+
+export interface GrantOdds {
+  rate: number;
+  /** Plain label, always with the case count; says "default" when no case record is used. */
+  basis: string;
+  /** Decided cases behind the rate (0 for the default). */
+  n: number;
+  isDefault: boolean;
+  scope: "district" | "citywide" | "default";
+}
+
+/**
+ * Grant odds for a relief type: this district's decided cases when there are at least minCases;
+ * otherwise the citywide record for the same relief type; otherwise the config default, labeled as one.
+ */
+export function grantRate(inp: EaseScoreInput, cfg: EaseScoreConfig, reliefType: string): GrantOdds {
+  const z = cfg.f1.zba;
+  const district = inp.zoning?.code ?? "this district";
   const c = inp.zba?.[reliefType];
   const decided = (c?.granted ?? 0) + (c?.denied ?? 0);
-  if (c && decided >= cfg.f1.zba.minCases)
-    return { rate: c.granted / decided, basis: `${c.granted} of ${decided} decided requests granted in ${inp.zoning?.code}`, n: decided, isDefault: false };
+  if (c && decided >= z.minCases) {
+    const yrs = yearSpan(c);
+    return { rate: c.granted / decided, basis: `${c.granted} of ${decided} decided requests granted in ${district}${yrs ? ` (${yrs})` : ""}`, n: decided, isDefault: false, scope: "district" };
+  }
+  const cw = z.citywideFallback ? inp.zbaCitywide?.[reliefType] : undefined;
+  const cwN = (cw?.granted ?? 0) + (cw?.denied ?? 0);
+  const kind = reliefType === "dimensional_variance" ? "dimensional variances" : reliefType.replace(/_/g, " ") + "s";
+  if (cw && cwN >= z.minCases) {
+    const yrs = yearSpan(cw);
+    return {
+      rate: cw.granted / cwN,
+      basis: `citywide ${kind} (${cwN} cases${yrs ? `, ${yrs}` : ""}): ${cw.granted} granted; ${district} has only ${decided} decided`,
+      n: cwN, isDefault: false, scope: "citywide",
+    };
+  }
   return {
-    rate: cfg.f1.zba.defaultGrantRate,
-    basis: `fewer than ${cfg.f1.zba.minCases} decided requests in ${inp.zoning?.code ?? "this district"} (${decided}); default ${Math.round(cfg.f1.zba.defaultGrantRate * 100)}% used`,
-    n: decided,
-    isDefault: true,
+    rate: z.defaultGrantRate,
+    basis: `default ${Math.round(z.defaultGrantRate * 100)}%, not from case records (${decided} decided cases in ${district}; citywide record not available)`,
+    n: decided, isDefault: true, scope: "default",
   };
 }
 
@@ -198,13 +232,20 @@ export function f1Zoning(
     else if (fit.status === "contextual") { dim = d.contextualSetback; dimText = "; it fits once the contextual front setback applies (no hearing)"; inputs.contextualFrontSetbackFt = cfg.f1.contextualFrontSetbackFt; }
     else if (fit.status === "variance") {
       const g = grantRate(inp, cfg, cfg.f1.zba.dimensionalReliefType);
-      dim = d.varianceBase + d.varianceRateWeight * g.rate;
+      // v0.2: a variance path never scores like a sure thing; F1 tops out at caps.varianceF1Max.
+      dim = (d.varianceBase + d.varianceRateWeight * g.rate) * (cfg.caps.varianceF1Max / 100);
+      inputs.varianceF1Max = cfg.caps.varianceF1Max;
+      inputs.grantRateScope = g.scope;
+      inputs.grantRateCases = g.n;
       approvals.push("dimensional_variance");
       sources.push(SRC.zba);
       inputs.varianceRules = fit.varianceRules;
       inputs.grantRate = r1(g.rate * 100) / 100;
       inputs.grantRateBasis = g.basis;
-      dimText = `; it needs a dimensional variance (${fit.varianceRules.map((r) => r.replace(/_/g, " ")).join(", ")}), granted ${Math.round(g.rate * 100)}% of the time (${g.basis})`;
+      const vr = fit.varianceRules.map((r) => r.replace(/_/g, " ")).join(", ");
+      dimText = g.isDefault
+        ? `; it needs a dimensional variance (${vr}); past decisions are too few to judge, so a ${g.basis} is assumed`
+        : `; it needs a dimensional variance (${vr}), granted ${Math.round(g.rate * 100)}% of the time (${g.basis})`;
     } else if (fit.status === "no_fit") { dim = d.noFit; dimText = "; no building of this type fits the lot, even with reduced setbacks"; }
     if (fit.status === "variance" && rules.contextual_front_setback) dimText += " (the contextual front setback was also tried and is not enough)";
 
