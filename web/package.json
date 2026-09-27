@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/ && rm -rf public/cesium && mkdir -p public/cesium && cp -R node_modules/cesium/Build/Cesium/Workers node_modules/cesium/Build/Cesium/Assets node_modules/cesium/Build/Cesium/Widgets node_modules/cesium/Build/Cesium/ThirdParty public/cesium/"
+    "postinstall": "cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/ && rm -rf public/cesium && CESIUM_DIR=public/cesium/$(node -p \"require('cesium/package.json').version\") && mkdir -p $CESIUM_DIR && cp -R node_modules/cesium/Build/Cesium/Workers node_modules/cesium/Build/Cesium/Assets node_modules/cesium/Build/Cesium/Widgets node_modules/cesium/Build/Cesium/ThirdParty $CESIUM_DIR/"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
