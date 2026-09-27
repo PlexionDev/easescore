@@ -100,13 +100,23 @@ export interface ProjectResult {
   sources: SourceResult[];
   enabled: string[];
   remaining: MoneyRange;
+  /** Enabled sources flagged "!" (a caution check): the gap may not close if they do not come through. */
+  flagged: string[];
+  /** Remaining gap counting only the enabled sources with no caution (✓ only). Equals `remaining` when nothing is flagged. */
+  firm: MoneyRange;
+  /**
+   * Tax abatement (LERTA): lowers property taxes over years; not construction money, so it is never in the
+   * capital stack or the remaining gap. Present value shown separately, labeled. Null when not modeled.
+   */
+  taxSavings: SourceResult | null;
   /** Likely-case stacked bar: debt, then each enabled source in order, then the remaining gap. */
   stack: StackPiece[];
   /** Money beyond the mortgage, per home (gap before sources ÷ homes). */
   subsidyPerUnit: MoneyRange;
   /** Remaining gap per home. */
   remainingPerUnit: MoneyRange;
-  benchmark: { label: string; low: number; high: number; source: string; note: string };
+  /** Like-for-like comparison: rental = development cost per home vs. recent local new affordable rentals; for-sale = subsidy per home vs. a local for-sale subsidy estimate. */
+  benchmark: { label: string; low: number; high: number; source: string; note: string; compareLabel: string; compare: MoneyRange; verdict: "below" | "within" | "above" };
   receipts: { gap: string; remaining: string };
 }
 
@@ -162,8 +172,8 @@ export function eligibility(src: SourceCfg, p: Pick<ProjectInput, "units" | "con
       if (c.tenure !== "rent") { out.push({ status: "no", text: "Tax credits fund rental homes" }); break; }
       out.push(maxAmi <= (rules.maxAmiPct as number) ? { status: "ok", text: `Units at or below ${rules.maxAmiPct}% AMI` } : { status: "no", text: `Units above ${rules.maxAmiPct}% AMI (income averaging not modeled)` });
       if (qctDda) out.push({ status: "ok", text: c.qct ? "Qualified census tract (130% basis boost)" : "Difficult development area (130% basis boost)" });
-      if (src.id === "lihtc4" && units < (rules.practicalMinUnits as number)) out.push({ status: "caution", text: `Needs tax-exempt bond financing; projects under about ${rules.practicalMinUnits} homes rarely use it alone (Assumption, edit me)` });
-      if (src.id === "lihtc9" && units < (rules.competitiveMinUnits as number)) out.push({ status: "caution", text: `Project likely too small to compete (under about ${rules.competitiveMinUnits} homes; Assumption, edit me)` });
+      if (src.id === "lihtc4" && units < (rules.practicalMinUnits as number)) out.push({ status: "caution", text: `Needs tax-exempt bond financing; projects under about ${rules.practicalMinUnits} homes rarely use it alone (Assumption)` });
+      if (src.id === "lihtc9" && units < (rules.competitiveMinUnits as number)) out.push({ status: "caution", text: `Project likely too small to compete (under about ${rules.competitiveMinUnits} homes; Assumption)` });
       break;
     }
     case "home":
@@ -199,7 +209,7 @@ export function eligibility(src: SourceCfg, p: Pick<ProjectInput, "units" | "con
     case "hba":
       if (c.tenure !== "sale") { out.push({ status: "no", text: "Helps homebuyers; for-sale homes only" }); break; }
       out.push(maxAmi <= (rules.maxAmiPct as number) ? { status: "ok", text: `Buyers at or below ${rules.maxAmiPct}% AMI` } : { status: "no", text: `Buyers above ${rules.maxAmiPct}% AMI rarely qualify` });
-      if (maxAmi > (rules.programLimitNoteAbovePct as number) && maxAmi <= (rules.maxAmiPct as number)) out.push({ status: "caution", text: `Each program sets its own income limit; above ${rules.programLimitNoteAbovePct}% AMI check the program (Assumption, edit me)` });
+      if (maxAmi > (rules.programLimitNoteAbovePct as number) && maxAmi <= (rules.maxAmiPct as number)) out.push({ status: "caution", text: `Each program sets its own income limit; above ${rules.programLimitNoteAbovePct}% AMI check the program (Assumption)` });
       break;
     case "clt":
       if (c.tenure !== "sale") { out.push({ status: "no", text: "Modeled for for-sale homes only" }); break; }
@@ -295,7 +305,7 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
     const t = (s as { tenures?: string[] }).tenures;
     return !t || t.includes(p.context.tenure);
   };
-  const sources: SourceResult[] = cfg.sources.filter(fits).map((s) => {
+  const all: SourceResult[] = cfg.sources.filter(fits).map((s) => {
     const checks = eligibility(s, p);
     const { amount, basis } = sourceAmount(s, p);
     return {
@@ -303,6 +313,9 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
       amount, amountBasis: basis, amountSource: (s.amount as { sourceLabel: string }).sourceLabel, checks, status: worst(checks), label2: TYPICAL_LABEL,
     };
   });
+  // A tax abatement is not capital: it is shown on its own (taxSavings), never stacked against the construction gap.
+  const sources = all.filter((s) => s.kind !== "abatement");
+  const taxSavings = all.find((s) => s.kind === "abatement") ?? null;
   // Sources that count the same money (land trust vs. land write-down): the first one switched on in config order wins.
   const exclusive = (id: string) => ((cfg.sources.find((x) => x.id === id)?.rules as { exclusiveWith?: string[] } | undefined)?.exclusiveWith ?? []);
   const on: SourceResult[] = [];
@@ -311,8 +324,10 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
     if (on.some((o) => exclusive(s.id).includes(o.id) || exclusive(o.id).includes(s.id))) continue;
     on.push(s);
   }
-  const sum = (k: keyof MoneyRange) => on.reduce((t, s) => t + s.amount[k], 0);
+  const sum = (k: keyof MoneyRange, xs = on) => xs.reduce((t, s) => t + s.amount[k], 0);
   const remaining = clamp0(ordered(gapBefore.low - sum("high"), gapBefore.likely - sum("likely"), gapBefore.high - sum("low")));
+  const sure = on.filter((s) => s.status === "ok");
+  const firm = clamp0(ordered(gapBefore.low - sum("high", sure), gapBefore.likely - sum("likely", sure), gapBefore.high - sum("low", sure)));
 
   const stack: StackPiece[] = [{ id: "debt", short: sale ? "Home sales" : "Loan", applied: debt.loan.likely }];
   let left = gapBefore.likely;
@@ -324,16 +339,35 @@ export function evaluateProject(p: ProjectInput, il: IncomeLimits, enabled: stri
   stack.push({ id: "gap", short: "Gap", applied: Math.max(0, left) });
 
   const per = (r: MoneyRange): MoneyRange => (units ? ordered(r.low / units, r.likely / units, r.high / units, 1_000) : { low: 0, likely: 0, high: 0 });
-  const hbc = COST_CONFIG.benchmarks.homeownershipSubsidy;
-  const hb = { low: hbc.range[0]!, high: hbc.range[1]! };
+  const subsidyPerUnit = per(gapBefore);
+  const verdict = (x: MoneyRange, lo: number, hi: number) => (x.high < lo ? "below" as const : x.low > hi ? "above" as const : "within" as const);
+  let benchmark: ProjectResult["benchmark"];
+  if (sale) {
+    const hbc = COST_CONFIG.benchmarks.homeownershipSubsidy;
+    const lo = hbc.range[0]!, hi = hbc.range[1]!;
+    benchmark = {
+      label: "Subsidy per affordable for-sale home in Pittsburgh", low: lo, high: hi, source: hbc.sourceLabel,
+      note: "Subsidy against subsidy: the same kind of home. The subsidy here moves one for one with the development cost per home.",
+      compareLabel: "Subsidy gap per home (cost − affordable price)", compare: subsidyPerUnit, verdict: verdict(subsidyPerUnit, lo, hi),
+    };
+  } else {
+    // Development cost per home of recent new affordable rental buildings in Allegheny County (config benchmarks; rehab and conversions left out).
+    const pj = COST_CONFIG.benchmarks.projects.filter((x) => /^New\b/.test(x.type));
+    const lo = Math.min(...pj.map((x) => x.perUnit)), hi = Math.max(...pj.map((x) => x.perUnit));
+    const tdcPer = per(tdc);
+    benchmark = {
+      label: "Development cost per home, recent new affordable rentals in Allegheny County", low: lo, high: hi,
+      source: pj.map((x) => `${x.name}, ${x.units} homes (${x.sourceLabel})`).join("; "),
+      note: `Cost against cost, but a rough match: those are ${Math.min(...pj.map((x) => x.units))}–${Math.max(...pj.map((x) => x.units))}-home multifamily buildings, a different building type from homes on scattered lots. No published per-home rental subsidy benchmark is loaded, so the subsidy is not compared.`,
+      compareLabel: "Development cost per home", compare: tdcPer, verdict: verdict(tdcPer, lo, hi),
+    };
+  }
   return {
     tenure: sale ? "sale" : "rent",
-    units, rents, sales, saleAssumptions: ha?.list ?? [], tdc, debt, gapBefore, sources, enabled: on.map((s) => s.id), remaining, stack,
-    subsidyPerUnit: per(gapBefore), remainingPerUnit: per(remaining),
-    benchmark: {
-      label: "Subsidy per affordable for-sale home in Pittsburgh", ...hb, source: hbc.sourceLabel,
-      note: sale ? "The same kind of home: a direct comparison." : "A for-sale benchmark; rental subsidy needs differ.",
-    },
+    units, rents, sales, saleAssumptions: ha?.list ?? [], tdc, debt, gapBefore, sources, enabled: on.map((s) => s.id), remaining,
+    flagged: on.filter((s) => s.status === "caution").map((s) => s.id), firm, taxSavings, stack,
+    subsidyPerUnit, remainingPerUnit: per(remaining),
+    benchmark,
     receipts: {
       gap: sale
         ? `Total development cost (pro forma) − what the buyers can pay (sum of the affordable prices) = subsidy needed. Low = low cost − high prices; high = high cost − low prices.`

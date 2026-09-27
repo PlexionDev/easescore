@@ -60,6 +60,9 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
   const input = cost && il ? projectInput(cost, s.tenure, groups, s.own) : null;
   const r = input && il ? affordable.evaluateProject(input, il, s.sources) : null;
   const sale = s.tenure === "sale";
+  // Headline gap counts only sources with no caution (✓); flagged (!) sources are shown separately, as on the page.
+  const flaggedOn = r ? r.sources.filter((x) => r.flagged.includes(x.id)) : [];
+  const headGap = r ? (flaggedOn.length ? r.firm : r.remaining) : null;
   const lihtc = area?.lihtc ?? [];
   const bandKey = ["le30", "30_50", "50_80", "80_100", "gt100"] as const;
   const maxRent = Math.max(...(ladder ?? []).map((x) => x.affordableRent ?? 0), n?.rent ?? 0) * 1.08 || 1;
@@ -71,8 +74,8 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
         <h1>Affordable homes for {hood}: the need, the sites, and the gap to close</h1>
         <p className="br-lede">
           {n?.rb30 != null ? `${inTen(n.rb30)} renters in ${hood} pay more than 30% of their income on rent. ` : ""}
-          {r && !sale ? `A ${r.units}-home rental project on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; after a mortgage the restricted rents can carry, it needs ${rng(r.gapBefore)} from other sources, and ${rng(r.remaining)} remains after the sources below.` : ""}
-          {r && sale ? `${r.units} homes for sale on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; the families they serve can pay ${rng(r.debt.loan)} in all, so each home needs about ${rng(r.subsidyPerUnit)} in subsidy (the local benchmark is ${usdK(r.benchmark.low)}–${usdK(r.benchmark.high)}), and ${rng(r.remaining)} remains after the sources below.` : ""}
+          {r && !sale ? `A ${r.units}-home rental project on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)}; after a mortgage the restricted rents can carry, it needs ${rng(r.gapBefore)} from other sources, and ${rng(headGap!)} remains after the sources below${flaggedOn.length ? " marked ✓" : ""}.` : ""}
+          {r && sale ? `${r.units} homes for sale on ${lots.length} public lot${lots.length === 1 ? "" : "s"} would cost about ${rng(r.tdc)} (${rng(perHome(r.tdc, r.units))} per home); the families they serve can pay ${rng(r.debt.loan)} in all, so each home needs about ${rng(r.subsidyPerUnit)} in subsidy (${r.benchmark.source}: ${usdK(r.benchmark.low)}–${usdK(r.benchmark.high)} per home), and ${rng(headGap!)} remains after the sources below${flaggedOn.length ? " marked ✓" : ""}.` : ""}
         </p>
       </header>
 
@@ -105,7 +108,12 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
         ) : null}
         <p className="br-small">
           {n?.qct ? "The area is a HUD Qualified Census Tract (tax-credit basis boost). " : ""}
-          {lihtc.length ? `${lihtc.length} tax-credit (LIHTC) properties with about ${lihtc.reduce((t, l) => t + (l.li_units ?? 0), 0).toLocaleString("en-US")} income-restricted homes are in or within half a mile of ${hood} (HUD, placed in service through 2019). ` : ""}
+          {lihtc.length ? (() => {
+            const known = lihtc.reduce((t, l) => t + (l.li_units ?? 0), 0).toLocaleString("en-US");
+            const unknown = lihtc.filter((l) => l.li_units == null).length;
+            const homes = unknown === lihtc.length ? "; HUD does not list their income-restricted home counts" : unknown ? `, with at least ${known} income-restricted homes (${unknown} list no count)` : `, with about ${known} income-restricted homes`;
+            return `${lihtc.length} tax-credit (LIHTC) ${lihtc.length === 1 ? "property is" : "properties are"} in or within half a mile of ${hood}${homes} (HUD LIHTC database, placed in service through 2019; newer projects are not in it). `;
+          })() : ""}
           {n?.poverty != null ? `About ${Math.round(n.poverty)}% of people here live below the poverty line. ` : ""}
           {n?.method}
         </p>
@@ -121,12 +129,15 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               <tbody>
                 {lots.map((l, i) => {
                   const st = statusNote(l.agency_status);
+                  // The parcel page's own figures for the lot (site-fit check, mapped lot area) when the project read them.
+                  const pc = cost?.lots.find((c) => c.parid === l.parid.trim());
+                  const lotSf = pc?.lotSqft ?? (l.lot_sqft ? Math.round(Number(l.lot_sqft)) : null);
                   return (
                     <tr key={l.parid}>
                       <td>{i + 1}</td>
-                      <td><b>{title(l.address, l.parid)}</b><br /><small>{shortParid(l.parid)} · {l.lot_sqft ? `${Math.round(Number(l.lot_sqft)).toLocaleString("en-US")} sq ft` : ""} · zoning {l.zoning ?? "—"} · Ease Score {l.score ?? "—"} ({l.band ?? "no band"})</small></td>
+                      <td><b>{title(l.address, l.parid)}</b><br /><small>{shortParid(l.parid)} · {lotSf ? `${lotSf.toLocaleString("en-US")} sq ft` : ""} · zoning {l.zoning ?? "—"} · Ease Score {l.score ?? "—"} ({l.band ?? "no band"})</small></td>
                       <td>{l.agency ?? (l.owner_class === "public" ? "Public owner" : "Private")}{st ? <><br /><small>{st.text}</small></> : null}</td>
-                      <td className="num">{l.by_right_units ?? "—"}</td>
+                      <td className="num">{pc?.byRightUnits ?? l.by_right_units ?? "—"}{pc?.bestLabel ? <><br /><small>best: {pc.bestLabel.toLowerCase()}</small></> : null}</td>
                       <td>{(l.red_flags ?? []).length ? (l.red_flags ?? []).map((f) => f.title).join("; ") : "None"}</td>
                     </tr>
                   );
@@ -157,7 +168,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
             <p className="br-small"><b>How the price is figured:</b> {r.saleAssumptions.map((a) => `${a.label} ${a.value}${a.assumption ? " (assumption)" : ""}`).join("; ")}.</p>
             <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
             <ul className="br-small">
-              {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}{l.mine ? " (over undermined ground)" : ""}</li>)}
+              {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}{l.sale?.tdc ? `, ${rng(l.sale.tdc)}` : ", not priced"}{l.mine ? " (over undermined ground)" : ""}{l.notes.length ? ` (${l.notes.join(" ")})` : ""}</li>)}
             </ul>
           </>
         ) : r && il ? (
@@ -165,7 +176,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
             <p>{r.units} rental homes of {s.bedrooms} bedroom{s.bedrooms === 1 ? "" : "s"}, {s.perLot} per lot. Who they serve:</p>
             <ul className="br-serves">
               {r.rents.map((x) => (
-                <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (assumption, edit me).</li>
+                <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (assumption; replace with the HACP / ACHA schedule).</li>
               ))}
             </ul>
             <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
@@ -183,8 +194,9 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
             <div><span>Total cost</span><b>{rng(r.tdc)}</b></div>
             <div><span>{sale ? "What the buyers can pay" : "Mortgage the rents can carry"}</span><b>{rng(r.debt.loan)}</b></div>
             <div><span>Gap before other sources</span><b>{rng(r.gapBefore)}</b></div>
-            <div className="hl"><span>Remaining gap with the sources marked “on”</span><b>{rng(r.remaining)}</b></div>
+            <div className="hl"><span>Remaining gap with the sources marked “on”{flaggedOn.length ? " and ✓" : ""}</span><b>{rng(headGap!)}</b></div>
           </div>
+          {flaggedOn.length ? <p className="br-small">If {flaggedOn.map((x) => x.label).join(" and ")} (on, but flagged ! below) also came through, the remaining gap would be {rng(r.remaining)}.</p> : null}
           <div className="br-stack">
             {r.stack.filter((p) => p.applied > 0).map((p) => <i key={p.id} className={p.id === "gap" ? "gap" : ""} style={{ flex: p.applied }}><span>{p.applied / r.tdc.likely > 0.08 ? `${p.short} ${usdK(p.applied)}` : ""}</span></i>)}
           </div>
@@ -203,7 +215,8 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               ))}
             </tbody>
           </table>
-          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.label.charAt(0).toLowerCase() + r.benchmark.label.slice(1)}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}; {r.benchmark.note.toLowerCase()})</p>
+          {r.taxSavings && r.taxSavings.amount.high > 0 ? <p className="br-small"><b>Not construction money:</b> {r.taxSavings.label} lowers the {sale ? "owners'" : "operator's"} property taxes over the years, worth about {rng(r.taxSavings.amount)} in today&apos;s dollars (typical, not an award; {r.taxSavings.checks.map((c) => c.text).join("; ")}). It is not in the stack or the gap.</p> : null}
+          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.compareLabel.charAt(0).toLowerCase() + r.benchmark.compareLabel.slice(1)} here is {usdK(r.benchmark.compare.low)}–{usdK(r.benchmark.compare.high)}; {r.benchmark.label.charAt(0).toLowerCase() + r.benchmark.label.slice(1)}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}). {r.benchmark.note}{r.benchmark.verdict === "below" && sale ? " The cost here is the pro forma's cost to build without a general contractor's fee (often 15–25% more); check it against local bids." : ""}</p>
         </section>
       ) : null}
 
@@ -218,7 +231,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
           <li>Development cost: EaseScore.AI pro forma ({cost?.costConfig ?? "cost-assumptions"}), ranges from each input&apos;s documented range. {sale
             ? <>Affordable prices: 30% of the HUD income limit pays principal, interest, property tax ({cost?.context.millsSource ?? "assumed millage"}), insurance and mortgage insurance{cost?.context.mineSubsidence ? ", plus PA DEP mine subsidence insurance" : ""}; mortgage rate {cost?.mortgage ? cost.mortgage.source : "assumed (FRED rate not loaded)"}; other assumptions in capital-sources.v0.1 (forSale). 100% and 120% AMI limits are derived from HUD&apos;s 50% limit (2× and 2.4×).</>
             : <>Mortgage: restricted rents less vacancy and operating cost, sized at a debt-coverage ratio (assumptions in capital-sources.v0.1).</>}</li>
-          <li>Capital sources: typical ranges and rules in engine/config/capital-sources.v0.1.json; amounts marked “Assumption, edit me” have no public source yet.</li>
+          <li>Capital sources: typical ranges and rules in engine/config/capital-sources.v0.1.json; amounts marked “Assumption” have no public source yet.</li>
         </ul>
         <p className="br-small">{EQUITY_NOTE} Decision support only; not legal, financial or zoning advice. Confirm costs with local bids and funding with each program.</p>
       </section>

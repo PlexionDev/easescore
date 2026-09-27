@@ -44,6 +44,7 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
   const lihtcLoaded = need?.datasets.find((d) => d.id === "lihtc")?.loaded ?? false;
   const lihtc = area?.lihtc ?? [];
   const lihtcUnits = lihtc.reduce((t, l) => t + (l.li_units ?? 0), 0);
+  const lihtcUnknown = lihtc.filter((l) => l.li_units == null).length;
   const steps = LAYER_STEPS[layer];
   const [tableView, setTableView] = useState(false);
 
@@ -204,7 +205,7 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
               <span>
                 {lihtcLoaded
                   ? lihtc.length
-                    ? <>{lihtc.length} tax-credit (LIHTC) {lihtc.length === 1 ? "property" : "properties"} in or within half a mile of {hood}, with about {fmt(lihtcUnits)} income-restricted homes{lihtc.filter((l) => (l.n_units ?? 0) >= 5).length ? <>, including {lihtc.filter((l) => (l.n_units ?? 0) >= 5).slice(0, 3).map((l) => `${titleCase(l.project)} (${l.li_units ?? "?"} homes${l.yr_pis && l.yr_pis < 3000 ? `, ${l.yr_pis}` : ""})`).join(", ")}</> : null}.</>
+                    ? <>{lihtc.length} tax-credit (LIHTC) {lihtc.length === 1 ? "property" : "properties"} in or within half a mile of {hood}{lihtcUnknown ? (lihtcUnknown === lihtc.length ? "; HUD does not list their income-restricted home counts" : `, with at least ${fmt(lihtcUnits)} income-restricted homes (${lihtcUnknown} of them list no count)`) : `, with about ${fmt(lihtcUnits)} income-restricted homes`}{lihtc.filter((l) => (l.n_units ?? 0) >= 5).length ? <>, including {lihtc.filter((l) => (l.n_units ?? 0) >= 5).slice(0, 3).map((l) => `${titleCase(l.project)} (${l.li_units != null ? `${l.li_units} income-restricted homes` : `${l.n_units} homes, income-restricted count not listed`}${l.yr_pis && l.yr_pis < 3000 ? `, ${l.yr_pis}` : ""})`).join(", ")}</> : null}. <span className="np-muted">HUD LIHTC database, placed in service through 2019; newer projects are not in it.</span></>
                     : <>No tax-credit (LIHTC) properties in or within half a mile of {hood} in HUD&apos;s database.</>
                   : <>Existing tax-credit (LIHTC) properties nearby: <em>HUD LIHTC database not loaded yet.</em></>}
               </span>

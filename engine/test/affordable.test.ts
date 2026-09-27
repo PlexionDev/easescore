@@ -45,7 +45,7 @@ describe("rent limits match HUD / PHFA tables", () => {
   it("subtracts the (labeled placeholder) utility allowance for the collected rent", () => {
     const r = affordable.rentLimit(IL, 60, 2);
     expect(r.netRent).toBe(r.grossRent - r.utilityAllowance);
-    expect(r.utilitySource).toBe("Assumption, edit me");
+    expect(r.utilitySource).toBe("Assumption");
   });
   it("30% rule by household: a family of 3 at 60% AMI", () => {
     const s = affordable.householdSentence(IL, 60, 3);
@@ -121,6 +121,31 @@ describe("funding gap", () => {
     expect(on.enabled).toEqual(["lihtc4", "home", "land"]);
     const all = affordable.evaluateProject(project, IL, affordable.CAPITAL_CONFIG.sources.map((s) => s.id));
     expect(all.remaining.low).toBeGreaterThanOrEqual(0);
+  });
+  it("a flagged (!) source never closes the headline gap on its own: the firm gap counts only ✓ sources", () => {
+    const on = affordable.evaluateProject(project, IL, ["lihtc4", "home", "land"]);
+    expect(on.flagged).toEqual(["lihtc4"]);
+    expect(on.firm.likely).toBeGreaterThan(on.remaining.likely);
+    const ok = affordable.evaluateProject(project, IL, ["home", "land"]);
+    expect(ok.flagged).toEqual([]);
+    expect(ok.firm).toEqual(ok.remaining);
+  });
+  it("a tax abatement is not capital: never in the stack or the remaining gap, shown on its own", () => {
+    const on = affordable.evaluateProject(project, IL, ["lerta"]);
+    expect(on.enabled).toEqual([]);
+    expect(on.remaining).toEqual(on.gapBefore);
+    expect(on.sources.some((s) => s.id === "lerta")).toBe(false);
+    expect(on.taxSavings?.id).toBe("lerta");
+    expect(on.taxSavings!.amount.likely).toBeGreaterThan(0);
+  });
+  it("benchmarks are like-for-like: rental cost per home vs. local rental cost; for-sale subsidy vs. for-sale subsidy", () => {
+    const rent = affordable.evaluateProject(project, IL, []);
+    expect(rent.benchmark.compareLabel).toMatch(/Development cost per home/);
+    expect(rent.benchmark.label).toMatch(/rental/);
+    expect(rent.benchmark.compare.likely).toBeCloseTo(rent.tdc.likely / rent.units, -3);
+    const sale = affordable.evaluateProject({ ...project, context: { ...ctx, tenure: "sale" }, units: [{ count: 6, bedrooms: 2, amiPct: 80 }] }, IL, []);
+    expect(sale.benchmark.label).toMatch(/for-sale/);
+    expect(sale.benchmark.compare).toEqual(sale.subsidyPerUnit);
   });
   it("a blocked source cannot be switched on", () => {
     const p = { ...project, context: { ...ctx, allPublicLand: false } };

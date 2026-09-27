@@ -38,6 +38,7 @@ export default function SitesStep({ hood, result, loading, filters, onFilters, s
 
   return (
     <div className="np-grid np-grid-sites">
+      <h2 className="es-sr">Candidate lots in {hood}</h2>
       <div className="np-col">
         <div className="np-filters" role="group" aria-label="Which lots to show">
           <CheckboxField label="Publicly owned" checked={filters.public} onChange={(v) => onFilters({ ...filters, public: v })} />

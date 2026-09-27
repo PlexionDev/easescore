@@ -1,7 +1,7 @@
 {
   "version": "capital-sources.v0.1",
   "effectiveDate": "2026-09-26",
-  "_note": "Typical ranges for affordable-housing capital sources, for planning conversations only. Every amount is 'typical, not an award'. Where no public source pins a number, the entry says 'Assumption, edit me'. Rules cite the program's governing law or regulation.",
+  "_note": "Typical ranges for affordable-housing capital sources, for planning conversations only. Every amount is 'typical, not an award'. Where no public source pins a number, the entry says 'Assumption' ('Assumption, edit me' only where the app has an input for it). Rules cite the program's governing law or regulation.",
   "rentRule": {
     "incomeShare": { "value": 0.3, "sourceLabel": "HUD / LIHTC 30% rent rule (IRC §42(g)(2); 24 CFR 92.252)" },
     "personsPerBedroom": { "value": 1.5, "sourceLabel": "LIHTC imputed household size: 1.5 persons per bedroom, 1 for an efficiency (IRC §42(g)(2)(C))" },
@@ -10,29 +10,29 @@
   "utilityAllowance": {
     "_note": "Placeholder tenant-paid utility allowance per month by bedrooms. Replace with the HACP / ACHA published utility allowance schedule for the building type.",
     "byBedrooms": [110, 130, 160, 195, 230, 265, 300],
-    "sourceLabel": "Assumption, edit me"
+    "sourceLabel": "Assumption"
   },
   "debt": {
     "_note": "Permanent mortgage sized on the restricted rents.",
-    "rate": { "value": 0.065, "range": [0.06, 0.075], "sourceLabel": "Assumption, edit me" },
-    "amortYears": { "value": 35, "sourceLabel": "Assumption, edit me" },
-    "dscr": { "value": 1.2, "range": [1.15, 1.25], "sourceLabel": "Assumption, edit me" },
-    "opexPerUnitYear": { "value": 6500, "range": [5500, 7500], "sourceLabel": "Assumption, edit me", "sourceNote": "Operating cost per unit per year for small affordable rentals: management, maintenance, insurance, reserves, owner-paid common utilities." },
+    "rate": { "value": 0.065, "range": [0.06, 0.075], "sourceLabel": "Assumption" },
+    "amortYears": { "value": 35, "sourceLabel": "Assumption" },
+    "dscr": { "value": 1.2, "range": [1.15, 1.25], "sourceLabel": "Assumption" },
+    "opexPerUnitYear": { "value": 6500, "range": [5500, 7500], "sourceLabel": "Assumption", "sourceNote": "Operating cost per unit per year for small affordable rentals: management, maintenance, insurance, reserves, owner-paid common utilities." },
     "vacancyShare": { "value": 0.05, "sourceLabel": "Cost assumptions config (operating.vacancyShare)" }
   },
   "forSale": {
     "_note": "Affordable homeownership: the most a household can pay for a home when principal, interest, property tax, insurance, mortgage insurance and (over undermined ground) mine subsidence insurance take 30% of its income. Every figure below is labeled; the mortgage rate comes from FRED (MORTGAGE30US) when loaded.",
     "amiLevels": [80, 100, 120],
     "housingShare": { "value": 0.3, "sourceLabel": "HUD 30% housing-cost rule applied to the full monthly payment (principal, interest, taxes, insurance)" },
-    "householdSize": { "extraPersons": 1, "sourceLabel": "Household size = bedrooms + 1 (a common homebuyer-program convention; Assumption, edit me)" },
-    "rateFallback": { "value": 0.0675, "sourceLabel": "Assumption, edit me (used only when the FRED 30-year rate is not loaded)" },
-    "rateSpread": { "value": 0.005, "sourceLabel": "Assumption, edit me: ± half a point around the rate for the low / high price" },
+    "householdSize": { "extraPersons": 1, "sourceLabel": "Household size = bedrooms + 1 (a common homebuyer-program convention; Assumption)" },
+    "rateFallback": { "value": 0.0675, "sourceLabel": "Assumption (used only when the FRED 30-year rate is not loaded)" },
+    "rateSpread": { "value": 0.005, "sourceLabel": "Assumption: ± half a point around the rate for the low / high price" },
     "termYears": { "value": 30, "sourceLabel": "Standard 30-year fixed-rate mortgage" },
     "downPaymentShare": { "value": 0.03, "sourceLabel": "Assumption, edit me (3% down, the minimum on common first-time-buyer loans)" },
     "insurancePerYear": { "value": 1200, "sourceLabel": "Assumption, edit me (homeowner's insurance; replace with a quote)" },
     "pmiAnnualShare": { "value": 0.005, "belowDownShare": 0.2, "sourceLabel": "Assumption, edit me (private mortgage insurance, 0.5% of the loan a year while less than 20% down)" },
-    "millsFallback": { "value": 27.0, "sourceLabel": "Assumption, edit me (used only when the lot's County + municipal + school millage is not loaded)" },
-    "assessedShareOfPrice": { "value": 1.0, "sourceLabel": "Assumption, edit me: taxed on the full price (the County sets the real assessment; often lower)" }
+    "millsFallback": { "value": 27.0, "sourceLabel": "Assumption (used only when the lot's County + municipal + school millage is not loaded)" },
+    "assessedShareOfPrice": { "value": 1.0, "sourceLabel": "Assumption: taxed on the full price (the County sets the real assessment; often lower)" }
   },
   "sources": [
     {
@@ -42,7 +42,7 @@
       "kind": "grant",
       "tenures": ["sale"],
       "what": "Down payment and closing cost help for the buyer (for example PHFA's Keystone Advantage Assistance loan, URA and Allegheny County programs). It lets the buyer pay more, so less subsidy is needed per home.",
-      "amount": { "method": "perUnit", "perUnit": [5000, 10000, 20000], "sourceLabel": "Assumption, edit me (for scale: PHFA's Keystone Advantage Assistance is published as up to 4% of the price or $6,000; local programs vary)" },
+      "amount": { "method": "perUnit", "perUnit": [5000, 10000, 20000], "sourceLabel": "Assumption (for scale: PHFA's Keystone Advantage Assistance is published as up to 4% of the price or $6,000; local programs vary)" },
       "rules": { "maxAmiPct": 120, "programLimitNoteAbovePct": 80 },
       "timing": "Applied for by each buyer through the lender at purchase; rolling.",
       "governing": "PHFA homebuyer programs; URA / Allegheny County program guidelines"
@@ -54,7 +54,7 @@
       "kind": "writedown",
       "tenures": ["sale"],
       "what": "A community land trust owns the land and leases it to the homeowner, so the buyer pays for the house only and a resale formula keeps it affordable for the next buyer. Pittsburgh-area examples include City of Bridges CLT and Lawrenceville Community Land Trust.",
-      "amount": { "method": "landTrust", "sourceLabel": "Land value from the pro forma (the trust carries the land). Whether a trust can fund it: Assumption, edit me" },
+      "amount": { "method": "landTrust", "sourceLabel": "Land value from the pro forma (the trust carries the land). Whether a trust can fund it: Assumption" },
       "rules": { "maxAmiPct": 120, "exclusiveWith": ["land"] },
       "timing": "Partner agreement with the trust before sales start; ground lease signed at each closing.",
       "governing": "Ground lease and resale formula of the land trust"
@@ -71,7 +71,7 @@
         "eligibleBasisShareOfCostExLand": [0.8, 0.88, 0.95],
         "pricePerCredit": [0.8, 0.87, 0.92],
         "basisBoostQctDda": 1.3,
-        "sourceLabel": "IRC §42 (4% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption, edit me"
+        "sourceLabel": "IRC §42 (4% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption"
       },
       "rules": { "maxAmiPct": 60, "practicalMinUnits": 40 },
       "timing": "Bond volume cap through PHFA / the Pennsylvania Commonwealth Financing Authority; rolling, often 6–12 months to close.",
@@ -89,7 +89,7 @@
         "eligibleBasisShareOfCostExLand": [0.8, 0.88, 0.95],
         "pricePerCredit": [0.8, 0.87, 0.92],
         "basisBoostQctDda": 1.3,
-        "sourceLabel": "IRC §42 (9% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption, edit me"
+        "sourceLabel": "IRC §42 (9% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption"
       },
       "rules": { "maxAmiPct": 60, "competitiveMinUnits": 20 },
       "timing": "One PHFA competitive round a year; awards typically announced 4–6 months after the application deadline.",
@@ -101,7 +101,7 @@
       "short": "HOME",
       "kind": "soft_loan",
       "what": "Federal HOME Investment Partnerships money passed through the City (URA) or Allegheny County, usually as a deferred loan.",
-      "amount": { "method": "perUnit", "perUnit": [40000, 70000, 100000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perUnit", "perUnit": [40000, 70000, 100000], "sourceLabel": "Assumption" },
       "rules": { "maxAmiPct": 80, "highHomeRentAmiPct": 65 },
       "timing": "Local funding rounds (URA and Allegheny County Economic Development), usually once or twice a year.",
       "governing": "24 CFR Part 92"
@@ -112,7 +112,7 @@
       "short": "CDBG",
       "kind": "grant",
       "what": "Community Development Block Grant. New housing construction is generally not an eligible use unless a Community-Based Development Organization carries it out; often used for acquisition, site work or infrastructure.",
-      "amount": { "method": "perUnit", "perUnit": [5000, 15000, 25000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perUnit", "perUnit": [5000, 15000, 25000], "sourceLabel": "Assumption" },
       "rules": { "maxAmiPct": 80 },
       "timing": "Annual local action plan cycle.",
       "governing": "24 CFR 570.207(b)(3), 570.204"
@@ -123,7 +123,7 @@
       "short": "PHARE",
       "kind": "grant",
       "what": "Pennsylvania Housing Affordability and Rehabilitation Enhancement Fund, awarded by PHFA.",
-      "amount": { "method": "perProject", "perProject": [100000, 300000, 500000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perProject", "perProject": [100000, 300000, 500000], "sourceLabel": "Assumption" },
       "rules": { "maxAmiPct": 80 },
       "timing": "One PHFA round a year; awards typically in the fall.",
       "governing": "PA Act 105 of 2010"
@@ -134,7 +134,7 @@
       "short": "HOF",
       "kind": "soft_loan",
       "what": "City of Pittsburgh Housing Opportunity Fund, run by the URA; gap financing for rental and for-sale homes in the City.",
-      "amount": { "method": "perUnit", "perUnit": [25000, 50000, 75000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perUnit", "perUnit": [25000, 50000, 75000], "sourceLabel": "Assumption" },
       "rules": { "maxAmiPct": 80, "cityOnly": true },
       "timing": "URA program rounds; check the current Notice of Funding Availability.",
       "governing": "City of Pittsburgh Housing Opportunity Fund"
@@ -145,7 +145,7 @@
       "short": "AHP",
       "kind": "grant",
       "what": "Affordable Housing Program grant through a member bank of the Federal Home Loan Bank of Pittsburgh.",
-      "amount": { "method": "perProject", "perProject": [150000, 400000, 750000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perProject", "perProject": [150000, 400000, 750000], "sourceLabel": "Assumption" },
       "rules": { "minShareAt50": 0.2 },
       "timing": "One competitive round a year, applied for through a member bank.",
       "governing": "12 CFR Part 1291"
@@ -156,7 +156,7 @@
       "short": "Abatement",
       "kind": "abatement",
       "what": "Property tax abatement on the new improvements. Lowers operating costs; shown here as the present value of taxes not paid.",
-      "amount": { "method": "abatement", "years": 10, "abatedShare": 1.0, "discountRate": 0.06, "sourceLabel": "PA Act 76 of 1977 (LERTA, up to 10 years); share and years: Assumption, edit me" },
+      "amount": { "method": "abatement", "years": 10, "abatedShare": 1.0, "discountRate": 0.06, "sourceLabel": "PA Act 76 of 1977 (LERTA, up to 10 years); share and years: Assumption" },
       "rules": {},
       "timing": "Depends on whether the municipality, school district and County have adopted it for this area.",
       "governing": "PA Act 76 of 1977 (LERTA)"
@@ -167,7 +167,7 @@
       "short": "Land",
       "kind": "writedown",
       "what": "The City, URA or Land Bank sells the lots below market for affordable homes; the land line of the pro forma goes away.",
-      "amount": { "method": "land", "nominalPerLot": 1000, "sourceLabel": "Land value from the pro forma; nominal price per lot: Assumption, edit me" },
+      "amount": { "method": "land", "nominalPerLot": 1000, "sourceLabel": "Land value from the pro forma; nominal price per lot: Assumption" },
       "rules": { "publicLandOnly": true },
       "timing": "Agency board approval; often 3–9 months.",
       "governing": "Pittsburgh Land Bank / URA / City disposition policy"
@@ -178,7 +178,7 @@
       "short": "Philanthropy",
       "kind": "grant",
       "what": "Foundation and corporate grants, program-related investments.",
-      "amount": { "method": "perProject", "perProject": [50000, 150000, 300000], "sourceLabel": "Assumption, edit me" },
+      "amount": { "method": "perProject", "perProject": [50000, 150000, 300000], "sourceLabel": "Assumption" },
       "rules": {},
       "timing": "Relationship-driven; varies by funder.",
       "governing": null

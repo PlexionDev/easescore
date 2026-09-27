@@ -5,9 +5,10 @@ import "server-only";
 // low / likely / high (assumptions.proFormaRanges). The funding gap is computed from these on the client.
 
 import { assumptions, score, type ParcelFacts } from "@easescore/engine";
-import { parcelFactsChecked } from "@/lib/data";
+import { parcelFactsChecked, quickfitInput } from "@/lib/data";
 import { primeRate, tapFeesPerHome } from "@/lib/proforma";
-import { fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
+import { loadPane } from "@/lib/pane";
+import { Timing } from "@/lib/timing";
 import { lotMills, mortgageRate } from "./data";
 import type { LotCost, ProjectCost } from "./types";
 
@@ -22,15 +23,18 @@ const TRY: Record<number, score.StrategyId[]> = {
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-/** The parcel_pane row for the current config version, or null (missing, older version, or any error). */
-async function storedPane(parid: string): Promise<PanePayload | null> {
+/**
+ * The parcel page's own pane (the stored row when there is one, otherwise computed live with the same
+ * loader), so the seat and the parcel page read one set of facts, site-fit layouts and best option.
+ * Null on any failure (the standard program below is used instead, labeled).
+ */
+async function parcelPane(parid: string, asOf: string) {
   try {
-    const r = await fetch(`${URL}/rest/v1/parcel_pane?select=payload&parid=eq.${encodeURIComponent(parid)}&config_version=eq.${encodeURIComponent(PANE_VERSION)}`, {
-      headers: { apikey: KEY }, cache: "no-store", signal: AbortSignal.timeout(4000),
-    });
-    if (!r.ok) return null;
-    const rows = (await r.json()) as { payload: StoredPane }[];
-    return rows[0]?.payload ? fromStored(rows[0].payload) : null;
+    const r = await Promise.race([
+      loadPane(parid, asOf, quickfitInput(parid), new Timing("nonprofit/project", parid)),
+      new Promise<null>((res) => setTimeout(() => res(null), 20_000)),
+    ]);
+    return r && r.ok ? r.payload : null;
   } catch {
     return null;
   }
@@ -59,22 +63,25 @@ function saleCost(plan: () => assumptions.DevelopmentPlan): LotCost["sale"] {
   }
 }
 
-async function lotCost(parid: string, units: number, bedrooms: number): Promise<LotCost> {
-  const base: LotCost = { parid, address: null, units, strategy: null, strategyLabel: null, needsRelief: false, finishedSf: null, sizeBasis: null, tier: null, tdc: null, land: null, landSource: null, headline: null, sale: null, mine: false, notes: [], source: "error" };
-  // Only the precomputed pane row (one indexed read). Computing a pane live is heavy while the batches
-  // run, so lots without a row use the standard program below (labeled).
-  const row = await storedPane(parid);
+async function lotCost(parid: string, units: number, bedrooms: number, asOf: string): Promise<LotCost> {
+  const base: LotCost = { parid, address: null, units, strategy: null, strategyLabel: null, needsRelief: false, finishedSf: null, sizeBasis: null, tier: null, tdc: null, land: null, landSource: null, headline: null, sale: null, mine: false, notes: [], source: "error", bestLabel: null, byRightUnits: null, lotSqft: null };
+  // The same pane as the parcel page. When it cannot be read or computed, the standard program below (labeled).
+  const row = await parcelPane(parid, asOf);
   if (!row || !Object.keys(row.score?.schemes ?? {}).length) return standardProgram(base, parid, units, bedrooms);
   const loaded = { ok: true as const, payload: row, source: "row" as const };
   const P = loaded.payload;
   const f = P.facts as ParcelFacts & Record<string, unknown>;
   const res = P.score;
   if (!res) return { ...base, source: loaded.source, notes: ["The lot could not be scored, so it cannot be priced."] };
+  const fitOf = (s: score.StrategyResult) => (s.factors.find((x) => x.id === "F1")?.inputs as { fitStatus?: string | null } | undefined)?.fitStatus ?? null;
+  const bestRes = res.strategies.find((x) => x.strategy === res.best) ?? null;
+  const byRightUnits = res.strategies.filter((x) => x.applicable && (fitOf(x) === "by_right" || fitOf(x) === "contextual")).reduce<number | null>((m, x) => Math.max(m ?? 0, x.units ?? 0), null);
+  const lotSqft = (f as { lot_area_sqft_gis?: number | null }).lot_area_sqft_gis ?? (f.assessment as { lot_area_sqft?: number | null } | undefined)?.lot_area_sqft ?? null;
+  Object.assign(base, { bestLabel: bestRes?.strategyLabel ?? null, byRightUnits, lotSqft: lotSqft != null ? Math.round(lotSqft) : null });
   const tries = TRY[units] ?? TRY[2]!;
   const cands = res.strategies.filter((s) => s.applicable && tries.includes(s.strategy) && res.schemes?.[s.strategy]);
   // Prefer a type that fits this many homes by right; otherwise the first that fits with relief.
-  const fit = (s: score.StrategyResult) => (s.factors.find((x) => x.id === "F1")?.inputs as { fitStatus?: string | null } | undefined)?.fitStatus ?? null;
-  const easy = (s: score.StrategyResult) => fit(s) === "by_right" || fit(s) === "contextual";
+  const easy = (s: score.StrategyResult) => fitOf(s) === "by_right" || fitOf(s) === "contextual";
   const byRight = cands.find((s) => (s.units ?? 0) >= units && easy(s));
   const pick = byRight ?? cands.find((s) => (s.units ?? 0) >= units) ?? cands[0] ?? null;
   if (!pick) return { ...base, source: loaded.source, notes: [`No ${units}-home building type fits this lot in the site-fit check.`] };
@@ -110,6 +117,7 @@ async function lotCost(parid: string, units: number, bedrooms: number): Promise<
       finishedSf: plan.finishedSf, sizeBasis: plan.sizeBasis, tier: plan.tier.label,
       tdc: r.tdc, land: r.land.range, landSource: r.land.source?.label ?? null, headline: r.headline,
       notes: [
+        ...(bestRes && bestRes.strategy !== pick.strategy ? [`The parcel page's best option for this lot is ${bestRes.strategyLabel.toLowerCase()}; this project places ${units} home${units === 1 ? "" : "s"} on it as a ${pick.strategyLabel.toLowerCase()}${easy(pick) ? ", which the site-fit check allows by right" : ", which needs zoning relief"}.`] : []),
         ...(plan.exclusions.length ? [`Not included yet: ${plan.exclusions.map((e) => e.label.toLowerCase()).join("; ")}.`] : []),
         // Rents come from HUD limits in this seat, so the market-rent gap does not apply.
         ...plan.missing.filter((m) => !/^No rent/i.test(m)),
@@ -125,9 +133,10 @@ function lotCostCached(parid: string, units: number, bedrooms: number, asOf: str
   const k = `${parid}|${units}|${bedrooms}|${asOf}`;
   const hit = lotMemo.get(k);
   if (hit && Date.now() - hit.at < 600_000) return hit.v;
-  const v = lotCost(parid, units, bedrooms);
+  const v = lotCost(parid, units, bedrooms, asOf);
   lotMemo.set(k, { at: Date.now(), v });
-  v.then((x) => { if (x.source === "error") lotMemo.delete(k); }, () => lotMemo.delete(k));
+  // Keep only results priced on the parcel page's pane; a fallback (busy database) is retried next time.
+  v.then((x) => { if (x.source !== "row") lotMemo.delete(k); }, () => lotMemo.delete(k));
   if (lotMemo.size > 500) lotMemo.delete(lotMemo.keys().next().value!);
   return v;
 }
@@ -137,11 +146,14 @@ function lotCostCached(parid: string, units: number, bedrooms: number, asOf: str
  * lot's facts (slope, undermining, flood, land value) with a standard program of `units` homes at the
  * target size, instead of the site-fit layout. Labeled in the notes.
  */
-async function standardProgram(base: LotCost, parid: string, units: number, bedrooms: number): Promise<LotCost> {
+async function standardProgram(base0: LotCost, parid: string, units: number, bedrooms: number): Promise<LotCost> {
+  let base = base0;
   let fr = await parcelFactsChecked(parid);
   if (!fr.facts) fr = await parcelFactsChecked(parid);
   if (!fr.facts) return { ...base, notes: ["The parcel data could not be read right now (database busy). Try again in a moment."] };
   const f = fr.facts as ParcelFacts & Record<string, unknown>;
+  const gis = (f as { lot_area_sqft_gis?: number | null }).lot_area_sqft_gis ?? (f.assessment as { lot_area_sqft?: number | null } | undefined)?.lot_area_sqft ?? null;
+  base = { ...base, lotSqft: gis != null ? Math.round(gis) : null };
   const beds = Math.max(1, bedrooms);
   const per = TARGET_SF[Math.min(beds, 4)]!;
   const strategy: score.StrategyId = units === 1 ? "new_sf" : units === 2 ? "duplex" : "three_four_unit";

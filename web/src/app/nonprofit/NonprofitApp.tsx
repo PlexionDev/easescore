@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DataDateFooter, ExportMenu, SeatHeader, SeatLayout, SeatSelect, setSelection, useSeatSelection } from "@/components/seats";
 import { acsVintage } from "@/lib/nonprofit/receipts";
-import { DEFAULT_HOOD, DEFAULT_MIX, MAX_LOTS, defaultSources, needSummary, stateToQuery, suggestLots, type NeedData, type ProjectCost, type ProjectState, type SitesResult, type Tenure } from "@/lib/nonprofit/types";
+import { DEFAULT_HOOD, DEFAULT_MIX, MAX_LOTS, defaultSources, needSummary, stateToQuery, suggestLots, unitGroups, type NeedData, type ProjectCost, type ProjectState, type SitesResult, type Tenure } from "@/lib/nonprofit/types";
 import NeedStep from "./NeedStep";
 import SitesStep from "./SitesStep";
 import ProjectStep from "./ProjectStep";
@@ -64,6 +64,21 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!hoodFromUrl && sel.neighborhood && sel.neighborhood !== s.hood && hoods.includes(sel.neighborhood)) update({ hood: sel.neighborhood, lots: [] });
   }, [sel.neighborhood]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the stored mix equal to the counts on screen: when the total (lots × homes per lot) changes, store
+  // the rescaled counts, so the URL never carries numbers that differ from what the screen shows.
+  const mixTotal = s.lots.length * s.perLot;
+  useEffect(() => {
+    if (!mixTotal) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setS((cur) => {
+      const g = unitGroups(cur.mix, mixTotal, cur.bedrooms);
+      if (!g.length) return cur;
+      const next = Object.fromEntries(g.map((x) => [x.amiPct, x.count]));
+      const same = Object.keys(next).length === Object.entries(cur.mix).filter(([, n]) => n > 0).length && g.every((x) => cur.mix[x.amiPct] === x.count);
+      return same ? cur : { ...cur, mix: next };
+    });
+  }, [mixTotal, s.tenure]);
 
   // URL + shared selection.
   useEffect(() => {
@@ -200,6 +215,7 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
           </button>
         ))}
       </nav>
+      <p className="np-coverage" role="note">Covers City of Pittsburgh neighborhoods; suburban municipalities are not loaded yet.</p>
       {tryThis ? (
         <div className="np-try" role="note">
           <p><b>Try this:</b> {s.hood} is preselected. Read who needs homes here, then see the gap for {s.lots.length || 3} public lots as rentals or as for-sale homes at 80% of the area median.</p>

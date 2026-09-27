@@ -63,7 +63,7 @@ describe("affordable for-sale price (PITI)", () => {
     const a = affordable.homeownerAssumptions({ rate: null, mills: null, mineSubsidence: false });
     expect(a.rate).toBe(affordable.CAPITAL_CONFIG.forSale.rateFallback.value);
     expect(a.list.find((x) => x.id === "rate")!.assumption).toBe(true);
-    expect(a.list.find((x) => x.id === "tax")!.source).toMatch(/Assumption, edit me/);
+    expect(a.list.find((x) => x.id === "tax")!.source).toMatch(/Assumption/);
     for (const x of a.list) expect(x.source.length).toBeGreaterThan(5);
   });
 });

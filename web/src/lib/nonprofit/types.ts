@@ -150,8 +150,14 @@ export interface LotCost {
   /** The lot is over undermined ground (mine subsidence insurance applies to a homeowner). */
   mine: boolean;
   notes: string[];
-  /** row = precomputed parcel pane (site-fit layout); facts = standard program on the lot's facts. */
+  /** row = the parcel page's pane (site-fit layout); facts = standard program on the lot's facts. */
   source: "row" | "facts" | "error";
+  /** The parcel page's best option for this lot (null when the pane could not be read). */
+  bestLabel: string | null;
+  /** Most homes any building type fits by right in the parcel page's site-fit check. */
+  byRightUnits: number | null;
+  /** Mapped (GIS) lot area, the assessor's only when there is no outline: the parcel page's rule. */
+  lotSqft: number | null;
 }
 
 export interface ProjectCost {
@@ -303,7 +309,9 @@ export interface ProjectState {
   filters: SiteFilters;
 }
 
-export const DEFAULT_SOURCES = ["lihtc4", "home", "land"];
+// LIHTC 4% is off by default: it needs tax-exempt bonds, and projects under about 40 homes rarely use it
+// (the seat holds at most 6 lots × 4 homes). The user can switch it on; the headline gap then counts only ✓ sources.
+export const DEFAULT_SOURCES = ["home", "land"];
 export const DEFAULT_SALE_SOURCES = ["hba", "land"];
 export const AMI_BY_TENURE: Record<Tenure, number[]> = { rent: [30, 50, 60, 80], sale: [80, 100, 120] };
 export const DEFAULT_MIX: Record<Tenure, Record<number, number>> = { rent: { 50: 3, 60: 3 }, sale: { 80: 6 } };
