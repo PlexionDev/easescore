@@ -107,16 +107,21 @@ describe("fix 4: rehab cost by condition tier", () => {
     expect(old.basis).toMatch(/before 1940/);
     expect(rehabEstimate({ condition: null, yearBuilt: null, finishedSf: null }).tier.id).toBe("moderate");
   });
-  it("the rehab option is priced (no longer missing) and labeled as an assumption", () => {
+  it("rehab is never priced automatically: without the user's budget it asks for one", () => {
     const facts: Facts = { ...FLAT, site: { building_count: 1 }, assessment: { ...FLAT.assessment, use: "SINGLE FAMILY", living_area_sqft: 1200, condition: "FAIR", year_built: 1925 } };
     const asIs = { status: "ok", sufficient: true, count: 9, radius_mi: 0.5, comparable_use: "single family", median_price_per_sqft: 100 };
     const r = evaluateDevelopment(buildDevelopmentInputs({ strategy: "rehab_existing", facts, scheme: null, comps: null, asIsComps: asIs, rents: HUD, primeRate: 0.07, permitMonths: 3 }));
-    const base = r.budget.find((b) => b.id === "hard_base")!;
-    expect(base.amount).toBe(Math.round((1200 * Math.round(130 * 1.15)) / 1000) * 1000);
-    expect(r.plan.rehab!.tier.id).toBe("heavy");
-    expect(r.ranges.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Assumption, edit me");
-    expect(r.plan.missing.some((m) => /rehab cost/i.test(m))).toBe(false);
+    expect(r.budget.find((b) => b.id === "hard_base")).toBeUndefined();
+    expect(r.plan.rehab).toBeNull();
+    expect(r.plan.missing.some((m) => /^Enter your rehab budget/.test(m))).toBe(true);
     expect(r.plan.land.value).toBe(120000);
+  });
+  it("with the user's rehab budget per sq ft, the rehab is priced from it", () => {
+    const facts: Facts = { ...FLAT, site: { building_count: 1 }, assessment: { ...FLAT.assessment, use: "SINGLE FAMILY", living_area_sqft: 1200, condition: "FAIR", year_built: 1925 } };
+    const asIs = { status: "ok", sufficient: true, count: 9, radius_mi: 0.5, comparable_use: "single family", median_price_per_sqft: 100 };
+    const r = evaluateDevelopment(buildDevelopmentInputs({ strategy: "rehab_existing", facts, scheme: null, comps: null, asIsComps: asIs, rents: HUD, primeRate: 0.07, permitMonths: 3, overrides: { costPerSf: 90 } }));
+    expect(r.budget.find((b) => b.id === "hard_base")!.amount).toBe(108000);
+    expect(r.plan.missing.some((m) => /rehab budget/i.test(m))).toBe(false);
   });
 });
 

@@ -29,7 +29,6 @@ const PENCIL_TIP = "Meets the target profit margin at default assumptions";
 
 const ZONING_STYLE: Partial<Record<score.ZoningPathKind, string>> = {
   allowed: "text-emerald-800",
-  existing: "text-emerald-800",
   not_allowed: "text-red-800",
   no_fit: "text-red-800",
 };

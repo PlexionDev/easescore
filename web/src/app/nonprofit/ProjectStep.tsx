@@ -233,7 +233,7 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
                 {cost.lots.map((l) => (
                   <li key={l.parid}>
                     <b>{l.address ?? l.parid}</b>: {l.strategyLabel ?? "not priced"}{l.finishedSf ? `, about ${Math.round(l.finishedSf / Math.max(1, l.units)).toLocaleString("en-US")} sq ft per home` : ""}{l.lotSqft ? ` on a ${l.lotSqft.toLocaleString("en-US")} sq ft lot` : ""}.
-                    {l.bestLabel ? <span className="np-muted"> Parcel page best option: {l.bestLabel.toLowerCase()}{l.byRightUnits != null ? `; up to ${l.byRightUnits} home${l.byRightUnits === 1 ? "" : "s"} by right in its site-fit check` : ""}.</span> : l.source === "facts" ? <span className="np-muted"> Standard program (the parcel page&apos;s layout could not be read right now).</span> : null}
+                    {l.bestLabel ? <span className="np-muted"> Parcel page best option: {l.bestLabel.toLowerCase()}{l.byRightUnits != null ? `; most homes by right, any type: ${l.byRightUnits}` : ""}.</span> : l.source === "facts" ? <span className="np-muted"> Standard program (the parcel page&apos;s layout could not be read right now).</span> : null}
                   </li>
                 ))}
               </ul>

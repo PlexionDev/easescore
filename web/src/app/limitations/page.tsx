@@ -51,7 +51,7 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
   },
   {
     what: "Costs are editable assumptions, not bids",
-    detail: "Construction uses published Pittsburgh builder ranges and labeled estimates. Demolition, geotechnical reports and dumpsters have no local cost yet and are shown as “Not included.” Rehab is not priced until you enter a rehab cost. Slope adders use slope across the whole lot, not under the building.",
+    detail: "Construction uses published Pittsburgh builder ranges and labeled estimates. Demolition, geotechnical reports and dumpsters have no local cost yet and are shown as “Not included.” Rehab is not estimated automatically; enter your own budget. Slope adders use slope across the whole lot, not under the building.",
     vintage: "Cost assumptions effective 2026-09-26",
   },
   {
@@ -235,7 +235,7 @@ export default function LimitationsPage() {
                 there are enough of them. The Planner still uses a 5 ft assumption, so the two can differ. Measured setbacks are not surveyed.
               </li>
               <li>Permit times are City targets and typical steps. They are not measured or guaranteed review times.</li>
-              <li>The tool has no data on a building&apos;s condition inside. Rehab is not priced until you enter a rehab cost.</li>
+              <li>The tool has no data on a building&apos;s condition inside. Rehab is not estimated automatically; enter your own budget.</li>
             </ul>
           </section>
 

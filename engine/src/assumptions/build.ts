@@ -12,7 +12,7 @@ import type { CompSet } from "./comps";
 import { COST_CONFIG, tierOf, type CostConfig } from "./config";
 import { landEstimate, type LandEstimate } from "./land";
 import { assessedAfterCompletion, type AssessedEstimate } from "./tax";
-import { rehabEstimate, type RehabEstimate } from "./rehab";
+import type { RehabEstimate } from "./rehab";
 import { siteWorkQuantities, type GroundQuantitiesInput, type SiteWorkQuantities } from "./sitework";
 import { rentForBedrooms, type RentEstimate, type RentsByBedroom } from "../rents";
 
@@ -261,7 +261,7 @@ export interface DevelopmentPlan {
   tier: { id: string; label: string };
   costPerSf: number;
   land: { value: number | null; sourceLabel: string; estimate: LandEstimate | null; flag: string | null };
-  /** Rehab option: the condition-tier estimate that priced the construction line. */
+  /** Always null: rehab is never estimated automatically (priced only from the visitor's own rehab budget). */
   rehab: RehabEstimate | null;
   /** Assessed value after completion (rental taxes), from completed projects. */
   assessedAfter: AssessedEstimate | null;
@@ -413,12 +413,13 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
 
   // ---- Base construction
   const tier = tierOf(cfg, o.tier);
-  const rehabEst: RehabEstimate | null = rehab ? rehabEstimate({ condition: f.assessment?.condition, yearBuilt: f.assessment?.year_built, finishedSf }, cfg) : null;
-  const costPerSf = has(o.costPerSf) ? o.costPerSf : rehabEst ? rehabEst.perSf[1] : tier.costPerSf.value;
-  if (rehabEst) {
-    row("rehabTier", "Rehab scope (from the County condition)", rehabEst.tier.label, { sourceLabel: rehabEst.sourceLabel, sourceNote: rehabEst.basis }, null, false);
-    row("costPerSf", "Rehab cost per finished sq ft", `${usd(costPerSf)}/SF`, { sourceLabel: rehabEst.sourceLabel, sourceNote: rehabEst.basis }, `${usd(rehabEst.perSf[0])}–${usd(rehabEst.perSf[2])}/SF`, has(o.costPerSf));
-    notes.push(cfg.construction.rehabNote);
+  // Rehab is never estimated automatically (the condition inside is unknown; it needs an inspection): it is
+  // priced only from the visitor's own rehab budget (a total on the construction line, per home, or per sq ft).
+  const rehabBudget = rehab && (has(o.costPerSf) || has(la.hard_base) || (has(o.costPerUnit) && units != null));
+  const costPerSf = has(o.costPerSf) ? o.costPerSf : tier.costPerSf.value;
+  if (rehab) {
+    if (!rehabBudget) missing.push("Enter your rehab budget (total or per sq ft). Rehab is not estimated automatically: the condition inside is unknown and needs an inspection.");
+    else if (has(o.costPerSf)) row("costPerSf", "Your rehab budget per finished sq ft", `${usd(costPerSf)}/SF`, { sourceLabel: "Your number" }, null, true);
   } else {
     row("tier", "Build quality", `${tier.label} — ${tier.meaning}`, { sourceLabel: tier.costPerSf.sourceLabel }, null, o.tier !== undefined && o.tier !== cfg.construction.defaultTier);
     row("costPerSf", "Construction cost per finished sq ft (includes builder overhead and profit)", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
@@ -434,9 +435,9 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction (your number per home)" : "Construction (your number per home)", short: "construction", amount: hardBase, basis: `${units} home${units === 1 ? "" : "s"} × ${usd(perUnitCost.value)}${perUnitCost.includesSite ? ", including site work and foundation" : ", building only (site adders added separately)"}${garageSf ? "; covers the garage level too" : ""}`, sourceLabel: "Your number" });
     row("costPerUnit", "Construction cost per home", usd(perUnitCost.value), { sourceLabel: "Your number" }, null, true);
     row("costIncludesSite", "Per-home cost includes site work and foundation", perUnitCost.includesSite ? "Yes: site adders not added" : "No: site adders added on top", { sourceLabel: "Your input" }, null, true);
-  } else if (finishedSf != null) {
+  } else if (finishedSf != null && (!rehab || rehabBudget)) {
     hardBase = r1000(costPerSf * finishedSf);
-    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${rehabEst ? rehabEst.tier.label : tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : rehabEst ? rehabEst.sourceLabel : tier.costPerSf.sourceLabel });
+    lines.push({ id: "hard_base", group: "hard", label: rehab ? "Rehab construction" : "Construction (base, standard foundation)", short: rehab ? "rehab construction" : "construction", amount: hardBase, basis: `${finishedSf.toLocaleString("en-US")} finished sq ft × ${usd(costPerSf)}/SF (${rehab ? "your rehab budget" : tier.label})`, sourceLabel: has(o.costPerSf) ? "Your input" : tier.costPerSf.sourceLabel });
     if (garageSf > 0) {
       const g = has(la.garage_level) ? la.garage_level : r1000(garageSf * costPerSf * garageShare.value);
       hardBase += g;
@@ -776,7 +777,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
       : null;
   const compSource = rehab ? ("sourceLabel" in (c ?? {}) ? (c as CompSet).sourceLabel : "Allegheny County sales (existing homes)") : cfg.comps.newConstruction.sourceLabel;
   const compText = compsOk
-    ? `Median of ${c!.count} ${rehab ? "" : "new-construction "}sales within ${c!.radius_mi} mi${c!.date_range?.from ? ` (${c!.date_range.from} to ${c!.date_range.to})` : ""}`
+    ? `${rehab ? "After-repair value based on your rehab budget: m" : "M"}edian of ${c!.count} ${rehab ? "Good-or-better " : "new-construction "}sales within ${c!.radius_mi} mi${c!.date_range?.from ? ` (${c!.date_range.from} to ${c!.date_range.to})` : ""}`
     : !c
       ? rehab
         ? "No value: nearby sales of this kind of home could not be loaded."
@@ -790,7 +791,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const saleSource = perUnitPrice != null || has(o.salePricePerSf) ? "Your input" : compsOk ? compSource : "Insufficient comps";
   if (pricePerSf == null && perUnitPrice == null && tenure === "sale") {
     const why = saleBasis.replace(/^No value: /, "").replace(/\.?$/, ".");
-    missing.push(`No sale value. ${why.charAt(0).toUpperCase()}${why.slice(1)}${floor ? ` ${floor.text}` : ""} Enter a sale price to test it.`);
+    missing.push(`No sale value yet. ${why.charAt(0).toUpperCase()}${why.slice(1)}${floor ? ` ${floor.text}` : ""} Enter a sale price to test it.`);
   }
   // Sale price per home rounded to $5,000; the math uses the rounded price.
   const rawPerHome = perUnitPrice == null && pricePerSf != null && finishedSf != null && units ? (pricePerSf * finishedSf) / units : null;
@@ -932,7 +933,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     tier: { id: tier.id, label: tier.label },
     costPerSf,
     land: { value: land, sourceLabel: landSource, estimate: landEst, flag: landEst?.public && userLand == null ? cfg.land.publicFlag : null },
-    rehab: rehabEst,
+    rehab: null,
     assessedAfter: assessedEst,
     rentEstimate: estOk ? rentEst : null,
     bedrooms: br,

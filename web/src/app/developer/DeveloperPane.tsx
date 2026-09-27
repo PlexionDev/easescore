@@ -11,8 +11,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
 import { relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
-import { STRATEGY_TEXT, ownerLabel, partialBest, partialNote, titleCase, type PlannerResult, type PlannerRow } from "@/lib/planner";
+import { ownerLabel, partialBest, partialNote, titleCase, type PlannerResult, type PlannerRow } from "@/lib/planner";
 import { addressLine, briefs, type Brief } from "@/lib/parcel-brief";
+import { MOST_BY_RIGHT, bestWithHomes } from "@/lib/best-option";
 import PanePhoto from "../parcel/[parid]/PanePhoto";
 import CopyParcelId from "../parcel/[parid]/CopyParcelId";
 
@@ -90,7 +91,8 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
     ["Hazards", hz.length ? hz[0]! : "None mapped", hz.length > 1 ? `+${hz.length - 1} more` : "in our data"],
     ["Zoning", r.zoning ?? "Not loaded", titleCase(r.municipality) || null],
   ] : [];
-  const best = r?.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : null;
+  // The best option with its own home count; the most homes by right across all types is labeled separately.
+  const best = r ? bestWithHomes(r) : null;
 
   return (
     <div className="dv-pane">
@@ -127,7 +129,7 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
               <div key={k} className="dv-tile"><span>{k}</span><b title={v}>{v}</b>{sub ? <small>{sub}</small> : null}</div>
             ))}
           </div>
-          <p className="dv-best"><b>Best option:</b> {r.band === "Partial" ? partialBest(r) : best ? `${best}, ${r.by_right_units ?? "—"} home${r.by_right_units === 1 ? "" : "s"} by right${r.units_with_relief != null && r.units_with_relief !== r.by_right_units ? `, ${r.units_with_relief} with relief` : ""}` : "none scored"}{r.top_blocker ? `. Top blocker: ${r.top_blocker.toLowerCase()}` : ""}.</p>
+          <p className="dv-best"><b>Best option:</b> {r.band === "Partial" ? partialBest(r) : best ?? "none scored"}{r.band !== "Partial" && best ? `. ${MOST_BY_RIGHT}: ${r.by_right_units ?? "—"}${r.units_with_relief != null && r.units_with_relief !== r.by_right_units ? ` (${r.units_with_relief} with relief)` : ""}` : ""}{r.top_blocker ? `. Top blocker: ${r.top_blocker.toLowerCase()}` : ""}.</p>
           {r.cap_label ? <p className="pl-callout amber">{relabelBands(r.cap_label)}</p> : null}
           {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
         </>

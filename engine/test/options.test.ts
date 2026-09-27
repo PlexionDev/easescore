@@ -67,9 +67,10 @@ describe("per-option F1 from the use table", () => {
     expect(new Set(rows.filter((x) => x.applicable).map((x) => x.name)).size).toBe(rows.filter((x) => x.applicable).length);
   });
 
-  it("renovation reads as the existing building, no new zoning approval for interior work", () => {
+  it("renovation is not evaluated: condition inside is unknown, needs an inspection", () => {
     const r = fake([{ id: "rehab_existing", score: 70 }]);
-    expect(score.optionZoningPath(r.strategies[0]!).text).toMatch(/^Existing building: no new zoning approval for interior work/);
+    expect(score.OPTION_NAME.rehab_existing).toBe("Renovate the existing building");
+    expect(score.optionZoningPath(r.strategies[0]!).text).toBe("Not evaluated. Condition inside is unknown; needs an inspection.");
   });
 });
 
@@ -89,14 +90,26 @@ describe("ordering", () => {
     expect(rows[0]!.leadLabel).toBe(score.LEAD_SUBSIDY);
   });
 
-  it("an option that cannot be priced yet is never the best: it ranks after the priced options", () => {
+  it("renovating an existing building is never the best option, even when it scores highest or pencils", () => {
     const r = fake([{ id: "rehab_existing", score: 85 }, { id: "new_sf", score: 60 }]);
-    const rows = score.rankOptions(r, { rehab_existing: "pricing", new_sf: "no" });
+    const rows = score.rankOptions(r, { rehab_existing: "yes", new_sf: "no" });
     expect(rows[0]!.strategy).toBe("new_sf");
     expect(rows[0]!.evaluable).toBe(true);
     expect(rows[0]!.leadLabel).toBe(score.LEAD_SUBSIDY);
     expect(rows[1]!.strategy).toBe("rehab_existing");
     expect(rows[1]!.evaluable).toBe(false);
+  });
+
+  it("the best option comes from zoning and fit, never from missing pricing (300 Larimer Ave case)", () => {
+    const r = fake([{ id: "new_sf", score: 95 }, { id: "duplex", score: 40, code: "N" }]);
+    const rows = score.rankOptions(r, { new_sf: "unknown", duplex: "yes" });
+    expect(rows[0]!.strategy).toBe("new_sf");
+    expect(rows[0]!.evaluable).toBe(true);
+    expect(rows[0]!.leadLabel).toBeNull();
+    // An allowed option that pencils still leads an allowed one with no sale value yet.
+    const two = score.rankOptions(fake([{ id: "new_sf", score: 95 }, { id: "duplex", score: 70 }]), { new_sf: "unknown", duplex: "yes" });
+    expect(two.map((x) => x.strategy)).toEqual(["duplex", "new_sf"]);
+    expect(two.every((x) => x.evaluable)).toBe(true);
   });
 
   it("zoning not in our data (e.g. the ADU row): not evaluable, no lead label, even when it scores highest", () => {

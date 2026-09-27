@@ -57,7 +57,7 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
                 : <p className="pl-hint">Nothing costs a full point.</p>}
             </section>
             <div className="pl-facts">
-              <div className="pl-fact"><span>By-right yield</span><b>{r.by_right_units ?? "—"}</b></div>
+              <div className="pl-fact"><span>Most homes by right, any type</span><b>{r.by_right_units ?? "—"}</b></div>
               <div className="pl-fact"><span>Yield with approvals</span><b>{r.units_with_relief ?? "—"}</b></div>
               <div className="pl-fact"><span>Months to permit (est.)</span><b>{monthsRangeText(r.months_to_permit)}</b></div>
               <div className="pl-fact"><span>Lot</span><b>{r.lot_sqft != null ? `${Math.round(r.lot_sqft).toLocaleString("en-US")} sq ft` : "—"}</b></div>

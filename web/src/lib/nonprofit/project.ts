@@ -83,10 +83,12 @@ async function lotCost(parid: string, units: number, bedrooms: number, asOf: str
   const res = P.score;
   if (!res) return { ...base, source: loaded.source, notes: ["The lot could not be scored, so it cannot be priced."] };
   const fitOf = (s: score.StrategyResult) => (s.factors.find((x) => x.id === "F1")?.inputs as { fitStatus?: string | null } | undefined)?.fitStatus ?? null;
-  const bestRes = res.strategies.find((x) => x.strategy === res.best) ?? null;
+  // Renovation is never the best option (never estimated automatically); a stored row may predate that rule.
+  const bestId = res.best === "rehab_existing" ? score.pickBest(res.strategies, res.strategies.map((x) => x.strategy)) : res.best;
+  const bestRes = res.strategies.find((x) => x.strategy === bestId) ?? null;
   const byRightUnits = res.strategies.filter((x) => x.applicable && (fitOf(x) === "by_right" || fitOf(x) === "contextual")).reduce<number | null>((m, x) => Math.max(m ?? 0, x.units ?? 0), null);
   const lotSqft = (f as { lot_area_sqft_gis?: number | null }).lot_area_sqft_gis ?? (f.assessment as { lot_area_sqft?: number | null } | undefined)?.lot_area_sqft ?? null;
-  Object.assign(base, { bestLabel: bestRes?.strategyLabel ?? null, byRightUnits, lotSqft: lotSqft != null ? Math.round(lotSqft) : null });
+  Object.assign(base, { bestLabel: bestRes ? `${bestRes.strategyLabel}${bestRes.units ? ` · ${bestRes.units} home${bestRes.units === 1 ? "" : "s"}` : ""}` : null, byRightUnits, lotSqft: lotSqft != null ? Math.round(lotSqft) : null });
   const tries = TRY[units] ?? TRY[2]!;
   const cands = res.strategies.filter((s) => s.applicable && tries.includes(s.strategy) && res.schemes?.[s.strategy]);
   // Prefer a type that fits this many homes by right; otherwise the first that fits with relief.

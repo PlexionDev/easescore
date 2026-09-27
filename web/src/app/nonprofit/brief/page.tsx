@@ -127,7 +127,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
           <div className="br-sites">
             <Outline geom={area?.outline ?? null} pts={lots.filter((l) => l.lon != null && l.lat != null).map((l, i) => ({ lon: l.lon!, lat: l.lat!, n: i + 1 }))} />
             <table className="br-table">
-              <thead><tr><th>#</th><th>Lot</th><th>Owner</th><th className="num">By-right yield</th><th>Flags</th></tr></thead>
+              <thead><tr><th>#</th><th>Lot</th><th>Owner</th><th className="num">Most homes by right, any type</th><th>Flags</th></tr></thead>
               <tbody>
                 {lots.map((l, i) => {
                   const st = statusNote(l.agency_status);

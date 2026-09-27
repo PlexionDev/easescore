@@ -8,9 +8,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BandPill, SeatButton, SeatHeader, SeatLayout, SeatSelect, Segmented, setSelection, useSeatLayout } from "@/components/seats";
 import {
-  CITY, DEFAULT_DIR, PAGE_SIZE, STRATEGY_TEXT, clean, describeFilters, duplicateAddresses, filtersToQuery, ownerShort, parcelLabel, titleCase,
+  CITY, DEFAULT_DIR, PAGE_SIZE, clean, describeFilters, duplicateAddresses, filtersToQuery, ownerShort, parcelLabel, titleCase,
   partialBest, type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
 } from "@/lib/planner";
+import { MOST_BY_RIGHT, bestWithHomes } from "@/lib/best-option";
 import DeveloperFilters from "./DeveloperFilters";
 import DeveloperPane from "./DeveloperPane";
 import "../planner/planner.css";
@@ -22,10 +23,10 @@ const MAX_LOTS = 10;
 const LOTS_KEY = "easescore.developer.lots";
 const SORTS: { value: Sort; label: string }[] = [
   { value: "score", label: "Ease Score" },
-  { value: "by_right_units", label: "By-right yield" },
+  { value: "by_right_units", label: "Most homes by right, any type" },
   { value: "lot", label: "Lot size" },
 ];
-const SORT_TEXT: Partial<Record<Sort, string>> = { score: "Ease Score", by_right_units: "by-right yield", lot: "lot size" };
+const SORT_TEXT: Partial<Record<Sort, string>> = { score: "Ease Score", by_right_units: "most homes by right (any type)", lot: "lot size" };
 
 function queryString(f: Filters, sort: Sort, dir: Dir, page: number, parcel: string | null) {
   const q = filtersToQuery(f);
@@ -36,7 +37,8 @@ function queryString(f: Filters, sort: Sort, dir: Dir, page: number, parcel: str
   return q.toString();
 }
 
-const bestText = (r: PlannerRow) => (r.band === "Partial" ? partialBest(r) : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—");
+// The best option with its own home count ("Duplex · 2 homes"); the most homes by right across all types is its own column.
+const bestText = (r: PlannerRow) => (r.band === "Partial" ? partialBest(r) : bestWithHomes(r) ?? "—");
 
 /** Opens the pane's sheet on phones when a parcel is picked (must sit inside SeatLayout). */
 function SheetOnPick({ parid }: { parid: string | null }) {
@@ -208,7 +210,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
                 <button type="button" className="pl-card-btn" onClick={() => openParcel(r.parid)}>
                   <span className="pl-card-top"><span className="pl-rank">{page * PAGE_SIZE + i + 1}</span> <b>{label(r)}</b></span>
                   <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {bestText(r)}</span>
-                  <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right`, ownerShort(r)].filter(Boolean).join(" · ")}</span>
+                  <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${MOST_BY_RIGHT}: ${r.by_right_units ?? "—"}`, ownerShort(r)].filter(Boolean).join(" · ")}</span>
                 </button>
               </li>
             ))}
@@ -226,7 +228,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
                   <th scope="col">Owner type</th>
                   <th scope="col">Ease Score</th>
                   <th scope="col">Best option</th>
-                  <th scope="col" className="num">By-right yield</th>
+                  <th scope="col" className="num">{MOST_BY_RIGHT}</th>
                   <th scope="col">My lots</th>
                 </tr>
               </thead>
@@ -289,7 +291,7 @@ function MyLots({ lots, onOpen, onRemove, onClear }: { lots: PlannerRow[]; onOpe
           <table className="pl-table dv-compare">
             <caption className="es-sr">My lots compared side by side</caption>
             <thead>
-              <tr><th scope="col">Lot</th><th scope="col">Ease Score</th><th scope="col">Best option</th><th scope="col" className="num">By-right yield</th><th scope="col" className="num">Lot sq ft</th><th scope="col">Zoning</th><th scope="col">Owner type</th><th scope="col"><span className="es-sr">Actions</span></th></tr>
+              <tr><th scope="col">Lot</th><th scope="col">Ease Score</th><th scope="col">Best option</th><th scope="col" className="num">{MOST_BY_RIGHT}</th><th scope="col" className="num">Lot sq ft</th><th scope="col">Zoning</th><th scope="col">Owner type</th><th scope="col"><span className="es-sr">Actions</span></th></tr>
             </thead>
             <tbody>
               {lots.map((r) => {

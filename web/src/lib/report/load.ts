@@ -650,7 +650,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     // Same ranking as the parcel page: the pro forma's verdict per option (the page's own for the studied one).
     const pc = plans;
     const verdictOf = (x: assumptions.ProFormaResult | null | undefined, rehab: boolean): easeEngine.PencilState =>
-      !x ? (rehab ? "pricing" : "unknown") : x.plan.missing.length ? (rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown") : x.verdict ?? "unknown";
+      !x ? (rehab ? "none" : "unknown") : x.plan.missing.length ? (rehab && x.plan.missing.some((t) => /rehab budget/i.test(t)) ? "none" : "unknown") : x.verdict ?? "unknown";
     options = easeEngine.rankOptions(raw, Object.fromEntries(raw.strategies.map((x) => {
       const pf = pagePlan && pagePlan.strategy === x.strategy && !ubPlan?.pf ? pagePlan.pf : pc.options.find((q) => q.strategy === x.strategy)?.pf;
       const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;

@@ -2,14 +2,17 @@
 // (does it pencil) stay two separate signals and are never blended into one number: the ranking only
 // uses the pencil verdict to split the list, then orders by ease inside each group.
 //
-//   1. Options that are allowed in some form and pencil (yes or barely), easiest first.
-//   2. Options that are allowed in some form and do not pencil, easiest first.
-//   3. Options that cannot be evaluated yet (zoning not in our data, or cannot be sized or priced), easiest first.
+//   1. Options that are allowed and fit the lot, and pencil (yes or barely), easiest first.
+//   2. Options that are allowed and fit the lot, whatever the pro forma says (no verdict, or no sale value yet), easiest first.
+//   3. Options that cannot be evaluated (zoning not in our data; renovating an existing building, whose
+//      condition inside is unknown), easiest first.
 //   4. Options the zoning does not allow, or that do not fit the lot, easiest first.
 //   5. Options that do not apply here (e.g. renovation on a vacant lot).
 //
-// Only an option that can be sized and priced (groups 1-2) can be the best option ("evaluable"). When
+// The best option is the easiest option that is allowed and fits (groups 1-2, "evaluable"): zoning and fit
+// decide it, never whether pricing exists. A missing sale value shows in the Pro forma, not here. When
 // nothing pencils, the first row is the easiest evaluable option, labeled "Needs subsidy or lower costs".
+// Renovation is never estimated automatically, so it is never the best option.
 // Pure and deterministic.
 
 import type { StrategyId, StrategyResult, EaseScoreResult, Band } from "./types";
@@ -35,12 +38,12 @@ export interface OptionRow {
   rank: number;
   /** Label on the first row: "Easiest option that pencils", "Needs subsidy or lower costs", or null. */
   leadLabel: string | null;
-  /** Can be sized (zoning known, fits) and priced (the pro forma gave a verdict): only these can be the best option. */
+  /** Allowed and fits (zoning known, not blocked; not a renovation): only these can be the best option. */
   evaluable: boolean;
 }
 
 export const OPTION_NAME: Record<StrategyId, string> = {
-  rehab_existing: "Renovate existing",
+  rehab_existing: "Renovate the existing building",
   new_sf: "New single-family",
   duplex: "Duplex",
   three_four_unit: "3–4 units",
@@ -63,7 +66,7 @@ const ruleWords = (rs: string[] | undefined) =>
 export function optionZoningPath(s: StrategyResult): { kind: ZoningPathKind; text: string } {
   if (!s.applicable) return { kind: "not_applicable", text: s.notApplicableReason ?? "Does not apply to this lot" };
   if (s.strategy === "rehab_existing")
-    return { kind: "existing", text: "Existing building: no new zoning approval for interior work (adding units would need one)" };
+    return { kind: "existing", text: "Not evaluated. Condition inside is unknown; needs an inspection." };
   const f1 = s.factors.find((f) => f.id === "F1");
   const i = (f1?.inputs ?? {}) as F1In;
   if (!f1 || f1.subscore == null || !i.permissionCode) {
@@ -93,9 +96,9 @@ const BLOCKED_KINDS: ZoningPathKind[] = ["not_allowed", "no_fit"];
 /** Ease used for ordering: the score, else the middle of its range, else last. */
 const easeOf = (s: StrategyResult) => (s.score != null ? s.score : s.range ? (s.range[0] + s.range[1]) / 2 : -1);
 
-/** Sized (zoning known and not blocked) and priced (a pencil verdict). */
-export function isEvaluable(s: StrategyResult, z: ZoningPathKind, p: PencilState): boolean {
-  return s.applicable && z !== "unknown" && z !== "not_applicable" && !BLOCKED_KINDS.includes(z) && (p === "yes" || p === "thin" || p === "no");
+/** Allowed and fits: zoning known and not blocked, and not a renovation (never estimated automatically). Pricing plays no part. */
+export function isEvaluable(s: StrategyResult, z: ZoningPathKind, _p?: PencilState): boolean {
+  return s.applicable && s.strategy !== "rehab_existing" && z !== "unknown" && z !== "not_applicable" && z !== "existing" && !BLOCKED_KINDS.includes(z);
 }
 
 function group(s: StrategyResult, z: ZoningPathKind, p: PencilState): number {

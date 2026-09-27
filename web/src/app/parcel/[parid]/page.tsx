@@ -205,8 +205,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // (the selected option's own, with the visitor's edits); ease comes from the score. Never blended.
   const pencilOf = (id: score.StrategyId, x: assumptions.ProFormaResult | null | undefined): score.PencilState => {
     const rehab = id === "rehab_existing";
-    if (!x) return rehab ? "pricing" : "unknown";
-    if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown";
+    // Renovation is priced only from the visitor's own rehab budget: no chip until they enter one.
+    if (!x) return rehab ? "none" : "unknown";
+    if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab budget/i.test(t)) ? "none" : "unknown";
     return x.verdict ?? "unknown";
   };
   // Options the page has priced itself (parcelPlan, the QuickFit v2 scheme) use that pro forma in the ranking.
@@ -220,8 +221,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       })))
     : [];
   // The page (and QuickFit) open on the first row of that ranking; ?strategy= (a visitor's pick) wins.
-  // Only an option that can be sized and priced is "best" (score.rankOptions puts those first).
-  const topOf = (rows: score.OptionRow[]) => (rows.find((r) => r.evaluable) ?? rows.find((r) => r.applicable))?.strategy ?? null;
+  // The best option is the easiest one that is allowed and fits (score.rankOptions puts those first); never a renovation.
+  const topOf = (rows: score.OptionRow[]) => (rows.find((r) => r.evaluable) ?? rows.find((r) => r.applicable && r.strategy !== "rehab_existing") ?? rows.find((r) => r.applicable))?.strategy ?? null;
   const bestRanked = topOf(rankWith(plans0));
   const defaultId = narrative.defaultStrategy(wanted, bestRanked ?? plans0?.byRight?.strategy ?? null, easeResult?.best ?? null);
   let selected = easeResult
@@ -347,11 +348,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
   const best = partial ? null : optionRows.find((r) => r.evaluable) ?? null;
   const PENCIL_WORDS: Record<score.PencilState, string> = {
-    yes: "pencils at market rate", thin: "doesn't pencil at market rate", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
+    yes: "pencils at market rate", thin: "doesn't pencil at market rate", no: "doesn't pencil at market rate", pricing: "", unknown: "", none: "",
   };
+  // The best option with its own home count ("Duplex · 2 homes"), from its priced plan, else the score's fit.
+  const bestUnits = best ? (best.strategy === selected?.strategy ? pf?.plan.units : null) ?? plans?.options.find((q) => q.strategy === best.strategy)?.units ?? easeResult?.strategies.find((x) => x.strategy === best.strategy)?.units ?? null : null;
+  // A missing sale value shows in the Pro forma ("No sale value yet"), never here.
   const bestLine = !best
-    ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partial ? "Can't determine; the score did not see what is on this lot" : "Can't determine yet: no option can be sized and priced") : null)
-    : [best.name, best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, ""),
+    ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partial ? "Can't determine; the score did not see what is on this lot" : "No option is allowed and fits this lot") : null)
+    : [`${best.name}${bestUnits ? ` · ${bestUnits} home${bestUnits === 1 ? "" : "s"}` : ""} (${best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, "")})`,
         best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
   // Market strength beside the score: the new-construction comp set the pro forma prices from.
   const marketSet = (selected && P.newComps[selected.strategy]) ?? P.newComps.new_sf ?? Object.values(P.newComps).find(Boolean) ?? null;
@@ -359,7 +363,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Existing building, from the County assessment.
   const hasBuilding = !!a?.year_built || Number(a?.fmv_building ?? 0) > 0 || partialReason === "use" || partialReason === "footprint";
   const buildingLine = hasBuilding
-    ? `${a?.use ? String(a.use).toLowerCase().replace(/retl\/apt'?s over/, "retail with apartments above").replace(/\bretl\b/g, "retail").replace(/\bapt'?s\b/g, "apartments").replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
+    ? `${a?.use ? String(a.use).toLowerCase().replace(/retl\/apt'?s over/, "retail with apartments above").replace(/\bretl\b/g, "retail").replace(/\bapt'?s\b/g, "apartments").replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""}${a?.condition ? `, condition ${String(a.condition).toLowerCase()}` : ""} (County assessment)`
     : "None on record (County assessment)";
   // The site layout thumbnail shows the selected option when it is a new build, else the best new build.
   const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
@@ -403,7 +407,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}{hasBuilding && !isCity ? <span className="text-slate-600">. Rehab/reuse costs are not modeled outside the City of Pittsburgh.</span> : null}</p>
+        <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}</p>
         {bestLine && <p className="mt-1 text-[13px] text-slate-800" title={best && ["yes", "thin", "no"].includes(best.pencils) ? "Pencils: meets the target profit margin at default assumptions" : undefined}><b>Best option:</b> {bestLine}{best && ["yes", "thin", "no"].includes(best.pencils) ? <span className="sr-only"> (pencils means it meets the target profit margin at default assumptions)</span> : null}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
         {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}

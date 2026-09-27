@@ -810,7 +810,7 @@ export function S3(x: Ctx) {
 // ---------------------------------------------------------------------------------------------
 // 4. Zoning
 
-const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil", pricing: "Needs your rehab cost", unknown: "Can't tell yet", none: "—" };
+const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil", pricing: "—", unknown: "Can't tell yet", none: "—" };
 
 /** "Best options for this lot" (the parcel page's ranking) and the street precedent, moved here from the pane. */
 function OptionsAndPrecedent({ x }: { x: Ctx }) {

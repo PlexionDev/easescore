@@ -134,6 +134,36 @@ function LineEditor({ id, value, mine, onSet, onReset }: { id: string; value: nu
   );
 }
 
+/** Rehab is never estimated automatically: the visitor enters a budget (total or per sq ft), which prices the construction line. */
+function RehabBudget({ finishedSf, total, onSet, onReset }: { finishedSf: number | null; total: number | null; onSet: (v: number) => void; onReset: () => void }) {
+  const [draft, setDraft] = useState("");
+  const [per, setPer] = useState<"total" | "sf">("total");
+  const commit = () => {
+    const v = Number(draft.replace(/[$,\s]/g, ""));
+    if (!Number.isFinite(v) || v <= 0) return;
+    onSet(per === "sf" && finishedSf ? Math.round(v * finishedSf) : Math.round(v));
+    setDraft("");
+  };
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-[12px] text-slate-700">
+      <p>Renovate the existing building: not evaluated. Condition inside is unknown; needs an inspection. Rehab is not estimated automatically.</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <label htmlFor="pf-rehab-budget" className="font-semibold">Enter your rehab budget</label>
+        <input id="pf-rehab-budget" inputMode="decimal" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="$"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } }} className="w-24 rounded border border-slate-400 px-1.5 py-0.5 text-right tabular-nums" />
+        <label htmlFor="pf-rehab-per" className="sr-only">Budget is</label>
+        <select id="pf-rehab-per" value={per} onChange={(e) => setPer(e.target.value as "total" | "sf")} className="rounded border border-slate-400 px-1 py-0.5">
+          <option value="total">total</option>
+          <option value="sf" disabled={!finishedSf}>per sq ft</option>
+        </select>
+        <button type="button" onClick={commit} className="min-h-6 rounded border border-slate-400 bg-white px-2 py-0.5 font-semibold">Use</button>
+        {total != null && <button type="button" onClick={onReset} className="text-[11px] text-sky-800 underline">clear</button>}
+      </div>
+      {total != null && <p className="mt-1 text-[11px] text-slate-600">Your rehab budget: {usd(total)}. The after-repair value comes from Good-or-better comparable sales, based on your rehab budget.</p>}
+    </div>
+  );
+}
+
 export default function ProFormaLive({ parid, live, initial, strategyLabel }: { parid: string; live: LiveInputs; initial: assumptions.CostOverrides; strategyLabel: string }) {
   const [over, setOver] = useState<assumptions.CostOverrides>(initial);
   // Rents by bedroom from nearby listings (RentCast via /api/rents): loaded after the page, never blocking it.
@@ -222,12 +252,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
     <section aria-label="Pro forma" className="rounded-xl border border-slate-200 bg-white/80 p-3">
       <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
       {rehab ? (
-        p.rehab && (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-[12px] text-slate-700">
-            <p><b>Rehab scope:</b> {p.rehab.tier.label} · ${p.rehab.perSf[1]}/SF <span className="text-slate-500">(range ${p.rehab.perSf[0]}–${p.rehab.perSf[2]}/SF)</span> <SourceBadge s={{ kind: "badge", badge: assumptions.ASSUMPTION_BADGE, label: p.rehab.sourceLabel, asOf: null }} /></p>
-            <p className="text-[11px] text-slate-500">{p.rehab.basis}. Type your contractor&apos;s number into the construction line below.</p>
-          </div>
-        )
+        <RehabBudget finishedSf={p.finishedSf} total={over.lineAmounts?.hard_base ?? null} onSet={(v) => setLine("hard_base", v)} onReset={() => resetLine("hard_base")} />
       ) : (
         <QualitySlider tierId={over.tier ?? p.tier.id} onTier={setTier} />
       )}

@@ -96,7 +96,7 @@ export default function MethodsPage() {
             <h2 id="overview-h">The short version</h2>
             <ol className={d.steps}>
               <li>We gather the facts for the lot: zoning, lidar slope, hazard maps, street frontage, water service, transit, permits, Zoning Board decisions, nearby sales.</li>
-              <li>For each housing option (single-family, duplex, 3–4 units, townhouse row, ADU, rehab of the existing building) we test whether a building fits the lot and which approvals it needs.</li>
+              <li>For each housing option (single-family, duplex, 3–4 units, townhouse row, ADU; renovating the existing building is listed as not evaluated) we test whether a building fits the lot and which approvals it needs.</li>
               <li>Seven factors are scored 0 to 100 and combined with fixed weights into the Development Ease Score. Higher means fewer barriers.</li>
               <li>Deal-breakers are shown as red flags above the score. Serious but workable issues become &ldquo;Review required&rdquo; callouts.</li>
               <li>Money is kept separate: the pro forma answers &ldquo;does it pencil?&rdquo; from costs and nearby sales.</li>
@@ -289,7 +289,7 @@ export default function MethodsPage() {
                 included&rdquo; and the estimate is marked partial. They are never counted as zero.
               </li>
               <li><strong>{costs.disclaimer}</strong></li>
-              <li>{costs.construction.rehabNote}</li>
+              <li>Rehab is not estimated automatically; enter your own budget. The condition inside a building is unknown and needs an inspection, so renovating it is shown as &ldquo;not evaluated&rdquo; and never ranks as the best option. The county condition rating is shown as a fact only.</li>
             </ul>
             <h3>Ranges</h3>
             <p>
@@ -348,7 +348,7 @@ export default function MethodsPage() {
             </p>
             <h3>After-repair value (rehab)</h3>
             <p>
-              A rehab is valued from nearby valid sales of the same use in Good, Very Good or Excellent condition (county assessment rating),
+              Only after you enter your own rehab budget (total or per sq ft), the result is labeled &ldquo;based on your rehab budget&rdquo; and the rehab is valued from nearby valid sales of the same use in Good, Very Good or Excellent condition (county assessment rating),
               with living area within {pct(arv.livingAreaTolerance)} of the building. We need at least {arv.minComps}; with fewer, all
               Good-or-better sales nearby are used with a note. As-is sales of older homes are not used as the value after a rehab.
             </p>

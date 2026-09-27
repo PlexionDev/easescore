@@ -5,7 +5,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FACTORS, STRATEGY_TEXT, bandLabel, partialBest, parcelLabel, titleCase, type PlannerRow } from "@/lib/planner";
+import { FACTORS, bandLabel, partialBest, parcelLabel, titleCase, type PlannerRow } from "@/lib/planner";
+import { bestWithHomes } from "@/lib/best-option";
 
 export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor }: {
   rows: PlannerRow[];
@@ -42,8 +43,8 @@ export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor
               <dl>
                 <dt>Score</dt><dd><strong>{r.score ?? "—"}</strong> {r.band ? bandLabel(r.band) : ""}</dd>
                 <dt>Top blockers</dt><dd style={{ whiteSpace: "normal", maxWidth: 140 }}>{r.blockers.slice(0, 2).join(", ") || "None major"}</dd>
-                <dt>Best new homes</dt><dd>{r.band === "Partial" ? partialBest(r) : r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "—"}</dd>
-                <dt>By right / relief</dt><dd>{r.by_right_units ?? "—"} / {r.units_with_relief ?? "—"}</dd>
+                <dt>Best new homes</dt><dd>{r.band === "Partial" ? partialBest(r) : bestWithHomes(r) ?? "—"}</dd>
+                <dt>Most homes by right, any type / with relief</dt><dd>{r.by_right_units ?? "—"} / {r.units_with_relief ?? "—"}</dd>
                 <dt>Months to permit</dt><dd>{r.months_to_permit != null ? `~${r.months_to_permit}` : "—"}</dd>
                 <dt>Hazards</dt><dd>{hz || "none mapped"}</dd>
                 <dt>Rehab existing</dt><dd>{r.rehab_score != null ? `${r.rehab_score} ${bandLabel(r.rehab_band, "")}` : r.band === "Partial" && !r.vacant ? "not scored" : "no building"}</dd>

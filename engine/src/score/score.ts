@@ -189,7 +189,8 @@ export function planningBadge(inp: EaseScoreInput, all: Internal[], strategy: St
 
 /** Best strategy: no red flags first, then highest score, then more evidence, then strategy order. */
 export function pickBest(results: StrategyResult[], order: readonly string[]): StrategyId | null {
-  const ok = results.filter((r) => r.applicable && r.score != null);
+  // Renovation is never estimated automatically (condition inside unknown), so it is never the best option.
+  const ok = results.filter((r) => r.applicable && r.score != null && r.strategy !== "rehab_existing");
   if (!ok.length) return null;
   return [...ok].sort(
     (a, b) => a.redFlags.length - b.redFlags.length || b.score! - a.score! || b.evidenceShare - a.evidenceShare || order.indexOf(a.strategy) - order.indexOf(b.strategy),

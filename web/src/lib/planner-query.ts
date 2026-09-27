@@ -538,7 +538,7 @@ export const CSV_DATE_SOURCES: [string, string][] = [
 export const CSV_COLUMNS = [
   "rank", "parid", "address", "municipality", "neighborhood", "council_district", "zoning", "lot_sqft", "vacant", "owner",
   "tax_delinquent", "score", "band", "range_lo", "range_hi", "preliminary", "band_cap", "red_flag_count", "red_flags",
-  "top_blocker", "all_blockers", "best_new_housing_option", "by_right_units", "units_with_relief", "months_to_permit",
+  "top_blocker", "all_blockers", "best_new_housing_option", "most_homes_by_right_any_type", "units_with_relief", "months_to_permit",
   "frequent_transit_ft", "floodway", "landslide_prone", "undermined", "share_steeper_than_25pct",
   "rehab_existing_score", "rehab_existing_band", "planning_badge", "planning_badge_status", "badge_points",
   ...FACTORS.map((f) => `${f.id}_${f.label.toLowerCase().replace(/[^a-z]+/g, "_").replace(/_$/, "")}`),

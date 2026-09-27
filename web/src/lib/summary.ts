@@ -100,7 +100,7 @@ function toSummaryOption(o: PlanOption): narrative.SummaryOption {
     marginPct: margin != null ? Math.round(margin * 1000) / 10 : null,
     gap: gap != null ? Math.round(gap) : null,
     ...costDriver(pf),
-    needs: pf && pf.plan.missing.length ? (pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab cost/i.test(t)) ? "your rehab cost" : "an input our data does not have") : null,
+    needs: pf && pf.plan.missing.length ? (pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab budget/i.test(t)) ? "your rehab budget" : "an input our data does not have") : null,
   };
 }
 
@@ -190,7 +190,8 @@ const approvalOption = (o: PlanOption): narrative.SummaryApprovalOption => ({
  * is not the featured by-right option (sentence 1 then describes it).
  */
 function summarize(options: PlanOption[], ctx: SummaryCtx, lead: score.StrategyId | null): PlanComparison & { ctx: SummaryCtx } {
-  const { byRight, withApproval } = narrative.pickPlans(options.map((o) => ({ ...o, value: value(o.pf) })));
+  // Renovation is never estimated automatically, so it is never the featured option.
+  const { byRight, withApproval } = narrative.pickPlans(options.filter((o) => o.strategy !== "rehab_existing").map((o) => ({ ...o, value: value(o.pf) })));
   const leadOpt = lead && lead !== byRight?.strategy ? options.find((o) => o.strategy === lead) ?? null : null;
   const summaryInput: narrative.SummaryInput = {
     parid: ctx.parid,
