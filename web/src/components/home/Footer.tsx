@@ -27,6 +27,7 @@ export default async function Footer({ home = false }: { home?: boolean }) {
               <Link href="/methods">{t("footer.methods")}</Link>
               <Link href="/limitations">{t("footer.limitations")}</Link>
               <Link href="/ai-use">{t("footer.aiUse")}</Link>
+              <Link href="/accessibility">{t("footer.accessibility")}</Link>
             </div>
             <div>
               <h2>{t("footer.project")}</h2>

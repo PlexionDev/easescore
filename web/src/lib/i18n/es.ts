@@ -26,6 +26,7 @@ export const es: Record<Key, string> = {
   "footer.methods": "Datos y métodos",
   "footer.limitations": "Limitaciones",
   "footer.aiUse": "Herramientas de IA usadas",
+  "footer.accessibility": "Accesibilidad",
   "footer.project": "Proyecto",
   "footer.who": "Para quién es",
   "footer.questions": "Preguntas",

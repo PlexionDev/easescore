@@ -24,6 +24,7 @@ export const en = {
   "footer.methods": "Data & methods",
   "footer.limitations": "Limitations",
   "footer.aiUse": "AI tools used",
+  "footer.accessibility": "Accessibility",
   "footer.project": "Project",
   "footer.who": "Who it’s for",
   "footer.questions": "Questions",
