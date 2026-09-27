@@ -2132,7 +2132,7 @@ export function AppE(x: Ctx) {
       </p>
       <ul>
         <li><b>Buying on an estimate.</b> A lot that “fits” here may not fit after a survey or engineer looks. Scores and costs show ranges, each number cites its source, and this study lists its data gaps.</li>
-        <li><b>Targeting owners behind on taxes.</b> No owner names are stored or shown. The Planner’s tax-delinquent filter is off by default but not limited to public land. There is no “motivated seller” feature.</li>
+        <li><b>Targeting owners behind on taxes.</b> No owner names are stored or shown. Tax-delinquency filters and labels apply to publicly owned land only; a private owner’s tax status is never shown or exported. There is no “motivated seller” feature.</li>
         <li><b>Displacement where rents are rising.</b> The Policy and Nonprofit seats show rent burden as context. It is never used to compute the Ease Score.</li>
         <li><b>Thin data.</b> Areas with less data get wider ranges or a “Preliminary — insufficient evidence” score instead of one number, which can steer attention by data quality rather than need.</li>
         <li><b>Older homes.</b> Buildings that would not meet today’s code point to the rule, not the house. This study does not rule on whether any home is legal to keep.</li>

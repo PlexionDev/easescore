@@ -48,14 +48,6 @@ const PATHS: Record<string, AcquisitionPath> = {
     note: "Processes differ by agency.",
     where: "The owning agency",
   },
-  tax: {
-    id: "tax",
-    title: "Tax-delinquent private lot (treasurer or sheriff sale)",
-    steps: ["Check the lot's tax-sale status", "Bid at a treasurer's or sheriff sale, or acquire through the Land Bank", "Quiet title if needed", "Closing"],
-    typicalMonths: [6, 18],
-    note: "Title and redemption rights add time and risk.",
-    where: "Allegheny County Treasurer / Sheriff; Pittsburgh Land Bank",
-  },
 };
 
 /** The typical path for a lot from its agency and the City's status field. */
@@ -66,7 +58,8 @@ export function acquisitionPath(agency: string | null, taxDelinquent: boolean | 
   if (a.includes("urban redevelopment") || a === "ura") return PATHS.ura!;
   if (a.includes("pittsburgh") || a.includes("land bank")) return PATHS.city!;
   if (ownerClass === "public") return PATHS.county!;
-  if (taxDelinquent) return PATHS.tax!;
+  // Private lots: no acquisition path from tax status (a private owner's tax status is never shown).
+  void taxDelinquent;
   return null;
 }
 

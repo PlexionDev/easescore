@@ -510,9 +510,11 @@ export function f6Readiness(inp: EaseScoreInput, s: StrategyId, cfg: EaseScoreCo
   if (inp.ownership.taxDelinquent == null) { evidence = "partial"; titleText = "tax-lien status unknown"; }
   if (inp.ownership.taxDelinquent) { title = Math.min(title, t.taxDelinquent); titleText = "tax-delinquent (treasurer / sheriff sale path)"; }
   if (inp.ownership.publicOwner) { title = Math.min(title, t.publicOwner); titleText = `publicly owned (${inp.ownership.publicOwner}; city / land bank path)`; }
+  // A private owner's tax status is never shown: the receipt names the ownership only.
+  else if (inp.ownership.taxDelinquent != null) titleText = "privately owned (tax status is shown for public land only)";
   if (!inp.ownership.publicOwnerKnown) evidence = "partial";
   return factor(cfg, b, base * title, evidence,
-    { structurePresent: st.present, condition: st.condition, condemned: st.condemned, taxDelinquent: inp.ownership.taxDelinquent,
+    { structurePresent: st.present, condition: st.condition, condemned: st.condemned, taxDelinquent: inp.ownership.publicOwner ? inp.ownership.taxDelinquent : null,
       publicOwner: inp.ownership.publicOwner, titleFactor: title },
     [SRC.assessment, SRC.cityOwned, SRC.liens], `${text}; ${titleText}.`, inp.dates);
 }

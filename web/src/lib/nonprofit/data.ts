@@ -56,9 +56,16 @@ export const bgMap = () => cached("bgmap", 3_600_000, () => rpc<GeoJSON.FeatureC
 export const incomeLimits = () =>
   cached("il", 3_600_000, async () => (await select<IncomeLimitsRowLite>("hud_income_limits?select=*&order=year.desc&limit=1"))?.[0] ?? null);
 
+/** Tax-delinquency status is shown for publicly owned land only; a private owner's tax status never leaves the server. */
+export function publicOnlyTax<T extends { owner_class?: string | null; tax_delinquent?: boolean | null }>(r: T): T {
+  return r.owner_class === "public" ? r : { ...r, tax_delinquent: null };
+}
+
 export function sites(hood: string, f: SiteFilters, limit = 60) {
-  return cached(`sites:${hood.toLowerCase()}:${JSON.stringify(f)}:${limit}`, 120_000, () =>
-    rpc<SitesResult>("nonprofit_sites", { p_hood: hood, p_public: f.public, p_vacant: f.vacant, p_clean: f.clean, p_min_units: f.minUnits, p_limit: limit }));
+  return cached(`sites:${hood.toLowerCase()}:${JSON.stringify(f)}:${limit}`, 120_000, async () => {
+    const res = await rpc<SitesResult>("nonprofit_sites", { p_hood: hood, p_public: f.public, p_vacant: f.vacant, p_clean: f.clean, p_min_units: f.minUnits, p_limit: limit });
+    return res ? { ...res, rows: (res.rows ?? []).map(publicOnlyTax) } : res;
+  });
 }
 
 /** Same normalization as public.school_key() (migration 105), so parcel_geo school names match millage_rates. */
@@ -149,7 +156,7 @@ export async function lotsDetail(parids: string[]): Promise<import("./types").Si
   const ocOf = new Map((oc ?? []).map((r) => [r.parid.trim(), r]));
   const byId = new Map((rows ?? []).map((r) => {
     const id = r.parid.trim();
-    return [id, { ...r, parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, city_program: ocOf.get(id)?.city_program ?? null, geoid: null, qct: false, dda: false }];
+    return [id, { ...publicOnlyTax(r), parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, city_program: ocOf.get(id)?.city_program ?? null, geoid: null, qct: false, dda: false }];
   }));
   return parids.map((p) => byId.get(p)).filter(Boolean) as import("./types").Site[];
 }
