@@ -89,7 +89,7 @@ export function SheetButton({ label, title, children }: { label: string; title: 
   }, [on]);
   return (
     <>
-      <button ref={trigger} type="button" aria-haspopup="dialog" aria-controls={id} onClick={() => setOn(true)}
+      <button ref={trigger} type="button" aria-haspopup="dialog" aria-controls={on ? id : undefined} onClick={() => setOn(true)}
         className="min-h-6 text-[11px] font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-800">
         {label}
       </button>
