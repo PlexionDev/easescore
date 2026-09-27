@@ -267,7 +267,7 @@ export default function SearchBox({
                   onClick={() => goToHit(h)}
                 >
                   <span className="search-suggest-addr">{hitLabel(h)}</span>
-                  <span className="search-suggest-meta">{h.muni_desc} · {h.zip} · {h.use_desc}</span>
+                  <span className="search-suggest-meta">{h.match === "nearby number" ? "Nearby number on this street · " : ""}{h.muni_desc} · {h.zip} · {h.use_desc}</span>
                   <span className="search-suggest-parid">{h.parid}</span>
                 </button>
               ))
