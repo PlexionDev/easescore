@@ -145,9 +145,10 @@ export function decisionBox(r: ProFormaResult, criteria: Partial<InvestmentCrite
   const gross = r.sale.grossSales;
   const tdc = r.tdc;
   const s = p.forSale.sellingCostShare ?? null;
-  const broker = COST_CONFIG.sale.brokerShare.value;
+  const comm = p.salesCommission && gross ? p.salesCommission / gross : 0;
+  const broker = COST_CONFIG.sale.brokerShare.value + comm;
   const sellingBasis = has(s)
-    ? `Seller's half of the realty transfer tax, ${pct0(s - broker)} of the sale price${broker ? ` + sales commissions ${pct0(broker)}` : ""}. Sales commissions are excluded (cost-to-build basis); add them if you sell through a broker.`
+    ? `Seller's half of the realty transfer tax, ${pct0(s - broker)} of the sale price${broker ? ` + sales commission ${usd(p.salesCommission)} (your number)` : ""}.${broker ? "" : " Sales commission: not included (often 5–6% if listed with an agent); add it in the budget if you sell through a broker."}`
     : "Transfer tax rate not loaded for this municipality.";
 
   // Financing: interest + lender fees in the budget (holding taxes stay in cost either way).

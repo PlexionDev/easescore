@@ -24,7 +24,7 @@ import {
 } from "../finance";
 import type { NarrativeProForma } from "../narrative/types";
 import { COST_CONFIG, type CostConfig } from "./config";
-import { sellOutCarry } from "./decision";
+import { DEFAULT_CRITERIA, sellOutCarry } from "./decision";
 import type { DevelopmentPlan, LineGroup } from "./build";
 import { proFormaRanges, rangeHeadline, type ProFormaRanges } from "./ranges";
 
@@ -102,7 +102,9 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   // ---- Sale
   const s = forSale.sales;
   const gs = v(s.grossSales);
-  const sellR = r1k(v(s.sellingCosts));
+  // Selling costs to $1,000; your sales commission (dollars) is kept exact on top of the rounded rest.
+  const sc0 = v(s.sellingCosts);
+  const sellR = sc0 != null ? r1k(Math.round(sc0 - plan.salesCommission))! + plan.salesCommission : null;
   const netR = gs != null && sellR != null ? gs - sellR : null;
   const profitR = netR != null && tdc != null ? netR - tdc : null;
   const sale = { grossSales: gs, sellingCosts: sellR, netSales: netR, profit: profitR, margin: profitR != null && tdc ? Math.round((profitR / tdc) * 1000) / 1000 : null };
@@ -122,10 +124,11 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     yieldOnCost: noiR != null && tdc ? Math.round((noiR / tdc) * 1000) / 1000 : v(rental.yieldOnCost),
   };
 
-  const thin = config.pencils.thinMarginBelow.value;
   const thinYoc = config.pencils.thinYieldOnCostBelow.value as number | null;
   let verdict: ProFormaResult["verdict"] = null;
-  if (plan.tenure === "sale" && sale.margin != null) verdict = sale.margin <= 0 ? "no" : sale.margin < thin ? "thin" : "yes";
+  // For sale: "Pencils" only when the likely profit meets the decision box's target margin on cost (same default
+  // and same profit ÷ TDC as decisionBox); otherwise "Doesn't pencil". No in-between for sale plans.
+  if (plan.tenure === "sale" && profitR != null && tdc) verdict = profitR / tdc + 1e-9 >= DEFAULT_CRITERIA.targetMargin ? "yes" : "no";
   if (plan.tenure === "rent" && rent.noi != null) verdict = rent.noi <= 0 ? "no" : thinYoc != null && rent.yieldOnCost != null ? (rent.yieldOnCost < thinYoc ? "thin" : "yes") : null;
 
   // ---- Sentences
@@ -179,7 +182,9 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   if (plan.missing.length) headline = `Can't tell yet${tdc != null ? `: it costs about ${about(tdc)}, but` : "."} ${tdc != null ? lcFirst(plan.missing[0]!) : plan.missing[0]}`;
   else if (plan.tenure === "sale" && sale.profit != null && tdc != null && sale.netSales != null)
     headline =
-      verdict === "no"
+      verdict === "no" && sale.profit > 0
+        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}), below the ${pct1(DEFAULT_CRITERIA.targetMargin)} target profit margin${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
+        : verdict === "no"
         ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${usd(-sale.profit)} short${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
         : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)})${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale (${usd(sale.profit - sellOutCarryR)} after it)` : ""}.`;
   else if (plan.tenure === "rent" && rent.noi != null && tdc != null)

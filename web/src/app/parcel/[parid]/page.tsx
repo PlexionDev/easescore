@@ -346,7 +346,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
   const best = partial ? null : optionRows.find((r) => r.evaluable) ?? null;
   const PENCIL_WORDS: Record<score.PencilState, string> = {
-    yes: "pencils at market rate", thin: "tight margin", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
+    yes: "pencils at market rate", thin: "doesn't pencil at market rate", no: "doesn't pencil at market rate", pricing: "needs your rehab cost to price", unknown: "can't price yet", none: "",
   };
   const bestLine = !best
     ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partial ? "Can't determine; the score did not see what is on this lot" : "Can't determine yet: no option can be sized and priced") : null)
@@ -403,7 +403,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
           ))}
         </div>
         <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}{hasBuilding && !isCity ? <span className="text-slate-600">. Rehab/reuse costs are not modeled outside the City of Pittsburgh.</span> : null}</p>
-        {bestLine && <p className="mt-1 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
+        {bestLine && <p className="mt-1 text-[13px] text-slate-800" title={best && ["yes", "thin", "no"].includes(best.pencils) ? "Pencils: meets the target profit margin at default assumptions" : undefined}><b>Best option:</b> {bestLine}{best && ["yes", "thin", "no"].includes(best.pencils) ? <span className="sr-only"> (pencils means it meets the target profit margin at default assumptions)</span> : null}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
         {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>

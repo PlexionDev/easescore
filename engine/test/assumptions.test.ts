@@ -395,3 +395,22 @@ describe("cost model v0.2 = backtest run D (COST-MODEL-LOCKED §H sanity house)"
     expect(val(c.tdc)).toBe(473014);
   });
 });
+
+describe("Pencils verdict and sales commission", () => {
+  it("pencils only at or above the decision box's target margin; otherwise doesn't pencil", () => {
+    for (const price of [250000, 350000, 450000, 600000, 800000]) {
+      const r = evaluateDevelopment(plan(FLAT, { overrides: { salePricePerUnit: price } }));
+      const box = assumptions.decisionBox(r);
+      if (box.profitOnCost == null) continue;
+      expect(r.verdict).toBe(box.profitOnCost >= assumptions.DEFAULT_CRITERIA.targetMargin - 1e-9 ? "yes" : "no");
+    }
+  });
+  it("sales commission defaults to $0 and a number you enter comes out of selling costs", () => {
+    const base = evaluateDevelopment(plan(FLAT, { overrides: { salePricePerUnit: 500000 } }));
+    expect(base.plan.salesCommission).toBe(0);
+    const withC = evaluateDevelopment(plan(FLAT, { overrides: { salePricePerUnit: 500000, lineAmounts: { sales_commission: 30000 } } }));
+    expect(withC.plan.salesCommission).toBe(30000);
+    expect(withC.sale.sellingCosts! - base.sale.sellingCosts!).toBe(30000);
+    expect(withC.tdc).toBe(base.tdc);
+  });
+});

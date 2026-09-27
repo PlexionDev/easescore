@@ -23,8 +23,9 @@ export interface LiveInputs {
 }
 
 const usd = (n: number | null | undefined) => (typeof n === "number" && Number.isFinite(n) ? `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}` : "—");
-const VERDICT_STYLE: Record<string, string> = { yes: "bg-emerald-100 text-emerald-800", thin: "bg-amber-100 text-amber-800", no: "bg-red-100 text-red-800" };
-const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Thin", no: "Does not pencil" };
+const VERDICT_STYLE: Record<string, string> = { yes: "bg-emerald-100 text-emerald-800", thin: "bg-red-100 text-red-800", no: "bg-red-100 text-red-800" };
+const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
+const VERDICT_TIP = "Meets the target profit margin at default assumptions";
 const EVIDENCE_TEXT: Record<assumptions.Evidence, string> = { complete: "Complete estimate", partial: "Partial estimate", missing: "Missing inputs" };
 const EVIDENCE_STYLE: Record<assumptions.Evidence, string> = {
   complete: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -235,7 +236,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`}>{VERDICT_TEXT[r.verdict]}</span>}
+            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-live-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
             {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
           </div>
@@ -296,7 +297,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
                       {minor.map((b) => lineRow(b, true))}
                       {sale && r.sale.sellingCosts != null && (
                         <tr className="align-top">
-                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">Selling costs at sale (broker, closing, seller&apos;s transfer tax)</span><span className="block text-[11px] text-slate-500">Taken from the sale price, not part of the total below</span></td>
+                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">Selling costs at sale (seller&apos;s transfer tax{p.salesCommission ? ", sales commission" : ""})</span><span className="block text-[11px] text-slate-500">Taken from the sale price, not part of the total below</span></td>
                           <td className="py-0.5 text-right tabular-nums text-slate-700">{usd(r.sale.sellingCosts)}</td>
                         </tr>
                       )}
@@ -305,6 +306,18 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
                 </details>
               </td>
             </tr>
+            {sale && (
+              <tr className="align-top">
+                <td className="py-1 pr-2">
+                  <span className="text-slate-800">{p.salesCommission ? "Sales commission (your number)" : "Sales commission: not included (often 5–6% if listed with an agent)"}</span>
+                  <span className="block text-[11px] text-slate-500">Default $0 (cost-to-build basis). A number you enter is taken from the sale price with the selling costs, not part of the total below.</span>
+                </td>
+                <td className="py-1 text-right text-slate-900">
+                  {usd(p.salesCommission)}
+                  <LineEditor id="sales_commission" value={p.salesCommission} mine={mine("sales_commission")} onSet={setLine} onReset={resetLine} />
+                </td>
+              </tr>
+            )}
             <tr className="border-t border-slate-300 align-top font-semibold">
               <td className="py-1">Total development cost{line("tdc")?.triangulation && <TriangulationStrip t={line("tdc")!.triangulation!} />}</td>
               <td className="py-1 text-right"><RangeValue r={rg.tdc} strong /></td>

@@ -274,6 +274,8 @@ export interface DevelopmentPlan {
   footprintSf: number | null;
   /** Budget line ids that carry "Your number". */
   userLines: string[];
+  /** Sales commission in dollars for the whole project, in selling costs (0 = not included, the default). */
+  salesCommission: number;
   lines: PlanLine[];
   shares: {
     ae: number; aeRange: number[] | null; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab";
@@ -814,7 +816,10 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const tt = isCity ? (bwSd ? ttc.cityBaldwinWhitehallPct : ttc.cityPct) : f.transfer_tax?.total_pct ?? ttc.suburbDefaultPct;
   const sellerTt = has(tt) ? (tt / 100) * saleCfg.sellerTransferTaxShare.value : null;
   if (sellerTt == null && tenure === "sale") exclude("transfer_tax", "Seller's realty transfer tax", "Pennsylvania and local transfer tax is due at sale", "rate not loaded");
-  const sellingShare = saleCfg.brokerShare.value + (sellerTt ?? 0);
+  // Sales commission: not included by default ($0, cost-to-build basis). Your number (pf_line_sales_commission, dollars
+  // for the whole project) is taken from the sale price with the other selling costs.
+  const salesCommission = has(la.sales_commission) && la.sales_commission > 0 ? la.sales_commission : 0;
+  const sellingShare = saleCfg.brokerShare.value + (sellerTt ?? 0) + (salesCommission && grossSales ? salesCommission / grossSales : 0);
   row("broker", saleCfg.brokerShare.label, pctText(saleCfg.brokerShare.value), saleCfg.brokerShare, null, false);
   if (sellerTt != null) row("transferTax", "Seller's share of the realty transfer tax", `${pctText(sellerTt)} (half of ${+tt!.toFixed(2)}%)`, { sourceLabel: isCity || !has(f.transfer_tax?.total_pct) ? ttc.sourceLabel : "Transfer tax rates (PA Dept. of Revenue, local)", sourceNote: saleCfg.sellerTransferTaxShare.sourceNote }, null, false);
   row("salesMonths", saleCfg.salesMonths.label, String(saleCfg.salesMonths.value), saleCfg.salesMonths, null, false);
@@ -938,6 +943,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     },
     footprintSf,
     userLines: Object.keys(la).filter((k) => has(la[k])),
+    salesCommission,
     lines,
     shares: { ae, aeRange: null, permits, other, permitsBasis, contingency, contingencyKind, aeBasis, otherBasis, otherLabel: newBuild ? "Structural, civil, survey, insurance and closing" : undefined, permitsRange, otherRange },
     slopeBasis,

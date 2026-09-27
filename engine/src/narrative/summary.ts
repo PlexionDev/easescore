@@ -95,6 +95,7 @@ const lc = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 function pencilsClause(o: SummaryOption): string {
   const basis = o.tenure === "sale" ? "on current new-home sale comps" : "on current rents";
   if (o.verdict === "no" && o.gap != null && o.gap > 0) return `at current costs it comes up short by about ${money(o.gap)}`;
+  if (o.verdict === "no" && o.marginPct != null && o.marginPct > 0 && o.tenure === "sale") return `it does not pencil: about a ${pct(o.marginPct)} margin ${basis}, below the target profit margin`;
   if (o.verdict === "no") return "at current costs it does not pencil";
   if (o.marginPct == null) return o.needs ? `pricing it needs ${o.needs}` : "whether it pencils can't be told from our data yet";
   const what = o.tenure === "sale" ? "margin" : "yield on cost";

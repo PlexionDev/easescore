@@ -94,6 +94,8 @@ export function pencilsSentence(f: NarrativeFacts): string {
     const shown = roundMoney(p.value) - roundMoney(p.totalCost);
     const verdict = p.verdict ?? (shown > 0 ? "yes" : "no");
     const pctText = d.marginPct != null ? ` (${pct(d.marginPct)})` : "";
+    if (verdict === "no" && shown > 0)
+      return `No: it costs about ${cost} to build and would be worth about ${money(p.value)}, a ${money(shown)} ${term("margin", "profit")}${pctText}, below the target profit margin${gap}.`;
     if (verdict === "no" || shown <= 0) {
       return `No: it costs about ${cost} to build but would be worth only about ${money(p.value)}, a loss of ${money(shown)}${gap}.`;
     }

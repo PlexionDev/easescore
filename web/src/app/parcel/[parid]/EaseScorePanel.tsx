@@ -178,7 +178,7 @@ export function ScoreBlock({ selected, sentence, market, pencilsNo }: { selected
               {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{score.bandLabel(s.band)}</span>}
               <span className="text-[11px] text-slate-600">{`Ease Score · ${score.OPTION_NAME[s.strategy]}`}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}</span>
             </p>
-            {pencilsNo && s.band && <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900">{`${score.bandLabel(s.band)}, but doesn't pencil at today's prices.`}</p>}
+            {pencilsNo && s.band && <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900" title="Doesn't meet the target profit margin at default assumptions">{`${score.bandLabel(s.band)}, but doesn't pencil at today's prices.`}</p>}
             {sentence && <p className="mt-1 text-[13px] leading-snug text-slate-800">{sentence}</p>}
           </div>
         </div>

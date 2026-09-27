@@ -16,10 +16,11 @@ const usd = (n: number | null | undefined) => (typeof n === "number" && Number.i
 
 const VERDICT_STYLE: Record<string, string> = {
   yes: "bg-emerald-100 text-emerald-800",
-  thin: "bg-amber-100 text-amber-800",
+  thin: "bg-red-100 text-red-800",
   no: "bg-red-100 text-red-800",
 };
-const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Thin", no: "Does not pencil" };
+const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
+const VERDICT_TIP = "Meets the target profit margin at default assumptions";
 const EVIDENCE_TEXT: Record<assumptions.Evidence, string> = { complete: "Complete estimate", partial: "Partial estimate", missing: "Missing inputs" };
 const EVIDENCE_STYLE: Record<assumptions.Evidence, string> = {
   complete: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -115,7 +116,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`}>{VERDICT_TEXT[r.verdict]}</span>}
+            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-panel-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-panel-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
           </div>
         </div>
@@ -230,7 +231,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
                       ))}
                       {sale && r.sale.sellingCosts != null && (
                         <tr className="align-top">
-                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">Selling costs at sale (broker, closing, seller&apos;s transfer tax)</span><span className="block text-[11px] text-slate-500">Taken from the sale price, not part of the total below</span></td>
+                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">Selling costs at sale (seller&apos;s transfer tax{p.salesCommission ? ", sales commission" : ""})</span><span className="block text-[11px] text-slate-500">Taken from the sale price, not part of the total below</span></td>
                           <td className="py-0.5 text-right tabular-nums text-slate-700">{usd(r.sale.sellingCosts)}</td>
                         </tr>
                       )}
@@ -239,6 +240,15 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
                 </details>
               </td>
             </tr>
+            {sale && (
+              <tr className="align-top">
+                <td className="py-1 pr-2">
+                  <span className="text-slate-800">{p.salesCommission ? "Sales commission (your number)" : "Sales commission: not included (often 5–6% if listed with an agent)"}</span>
+                  <span className="block text-[11px] text-slate-500">Default $0 (cost-to-build basis). Enter it under &ldquo;Change the plan&rdquo;; it is taken from the sale price with the selling costs, not part of the total below.</span>
+                </td>
+                <td className="py-1 text-right tabular-nums text-slate-900">{usd(p.salesCommission)}</td>
+              </tr>
+            )}
             <tr className="border-t border-slate-300 align-top font-semibold">
               <td className="py-1">Total development cost{line("tdc")?.triangulation && <TriangulationStrip t={line("tdc")!.triangulation!} />}</td>
               <td className="py-1 text-right"><RangeValue r={rg.tdc} strong /></td>
@@ -328,6 +338,7 @@ export function AssumptionsForm({ parid, result, sp }: { parid: string; result: 
         {sale
           ? <Field name={PF.salePricePerSf} label="Sale price per sq ft" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerSf != null ? String(Math.round(p.revenue.sale.pricePerSf)) : "enter"} />
           : <Field name={PF.rentPerUnit} label="Rent per home, monthly" prefix="$" sp={sp} placeholder={p.revenue.rent.perUnit != null ? String(Math.round(p.revenue.rent.perUnit)) : "enter"} />}
+        {sale && <Field name={`${PF.lineAmounts}sales_commission`} label="Sales commission, all homes (default $0)" prefix="$" sp={sp} placeholder="0" />}
         {p.adders.some((a) => a.id === "steep_slope" || a.id === "moderate_slope") && (
           <Field name={PF.slopeAdderPerSf} label="Hillside adder per sq ft" prefix="$" sp={sp} placeholder={String(p.adders.find((a) => a.perSf != null)?.perSf ?? "")} />
         )}

@@ -35,7 +35,9 @@ const blockText = (address: string | null | undefined) => {
 };
 
 export const REPORT_VERSION = "report v0.1";
-const PENCILS_TEXT: Record<string, string> = { yes: "Yes", thin: "Barely", no: "No" };
+const PENCILS_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
+/** The "Pencils" chip rule, stated wherever the verdict appears. */
+export const PENCILS_TIP = "Meets the target profit margin at default assumptions";
 export const DISCLAIMER = "Decision support — not legal, financial, or engineering advice.";
 
 // Small helpers -----------------------------------------------------------------------------------
@@ -443,7 +445,7 @@ export function S1(x: Ctx) {
           </div>
         </div>
         <div className="stat">
-          <div className="kicker">Pencils?</div>
+          <div className="kicker" title={PENCILS_TIP}>Pencils?</div>
           {m.proForma.verdict ? (
             <div className="v">
               {PENCILS_TEXT[m.proForma.verdict]}
@@ -455,7 +457,7 @@ export function S1(x: Ctx) {
           )}
           <div className="small muted">
             {m.proForma.plan.evidence === "partial" ? `Partial: ${m.proForma.plan.exclusions.length} cost item${m.proForma.plan.exclusions.length === 1 ? "" : "s"} not included. ` : ""}
-            {m.scenario.tenure === "sale" ? "Profit ÷ total cost." : "Income after running costs ÷ total cost."} Shown separately from the Ease Score.
+            {m.scenario.tenure === "sale" ? `Profit ÷ total cost. Pencils = ${PENCILS_TIP.toLowerCase()} (${pct(assumptions.DEFAULT_CRITERIA.targetMargin, 0)} of cost).` : "Income after running costs ÷ total cost."} Shown separately from the Ease Score.
           </div>
         </div>
         <div className="stat">
@@ -807,7 +809,7 @@ export function S3(x: Ctx) {
 // ---------------------------------------------------------------------------------------------
 // 4. Zoning
 
-const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Barely pencils", no: "Doesn't pencil", pricing: "Needs your rehab cost", unknown: "Can't tell yet", none: "—" };
+const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil", pricing: "Needs your rehab cost", unknown: "Can't tell yet", none: "—" };
 
 /** "Best options for this lot" (the parcel page's ranking) and the street precedent, moved here from the pane. */
 function OptionsAndPrecedent({ x }: { x: Ctx }) {
@@ -1386,6 +1388,13 @@ export function S7(x: Ctx) {
               </td>
             </tr>
           )}
+          {p.tenure === "sale" && (
+            <tr>
+              <td>{p.salesCommission ? "Sales commission (your number)" : "Sales commission: not included (often 5–6% if listed with an agent)"}</td>
+              <td className="num">{money(p.salesCommission)}</td>
+              <td className="small">Default $0 (cost-to-build basis); editable on the parcel page. A number entered there is taken from the sale price with the selling costs (Section 9), not added to the total below.</td>
+            </tr>
+          )}
           {p.exclusions.map((e) => (
             <tr key={`x-${e.id}`}>
               <td>{e.label}</td>
@@ -1551,8 +1560,8 @@ export function S9(x: Ctx) {
               ) : (
                 <>Sale value: {basis}{sv.sourceLabel === "Your input" ? "" : fn(x, "nc_sales")} = <b>{money(m.proForma.sale.grossSales)}</b>.</>
               );
-            })()} Selling costs: broker and closing{" "}
-            {pct(assumptions.COST_CONFIG.sale.brokerShare.value)} plus the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}.
+            })()} Selling costs: the seller’s half of the transfer tax{fn(x, "cost_config", "transfer_tax")}
+            {m.proForma.plan.salesCommission ? <> plus your sales commission of {money(m.proForma.plan.salesCommission)}.</> : <>. Sales commission: not included (often 5–6% if listed with an agent).</>}
           </>
         ) : (
           <>{m.proForma.plan.missing.find((t) => /sale value/i.test(t)) ?? m.proForma.plan.revenue.sale.basis}{fn(x, "nc_sales")}</>
@@ -2224,7 +2233,7 @@ export function AppF() {
 // Report additions: product-type comparison, absorption, sources and uses, tax abatement,
 // public cost vs public benefit, and the limiting conditions (Section 14).
 
-const VERDICT_WORD: Record<string, string> = { yes: "Pencils", thin: "Thin", no: "Does not pencil" };
+const VERDICT_WORD: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
 
 function pfCells(pf: assumptions.ProFormaResult | null) {
   if (!pf) return { cost: "—", value: "—", result: "—", ratio: "—", verdict: "Not computed" };
