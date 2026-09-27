@@ -606,7 +606,24 @@ export function S3(x: Ctx) {
           " No building stands on the lot in the county footprint data."
         )}
       </p>
-      {planFig > 0 && (
+      {planFig > 0 && m.sitePlan ? (
+        <>
+          <p>
+            Figure {planFig} (sheet EA-101, next page) draws the lot to scale at 1&Prime; = {m.sitePlan.scaleFt}&prime;
+            {m.sitePlan.extended ? ", a smaller scale than the usual 1″ = 10′ to 40′ because the lot is large" : ""}: lot lines and dimensions, zoning setbacks,
+            the buildable area, the studied footprint, neighboring buildings, the street
+            {m.sitePlan.terrain ? ", 2-foot lidar contours, ground steeper than 25%" : ""} and mapped hazard limits. Keynotes on the sheet explain each item.
+          </p>
+          <figure className="sheet-page">
+            <div className="sheet" dangerouslySetInnerHTML={{ __html: m.sitePlan.svg }} />
+            <figcaption>
+              <b>Figure {planFig}.</b> Site plan, sheet EA-101 (screening drawing from public data, not a survey)
+              {fn(x, "parcels", "zoning_rules", "quickfit", "buildings", "streets", "slope_1m", "overlays")}. Street curb, walk and right-of-way widths are typical-width
+              assumptions, not surveyed.
+            </figcaption>
+          </figure>
+        </>
+      ) : planFig > 0 && (
         <figure>
           <div className="frame">
             <LotPlan

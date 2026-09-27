@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Inter, Source_Serif_4 } from "next/font/google";
+import { Archivo_Narrow, Inter, Source_Serif_4 } from "next/font/google";
 import { loadReport } from "@/lib/report/load";
 import { buildSources } from "@/lib/report/sources";
 import { configVersionOf } from "@/lib/report/score";
@@ -18,6 +18,8 @@ import "./report.css";
 // which keeps the file small and the letter spacing exact in every viewer.
 const serif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], style: ["normal", "italic"], variable: "--font-serif", display: "block" });
 const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "block" });
+// Condensed sans for the site plan sheet (EA-101), self-hosted by next/font.
+const narrow = Archivo_Narrow({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-narrow", display: "block" });
 
 export const metadata: Metadata = {
   title: "Feasibility Study — EaseScore.AI",
@@ -52,10 +54,14 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
 }
 @page :first {
   @top-left { content: none; } @top-right { content: none; }
+}
+@page sheet {
+  @top-left { content: none; } @top-right { content: none; } @bottom-left { content: none; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 6.5pt "Helvetica Neue", Arial, sans-serif; color: #5f6b7a; vertical-align: middle; }
 }`;
 
   return (
-    <div className={`rpt ${serif.variable} ${sans.variable}`} data-report-ready="1">
+    <div className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`} data-report-ready="1">
       <style>{pageCss}</style>
       {body.map((el, i) => (
         <Fragment key={i}>{el}</Fragment>

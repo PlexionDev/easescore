@@ -7,6 +7,13 @@
   margin: 0.85in 0.8in 0.9in 0.8in;
 }
 
+/* Site plan sheet (EA-101): its own US Letter landscape page. The SVG is sized in inches so the stated
+   engineering scale holds at print size; never scale it in print. */
+@page sheet {
+  size: Letter landscape;
+  margin: 0.4in;
+}
+
 .rpt {
   --ink: #1f2933;
   --muted: #5f6b7a;
@@ -459,4 +466,35 @@
 }
 .rpt .avoid-break {
   break-inside: avoid;
+}
+
+/* Site plan sheet */
+.rpt .sheet-page {
+  margin: 0;
+}
+.rpt .sheet-page .sheet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+.rpt .sheet-page figcaption {
+  font-size: 7pt;
+  margin-top: 2pt;
+}
+@media print {
+  .rpt .sheet-page {
+    page: sheet;
+    break-before: page;
+    break-after: page;
+  }
+  .rpt .sheet-page .sheet svg {
+    width: 10.194in;
+    height: 7.444in;
+  }
+}
+@media screen {
+  .rpt .sheet-page .sheet {
+    border: 0.6px solid var(--rule);
+  }
 }
