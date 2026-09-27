@@ -113,6 +113,34 @@ const fillToc = (page: Page, map: Record<string, number>) =>
   }, map);
 
 
+/**
+ * Chromium tags each HTML <figure> as a PDF Figure, and the chart inside it (an SVG with role="img" and
+ * alt text) as a second Figure. The outer one has no /Alt, which PDF checkers flag, and giving it one would
+ * hide the chart's own alt text (Alt replaces a Figure's content). So a Figure without /Alt that contains a
+ * Figure with /Alt is retagged as a /Div: the caption stays readable text and the chart keeps its alt.
+ */
+function retagFigureWrappers(doc: PDFDocument) {
+  const root = doc.catalog.lookup(PDFName.of("StructTreeRoot"));
+  if (!(root instanceof PDFDict)) return;
+  const FIG = PDFName.of("Figure");
+  const kids = (d: PDFDict): PDFDict[] => {
+    const k = d.lookup(PDFName.of("K"));
+    const arr = k instanceof PDFArray ? k.asArray() : k ? [k] : [];
+    return arr.map((x) => (x instanceof PDFRef ? doc.context.lookup(x) : x)).filter((x): x is PDFDict => x instanceof PDFDict);
+  };
+  const isFig = (d: PDFDict) => d.lookup(PDFName.of("S")) === FIG;
+  const hasAltFigure = (d: PDFDict, depth = 0): boolean =>
+    depth < 40 && kids(d).some((c) => (isFig(c) && !!c.lookup(PDFName.of("Alt"))) || hasAltFigure(c, depth + 1));
+  const seen = new Set<PDFDict>();
+  const walk = (d: PDFDict, depth = 0) => {
+    if (seen.has(d) || depth > 200) return;
+    seen.add(d);
+    if (isFig(d) && !d.lookup(PDFName.of("Alt")) && hasAltFigure(d)) d.set(PDFName.of("S"), PDFName.of("Div"));
+    for (const c of kids(d)) walk(c, depth + 1);
+  };
+  walk(root);
+}
+
 export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> {
   const t0 = performance.now();
   const lap = (step: string) => console.log(`[timing] report_pdf ${opts.mapKey ?? ""} ${step} ${(performance.now() - t0).toFixed(0)}ms`);
@@ -178,6 +206,7 @@ export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> 
     // Accessibility: document language for screen readers (the tags and outline come from Chromium's
     // tagged print), and viewers show the title rather than the file name.
     doc.catalog.set(PDFName.of("Lang"), PDFString.of(opts.lang ?? "en-US"));
+    retagFigureWrappers(doc);
     const prefs = doc.catalog.lookup(PDFName.of("ViewerPreferences"));
     if (prefs instanceof PDFDict) prefs.set(PDFName.of("DisplayDocTitle"), doc.context.obj(true));
     else doc.catalog.set(PDFName.of("ViewerPreferences"), doc.context.obj({ DisplayDocTitle: true }));
