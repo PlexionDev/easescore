@@ -10,6 +10,7 @@ import * as maplibregl from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor } from "@protomaps/basemaps";
 import { bboxOf, markSubject } from "./MapStage";
+import { tilesBase } from "@/lib/tiles";
 
 type FC = { type: "FeatureCollection"; bbox: [number, number, number, number]; center: [number, number]; features: any[] }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -36,7 +37,8 @@ export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData:
       maplibregl.addProtocol("pmtiles", new Protocol().tile);
       protocolAdded = true;
     }
-    const origin = window.location.origin;
+    // Hosted tiles in production (NEXT_PUBLIC_TILES_BASE), this site's /tiles locally.
+    const tiles = tilesBase();
     let m: maplibregl.Map | null = null;
     try {
       m = new maplibregl.Map({
@@ -53,9 +55,9 @@ export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData:
           version: 8,
           glyphs: "https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf",
           sources: {
-            protomaps: { type: "vector", url: `pmtiles://${origin}/tiles/basemap.pmtiles` },
-            dem: { type: "raster-dem", tiles: [`${origin}/tiles/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 15, bounds: [-80.37, 40.19, -79.68, 40.68] },
-            shade: { type: "raster-dem", tiles: [`${origin}/tiles/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 16, bounds: [-80.37, 40.19, -79.68, 40.68] },
+            protomaps: { type: "vector", url: `pmtiles://${tiles}/basemap.pmtiles` },
+            dem: { type: "raster-dem", tiles: [`${tiles}/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 15, bounds: [-80.37, 40.19, -79.68, 40.68] },
+            shade: { type: "raster-dem", tiles: [`${tiles}/terrain/{z}/{x}/{y}.webp`], tileSize: 512, encoding: "mapbox", minzoom: 8, maxzoom: 16, bounds: [-80.37, 40.19, -79.68, 40.68] },
             site: { type: "geojson", data: markSubject(data, parcel) },
           },
           layers: [

@@ -9,6 +9,7 @@
 
 import type * as CesiumNS from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
+import { tilesBase } from "./tiles";
 
 export type Cesium = typeof CesiumNS;
 
@@ -208,7 +209,7 @@ function demTile(x: number, y: number): Promise<Uint8ClampedArray | null> {
   let p = demTiles.get(k);
   if (!p) {
     p = (async () => {
-      const r = await fetch(`/tiles/terrain/${DEM_Z}/${x}/${y}.webp`);
+      const r = await fetch(`${tilesBase()}/terrain/${DEM_Z}/${x}/${y}.webp`);
       if (!r.ok) return null;
       const bmp = await createImageBitmap(await r.blob(), { colorSpaceConversion: "none", premultiplyAlpha: "none" });
       const cv = new OffscreenCanvas(bmp.width, bmp.height);

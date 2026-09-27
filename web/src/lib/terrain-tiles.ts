@@ -7,11 +7,11 @@ import "server-only";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { sampleTerrainGrid, type LonLatAffine, type TerrainGrid } from "./terrain-grid";
+import { remoteTilesBase } from "./tiles";
 
 // turbopackIgnore keeps the build from tracing the ~20k terrain tiles into the page's server function.
 const DIR = path.join(/* turbopackIgnore: true */ process.cwd(), "public", "tiles", "terrain", "16");
-const BASE = (process.env.NEXT_PUBLIC_TILES_BASE ?? "").trim().replace(/\/+$/, "");
-const REMOTE = /^https?:\/\//.test(BASE) ? BASE : null;
+const REMOTE = remoteTilesBase();
 
 async function readTile(x: number, y: number): Promise<Buffer | string | null> {
   if (REMOTE) {
