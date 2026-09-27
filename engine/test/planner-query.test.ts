@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  CSV_COLUMNS, blockerSentence, csvLine, describeFilters, filtersToDb, filtersToQuery, matchRow, parseFilters,
+  CSV_COLUMNS, policyKey, blockerSentence, csvLine, describeFilters, filtersToDb, filtersToQuery, matchRow, parseFilters,
   type Filters, type PlannerRow,
 } from "../../web/src/lib/planner-query";
 
@@ -104,6 +104,13 @@ describe("filters combine (matchRow mirrors planner_rows)", () => {
     expect(matchRow(row({ tax_delinquent: null }), { delinquent: true })).toBe(false);
     expect(matchRow(row({ tax_delinquent: true }), { delinquent: true })).toBe(true);
     expect(matchRow(row({ parid: "0000A00001000000" }), { ids: ["0000A00002000000"] })).toBe(false);
+  });
+});
+
+describe("policy links", () => {
+  it("combines lever keys in the Policy seat's order", () => {
+    expect(policyKey(["pt", "m0", "a35", "m0"])).toBe("a35.m0.pt");
+    expect(policyKey(["m0"])).toBe("m0");
   });
 });
 

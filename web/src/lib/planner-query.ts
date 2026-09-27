@@ -58,18 +58,25 @@ export const ONLY_BLOCKED_BY = [
 
 /**
  * Which Policy-seat lever relaxes a blocker, as the Policy seat's state key (/policy?s=<key>; see
- * engine/src/policy/levers.ts): m0 = no minimum lot size, pn = no parking minimum, a35 = attached homes
- * by right on lots up to 35 ft wide. Setbacks and slope have no lever yet, so they get no link.
+ * engine/src/policy/levers.ts): m0 = no minimum lot size, pt = no parking minimum near frequent transit,
+ * a35 = attached homes by right on lots up to 35 ft wide. Keys combine with "." in a, m, p order
+ * (policyKey). Setbacks and slope have no lever yet, so they get no link.
  */
 export const BLOCKER_LEVER: Record<string, { key: string; label: string } | undefined> = {
   "Minimum lot size": { key: "m0", label: "minimum lot size" },
   "Lot area per unit": { key: "m0", label: "lot area per unit" },
-  "Lot too small for the building": { key: "m0", label: "minimum lot size" },
-  "Parking minimum": { key: "pn", label: "parking minimum" },
+  "Lot too small for the building": { key: "a35", label: "attached-housing" },
+  "Parking minimum": { key: "pt", label: "parking minimum near transit" },
   "Use not permitted": { key: "a35", label: "attached-housing" },
   "Special exception required": { key: "a35", label: "attached-housing" },
   "Conditional use required": { key: "a35", label: "attached-housing" },
 };
+
+/** Combined Policy state key for several levers, in the Policy seat's order (a, m, p). */
+export function policyKey(keys: string[]): string {
+  const order = (k: string) => "amp".indexOf(k[0]!);
+  return [...new Set(keys)].sort((x, y) => order(x) - order(y)).join(".");
+}
 
 export interface PlannerRow {
   parid: string;

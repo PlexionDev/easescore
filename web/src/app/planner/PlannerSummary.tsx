@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { EmptyState, RangeValue, ReceiptButton, type Receipt } from "@/components/seats";
-import { BAND_COLOR, BANDS, BLOCKER_LEVER, NO_BAND_COLOR, type Filters, type PlannerSummary } from "@/lib/planner";
+import { BAND_COLOR, BANDS, BLOCKER_LEVER, NO_BAND_COLOR, policyKey, type Filters, type PlannerSummary } from "@/lib/planner";
 
 const BLOCKER_RECEIPT: Receipt = {
   label: "What's holding them back",
@@ -32,11 +32,15 @@ export default function PlannerSummary({ s, f, set, loading }: {
   if (!s) return <EmptyState tone="error" title="Results could not load">Try again in a moment. The filters still work.</EmptyState>;
   if (!s.total) return <EmptyState tone="empty" title="No parcels match these filters">Remove a filter on the left to widen the search.</EmptyState>;
   const bands = [...BANDS, "No score"].map((b) => ({ b, n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
-  // The most common blocker that a rule change can relax (slope and hazards are not rules).
-  const top = s.blockers.find((b) => BLOCKER_LEVER[b.blocker]);
+  // Blockers a rule change can relax (slope and hazards are not rules), most common first; levers that
+  // relax blockers on at least 10% of the matching parcels are combined into one Policy scenario.
+  const ruleBlockers = s.blockers.filter((b) => BLOCKER_LEVER[b.blocker]);
+  const top = ruleBlockers[0];
   const lever = top ? BLOCKER_LEVER[top.blocker] : undefined;
+  const levers = [...new Map(ruleBlockers.filter((b, i) => i === 0 || b.n >= 0.1 * s.total).map((b) => [BLOCKER_LEVER[b.blocker]!.key, BLOCKER_LEVER[b.blocker]!])).values()];
   // The Policy seat reads the lever from ?s= and the geography from the shared seat selection.
-  const policyHref = lever ? `/policy?s=${lever.key}` : null;
+  const policyHref = levers.length ? `/policy?s=${policyKey(levers.map((l) => l.key))}` : null;
+  const leverText = levers.map((l) => l.label).join(" and ");
   const pl = s.public_land;
   return (
     <div className="pl-sum" aria-busy={loading || undefined}>
@@ -70,8 +74,8 @@ export default function PlannerSummary({ s, f, set, loading }: {
           {s.no_blocker ? <p className="pl-hint" style={{ marginTop: 6 }}>{s.no_blocker.toLocaleString("en-US")} parcels have no blocker costing a full point.</p> : null}
         </div>
         {policyHref && lever ? (
-          <p style={{ marginTop: 8 }}><Link className="pl-link" href={policyHref}>Test changing the {lever.label} rule →</Link>
-            <span className="pl-hint" style={{ display: "block" }}>{top!.blocker}: {Math.round((100 * top!.n) / s.total)}% of these parcels.</span></p>
+          <p style={{ marginTop: 8 }}><Link className="pl-link" href={policyHref}>Test changing the {leverText} rule{levers.length > 1 ? "s" : ""} →</Link>
+            <span className="pl-hint" style={{ display: "block" }}>{ruleBlockers.slice(0, 3).map((b) => `${b.blocker} ${Math.round((100 * b.n) / s.total)}%`).join(" · ")} of these parcels.</span></p>
         ) : null}
       </section>
 
