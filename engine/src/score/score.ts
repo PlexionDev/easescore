@@ -177,7 +177,9 @@ export function planningBadge(inp: EaseScoreInput, all: Internal[], strategy: St
         return { ...base, matched: null, note: "Not evaluated." };
     }
   });
-  const points = criteria.reduce((s, c) => s + (c.matched ? c.weight : 0), 0);
+  // Points are on a 0–100 scale regardless of how many criteria are configured (weights are relative).
+  const totalWeight = criteria.reduce((s, c) => s + c.weight, 0) || 1;
+  const points = Math.round((criteria.reduce((s, c) => s + (c.matched ? c.weight : 0), 0) * 100) / totalWeight);
   const evaluatedWeight = criteria.reduce((s, c) => s + (c.matched == null ? 0 : c.weight), 0);
   let tier: PlanningBadge["tier"] = null;
   for (const t of cfg.planningBadge.tiers)
