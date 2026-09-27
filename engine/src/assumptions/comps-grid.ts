@@ -131,7 +131,7 @@ export function compsGrid(
 
   const steps = set?.search_steps ?? [];
   const fewNote = ok ? null
-    : `Only ${inSet} new-construction sale${inSet === 1 ? "" : "s"} qualif${inSet === 1 ? "ies" : "y"} (at least ${minComps} are needed). The search widened step by step: ${steps.length ? steps.join(" → ") : "no sales found"}. Older homes are never used as the value of a new home.`;
+    : `${inSet === 0 ? "No new-construction sales qualify" : `Only ${inSet} new-construction sale${inSet === 1 ? "" : "s"} qualif${inSet === 1 ? "ies" : "y"}`} (at least ${minComps} are needed). The search widened step by step: ${steps.length ? steps.join(" → ") : "no sales found"}. Older homes are never used as the value of a new home.`;
   const confidence: CompGrid["confidence"] = ok ? "Moderate" : "Low";
   const confidenceWhy = ok
     ? `${inSet} valid new-construction sales (${minComps} or more needed for Moderate)`
