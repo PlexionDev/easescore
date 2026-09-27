@@ -185,7 +185,7 @@ export default function Photoreal3D({ parcelKey, data, massing, envelope, insets
           const zoning = f.properties.kind === "zoning";
           for (const poly of polysOf(f.geometry)) {
             if (!poly[0] || poly[0].length < 3) continue;
-            if (!zoning) ents.push(src.entities.add({ polygon: { hierarchy: hier(poly), material: col(color, 0.05), classificationType: CT } }));
+            if (!zoning) ents.push(src.entities.add({ polygon: { hierarchy: hier(poly), material: col(color, 0.01), classificationType: CT } }));
             ents.push(src.entities.add({ polyline: { positions: line(open(poly[0])), width: zoning ? 2.5 : 2, material: col(zoning ? "#0f172a" : color, 0.95), clampToGround: true, classificationType: CT } }));
             if (zoning && f.properties.label) {
               const outer = open(poly[0]);

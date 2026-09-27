@@ -95,7 +95,7 @@ export default function MapStage({ data, footprints, onReady }: { data: FC; foot
       // Hazards
       for (const o of OVERLAYS) {
         const f: maplibregl.FilterSpecification = ["==", ["get", "kind"], o.kind];
-        m.addLayer({ id: `${o.kind}-fill`, type: "fill", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "fill-color": o.color, "fill-opacity": 0.04 } });
+        m.addLayer({ id: `${o.kind}-fill`, type: "fill", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "fill-color": o.color, "fill-opacity": 0.01 } });
         m.addLayer({ id: `${o.kind}-line`, type: "line", source: "site", filter: f, layout: { visibility: o.on ? "visible" : "none" }, paint: { "line-color": o.color, "line-width": 2, "line-opacity": 0.85, "line-dasharray": [4, 2] } });
       }
       // Contours
