@@ -155,6 +155,8 @@ export interface StrategyResult {
   unlocks: StrategyUnlock[];
   /** Most units the strategy fits on its easiest zoning path, when QuickFit ran. */
   units: number | null;
+  /** QuickFit scheme behind the fit (see score.selectScheme); null for rehab / not run. */
+  schemeId?: string | null;
   /** Set when a hazard held the score down to a band ceiling (v0.2). */
   cap?: { band: Band; reason: string; uncappedScore: number; label: string } | null;
   notes: string[];
@@ -189,6 +191,8 @@ export interface StrategyFit {
   units: number | null;
   /** Best use-permission code among the fitting schemes (row: depends on the new lots' width). */
   permissionCode?: UsePermission | null;
+  /** Id of the QuickFit scheme this fit was read from (the same scheme sizes the pro forma). */
+  schemeId?: string | null;
   needsSubdivision: boolean;
   notes: string[];
 }

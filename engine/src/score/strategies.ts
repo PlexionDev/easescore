@@ -118,76 +118,54 @@ export function frontEdgesFor(q: QuickFitParcelInput): { front: number[]; side: 
 const dimOk = (s: Scheme) => !s.approvals.some((a) => a.kind === "variance");
 const varRules = (s: Scheme) => [...new Set(s.approvals.filter((a) => a.kind === "variance").map((a) => a.rule))].sort();
 
-function bestCode(schemes: Scheme[]): UsePermission | null {
-  let best: UsePermission | null = null;
-  for (const s of schemes) if (permRank(s.permission.code) > permRank(best)) best = s.permission.code;
-  return best;
-}
+type Runs = { base: QuickFitResult; contextual?: QuickFitResult | null; probe?: QuickFitResult | null };
 
-function maxUnits(schemes: Scheme[]): number {
-  return schemes.reduce((m, s) => Math.max(m, s.units), 0);
+/** Most units first, then the better use permission, then a stable id. */
+const byMostUnits = (a: Scheme, b: Scheme) =>
+  b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * The ONE scheme behind a strategy: the most units among schemes that fit by right, else with the
+ * contextual front setback, else the variance candidate with the fewest rules to relieve. The score's
+ * fit, the pro forma, the summary and the 3D massing all read this scheme.
+ */
+export function pickStrategyScheme(strategy: StrategyId, runs: Runs): { scheme: Scheme; stage: "by_right" | "contextual" | "variance" } | null {
+  const typs = TYPOLOGIES_FOR[strategy];
+  if (!typs) return null;
+  const pick = (r?: QuickFitResult | null) => (r ? r.all.filter((s) => typs.includes(s.typology)) : []);
+  const base = pick(runs.base);
+  const okBase = base.filter(dimOk);
+  if (okBase.length) return { scheme: [...okBase].sort(byMostUnits)[0]!, stage: "by_right" };
+  const okCtx = pick(runs.contextual).filter(dimOk);
+  if (okCtx.length) return { scheme: [...okCtx].sort(byMostUnits)[0]!, stage: "contextual" };
+  const cands = [...base, ...pick(runs.probe)];
+  if (!cands.length) return null;
+  const s = [...cands].sort((a, b) => varRules(a).length - varRules(b).length || byMostUnits(a, b))[0]!;
+  return { scheme: s, stage: "variance" };
 }
 
 /**
  * Read one strategy's dimensional fit from QuickFit runs:
  * `base` (tabulated rules), `contextual` (contextual front setback applied), `probe` (setback relief).
+ * Units, permission and variances all come from the one scheme pickStrategyScheme chooses.
  */
-export function fitFromQuickFit(
-  strategy: StrategyId,
-  runs: { base: QuickFitResult; contextual?: QuickFitResult | null; probe?: QuickFitResult | null },
-): StrategyFit | null {
-  const typs = TYPOLOGIES_FOR[strategy];
-  if (!typs) return null;
-  const pick = (r?: QuickFitResult | null) => (r ? r.all.filter((s) => typs.includes(s.typology)) : []);
-  const base = pick(runs.base);
-  const envelopeAreaSf = runs.base.envelope.areaSf;
-  const needsSubdivision = strategy === "townhouse_row";
-  const common = { envelopeAreaSf, needsSubdivision };
-
-  const okBase = base.filter(dimOk);
-  if (okBase.length) return { ...common, status: "by_right", varianceRules: [], units: maxUnits(okBase), permissionCode: bestCode(okBase), notes: [] };
-
-  const okCtx = pick(runs.contextual).filter(dimOk);
-  if (okCtx.length)
-    return { ...common, status: "contextual", varianceRules: [], units: maxUnits(okCtx), permissionCode: bestCode(okCtx),
-      notes: ["Fits once the contextual front setback applies."] };
-
-  const cands = [...base, ...pick(runs.probe)];
-  if (cands.length) {
-    const s = [...cands].sort(
-      (a, b) => varRules(a).length - varRules(b).length || b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-    )[0]!;
-    return { ...common, status: "variance", varianceRules: varRules(s), units: s.units, permissionCode: s.permission.code,
-      notes: [`Fits only with relief from: ${varRules(s).map((r) => r.replace(/_/g, " ")).join(", ")}.`] };
-  }
-  return { ...common, status: "no_fit", varianceRules: [], units: 0, permissionCode: null,
+export function fitFromQuickFit(strategy: StrategyId, runs: Runs): StrategyFit | null {
+  if (!TYPOLOGIES_FOR[strategy]) return null;
+  const common = { envelopeAreaSf: runs.base.envelope.areaSf, needsSubdivision: strategy === "townhouse_row" };
+  const p = pickStrategyScheme(strategy, runs);
+  if (!p) return { ...common, status: "no_fit", varianceRules: [], units: 0, permissionCode: null, schemeId: null,
     notes: ["No building of this type fits, even with reduced setbacks."] };
+  const { scheme: s, stage } = p;
+  const base = { ...common, units: s.units, permissionCode: s.permission.code, schemeId: s.id };
+  if (stage === "by_right") return { ...base, status: "by_right", varianceRules: [], notes: [] };
+  if (stage === "contextual") return { ...base, status: "contextual", varianceRules: [], notes: ["Fits once the contextual front setback applies."] };
+  return { ...base, status: "variance", varianceRules: varRules(s),
+    notes: [`Fits only with relief from: ${varRules(s).map((r) => r.replace(/_/g, " ")).join(", ")}.`] };
 }
 
-/**
- * The scheme behind a strategy's fit (same selection as fitFromQuickFit): the most units among
- * schemes that fit by right, else with the contextual setback, else the variance candidate with the
- * fewest rules to relieve. Used to size the pro forma (floor area, units). Null when nothing was tried.
- */
-export function schemeFromQuickFit(
-  strategy: StrategyId,
-  runs: { base: QuickFitResult; contextual?: QuickFitResult | null; probe?: QuickFitResult | null },
-): Scheme | null {
-  const typs = TYPOLOGIES_FOR[strategy];
-  if (!typs) return null;
-  const pick = (r?: QuickFitResult | null) => (r ? r.all.filter((s) => typs.includes(s.typology)) : []);
-  const most = (xs: Scheme[]) =>
-    [...xs].sort((a, b) => b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0] ?? null;
-  const base = pick(runs.base);
-  const okBase = base.filter(dimOk);
-  if (okBase.length) return most(okBase);
-  const okCtx = pick(runs.contextual).filter(dimOk);
-  if (okCtx.length) return most(okCtx);
-  const cands = [...base, ...pick(runs.probe)];
-  if (!cands.length) return null;
-  return [...cands].sort(
-    (a, b) => varRules(a).length - varRules(b).length || b.units - a.units || permRank(b.permission.code) - permRank(a.permission.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  )[0]!;
+/** The scheme behind a strategy's fit (see pickStrategyScheme). Null when nothing was tried. */
+export function schemeFromQuickFit(strategy: StrategyId, runs: Runs): Scheme | null {
+  return pickStrategyScheme(strategy, runs)?.scheme ?? null;
 }
 
 export interface FitRunOptions {

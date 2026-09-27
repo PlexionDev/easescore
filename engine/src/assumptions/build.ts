@@ -6,9 +6,8 @@
 // the plan's evidence becomes "partial".
 
 import { developmentCosts, MSI_CHART, msiAnnualPremium, type ForSaleInputs, type Receipt, type RentalInputs, type UnitRow } from "../finance";
-import { existingUseColumn } from "../score/strategies";
 import type { StrategyId } from "../score/types";
-import { DEFAULT_ASSUMPTIONS as QF_DEFAULTS } from "../quickfit/presets";
+import { selectScheme, type ParkingProgram, type SelectedScheme } from "../score/selected";
 import type { CompSet } from "./comps";
 import { COST_CONFIG, tierOf, type CostConfig } from "./config";
 
@@ -58,7 +57,7 @@ export interface SchemeSize {
   typologyLabel?: string;
 }
 
-export type ParkingProgram = "tuck_under" | "pad" | "none";
+export type { ParkingProgram } from "../score/selected";
 
 /** User edits. Shares are decimals (0.08 = 8%); money is dollars. */
 export interface CostOverrides {
@@ -102,6 +101,8 @@ export interface PlanArgs {
   facts: ProFormaFacts;
   /** Site-fit scheme for new builds; ignored for the rehab option (existing living area is used). */
   scheme: SchemeSize | null;
+  /** The one SelectedScheme (score.selectScheme). When given, it sizes the plan and `scheme` is ignored. */
+  selected?: SelectedScheme | null;
   /**
    * Existing-home sales comps. Rehab is valued from these (pass matchedExistingComps for size/age
    * matching); for new builds they are only a labeled floor, never the value.
@@ -170,6 +171,8 @@ export interface AssumptionRow {
 export interface DevelopmentPlan {
   configVersion: string;
   strategy: StrategyId;
+  /** The building this plan prices (same object the score, summary, report and 3D read). */
+  scheme: SelectedScheme;
   tenure: Tenure;
   units: number | null;
   finishedSf: number | null;
@@ -234,11 +237,6 @@ const has = (x: number | null | undefined): x is number => typeof x === "number"
 
 // ---------------------------------------------------------------------------------------------
 
-function unitsForExisting(use: string | null | undefined): number {
-  const col = existingUseColumn(use);
-  return col === "two_unit" ? 2 : col === "three_unit" ? 3 : col === "multi_unit" ? 4 : 1;
-}
-
 const DEFAULT_TENURE: Record<StrategyId, Tenure> = {
   new_sf: "sale",
   duplex: "sale",
@@ -267,53 +265,20 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const rehab = a.strategy === "rehab_existing";
   const tenure: Tenure = o.tenure ?? DEFAULT_TENURE[a.strategy];
 
-  // ---- Size
-  let units: number | null = null;
-  let finishedSf: number | null = null;
-  let garageSf = 0;
-  let sizeBasis: string;
-  let program: DevelopmentPlan["program"] = null;
-  const sch = a.scheme;
-  if (rehab) {
-    const la = f.assessment?.living_area_sqft;
-    units = unitsForExisting(f.assessment?.use);
-    finishedSf = has(la) && la > 0 ? la : null;
-    sizeBasis = finishedSf ? `Existing living area from the county assessment (${finishedSf.toLocaleString("en-US")} sq ft)` : "Existing living area not recorded";
-    if (!finishedSf) missing.push("The county assessment has no living area for the existing building, so the rehab cannot be sized.");
-  } else if (a.strategy === "adu") {
-    sizeBasis = "Accessory dwelling unit size is not modeled yet";
-    missing.push("An accessory dwelling unit is not sized by the site-fit check yet, so its cost cannot be estimated.");
-  } else if (sch && sch.units > 0) {
-    const nUnits = has(o.units) && o.units >= 1 ? Math.round(o.units) : sch.units;
-    const custom = has(o.storiesAboveGarage) || o.parking !== undefined || has(o.units) || has(o.bedrooms) || has(o.baths);
-    if (custom && has(sch.footprintSf) && sch.footprintSf > 0) {
-      // Your program on the site-fit footprint: floors above a tuck-under garage level. The garage level
-      // counts as gross area, never as finished (sellable) area.
-      const footprintPerUnit = sch.footprintSf / sch.units;
-      const parking: ParkingProgram = o.parking ?? "none";
-      const tuck = parking === "tuck_under";
-      const schemeStories = has(sch.stories) ? sch.stories : 1;
-      const above = has(o.storiesAboveGarage) && o.storiesAboveGarage >= 1 ? Math.round(o.storiesAboveGarage) : tuck ? Math.max(1, schemeStories - 1) : schemeStories;
-      const eff = QF_DEFAULTS.efficiency;
-      const finishedPerUnit = Math.round(footprintPerUnit * above * eff);
-      units = nUnits;
-      finishedSf = finishedPerUnit * nUnits;
-      garageSf = tuck ? Math.round(footprintPerUnit) * nUnits : 0;
-      const grossSf = Math.round(footprintPerUnit * (above + (tuck ? 1 : 0))) * nUnits;
-      program = { units: nUnits, storiesAboveGarage: above, parking, bedrooms: has(o.bedrooms) ? o.bedrooms : null, baths: has(o.baths) ? o.baths : null, footprintPerUnitSf: Math.round(footprintPerUnit), finishedPerUnitSf: finishedPerUnit, garagePerUnitSf: tuck ? Math.round(footprintPerUnit) : 0, grossSf };
-      const bb = program.bedrooms != null || program.baths != null ? `, ${program.bedrooms ?? "?"} bed / ${program.baths ?? "?"} bath` : "";
-      sizeBasis = `Your program: ${nUnits} home${nUnits === 1 ? "" : "s"} on the site-fit footprint (${program.footprintPerUnitSf.toLocaleString("en-US")} sq ft each), ${tuck ? `a tuck-under garage level + ${above} living floor${above === 1 ? "" : "s"}` : `${above} living floor${above === 1 ? "" : "s"}`}${bb}: ${finishedPerUnit.toLocaleString("en-US")} sq ft finished per home (floor area × ${Math.round(eff * 100)}% livable share)${tuck ? `; the ${program.garagePerUnitSf.toLocaleString("en-US")} sq ft garage level is not counted as finished` : ""}`;
-      if (nUnits > sch.units) notes.push(`${nUnits} homes is more than the ${sch.units} the site-fit check placed; the extra homes are not checked against zoning.`);
-    } else {
-      units = nUnits;
-      finishedSf = Math.round((sch.netFloorAreaSf / sch.units) * nUnits);
-      sizeBasis = `Site-fit layout${sch.typologyLabel ? ` (${sch.typologyLabel})` : ""}: ${Math.round((sch.grossFloorAreaSf / sch.units) * nUnits).toLocaleString("en-US")} sq ft gross, ${finishedSf.toLocaleString("en-US")} sq ft finished (livable)${nUnits > 1 ? `, ${Math.round(finishedSf / nUnits).toLocaleString("en-US")} sq ft per home` : ""}`;
-      if (nUnits !== sch.units) notes.push(`Home count set to ${nUnits} (the site-fit layout has ${sch.units}); each home keeps the layout's size.`);
-    }
-  } else {
-    sizeBasis = "No layout of this type fits the lot";
-    missing.push("No building of this type fits the lot in the site-fit check, so there is nothing to price.");
-  }
+  // ---- Size: from the one SelectedScheme (built here only when the caller did not pass it)
+  const sel: SelectedScheme = a.selected ?? selectScheme({
+    strategy: a.strategy,
+    scheme: a.scheme ?? null,
+    existing: { livingAreaSqft: f.assessment?.living_area_sqft ?? null, use: f.assessment?.use ?? null },
+    overrides: { units: o.units, storiesAboveGarage: o.storiesAboveGarage, parking: o.parking, bedrooms: o.bedrooms, baths: o.baths },
+  });
+  const units: number | null = sel.units;
+  const finishedSf: number | null = sel.finishedSf;
+  const garageSf = sel.garageSf;
+  const sizeBasis = sel.sizeBasis;
+  const program: DevelopmentPlan["program"] = sel.program;
+  if (sel.missing) missing.push(sel.missing);
+  notes.push(...sel.notes.filter((n) => !n.startsWith("The score's fit")));
   if (units != null) row("units", "Homes (units)", String(units), { sourceLabel: rehab ? "County assessment (existing use)" : "Site-fit scheme (QuickFit)" }, null, has(o.units));
   if (finishedSf != null) row("finishedSf", "Finished (livable) floor area", `${finishedSf.toLocaleString("en-US")} sq ft${units != null && units > 1 ? ` (${Math.round(finishedSf / units).toLocaleString("en-US")} per home)` : ""}`, { sourceLabel: rehab ? "County assessment" : program ? "Your program on the site-fit footprint" : "Site-fit scheme (QuickFit)", sourceNote: rehab ? null : "Floor area × the solver's livable share (placeholder)" }, null, program != null);
   if (program) {
@@ -687,6 +652,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   return {
     configVersion: cfg.version,
     strategy: a.strategy,
+    scheme: sel,
     tenure,
     units,
     finishedSf,

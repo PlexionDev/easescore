@@ -101,6 +101,7 @@ function scoreOne(inp: EaseScoreInput, s: StrategyId, ctx: ScoreContext, cfg: Ea
       planningBadge: emptyBadge(cfg),
       unlocks: [],
       units: s === "rehab_existing" ? null : fit?.units ?? null,
+      schemeId: s === "rehab_existing" ? null : fit?.schemeId ?? null,
       cap: cap ? { band: cap.band, reason: cap.reason, uncappedScore: combined.score!, label: cap.label } : null,
       notes,
     },
