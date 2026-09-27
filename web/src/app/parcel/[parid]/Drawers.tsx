@@ -59,7 +59,7 @@ export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string
                 Close ✕
               </button>
             </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">{d.content}</div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4" tabIndex={0} role="region" aria-label={`${d.title} content`}>{d.content}</div>
           </div>
         );
       })}

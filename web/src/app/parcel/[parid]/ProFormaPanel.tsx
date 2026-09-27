@@ -112,7 +112,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
           </div>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{p.configVersion}</span>
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{p.configVersion}</span>
       </div>
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
       <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
@@ -159,7 +159,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
           <p className="font-semibold">Not included yet (cost unknown, so the total is low by these amounts)</p>
           <ul className="mt-0.5 space-y-0.5">
-            {p.exclusions.map((e) => <li key={e.id}>{e.text}. <span className="text-amber-900/70">{e.reason}.</span></li>)}
+            {p.exclusions.map((e) => <li key={e.id}>{e.text}. <span className="text-amber-800">{e.reason}.</span></li>)}
           </ul>
           <p className="mt-1 text-[11px] text-amber-900/80">Enter a cost below to include it.</p>
         </div>

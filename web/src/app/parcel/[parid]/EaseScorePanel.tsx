@@ -131,7 +131,7 @@ export function ScoreBlock({ parid, result, selected, sp }: { parid: string; res
       )}
       {s.cap && (
         <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-950" title={`Without the cap the factors average ${s.cap.uncappedScore}.`}>
-          {s.cap.label}. <span className="text-amber-900/70">Hazards like these hold the score at {s.cap.band} or lower.</span>
+          {s.cap.label}. <span className="text-amber-800">Hazards like these hold the score at {s.cap.band} or lower.</span>
         </p>
       )}
       <nav aria-label="Housing strategy" className="mt-2 flex gap-1 overflow-x-auto pb-1">
@@ -140,8 +140,8 @@ export function ScoreBlock({ parid, result, selected, sp }: { parid: string; res
           return (
             <Link key={x.strategy} href={strategyHref(sp, parid, x.strategy)} scroll={false} prefetch={false}
               aria-current={on ? "true" : undefined} title={x.applicable ? undefined : x.notApplicableReason}
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${on ? "border-slate-900 bg-slate-900 text-white" : x.applicable ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400" : "border-slate-100 bg-slate-50 text-slate-400"}`}>
-              {x.strategyLabel} <span className={on ? "text-white/80" : "text-slate-400"}>{x.applicable ? x.score ?? "—" : "n/a"}</span>
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${on ? "border-slate-900 bg-slate-900 text-white" : x.applicable ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400" : "border-slate-100 bg-slate-50 text-slate-600"}`}>
+              {x.strategyLabel} <span className={on ? "text-white/80" : "text-slate-600"}>{x.applicable ? x.score ?? "—" : "n/a"}</span>
             </Link>
           );
         })}
