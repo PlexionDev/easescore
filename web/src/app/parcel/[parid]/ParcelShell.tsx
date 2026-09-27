@@ -136,7 +136,8 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   // View mode: kept in the URL hash (#view=photoreal|build|terrain|analysis). The real place (photoreal) first.
   // Only the chosen view is mounted, so only one WebGL view runs at a time: switching away disposes the three.js
   // clay model and the MapLibre map, and hands the Cesium viewer back (its render loop stops).
-  const [mode, setMode] = useState<ViewMode>(HAS_KEY ? "photoreal" : "terrain");
+  // Outside the City (no zoning rules) the page opens in 3D Terrain with a note saying why QuickFit cannot place a building.
+  const [mode, setMode] = useState<ViewMode>(HAS_KEY && canSolve ? "photoreal" : "terrain");
   const [clayMode, setClayMode] = useState<ClayMode>("3d");
   useEffect(() => {
     const read = () => {
@@ -334,6 +335,11 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
             <button type="button" onClick={() => choose("terrain")}
               className="mt-3 rounded-lg bg-slate-900 px-3 py-2 font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600">Show 3D Terrain</button>
           </div>
+        </div>
+      )}
+      {mode === "terrain" && !canSolve && gen.qf2 && (
+        <div role="status" className="pointer-events-none absolute left-4 right-4 top-20 z-10 flex justify-center md:left-[472px]">
+          <p className="max-w-md rounded-xl border border-slate-300 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-lg">{noSolveNote}</p>
         </div>
       )}
       {mode === "build" && (
