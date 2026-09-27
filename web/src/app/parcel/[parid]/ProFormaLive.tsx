@@ -80,11 +80,14 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
   const i = Math.max(0, tiers.findIndex((t) => t.id === tierId));
   const t = tiers[i]!;
   const top = t.id === "luxury" ? "+" : "";
+  const def = assumptions.COST_CONFIG.construction.defaultTier;
+  // Owner decision (A5, option c): the published Pittsburgh tiers are builders' retail rates to an owner.
+  const sourceOf = (x: typeof t) => (x.costPerSf.sourceLabel === "Pittsburgh builder published ranges" ? "Pittsburgh builder (retail) rates" : x.costPerSf.sourceLabel);
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <label htmlFor="pf-quality" className="text-xs font-semibold text-slate-700">Build quality</label>
-        <p className="text-[13px] text-slate-900"><b>{t.label}</b> · ${t.costPerSf.value}/SF <span className="text-slate-500">(range ${t.costPerSf.range[0]}–${t.costPerSf.range[1]}{top}/SF)</span></p>
+        <p className="text-[13px] text-slate-900"><b>{t.label}</b>{t.id === def ? " (default)" : ""} · ${t.costPerSf.value}/SF <span className="text-slate-600">(range ${t.costPerSf.range[0]}–${t.costPerSf.range[1]}{top}/SF)</span></p>
       </div>
       <input id="pf-quality" type="range" min={0} max={tiers.length - 1} step={1} value={i} onChange={(e) => onTier(tiers[Number(e.target.value)]!.id)}
         aria-valuetext={`${t.label}, $${t.costPerSf.value} per sq ft`} className="mt-1 w-full accent-slate-900" list="pf-quality-stops" />
@@ -98,7 +101,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
       </div>
       <p className="mt-1 text-[11px] text-slate-600">{t.meaning}. Construction per finished sq ft, builder overhead and profit included; site adders are separate lines.</p>
       <details className="text-[11px] text-slate-500">
-        <summary className="cursor-pointer underline decoration-dotted underline-offset-2">Source: {t.costPerSf.sourceLabel}</summary>
+        <summary className="cursor-pointer underline decoration-dotted underline-offset-2">Source: {sourceOf(t)}</summary>
         <p className="mt-0.5">{t.costPerSf.sourceNote}</p>
       </details>
     </div>
