@@ -33,18 +33,32 @@ export function seatFromPath(pathname: string | null | undefined): SeatId | null
 
 /**
  * Where a seat link goes, keeping context where it makes sense:
- * - Developer opens its workspace with the focused parcel open in the pane (?parcel=<id>), if any.
- * - The other seats read the shared selection on mount (municipality / neighborhood), so their links
- *   stay plain paths; nothing personal goes into a URL.
+ * - Developer opens its workspace on the selection's neighborhood and chosen lots (?hoods=, ?ids=), with
+ *   the focused parcel open in the pane (?parcel=<id>), if any.
+ * - Nonprofit reopens the selection's neighborhood and chosen lots (?hood=, ?lots=, at most 6).
+ * - The other seats read the shared selection on mount, so their links stay plain paths.
+ * Neighborhood names and public parcel ids only; nothing personal goes into a URL.
  */
 export function seatHref(id: SeatId, sel: SeatSelection): string {
+  const hood = sel.neighborhood;
+  const lots = sel.parids ?? [];
   switch (id) {
     case "planner": return "/planner";
-    case "nonprofit": return "/nonprofit";
     case "policy": return "/policy";
+    case "nonprofit": {
+      if (!hood) return "/nonprofit";
+      const q = new URLSearchParams({ hood });
+      if (lots.length) q.set("lots", lots.slice(0, 6).join(","));
+      return `/nonprofit?${q}`;
+    }
     case "developer": {
-      const p = sel.focus;
-      return p ? `/developer?parcel=${p}` : "/developer";
+      const q = new URLSearchParams();
+      if (hood) {
+        q.set("hoods", hood);
+        if (lots.length) q.set("ids", lots.join(","));
+      }
+      if (sel.focus) q.set("parcel", sel.focus);
+      return q.size ? `/developer?${q}` : "/developer";
     }
   }
 }
