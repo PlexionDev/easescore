@@ -215,7 +215,23 @@ export interface Filters {
    * this percent of the buildings would not meet today's code (front/side setback, lot size, stories).
    */
   blockNc?: number;
+  /** Neighborhood infill (Developer default): leave out the downtown / high-density districts in HIGH_DENSITY_ZONES. */
+  infill?: boolean;
 }
+
+/**
+ * Downtown / high-density City zoning districts: the code allows buildings well beyond the 1–4 homes
+ * EaseScore models (Golden Triangle FAR 6–13; Riverfront, Urban Center and Uptown core, none of which
+ * allow a single-family home; RM-H 85 ft / RM-VH 180 ft; Specially Planned districts such as the Lower
+ * Hill). Used by the Developer's "Neighborhood infill" filter and the downtown note on a parcel.
+ */
+export const HIGH_DENSITY_ZONES = [
+  "GT-A", "GT-B", "GT-C", "GT-D", "GT-E", "RIV-MU", "RIV-IMU", "RIV-NS", "RIV-RM", "UC-MU", "UC-E", "UPR-A", "RM-H", "RM-VH",
+  "SP-1", "SP-4", "SP-5", "SP-8", "SP-9", "SP-10", "SP-11",
+];
+export const isHighDensityZone = (z: string | null | undefined): boolean => !!z && HIGH_DENSITY_ZONES.includes(z);
+/** Shown on parcels in those districts (Highest and best use, report). */
+export const HIGH_DENSITY_NOTE = "EaseScore models buildings of 1–4 homes. Larger buildings allowed in this district aren't modeled.";
 export type Sort = "score" | "months" | "by_right_units" | "units_with_relief" | "lot" | "transit" | "address" | "neighborhood" | "zoning";
 export const SORTS: Sort[] = ["score", "months", "by_right_units", "units_with_relief", "lot", "transit", "address", "neighborhood", "zoning"];
 export type Dir = "asc" | "desc";
@@ -274,6 +290,7 @@ export function parseFilters(q: URLSearchParams): Filters {
     only: list(q.get("only")),
     ids,
     blockNc: BLOCK_NC.includes(num(q.get("blockNc")) as number) ? num(q.get("blockNc")) : undefined,
+    infill: flag(q.get("infill")),
   }));
 }
 
@@ -323,6 +340,7 @@ export function filtersToDb(input: Filters): Record<string, unknown> {
   if (f.hasBlocker) o.has_blocker = f.hasBlocker;
   if (f.only?.length) o.only_blocked_by = f.only;
   if (f.blockNc != null) o.block_nonconform_min = f.blockNc / 100;
+  if (f.infill) o.exclude_zoning = HIGH_DENSITY_ZONES;
   return o;
 }
 
@@ -343,6 +361,7 @@ export function matchRow(r: PlannerRow, f: Filters): boolean {
   if (d.municipality != null && r.municipality !== d.municipality) return false;
   if (d.council_district != null && r.council_district !== d.council_district) return false;
   if (!inList(r.neighborhood, d.neighborhoods) || !inList(r.zoning, d.zoning) || !inList(r.band, d.bands)) return false;
+  if (Array.isArray(d.exclude_zoning) && r.zoning != null && (d.exclude_zoning as string[]).includes(r.zoning)) return false;
   if (!inList(r.parid.trim(), d.parids)) return false;
   if (d.lot_min != null && !(r.lot_sqft != null && r.lot_sqft >= (d.lot_min as number))) return false;
   if (d.lot_max != null && !(r.lot_sqft != null && r.lot_sqft <= (d.lot_max as number))) return false;
@@ -392,6 +411,7 @@ export function describeFilters(f: Filters): string[] {
   if (f.only?.length) out.push(`Only blocked by: ${f.only.join(" or ")}`);
   if (f.ids?.length) out.push(`${f.ids.length} selected parcel${f.ids.length === 1 ? "" : "s"}`);
   if (f.blockNc != null) out.push(`On blocks where at least ${f.blockNc}% of existing buildings don't meet today's code`);
+  if (f.infill) out.push("Neighborhood infill (downtown and high-density districts left out)");
   return out;
 }
 

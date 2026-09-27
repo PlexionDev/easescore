@@ -12,6 +12,7 @@ import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras"
 import { narrative, score as ease } from "@easescore/engine";
 import { approvalItems, oddsFor, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
+import { HIGH_DENSITY_NOTE, isHighDensityZone } from "@/lib/planner-query";
 import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
 import { ExitLead } from "./exit";
 import { CompsGrid, ConfidenceGrades } from "./evidence";
@@ -836,6 +837,7 @@ function OptionsAndPrecedent({ x }: { x: Ctx }) {
               ))}
             </tbody>
           </table>
+          {isHighDensityZone(m.facts.zoning?.code) ? <p className="small muted">{HIGH_DENSITY_NOTE}</p> : null}
         </>
       )}
       {p && (

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BandPill, SeatButton, SeatHeader, SeatLayout, SeatSelect, Segmented, setSelection, useSeatLayout } from "@/components/seats";
 import {
-  CITY, DEFAULT_DIR, PAGE_SIZE, STRATEGY_TEXT, clean, describeFilters, filtersToQuery, ownerShort, parcelLabel, titleCase,
+  CITY, DEFAULT_DIR, PAGE_SIZE, STRATEGY_TEXT, clean, describeFilters, duplicateAddresses, filtersToQuery, ownerShort, parcelLabel, titleCase,
   partialBest, type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
 } from "@/lib/planner";
 import DeveloperFilters from "./DeveloperFilters";
@@ -138,6 +138,9 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
   const set = useCallback((patch: Partial<Filters>) => { setFilters((f) => clean({ ...f, ...patch })); setPage(0); }, []);
   const reset = () => { setFilters(clean({ muni: filters.muni })); setPage(0); };
   const rows = result?.rows ?? [];
+  // Same-address rows (e.g. two "501 Market St" parcels) show their parcel IDs, as in the Planner.
+  const dupAddr = useMemo(() => duplicateAddresses(rows), [rows]);
+  const label = (r: PlannerRow) => parcelLabel(r, dupAddr.has(titleCase(r.address)));
   const total = result?.total ?? 0;
   const from = total ? page * PAGE_SIZE + 1 : 0;
   const to = Math.min(total, (page + 1) * PAGE_SIZE);
@@ -203,7 +206,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
             {rows.map((r, i) => (
               <li key={r.parid}>
                 <button type="button" className="pl-card-btn" onClick={() => openParcel(r.parid)}>
-                  <span className="pl-card-top"><span className="pl-rank">{page * PAGE_SIZE + i + 1}</span> <b>{parcelLabel(r)}</b></span>
+                  <span className="pl-card-top"><span className="pl-rank">{page * PAGE_SIZE + i + 1}</span> <b>{label(r)}</b></span>
                   <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {bestText(r)}</span>
                   <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right`, ownerShort(r)].filter(Boolean).join(" · ")}</span>
                 </button>
@@ -234,7 +237,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
                   return (
                     <tr key={r.parid} className={`${open === id ? "is-focus" : ""}${pinned ? " is-pinned" : ""}`} onClick={() => openParcel(id)}>
                       <td className="pl-rank">{page * PAGE_SIZE + i + 1}</td>
-                      <td className="pl-parcel"><button type="button" className="pl-linkbtn" onClick={(e) => { e.stopPropagation(); openParcel(id); }}>{parcelLabel(r)}</button></td>
+                      <td className="pl-parcel"><button type="button" className="pl-linkbtn" onClick={(e) => { e.stopPropagation(); openParcel(id); }}>{label(r)}</button></td>
                       <td>{r.neighborhood ?? "—"}</td>
                       <td>{r.zoning ?? "not loaded"}</td>
                       <td className="num">{r.lot_sqft != null ? Math.round(r.lot_sqft).toLocaleString("en-US") : "—"}</td>
@@ -244,7 +247,7 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
                       <td className="num">{r.by_right_units ?? "—"}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="es-btn es-btn-ghost dv-pin" aria-pressed={pinned} disabled={!pinned && lots.length >= MAX_LOTS}
-                          onClick={() => togglePin(r)} aria-label={`${pinned ? "Remove" : "Pin"} ${parcelLabel(r)} ${pinned ? "from" : "to"} My lots`}>{pinned ? "Pinned" : "Pin"}</button>
+                          onClick={() => togglePin(r)} aria-label={`${pinned ? "Remove" : "Pin"} ${label(r)} ${pinned ? "from" : "to"} My lots`}>{pinned ? "Pinned" : "Pin"}</button>
                       </td>
                     </tr>
                   );
@@ -269,6 +272,8 @@ export default function DeveloperApp({ options, initial, initialFilters, initial
 
 function MyLots({ lots, onOpen, onRemove, onClear }: { lots: PlannerRow[]; onOpen: (id: string) => void; onRemove: (id: string) => void; onClear: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const dupAddr = useMemo(() => duplicateAddresses(lots), [lots]);
+  const label = (r: PlannerRow) => parcelLabel(r, dupAddr.has(titleCase(r.address)));
   return (
     <section className="dv-lots" aria-labelledby="dv-lots-h">
       <div className="dv-lots-head">
@@ -291,14 +296,14 @@ function MyLots({ lots, onOpen, onRemove, onClear }: { lots: PlannerRow[]; onOpe
                 const id = r.parid.trim();
                 return (
                   <tr key={id}>
-                    <th scope="row"><button type="button" className="pl-linkbtn" onClick={() => onOpen(id)}>{parcelLabel(r)}</button></th>
+                    <th scope="row"><button type="button" className="pl-linkbtn" onClick={() => onOpen(id)}>{label(r)}</button></th>
                     <td><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />{r.red_flag_count ? <span className="pl-flag">Blocked</span> : null}</span></td>
                     <td>{bestText(r)}</td>
                     <td className="num">{r.by_right_units ?? "—"}</td>
                     <td className="num">{r.lot_sqft != null ? Math.round(r.lot_sqft).toLocaleString("en-US") : "—"}</td>
                     <td>{r.zoning ?? "not loaded"}</td>
                     <td>{ownerShort(r)}</td>
-                    <td><button type="button" className="es-btn es-btn-ghost" onClick={() => onRemove(id)} aria-label={`Remove ${parcelLabel(r)} from My lots`}>Remove</button></td>
+                    <td><button type="button" className="es-btn es-btn-ghost" onClick={() => onRemove(id)} aria-label={`Remove ${label(r)} from My lots`}>Remove</button></td>
                   </tr>
                 );
               })}

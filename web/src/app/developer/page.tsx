@@ -18,8 +18,9 @@ export default async function DeveloperPage({ searchParams }: PageProps<"/develo
   const parcelRaw = (q.get("parcel") ?? "").trim().toUpperCase();
   const parcel = PARID.test(parcelRaw) ? parcelRaw : null;
   q.delete("parcel");
-  // A bare /developer lands on vacant lots with no red flags; any other query string is taken as is.
-  const filters = q.size ? parseFilters(q) : { land: "vacant" as const, clean: true };
+  // A bare /developer lands on vacant lots with no red flags and Neighborhood infill on (downtown /
+  // high-density districts left out; the URL carries infill=1). Any other query string is taken as is.
+  const filters = q.size ? parseFilters(q) : { land: "vacant" as const, clean: true, infill: true };
   if (!filters.muni) filters.muni = CITY;
   const sort = parseSort(q.get("sort"));
   const dir = parseDir(q.get("dir"), sort);

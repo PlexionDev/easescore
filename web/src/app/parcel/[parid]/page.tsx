@@ -25,7 +25,7 @@ import { metricsOf } from "@/lib/quickfit-gen";
 import { QF2_TYPES, typologyForStrategy } from "@/lib/qf2/core";
 import { parcelPlan, reportQueryFor, userBuildingPlan } from "@/lib/parcel-plan";
 import NoZoningProForma from "./NoZoningProForma";
-import { plannerOptions } from "@/lib/planner";
+import { HIGH_DENSITY_NOTE, isHighDensityZone, plannerOptions } from "@/lib/planner";
 import ParcelSeatHeader from "@/components/seats/ParcelSeatHeader";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -538,7 +538,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Score details", content: details },
         { id: "options", title: "Best options and street precedent", content: <>
-          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
+          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} note={isHighDensityZone(f.zoning?.code) ? HIGH_DENSITY_NOTE : null} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
           <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
         </> },
       ]}

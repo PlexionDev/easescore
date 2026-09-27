@@ -42,7 +42,7 @@ function strategyHref(sp: SP, parid: string, id: string) {
   return `/parcel/${encodeURIComponent(parid)}?${q.toString()}`;
 }
 
-export default function BestOptions({ parid, rows, detail, selected, sp, partial = false }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP; /** Zoning not loaded: no numeric scores or bands. */ partial?: boolean }) {
+export default function BestOptions({ parid, rows, detail, selected, sp, partial = false, note = null }: { parid: string; rows: score.OptionRow[]; detail?: Partial<Record<score.StrategyId, string>>; selected: score.StrategyId | null; sp: SP; /** Zoning not loaded: no numeric scores or bands. */ partial?: boolean; /** Downtown / high-density district: the 1–4 home modeling cap. */ note?: string | null }) {
   return (
     <section aria-labelledby="best-options-h">
       <div className="flex items-baseline justify-between gap-2">
@@ -86,6 +86,7 @@ export default function BestOptions({ parid, rows, detail, selected, sp, partial
           );
         })}
       </ol>
+      {note ? <p className="mt-1 text-[11px] leading-snug text-slate-600">{note}</p> : null}
     </section>
   );
 }

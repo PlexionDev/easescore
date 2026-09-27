@@ -62,6 +62,8 @@ export default function DeveloperFilters({ f, options, set, reset, total, onPick
             {(options?.neighborhoods ?? []).map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        <CheckboxField label="Neighborhood infill" hint="On by default. Leaves out downtown and high-density districts (Golden Triangle GT-A to GT-E, Riverfront, Uptown and Urban Center cores, RM-H, RM-VH and Specially Planned districts), where zoning allows buildings larger than the 1–4 homes EaseScore models."
+          checked={!!f.infill} onChange={(c) => set({ infill: c || undefined })} />
       </FilterSection>
 
       <FilterSection title="Lot">
