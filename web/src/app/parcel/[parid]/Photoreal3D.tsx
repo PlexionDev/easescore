@@ -552,14 +552,13 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       const alpha = (hex: string, a: number) => new C.ColorMaterialProperty(new C.CallbackProperty(() => col(hex, a * fade.current), false));
       const shown = new C.CallbackProperty(() => fade.current > 0.02, false);
 
-      // Lot pad: the parcel surface at lidar ground heights, as a shallow earth block that fills the clipped hole.
+      // Lot pad: the parcel surface at lidar ground heights, filling the clipped hole.
       let i = 0;
       for (const r of parcelRings) {
         const heights = r.map(() => ground.parcel[i++] ?? ground.base);
         src.entities.add({ polygon: {
           hierarchy: new C.PolygonHierarchy(r.map((p, j) => C.Cartesian3.fromDegrees(p[0], p[1], heights[j]!))),
-          perPositionHeight: true, extrudedHeight: ground.base - 6, material: col("#b8a888", 1), show: shown,
-          shadows: C.ShadowMode.RECEIVE_ONLY,
+          perPositionHeight: true, material: col("#b8a888", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
         } });
       }
       // Buildable envelope: translucent volume from the lowest ground to the height limit.
@@ -578,6 +577,55 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
           positions, width: 3, arcType: C.ArcType.NONE, material: alpha("#16a34a", 1), show: shown,
           depthFailMaterial: new C.PolylineDashMaterialProperty({ color: new C.CallbackProperty(() => col("#86efac", 0.9 * fade.current), false), dashLength: 12 }),
         } });
+      }
+      // Cut faces around the hole. Google's mesh is a one-sided 2.5D skin with nothing under it: where it sits above
+      // our lidar ground (tree canopy on the lot line, a neighbor's wall, a bank) the clip opens a slot between the pad
+      // and the skin, and through it the camera saw the skin's culled underside, i.e. black. A double-sided wall
+      // (entity walls are never back-face culled) on the lot line, from below the pad up to the skin height sampled
+      // just outside the lot, closes it like a section cut: earth up to 1.5 m above the lidar ground, a muted foliage
+      // tone above (canopy or structure; capped at 30 m).
+      const ts = tiles.current;
+      if (ts && !ts.isDestroyed()) {
+        const skip: object[] = [];
+        for (let d = 0; d < s.viewer.dataSources.length; d++) skip.push(...s.viewer.dataSources.get(d).entities.values);
+        for (let p = 0; p < s.viewer.scene.primitives.length; p++) { const q = s.viewer.scene.primitives.get(p); if (q !== ts) skip.push(q); }
+        const walls = parcelRings.map((r) => {
+          const ring = open(r);
+          const [cx, cy] = [ring.reduce((a, p) => a + p[0], 0) / ring.length, ring.reduce((a, p) => a + p[1], 0) / ring.length];
+          const kx = 111320 * Math.cos((cy * Math.PI) / 180), ky = 110950;
+          const line = densify(ring, true);
+          // Probe 0.4 m outside the lot line (away from the centroid), where the mesh isn't clipped.
+          const probe = line.map(([x, y]) => { const dx = (x - cx) * kx, dy = (y - cy) * ky, n = Math.hypot(dx, dy) || 1; return [x + (dx / n) * 0.4 / kx, y + (dy / n) * 0.4 / ky] as [number, number]; });
+          return { line, probe };
+        });
+        const [lidar, mesh] = await Promise.all([
+          groundHeights(walls.flatMap((w) => w.line)),
+          s.viewer.scene.sampleHeightMostDetailed(walls.flatMap((w) => w.probe.map(([x, y]) => C.Cartographic.fromDegrees(x, y))), skip).catch(() => null),
+        ]);
+        if (dead) return;
+        let m = 0;
+        for (const w of walls) {
+          const n = w.line.length, g = w.line.map((_, j) => lidar[m + j] ?? ground.base);
+          // Skin height above the lidar ground (NaN where the probe missed).
+          const up = w.line.map((_, j) => { const t = mesh?.[m + j]?.height; return typeof t === "number" && Number.isFinite(t) ? t - g[j]! : NaN; });
+          m += n;
+          // Canopy is lumpy between 2 m samples: take the highest skin within two samples either side, plus 1 m.
+          const rise = up.map((_, j) => {
+            const near = up.slice(Math.max(0, j - 2), j + 3).filter(Number.isFinite);
+            const r = near.length ? Math.max(...near) : 0;
+            return Math.min(30, r > 1.5 ? r + 1 : Math.max(0, r));
+          });
+          const positions = w.line.map(([x, y]) => C.Cartesian3.fromDegrees(x, y));
+          const earthTop = rise.map((r, j) => g[j]! + Math.min(r, 1.5) + 0.1);
+          src.entities.add({ wall: {
+            positions, minimumHeights: g.map(() => ground.base - 6), maximumHeights: earthTop,
+            material: col("#9f9173", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
+          } });
+          if (rise.some((r) => r > 1.5)) src.entities.add({ wall: {
+            positions, minimumHeights: earthTop, maximumHeights: rise.map((r, j) => Math.max(earthTop[j]!, g[j]! + r + 0.1)),
+            material: col("#56604c", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
+          } });
+        }
       }
     })();
     return () => { dead = true; };
@@ -610,7 +658,8 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       mine = new C.Primitive({
         geometryInstances: instances, appearance: new C.PerInstanceColorAppearance({ translucent: false, closed: true }),
         depthFailAppearance: new C.PerInstanceColorAppearance({ translucent: true, flat: true, closed: true }),
-        asynchronous: false, shadows: C.ShadowMode.ENABLED, show: fade.current > 0.02,
+        // Cast only: receiving let the shadow map darken every face to near black (self-shadowing).
+        asynchronous: false, shadows: C.ShadowMode.CAST_ONLY, show: fade.current > 0.02,
       });
       viewer.scene.primitives.add(mine);
       const old = prim.current;
