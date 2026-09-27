@@ -67,6 +67,9 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
   }, [s]);
   useEffect(() => { setSelection({ municipality: "Pittsburgh", neighborhood: s.hood, parids: s.lots }); }, [s.hood, s.lots]);
 
+  // Keep the current step's tab in view on narrow screens (the tab row scrolls sideways).
+  useEffect(() => { document.querySelector(".np-steps .on")?.scrollIntoView({ block: "nearest", inline: "center" }); }, [s.step]);
+
   // Tract map (whole county, cached by the browser for an hour).
   useEffect(() => {
     const ctrl = new AbortController();
