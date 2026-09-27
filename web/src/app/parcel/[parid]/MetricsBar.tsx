@@ -111,7 +111,7 @@ export default function MetricsBar({ metrics, binding, reason, controls, pins, o
       )}
       <div role="region" aria-label="Live metrics for the scheme on the map" aria-busy={busy}
         className="rounded-2xl border border-white/50 bg-slate-900/88 px-3 py-2 text-white shadow-2xl backdrop-blur-md">
-        <div className={`grid items-start gap-x-3 gap-y-1 ${compact ? "grid-cols-4" : "grid-cols-[0.55fr_0.75fr_0.85fr_0.65fr_1.3fr_1.2fr_1.2fr_0.9fr_auto]"}`}>
+        <div className={`grid items-start gap-x-3 gap-y-1 ${compact ? "grid-cols-4" : "grid-cols-[0.45fr_0.7fr_0.75fr_0.55fr_1.3fr_1.3fr_1.55fr_1fr_auto]"}`}>
           {(compact ? [cs[0]!, { ...cs[4]!, v: m1(metrics?.totalCost ?? null) }, { ...cs[6]!, v: m1(metrics?.profit ?? null) }, { ...cs[7]!, k: "Yield" }] : cs).map((c) => (
             <div key={c.k} className="min-w-0">
               <p className="truncate text-[10px] uppercase tracking-wide text-slate-400" title={c.k === "Yield" ? "Yield on cost" : undefined}>{c.k === "Yield" ? <abbr title="Yield on cost" className="no-underline">Yield</abbr> : c.k}</p>

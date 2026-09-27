@@ -161,7 +161,8 @@ export function Cover(x: Ctx) {
   const hero = m.images.context ?? m.images.analysis;
   return (
     <section className="cover" id="cover">
-      <div className="brand">EaseScore.AI</div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/easescore-logo-stacked.svg" alt="EaseScore.AI" className="brand" />
       <div className="doctype">Development Feasibility Study</div>
       <h1>{titleCase(a?.address) || m.parid}</h1>
       <div className="sub">
@@ -788,6 +789,56 @@ export function S3(x: Ctx) {
 // ---------------------------------------------------------------------------------------------
 // 4. Zoning
 
+const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Barely pencils", no: "Doesn't pencil", pricing: "Needs your rehab cost", unknown: "Can't tell yet", none: "—" };
+
+/** "Best options for this lot" (the parcel page's ranking) and the street precedent, moved here from the pane. */
+function OptionsAndPrecedent({ x }: { x: Ctx }) {
+  const { m } = x;
+  const rows = m.options ?? [];
+  const p = m.precedent;
+  if (!rows.length && !p) return null;
+  return (
+    <>
+      {rows.length > 0 && (
+        <>
+          <div className="tcap">Best options for this lot (ease and money kept separate; the easiest option that pencils first)</div>
+          <table>
+            <thead><tr><th>#</th><th>Option</th><th>Ease Score</th><th>Zoning path</th><th>Pencils?</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.strategy}>
+                  <td>{r.rank}</td>
+                  <td>{r.name}{r.leadLabel ? <span className="small muted"> · {r.leadLabel}</span> : null}</td>
+                  <td>{r.applicable ? `${r.score != null ? r.score : r.range ? `${r.range[0]}–${r.range[1]}` : "—"}${r.band ? ` (${r.band})` : ""}` : "—"}</td>
+                  <td>{r.zoning.text}</td>
+                  <td>{r.applicable ? PENCIL_TEXT[r.pencils] ?? r.pencils : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {p && (
+        <>
+          <h2>Street precedent</h2>
+          <p>
+            {titleCase(p.streetName)} ({p.scope === "stretch" ? "this stretch of the street, 400 ft each way on the same side" : "this block face"}): {p.headline}
+            {p.nBuildings > 0 ? ` Medians over ${p.nBuildings} measured building${p.nBuildings === 1 ? "" : "s"} (${p.nLots} lots)` : ""}
+            {p.nBuildings > 0 ? `: lot ${p.lotWidthFt != null ? `${Math.round(p.lotWidthFt)} ft wide` : "width not measured"}, ${p.stories != null ? `${p.stories} stories` : "stories not recorded"}.` : ""}
+          </p>
+          <p>
+            {p.contextual.applies
+              ? <>Contextual front setback: <b>{p.contextual.ft} ft instead of {p.contextual.districtFt} ft</b>, because {p.contextual.why} ({p.contextual.citation}; by right, no hearing).</>
+              : <>Contextual front setback: {p.contextual.reason}</>}
+            {p.conformity.withBuilding > 0 ? ` ${p.conformity.nonconforming} of ${p.conformity.withBuilding} existing buildings here would not meet today's code.` : ""}
+          </p>
+          <p className="small muted">Measured from Allegheny County building footprints and parcel lines (approximate; an applicant documents neighbors&apos; setbacks with a survey).</p>
+        </>
+      )}
+    </>
+  );
+}
+
 export function S4(x: Ctx) {
   const { m } = x;
   const f = m.facts;
@@ -802,6 +853,7 @@ export function S4(x: Ctx) {
             Zoning rules are loaded for the City of Pittsburgh only. Confirm zoning with {titleCase(f.assessment?.municipality) || "the municipality"}.
           </p>
         </Callout>
+        <OptionsAndPrecedent x={x} />
       </Sec>
     );
   }
@@ -865,6 +917,8 @@ export function S4(x: Ctx) {
           ))}
         </tbody>
       </table>
+
+      <OptionsAndPrecedent x={x} />
 
       <h2>Approvals needed</h2>
       {s ? (

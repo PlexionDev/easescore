@@ -298,6 +298,10 @@ export interface ReportModel {
   rentsByBedroom: rentsEngine.RentsByBedroom | null;
   /** Where the parcel data came from: the precomputed pane row, or computed now (and stored for next time). */
   paneSource: "row" | "live";
+  /** "Best options for this lot", ranked as on the parcel page (ease and money kept separate); null when scoring failed. */
+  options: easeEngine.OptionRow[] | null;
+  /** The block's existing pattern and the contextual front setback (City parcels); null when not measured. */
+  precedent: easeEngine.StreetPrecedent | null;
 }
 
 /** Policy what-ifs for "What would unlock it". Each relaxes one rule; values are hypotheticals, not proposals. */
@@ -604,6 +608,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
   // Product-type comparison and the two-sentence summary: same engine run as the parcel page.
   let plans: PlanComparison | null = null;
   let affordable: ReportModel["affordable"] = null;
+  let options: easeEngine.OptionRow[] | null = null;
   try {
     const raw = paneScore ?? T.timeSync("score_affordable", () => easeEngine.scoreParcel(facts as unknown as ParcelFacts, {
       quickfitInput: qfRaw as never,
@@ -616,6 +621,15 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
       parid, facts: facts as unknown as ParcelFacts & Record<string, unknown>, result: raw, zba, sfComps, sales, rent, prime,
       tapFeesPerUnit: tapPerUnit, overrides, asOf, precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
     }));
+    // Same ranking as the parcel page: the pro forma's verdict per option (the page's own for the studied one).
+    const pc = plans;
+    const verdictOf = (x: assumptions.ProFormaResult | null | undefined, rehab: boolean): easeEngine.PencilState =>
+      !x ? (rehab ? "pricing" : "unknown") : x.plan.missing.length ? (rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown") : x.verdict ?? "unknown";
+    options = easeEngine.rankOptions(raw, Object.fromEntries(raw.strategies.map((x) => {
+      const pf = pagePlan && pagePlan.strategy === x.strategy ? pagePlan.pf : pc.options.find((q) => q.strategy === x.strategy)?.pf;
+      const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
+      return [x.strategy, pf ? verdictOf(pf, x.strategy === "rehab_existing") : fit === "no_fit" ? "none" : verdictOf(null, x.strategy === "rehab_existing")];
+    })));
     const base = plans.byRight ?? plans.withApproval;
     const ami = 60;
     const bedrooms = base && (base.units ?? 1) > 1 ? 2 : 3;
@@ -695,5 +709,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     pagePlan,
     rentsByBedroom,
     paneSource: loaded.source,
+    options,
+    precedent: P.precedent ?? null,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-// "Build it in 3D" controls (QuickFit v2), floating over the view: building type (each with its status),
+// "QuickFit 3D" controls (QuickFit v2), floating over the view: building type (each with its status),
 // stories, unit width, building depth, parking, the front lot line and setback what-ifs (blank = code).
 // Every change re-solves in the worker within a frame; the building type also switches the selected
 // option (?strategy=) so the score and pro forma follow. Every input has a visible label; the panel is
@@ -53,7 +53,7 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
       <h2 className="m-0">
         <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${id}-body`}
           className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600">
-          <span className="whitespace-nowrap font-semibold">Build it in 3D</span>
+          <span className="whitespace-nowrap font-semibold">QuickFit 3D</span>
           <span className="truncate text-xs text-slate-700">{open ? "Hide controls" : `${t.short}${s ? ` · ${s.units.length} home${s.units.length === 1 ? "" : "s"} · ${s.stories} st` : ""}`}</span>
         </button>
       </h2>
