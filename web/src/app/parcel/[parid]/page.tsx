@@ -310,7 +310,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {/* Best options for this lot: the ranked list is the one option switcher */}
       {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} />}
       {/* Street precedent: the block's pattern, §925.06 contextual setback, nearby ZBA outcomes */}
-      <StreetPrecedent parid={parid} precedent={P.precedent} result={easeResult} isCity={isCity} />
+      <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
       {/* 2. Property image (streams in after the pane) */}
       <ParcelThumb stage={stage} date={asOf} />
       {/* 3. Fact row */}

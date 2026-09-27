@@ -218,7 +218,7 @@ declare
   zba  jsonb;
 begin
   select * into me from parcel_block_face where parid = pid;
-  if me.parid is null then return null; end if;
+  if me.parid is not null then
   select count(*) into n_other from parcel_block_face x where x.face_id = me.face_id and x.parid <> me.parid and x.has_building;
 
   -- Corner lots: when the chosen street's face has few measured buildings, use the other street the
@@ -288,6 +288,7 @@ begin
              'units', x.units, 'yearBuilt', x.year_built, 'nonconform', x.nonconform) order by x.pos_ft)
       into lots from parcel_block_face x where x.face_id = me.face_id;
   end if;
+  end if;  -- me.parid is not null
 
   select coalesce(jsonb_agg(z order by z->>'decision_date' desc, z->>'case'), '[]') into zba from (
     select jsonb_build_object('case', c.case_number, 'decision_date', c.decision_date, 'address', c.address,
@@ -304,7 +305,7 @@ begin
 
   return jsonb_build_object(
     'parid', p_parid, 'scope', scope, 'streetName', me.street_name, 'scopeFt', case when scope = 'stretch' then 400 end,
-    'face', (select to_jsonb(bf) - 'computed_at' from block_faces bf where bf.face_id = me.face_id),
+    'face', (select to_jsonb(bf) - 'computed_at' from block_faces bf where bf.face_id = me.face_id),  -- null: no block face (no street within 60 ft)
     'lots', lots, 'zba', zba);
 end $$;
 revoke all on function public.parcel_street_precedent(text) from public;

@@ -55,15 +55,42 @@ function Strip({ lots, subject, codeFt }: { lots: score.StreetPrecedent["lots"];
   );
 }
 
-export default function StreetPrecedent({ parid, precedent, result, isCity }: {
-  parid: string; precedent: score.StreetPrecedent | null | undefined; result: score.EaseScoreResult | null; isCity: boolean;
+function ZbaList({ zba }: { zba: score.NearbyZbaCase[] }) {
+  if (!zba.length) return <p className="text-[11px] text-slate-500">No decided Zoning Board cases within half a mile in the last 10 years.</p>;
+  return (
+    <>
+      <p className="text-[11px] text-slate-500">Nearby Zoning Board decisions (within half a mile, last 10 years):</p>
+      <ul className="mt-0.5 space-y-0.5 text-xs text-slate-700">
+        {zba.slice(0, 5).map((z, i) => (
+          <li key={`${z.case}-${z.section}-${i}`} className="flex gap-1.5">
+            <span className={`shrink-0 rounded px-1 text-[10px] font-semibold ${/^(grant|partial)/i.test(z.outcome ?? "") ? "bg-emerald-100 text-emerald-800" : /^den/i.test(z.outcome ?? "") ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"}`}>{titleCase(z.outcome)}</span>
+            <span className="min-w-0 truncate">{RELIEF_WORDS[z.relief ?? ""] ?? z.relief}{z.section ? ` §${z.section}` : ""} · {titleCase(z.address)} · {z.distance_m != null ? `${Math.round(z.distance_m)} m` : ""} · {monthYear(z.decision_date)}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+const needsApproval = (result: score.EaseScoreResult | null) =>
+  (result?.strategies ?? []).filter((s) => s.applicable && s.strategy !== "rehab_existing" && (f1Of(s).fitStatus === "variance" || ["S", "C"].includes(f1Of(s).permissionCode ?? "")));
+
+export default function StreetPrecedent({ parid, precedent, zbaNearby, result, isCity }: {
+  parid: string; precedent: score.StreetPrecedent | null | undefined; zbaNearby: score.NearbyZbaCase[] | null; result: score.EaseScoreResult | null; isCity: boolean;
 }) {
   if (!isCity) return null;
   if (!precedent) {
+    const still = needsApproval(result);
     return (
       <section aria-labelledby="precedent-h" className="rounded-xl border border-slate-200 bg-white/80 p-3">
         <h2 id="precedent-h" className="text-sm font-semibold text-slate-900">Street precedent</h2>
         <p className="mt-1 text-sm text-slate-600">No City street centerline within 60 ft of this lot, so there is no block face to compare with. The district&apos;s setbacks apply as written.</p>
+        {still.length > 0 && zbaNearby && (
+          <div className="mt-2">
+            <p className="text-xs font-semibold text-slate-800">Still needs approval: {still.map((s) => score.OPTION_NAME[s.strategy]).join(", ")}</p>
+            <ZbaList zba={zbaNearby} />
+          </div>
+        )}
       </section>
     );
   }
@@ -71,10 +98,10 @@ export default function StreetPrecedent({ parid, precedent, result, isCity }: {
   const c = p.contextual;
   const strategies = result?.strategies.filter((s) => s.applicable && s.strategy !== "rehab_existing") ?? [];
   const flipped = strategies.filter((s) => f1Of(s).fitStatus === "contextual" && f1Of(s).contextualBasis === "measured");
-  const stillNeeds = strategies.filter((s) => f1Of(s).fitStatus === "variance" || ["S", "C"].includes(f1Of(s).permissionCode ?? ""));
+  const stillNeeds = needsApproval(result);
   const scopeText = p.scope === "stretch" ? "this stretch of the street (400 ft each way, same side)" : "this block face";
   const top = p.conformity.topRules.slice(0, 3).map((r) => `${RULE_WORDS[r.rule] ?? r.rule} ${r.n}`).join(", ");
-  const zba = p.zba.slice(0, 5);
+  const zba = p.zba;
 
   return (
     <section aria-labelledby="precedent-h" className="rounded-xl border border-slate-200 bg-white/80 p-3">
@@ -121,23 +148,11 @@ export default function StreetPrecedent({ parid, precedent, result, isCity }: {
       {stillNeeds.length > 0 && (
         <div className="mt-2">
           <p className="text-xs font-semibold text-slate-800">Still needs approval: {stillNeeds.map((s) => score.OPTION_NAME[s.strategy]).join(", ")}</p>
-          {zba.length ? (
-            <>
-              <p className="text-[11px] text-slate-500">Nearby Zoning Board decisions (within half a mile, last 10 years):</p>
-              <ul className="mt-0.5 space-y-0.5 text-xs text-slate-700">
-                {zba.map((z, i) => (
-                  <li key={`${z.case}-${z.section}-${i}`} className="flex gap-1.5">
-                    <span className={`shrink-0 rounded px-1 text-[10px] font-semibold ${/^(grant|partial)/i.test(z.outcome ?? "") ? "bg-emerald-100 text-emerald-800" : /^den/i.test(z.outcome ?? "") ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"}`}>{titleCase(z.outcome)}</span>
-                    <span className="min-w-0 truncate">{RELIEF_WORDS[z.relief ?? ""] ?? z.relief}{z.section ? ` §${z.section}` : ""} · {titleCase(z.address)} · {z.distance_m != null ? `${Math.round(z.distance_m)} m` : ""} · {monthYear(z.decision_date)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : <p className="text-[11px] text-slate-500">No decided Zoning Board cases within half a mile in the last 10 years.</p>}
+          <ZbaList zba={zba} />
         </div>
       )}
       <p className="mt-2 text-[10px] leading-snug text-slate-500">
-        Measured from Allegheny County building footprints (roof outlines, so porches count) and parcel lines: the gap from the street-side lot line to the building. Approximate; the applicant documents neighbors&apos; setbacks with a survey. Block = the City street centerline segment, same side of the street.
+        Measured from Allegheny County building footprints (roof outlines, so porches count) and parcel lines: the gap from the street-side lot line to the building. Approximate; the applicant documents neighbors&apos; setbacks with a survey. Block = the City street centerline segment (intersection to intersection), same side of the street; widened to 400 ft of the same street when that segment has fewer than 3 measured buildings.
       </p>
     </section>
   );

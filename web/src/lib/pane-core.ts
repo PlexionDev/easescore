@@ -71,6 +71,8 @@ export interface PanePayload {
   owner: { owner_class: string | null; agency_name: string | null } | null;
   /** Street precedent (block face pattern, §925.06.B contextual setback, nearby ZBA cases); null outside the City or with no street. */
   precedent: score.StreetPrecedent | null;
+  /** Nearby decided Zoning Board cases (from the same call), also when the lot has no block face. */
+  zbaNearby: score.NearbyZbaCase[] | null;
 }
 
 /**
@@ -171,6 +173,7 @@ export function buildPane(i: PaneInputs): PanePayload {
     rehabComps,
     owner: i.owner ? { owner_class: i.owner.owner_class ?? null, agency_name: i.owner.agency_name ?? null } : null,
     precedent,
+    zbaNearby: i.precedent?.zba ?? null,
   };
 }
 
