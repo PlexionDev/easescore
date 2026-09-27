@@ -219,7 +219,7 @@ export default function PlannerMap({ points, total, blockers, hover, selected, p
         <div className="pl-hover" style={{ left: card.x + 14, top: card.y + 14 }}>
           <strong>{parcelLabel({ address: p[6], parid: p[0] })}</strong>
           <span>{p[3] ?? "—"} · {bandLabel(p[4])}{p[5] ? ` · top blocker: ${p[5].toLowerCase()}` : ""}</span>
-          <span className="pl-muted" style={{ display: "block" }}>{p[7] ?? "—"} home{p[7] === 1 ? "" : "s"} by right, {p[8] ?? "—"} with relief</span>
+          <span className="pl-muted" style={{ display: "block" }}>{p[7] ?? "—"} home{p[7] === 1 ? "" : "s"} by right, {p[8] ?? "—"} with approvals</span>
         </div>
       ) : null}
     </MapPanel>

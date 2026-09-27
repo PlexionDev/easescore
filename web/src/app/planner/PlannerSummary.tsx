@@ -8,7 +8,7 @@ import { EmptyState, RangeValue, ReceiptButton, type Receipt } from "@/component
 import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, NO_BAND_COLOR, policyKey, type Filters, type PlannerSummary } from "@/lib/planner";
 
 const BLOCKER_RECEIPT: Receipt = {
-  label: "What's holding them back",
+  label: "Site constraints",
   source: "EaseScore.AI Ease Score (score config shown in the footer), computed per parcel from county, City and federal datasets",
   date: "See data dates below",
   method: "For each parcel's best option that adds homes, every factor or callout that costs at least one score point is listed as a blocker, in plain words (red flags and hazard band caps first). A parcel can have several, so the bars show the share of matching parcels that list each blocker; they do not add up to 100%. Low market activity is counted only where it is a parcel's top blocker (it is a small secondary drag on most parcels); the parcel's own list still shows it. Missing data (for example sewer service not confirmed) is never counted as a blocker.",

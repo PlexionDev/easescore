@@ -28,7 +28,7 @@ const COLS: Col[] = [
   },
   { id: "blocker", label: "Top blocker", cell: (r) => r.top_blocker ?? <span className="pl-muted">None major</span> },
   { id: "byright", label: "By right", title: "Most homes a new building fits with the use allowed by right and no dimensional variance", sort: "by_right_units", num: true, cell: (r) => r.by_right_units ?? (r.note ? <span title={r.note}>n/a</span> : "—") },
-  { id: "relief", label: "With relief", title: "Most homes on any path short of a use variance", sort: "units_with_relief", num: true, cell: (r) => r.units_with_relief ?? (r.note ? <span title={r.note}>n/a</span> : "—") },
+  { id: "relief", label: "Yield with approvals", title: "Most homes on any path short of a use variance", sort: "units_with_relief", num: true, cell: (r) => r.units_with_relief ?? (r.note ? <span title={r.note}>n/a</span> : "—") },
   {
     id: "hazards", label: "Hazards",
     cell: (r) => {
@@ -118,7 +118,7 @@ export default function PlannerTable({ rows, offset, sort, dir, onSort, hover, s
               <button type="button" className="pl-card-btn" onClick={() => onOpen(r)}>
                 <span className="pl-card-top"><span className="pl-rank">{offset + i + 1}</span> <b>{parcelLabel(r, dupAddr.has(titleCase(r.address)))}</b></span>
                 <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {r.top_blocker ?? "None major"}</span>
-                <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right, ${r.units_with_relief ?? "—"} with relief`].filter(Boolean).join(" · ")}</span>
+                <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right, ${r.units_with_relief ?? "—"} with approvals`].filter(Boolean).join(" · ")}</span>
               </button>
             </li>
           );

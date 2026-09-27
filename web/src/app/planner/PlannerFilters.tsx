@@ -114,8 +114,8 @@ export default function PlannerFilters({ f, options, set, reset, counts }: {
           <CheckboxField key={b} label={bandLabel(b)} checked={!!f.bands?.includes(b)}
             onChange={(c) => set({ bands: c ? [...(f.bands ?? []), b] : (f.bands ?? []).filter((x): x is Band => x !== b) })} />
         ))}
-        <span className="es-field-label" style={{ marginTop: 8 }}>Homes by right, at least</span>
-        <NumberBox label="Homes by right, at least" value={f.byRightMin} onCommit={(v) => set({ byRightMin: v })} />
+        <span className="es-field-label" style={{ marginTop: 8 }}>By-right yield (homes), at least</span>
+        <NumberBox label="By-right yield (homes), at least" value={f.byRightMin} onCommit={(v) => set({ byRightMin: v })} />
       </FilterSection>
 
       <FilterSection title="Access">

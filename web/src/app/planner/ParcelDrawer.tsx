@@ -46,19 +46,19 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
             <p className="pl-hint" style={{ marginTop: -10 }}>
               {bestOptionHeadline(r)}.
               {!r.vacant ? <> Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${bandLabel(r.rehab_band)})` : "not scored"}.</> : null}
-              {!r.by_right_units ? <> Homes by right: 0{approvalNeeded(r) ? ` — needs approval for ${approvalNeeded(r)!.toLowerCase()}.` : "."}</> : null}
+              {!r.by_right_units ? <> By-right yield: 0{approvalNeeded(r) ? ` — needs approval for ${approvalNeeded(r)!.toLowerCase()}.` : "."}</> : null}
             </p>
             {r.red_flags.map((f) => <p key={f.id} className="pl-callout red"><strong>Blocked unless resolved:</strong> {f.title}</p>)}
             {r.cap_label ? <p className="pl-callout amber">{relabelBands(r.cap_label)}</p> : null}
             {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
             <section>
-              <h3 style={{ fontSize: 13, fontWeight: 650 }}>What holds it back</h3>
+              <h3 style={{ fontSize: 13, fontWeight: 650 }}>Site constraints</h3>
               {r.blockers.length ? <ol style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>{r.blockers.map((b) => <li key={b}>{b}</li>)}</ol>
                 : <p className="pl-hint">Nothing costs a full point.</p>}
             </section>
             <div className="pl-facts">
-              <div className="pl-fact"><span>Homes by right</span><b>{r.by_right_units ?? "—"}</b></div>
-              <div className="pl-fact"><span>With relief</span><b>{r.units_with_relief ?? "—"}</b></div>
+              <div className="pl-fact"><span>By-right yield</span><b>{r.by_right_units ?? "—"}</b></div>
+              <div className="pl-fact"><span>Yield with approvals</span><b>{r.units_with_relief ?? "—"}</b></div>
               <div className="pl-fact"><span>Months to permit (est.)</span><b>{monthsRangeText(r.months_to_permit)}</b></div>
               <div className="pl-fact"><span>Lot</span><b>{r.lot_sqft != null ? `${Math.round(r.lot_sqft).toLocaleString("en-US")} sq ft` : "—"}</b></div>
               <div className="pl-fact"><span>To frequent transit</span><b>{r.transit_m != null ? `${Math.round((r.transit_m * FT_PER_M) / 10) * 10} ft` : "—"}</b></div>

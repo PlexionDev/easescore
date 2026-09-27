@@ -26,7 +26,7 @@ const PlannerMap = dynamic(() => import("./PlannerMap"), { ssr: false, loading: 
 const MAX_PINS = 5;
 const PIN_KEY = "easescore.planner.pins";
 const SORT_TEXT: Record<Sort, string> = {
-  score: "score", months: "months to permit", by_right_units: "homes by right", units_with_relief: "homes with relief",
+  score: "score", months: "months to permit", by_right_units: "by-right yield", units_with_relief: "yield with approvals",
   lot: "lot size", transit: "distance to transit", address: "address", neighborhood: "neighborhood", zoning: "zoning",
 };
 
