@@ -9,13 +9,9 @@ import "server-only";
 // LOCAL: uses puppeteer-core with an installed Chrome/Chromium. Set CHROME_PATH to override the
 // auto-detected location.
 //
-// VERCEL (switch later, not needed locally):
-//   1. npm i @sparticuz/chromium  (puppeteer-core is already a dependency; both are on Next's
-//      built-in serverExternalPackages list, so no next.config change is needed)
-//   2. In launchBrowser(), replace the VERCEL branch with:
-//        const chromium = (await import("@sparticuz/chromium")).default;
-//        return puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(), headless: true });
-//   3. Keep `maxDuration` on the route (60 s is plenty; a report renders in a few seconds).
+// VERCEL: uses @sparticuz/chromium (serverless Chromium). puppeteer-core and @sparticuz/chromium are on
+// Next's built-in serverExternalPackages list, so no next.config change is needed. PDF routes keep
+// `maxDuration` and need ~2 GB of function memory (see .planning deploy notes).
 
 import { existsSync } from "node:fs";
 import type { Browser, Page } from "puppeteer-core";
@@ -32,8 +28,9 @@ const LOCAL_CHROME = [
 
 export async function launchBrowser(): Promise<Browser> {
   const puppeteer = (await import("puppeteer-core")).default;
-  if (process.env.VERCEL) {
-    throw new Error("PDF rendering on Vercel needs @sparticuz/chromium; see the note at the top of src/lib/report/pdf.ts.");
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    return puppeteer.launch({ args: [...chromium.args, "--font-render-hinting=none"], executablePath: await chromium.executablePath(), headless: true });
   }
   const executablePath = process.env.CHROME_PATH || LOCAL_CHROME.find((p) => existsSync(p));
   if (!executablePath) throw new Error("No Chrome or Chromium found. Install one or set CHROME_PATH.");

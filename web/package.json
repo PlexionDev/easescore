@@ -13,6 +13,7 @@
     "@anthropic-ai/sdk": "^0.128.0",
     "@easescore/engine": "file:../engine",
     "@protomaps/basemaps": "^5.7.2",
+    "@sparticuz/chromium": "^153.0.0",
     "cesium": "^1.145.0",
     "maplibre-contour": "^0.1.1",
     "maplibre-gl": "^6.11.2",
