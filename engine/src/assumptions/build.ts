@@ -20,7 +20,7 @@ export interface ProFormaFacts {
   overlays?: { layer: string; share: number }[] | null;
   mines?: { in_city_undermined?: boolean | null; in_mined_out?: boolean | null; msi_risk?: string | null } | null;
   site?: { building_count?: number | null } | null;
-  assessment?: { use?: string | null; fmv_land?: number | null; fmv_total?: number | null; living_area_sqft?: number | null; is_pittsburgh?: boolean | null } | null;
+  assessment?: { use?: string | null; fmv_land?: number | null; fmv_total?: number | null; living_area_sqft?: number | null; is_pittsburgh?: boolean | null; tax_year?: number | null; as_of?: string | null } | null;
   property_tax?: { general_mills?: number | null } | null;
   transfer_tax?: { total_pct?: number | null } | null;
   building_footprint_sqft?: number | null;
@@ -43,7 +43,7 @@ export interface SalesCompsLike {
 /** parcel_rent_comps payload. */
 export interface RentCompsLike {
   zori?: { zip?: string | null; latest_rent?: number | null; latest_month?: string | null } | null;
-  hud_fmr?: { year?: number | null; level?: string | null; br0?: number; br1?: number; br2?: number; br3?: number; br4?: number } | null;
+  hud_fmr?: { year?: number | null; zip?: string | null; level?: string | null; br0?: number; br1?: number; br2?: number; br3?: number; br4?: number } | null;
 }
 
 /** Building size from the site-fit solver. */
@@ -168,6 +168,15 @@ export interface AssumptionRow {
   edited: boolean;
 }
 
+/** Where a land, value or rent number comes from, always with its year / vintage (or "Assumption, edit me"). */
+export interface DataSource {
+  /** Plain label with the year or date range, e.g. "HUD Fair Market Rent FY2026, ZIP 15219, 2 bedrooms". */
+  label: string;
+  /** Year, month or date range of the data; null only for your own input or an assumption. */
+  asOf: string | null;
+  kind: "data" | "user" | "assumption";
+}
+
 export interface DevelopmentPlan {
   configVersion: string;
   strategy: StrategyId;
@@ -216,6 +225,8 @@ export interface DevelopmentPlan {
   };
   forSale: ForSaleInputs;
   rental: RentalInputs;
+  /** Source and year of the land, sale value and rent numbers. */
+  sources: { land: DataSource; sale: DataSource; rent: DataSource };
   assumptions: AssumptionRow[];
   outliers: string[];
   /** Plain reasons the answer cannot be computed (missing size, value, land...). */
@@ -648,6 +659,26 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     else exclude("rental_taxes", "Property taxes (rental)", "Taxes are owed every year", "tax rate not loaded");
   }
 
+  // ---- Sources with years (land, value, rent)
+  const ASSUME: DataSource = { label: "Assumption, edit me", asOf: null, kind: "assumption" };
+  const USER: DataSource = { label: "Your input", asOf: null, kind: "user" };
+  const taxYear = f.assessment?.tax_year ?? null;
+  const assessAsOf = f.assessment?.as_of ?? null;
+  const landSrc: DataSource = has(o.land) ? USER : land == null ? ASSUME : {
+    label: `Allegheny County assessment, ${rehab ? "total" : "land"} value${taxYear ? `, tax year ${taxYear}` : assessAsOf ? `, data as of ${assessAsOf}` : ""} (not a price)`,
+    asOf: taxYear ? String(taxYear) : assessAsOf, kind: "data",
+  };
+  const cr = c && compsOk ? c : null;
+  const saleSrc: DataSource = perUnitPrice != null || has(o.salePricePerSf) ? USER : cr ? {
+    label: `${compSource}, ${cr.count} sales within ${cr.radius_mi} mi${cr.date_range?.from ? `, ${cr.date_range.from} to ${cr.date_range.to}` : ""}`,
+    asOf: cr.date_range?.from ? `${cr.date_range.from} to ${cr.date_range.to}` : null, kind: "data",
+  } : ASSUME;
+  const rentSrc: DataSource = has(o.rentPerUnit) ? USER : has(zori) ? {
+    label: `Zillow Observed Rent Index, ZIP ${r!.zori!.zip ?? "?"}, ${(r!.zori!.latest_month ?? "").slice(0, 7)}`, asOf: (r!.zori!.latest_month ?? "").slice(0, 7) || null, kind: "data",
+  } : has(fmr) ? {
+    label: `HUD Fair Market Rent FY${r!.hud_fmr!.year ?? "?"}${r!.hud_fmr!.zip ? `, ZIP ${r!.hud_fmr!.zip}` : ""}, ${br} bedroom${br === 1 ? "" : "s"}`, asOf: r!.hud_fmr!.year != null ? `FY${r!.hud_fmr!.year}` : null, kind: "data",
+  } : ASSUME;
+
   const evidence: Evidence = missing.length ? "missing" : exclusions.length ? "partial" : "complete";
   return {
     configVersion: cfg.version,
@@ -680,6 +711,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     },
     forSale,
     rental,
+    sources: { land: landSrc, sale: saleSrc, rent: rentSrc },
     assumptions: rows,
     outliers,
     missing,

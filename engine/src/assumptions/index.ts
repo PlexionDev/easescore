@@ -4,3 +4,4 @@ export { COST_CONFIG, tierOf, type CostConfig, type Sourced, type TierId } from 
 export * from "./build";
 export * from "./evaluate";
 export * from "./comps";
+export * from "./ranges";

@@ -25,6 +25,7 @@ import {
 import type { NarrativeProForma } from "../narrative/types";
 import { COST_CONFIG, type CostConfig } from "./config";
 import type { DevelopmentPlan, LineGroup } from "./build";
+import { proFormaRanges, type ProFormaRanges } from "./ranges";
 
 export interface BudgetLine {
   id: string;
@@ -55,6 +56,8 @@ export interface ProFormaResult {
   sentences: string[];
   narrative: NarrativeProForma | null;
   benchmark: { perUnit: number | null; line: string; projects: CostConfig["benchmarks"]["projects"] };
+  /** Low / likely / high for every line and total, with source badges and triangulation. */
+  ranges: ProFormaRanges;
 }
 
 const v = (r: Receipt): number | null => (r.status === "ok" ? r.value : null);
@@ -219,6 +222,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     sentences,
     narrative,
     benchmark: { perUnit: tdc != null ? perUnit : null, line, projects },
+    ranges: proFormaRanges(plan, budget, config),
   };
 }
 
