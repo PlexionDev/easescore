@@ -5,7 +5,7 @@
 // instantly. Edits are kept in the URL (pf_tier, pf_line_<id>) with history.replaceState, so a reload
 // or the report keeps them.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { assumptions, finance, rents, type score } from "@easescore/engine";
 import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quickfit-gen";
 import type { quickfit } from "@easescore/engine";
@@ -120,15 +120,27 @@ function LineEditor({ id, value, mine, onSet, onReset }: { id: string; value: nu
   );
 }
 
-export default function ProFormaLive({ live, initial, strategyLabel }: { live: LiveInputs; initial: assumptions.CostOverrides; strategyLabel: string }) {
+export default function ProFormaLive({ parid, live, initial, strategyLabel }: { parid: string; live: LiveInputs; initial: assumptions.CostOverrides; strategyLabel: string }) {
   const [over, setOver] = useState<assumptions.CostOverrides>(initial);
+  // Rents by bedroom from nearby listings (RentCast via /api/rents): loaded after the page, never blocking it.
+  // Until they arrive (or without them) the rent is the labeled HUD / ZIP-index benchmark.
+  const [rentsBr, setRentsBr] = useState<assumptions.PlanArgs["rentsByBedroom"]>(live.fin.rentsByBedroom ?? null);
+  useEffect(() => {
+    if (live.fin.rentsByBedroom) return;
+    const ac = new AbortController();
+    fetch(`/api/rents/${encodeURIComponent(parid)}`, { signal: ac.signal })
+      .then((x) => (x.ok ? x.json() : null))
+      .then((j) => { if (j && j.byBedroom) setRentsBr(j); })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [parid, live.fin.rentsByBedroom]);
   const r = useMemo(() => {
     try {
-      return financeFor({ ...live.fin, overrides: over }, live.strategy, live.scheme, live.stepping).pf;
+      return financeFor({ ...live.fin, overrides: over, rentsByBedroom: rentsBr }, live.strategy, live.scheme, live.stepping).pf;
     } catch {
       return null;
     }
-  }, [live, over]);
+  }, [live, over, rentsBr]);
 
   const sync = useCallback((o: assumptions.CostOverrides) => {
     try {

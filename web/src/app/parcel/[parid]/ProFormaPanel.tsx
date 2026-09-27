@@ -91,8 +91,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
   live?: LiveInputs | null;
   overrides?: assumptions.CostOverrides;
 }) {
-  if (live) return <ProFormaLive live={live} initial={overrides ?? {}} strategyLabel={strategyLabel} />;
-  void parid;
+  if (live) return <ProFormaLive parid={parid} live={live} initial={overrides ?? {}} strategyLabel={strategyLabel} />;
   const r = result;
   const p = r.plan;
   const cfg = assumptions.COST_CONFIG;
