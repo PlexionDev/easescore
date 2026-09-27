@@ -143,12 +143,13 @@ export async function need(hood: string): Promise<NeedData> {
   return { area: a, il, datasets: ds };
 }
 
-/** The chosen lots' precomputed rows with the owning agency (for the brief). Small indexed reads. */
+/** The chosen lots' precomputed rows with the owning agency (for the brief). Small indexed reads.
+ *  Tax status is not readable through the public API (migration 147) and the brief does not use it. */
 export async function lotsDetail(parids: string[]): Promise<import("./types").Site[]> {
   if (!parids.length) return [];
   const ids = parids.join(",");
   const [rows, po, oc] = await Promise.all([
-    select<import("./types").Site>(`parcel_scores?select=parid,address,score,band,best_strategy,by_right_units,units_with_relief,months_to_permit,red_flag_count,red_flags,top_blocker,zoning,lot_sqft,vacant,owner_class,tax_delinquent,municipality,lon,lat,preliminary&parid=in.(${ids})`),
+    select<import("./types").Site>(`parcel_scores?select=parid,address,score,band,best_strategy,by_right_units,units_with_relief,months_to_permit,red_flag_count,red_flags,top_blocker,zoning,lot_sqft,vacant,owner_class,municipality,lon,lat,preliminary&parid=in.(${ids})`),
     select<{ parid: string; owner_category: string | null; status: string | null }>(`public_owned?select=parid,owner_category,status&parid=in.(${ids})`),
     select<{ parid: string; agency_name: string | null; owner_class: string | null; city_program: string | null }>(`parcel_owner_class?select=parid,agency_name,owner_class,city_program&parid=in.(${ids})`),
   ]);
@@ -156,7 +157,7 @@ export async function lotsDetail(parids: string[]): Promise<import("./types").Si
   const ocOf = new Map((oc ?? []).map((r) => [r.parid.trim(), r]));
   const byId = new Map((rows ?? []).map((r) => {
     const id = r.parid.trim();
-    return [id, { ...publicOnlyTax(r), parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, city_program: ocOf.get(id)?.city_program ?? null, geoid: null, qct: false, dda: false }];
+    return [id, { ...r, tax_delinquent: null, parid: id, agency: ocOf.get(id)?.agency_name ?? poOf.get(id)?.owner_category ?? null, agency_status: poOf.get(id)?.status ?? null, agency_class: ocOf.get(id)?.owner_class ?? null, city_program: ocOf.get(id)?.city_program ?? null, geoid: null, qct: false, dda: false }];
   }));
   return parids.map((p) => byId.get(p)).filter(Boolean) as import("./types").Site[];
 }

@@ -545,7 +545,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "back_taxes_liens", item: "Back taxes, liens & municipal claims", category: "Hidden cost", phase: "due_diligence",
     issuer: "Title company; County / City treasurer", trigger: "Delinquent taxes or filed liens on the parcel", data: ["Tax delinquency", "Tax liens"], citation: null,
-    rule: (f) => ((f.context?.tax_delinquent ?? f.tax_delinquent) === undefined ? [{ status: "POSSIBLE", reason: "Tax-delinquency data is loading; a title search will show liens either way." }] : (f.context?.tax_delinquent ?? f.tax_delinquent) ? [{ status: "LIKELY", reason: `Parcel has unsatisfied county tax liens${f.context?.delinquency_band ? ` (${f.context.delinquency_band})` : ""}: liens follow the property.`, source: "Allegheny County Tax Liens" }] : [notNeeded("Not on the delinquency list (title search still confirms).", "Tax delinquency data")]),
+    rule: (f) => ((f.context?.tax_delinquent ?? f.tax_delinquent) === undefined ? [{ status: "POSSIBLE", reason: "Tax-lien status is not shown for this lot; a title search will show liens either way." }] : (f.context?.tax_delinquent ?? f.tax_delinquent) ? [{ status: "LIKELY", reason: `Parcel has unsatisfied county tax liens${f.context?.delinquency_band ? ` (${f.context.delinquency_band})` : ""}: liens follow the property.`, source: "Allegheny County Tax Liens" }] : [notNeeded("Not on the delinquency list (title search still confirms).", "Tax delinquency data")]),
   },
   {
     id: "sewer_lateral", item: "Sewer lateral inspection / replacement at sale", category: "Hidden cost", phase: "due_diligence",
