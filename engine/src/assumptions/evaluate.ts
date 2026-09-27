@@ -25,7 +25,7 @@ import {
 import type { NarrativeProForma } from "../narrative/types";
 import { COST_CONFIG, type CostConfig } from "./config";
 import type { DevelopmentPlan, LineGroup } from "./build";
-import { proFormaRanges, type ProFormaRanges } from "./ranges";
+import { proFormaRanges, rangeHeadline, type ProFormaRanges } from "./ranges";
 
 export interface BudgetLine {
   id: string;
@@ -176,8 +176,8 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   else if (plan.tenure === "sale" && sale.profit != null && tdc != null && sale.netSales != null)
     headline =
       verdict === "no"
-        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${about(-sale.profit)} short.`
-        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${about(sale.profit)} profit (${pct1(sale.margin!)}).`;
+        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${usd(-sale.profit)} short.`
+        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}).`;
   else if (plan.tenure === "rent" && rent.noi != null && tdc != null)
     headline =
       verdict === "no"
@@ -238,18 +238,21 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     sentences,
     narrative,
     benchmark: { perUnit: tdc != null ? perUnit : null, line, projects },
-    ranges: alignRanges(proFormaRanges(plan, budget, config), sale, rent, tdc),
+    ranges: alignRanges(proFormaRanges(plan, budget, config), sale, rent, tdc, plan.tenure),
   };
 }
 
 /** The ranges' "likely" figures equal the rounded numbers the sentences use (low <= likely <= high). */
-function alignRanges(r: ProFormaRanges, sale: ProFormaResult["sale"], rent: ProFormaResult["rent"], tdc: number | null): ProFormaRanges {
+function alignRanges(r: ProFormaRanges, sale: ProFormaResult["sale"], rent: ProFormaResult["rent"], tdc: number | null, tenure: "sale" | "rent"): ProFormaRanges {
   const fit = <T extends { low: number; likely: number; high: number }>(x: T | null, likely: number | null): T | null =>
     x && likely != null ? { ...x, likely, low: Math.min(x.low, likely), high: Math.max(x.high, likely) } : x;
+  const profit = fit(r.sale.profit, sale.profit);
+  const tdcR = fit(r.tdc, tdc);
   return {
     ...r,
-    tdc: fit(r.tdc, tdc),
-    sale: { ...r.sale, profit: fit(r.sale.profit, sale.profit), marginPct: fit(r.sale.marginPct, sale.margin != null ? Math.round(sale.margin * 1000) / 10 : null) },
+    headline: rangeHeadline(tenure, profit, tdcR),
+    tdc: tdcR,
+    sale: { ...r.sale, profit, marginPct: fit(r.sale.marginPct, sale.margin != null ? Math.round(sale.margin * 1000) / 10 : null) },
     rent: { ...r.rent, noi: fit(r.rent.noi, rent.noi), yieldOnCostPct: fit(r.rent.yieldOnCostPct, rent.yieldOnCost != null ? Math.round(rent.yieldOnCost * 1000) / 10 : null) },
     lines: r.lines.map((l) => (l.id === "tdc" ? { ...l, range: fit(l.range, tdc) } : l)),
   };

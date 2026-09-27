@@ -116,6 +116,17 @@ export function shortMoney(n: number): string {
   return `${sign}$${Math.round(a).toLocaleString("en-US")}`;
 }
 
+/** The chip: "From a $130K gap to a $150K profit, likely a $34K profit", "Gap …", "Profit …" or "Cost …". */
+export function rangeHeadline(tenure: "sale" | "rent", p: MoneyRange | null, tdc: MoneyRange | null): string | null {
+  return tenure === "sale" && p
+    ? p.low < 0 && p.high > 0
+      ? `From a ${shortMoney(-p.low)} gap to a ${shortMoney(p.high)} profit, likely ${p.likely < 0 ? `a ${shortMoney(-p.likely)} gap` : `a ${shortMoney(p.likely)} profit`}`
+      : p.likely < 0
+        ? `Gap ${rangeText({ low: -p.high, likely: -p.likely, high: -p.low })}`
+        : `Profit ${rangeText(p)}`
+    : tdc ? `Cost ${rangeText(tdc)}` : null;
+}
+
 /** "$620K–$690K, likely $650K" (or just "$650K" when low = high). */
 export function rangeText(r: MoneyRange | null): string | null {
   if (!r) return null;
@@ -432,14 +443,7 @@ export function proFormaRanges(
     source: plan.sources.rent,
   };
 
-  const p = sale.profit;
-  const headline = plan.tenure === "sale" && p
-    ? p.low < 0 && p.high > 0
-      ? `From a ${shortMoney(-p.low)} gap to a ${shortMoney(p.high)} profit, likely ${p.likely < 0 ? `a ${shortMoney(-p.likely)} gap` : `a ${shortMoney(p.likely)} profit`}`
-      : p.likely < 0
-        ? `Gap ${rangeText({ low: -p.high, likely: -p.likely, high: -p.low })}`
-        : `Profit ${rangeText(p)}`
-    : tdc ? `Cost ${rangeText(tdc)}` : null;
+  const headline = rangeHeadline(plan.tenure, sale.profit, tdc);
 
   return {
     lines, tdc, sale, rent,
