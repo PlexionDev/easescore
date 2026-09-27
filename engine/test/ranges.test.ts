@@ -7,11 +7,21 @@ const fx = ura as any;
 const facts = { ...fx.facts, assessment: { ...fx.facts.assessment, tax_year: 2026 } };
 const r = score.scoreParcel(facts as ParcelFacts, { quickfitInput: fx.quickfitInput, easeInputs: fx.easeInputs, zba: fx.zba, unlocks: false });
 
-function pf(strategy: score.StrategyId, overrides: assumptions.CostOverrides = {}, rents: unknown = fx.rent) {
+// Sixteen new-construction sales with the bimodal $/SF spread seen near this lot (synthetic ids).
+const PPSF = [231, 238, 301, 304, 307, 311, 315, 436, 523, 569, 620, 640, 685, 722, 724, 802];
+function compSet(ppsf: number[]): assumptions.CompSet {
+  const comps = ppsf.map((x, i) => ({ parid: `SYN-${i}`, address: null, saleDate: "2025-01-01", price: x * 2000, livingAreaSqft: 2000, pricePerSqft: x, yearBuilt: 2020, distanceMi: 0.8 }));
+  const med = assumptions.median(ppsf)!;
+  return { kind: "new_construction", status: "ok", sufficient: true, count: comps.length, radius_mi: 1, search_steps: [], comparable_use: "new single-family homes",
+    median_price: med * 2000, median_price_per_sqft: med, median_living_area_sqft: 2000, year_built_range: { from: 2020, to: 2020 },
+    date_range: { from: "2024-01-01", to: "2026-06-01" }, note: null, rule: "", sourceLabel: "Allegheny County sales (valid new-construction comps)", comps };
+}
+
+function pf(strategy: score.StrategyId, overrides: assumptions.CostOverrides = {}, rents: unknown = fx.rent, newComps: assumptions.CompSet | null = null) {
   const s = r.strategies.find((x) => x.strategy === strategy)!;
   const selected = score.selectScheme({ strategy, scheme: r.schemes![strategy]!, result: s, overrides });
   const plan = assumptions.buildDevelopmentInputs({
-    strategy, facts, scheme: null, selected, comps: fx.comps, newComps: null, rents: rents as assumptions.RentCompsLike,
+    strategy, facts, scheme: null, selected, comps: fx.comps, newComps, rents: rents as assumptions.RentCompsLike,
     primeRate: 0.075, primeRateDate: "2026-09-25", permitMonths: s.predictedMonthsToPermit?.months ?? null, tapFeesPerUnit: 5000, overrides,
   });
   return assumptions.evaluateDevelopment(plan);
@@ -86,4 +96,45 @@ describe("ranges: no false precision", () => {
     expect(rangeText(roundRange(1234567, 1300000, 1411111, 10000))).toBe("$1.23M–$1.41M, likely $1.3M");
     expect(g.headline).toMatch(/^(Gap|Profit) \$/);
   });
+});
+
+describe("derived ranges combine cost and value as independent uncertainties", () => {
+  const res = pf("townhouse_row", {}, fx.rent, compSet(PPSF));
+  const g = res.ranges;
+
+  it("value uses the comps' 25th-75th percentile $/SF", () => {
+    expect(g.sale.basis).toMatch(/^25th–75th percentile of 16 comparable sales/);
+    expect(g.sale.pricePerSf!.low).toBeLessThan(g.sale.pricePerSf!.likely);
+    expect(g.sale.pricePerSf!.high).toBeGreaterThan(g.sale.pricePerSf!.likely);
+  });
+
+  it("profit is ordered and no wider than about twice the value range", () => {
+    const p = g.sale.profit!;
+    expect(p.low).toBeLessThanOrEqual(p.likely);
+    expect(p.likely).toBeLessThanOrEqual(p.high);
+    const valueWidth = g.sale.netSales!.high - g.sale.netSales!.low;
+    const costWidth = g.tdc!.high - g.tdc!.low;
+    const width = p.high - p.low;
+    expect(width).toBeLessThanOrEqual(2 * valueWidth + 20000);
+    // Strictly narrower than pairing opposite extremes (value width + cost width).
+    expect(width).toBeLessThan(valueWidth + costWidth);
+    const m = g.sale.marginPct!;
+    expect(m.low).toBeLessThanOrEqual(m.likely);
+    expect(m.likely).toBeLessThanOrEqual(m.high);
+    expect(g.sale.method).toMatch(/independent uncertainties/);
+  });
+
+  it("with fewer than 8 comps the value moves ±15% and says it is an assumption", () => {
+    const few = pf("townhouse_row", {}, fx.rent, compSet(PPSF.slice(0, 6))).ranges;
+    expect(few.sale.basis).toMatch(/^±15% \(Assumption, edit me/);
+    const r = few.sale.pricePerSf!;
+    expect(r.high / r.likely).toBeCloseTo(1.15, 1);
+  });
+
+  it("rental yield is ordered", () => {
+    const y = pf("three_four_unit").ranges.rent.yieldOnCostPct!;
+    expect(y.low).toBeLessThanOrEqual(y.likely);
+    expect(y.likely).toBeLessThanOrEqual(y.high);
+  });
+
 });

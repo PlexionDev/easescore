@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ease from "@easescore/engine/config/ease-score.v0.2.json";
 import costs from "@easescore/engine/config/cost-assumptions.v0.1.json";
+import { assumptions } from "@easescore/engine";
 import Shell from "../_docs/Shell";
 import d from "../_docs/docs.module.css";
 
@@ -256,6 +257,13 @@ export default function MethodsPage() {
               </li>
               <li>{costs.construction.rehabNote}</li>
             </ul>
+            <h3>Ranges</h3>
+            <p>
+              Every cost line and total is shown as low to high with a likely figure, rounded to $1,000 per line and $10,000 for totals. Cost
+              ranges come from each input&apos;s documented range (builder tiers, site adders, soft-cost shares). The sale value range is the 25th to
+              75th percentile of the comparable sales per square foot when there are at least {assumptions.MIN_COMPS_FOR_PERCENTILES} of them,
+              otherwise &plusmn;{Math.round(assumptions.VALUE_FALLBACK_SHARE * 100)}%, labeled as an assumption. {assumptions.RANGE_METHOD}
+            </p>
             <h3>The verdict</h3>
             <p>
               For a home built to sell: profit = sales − total cost − selling costs. If profit is zero or less, the answer is <strong>No</strong>.

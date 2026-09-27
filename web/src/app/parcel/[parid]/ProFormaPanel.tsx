@@ -110,7 +110,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
       </div>
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
       <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
-      <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rounded to $1,000 per line and $10,000 for totals.</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rounded to $1,000 per line and $10,000 for totals. {sale ? rg.sale.method : rg.rent.method}</p>
 
       {p.units != null && p.finishedSf != null && (
         <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">

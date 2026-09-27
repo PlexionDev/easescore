@@ -205,7 +205,31 @@ export function validateSummary(text: string, input: SummaryInput): SummaryValid
   const sentences = splitSentences(text);
   if (sentences.length !== 2) problems.push(`expected 2 sentences, got ${sentences.length}`);
   if (text.length > 600) problems.push("too long");
+  problems.push(...proseProblems(text, sentences));
   return { ok: !numbers.length && !codes.length && !banned.length && !problems.length, numbers, codes, banned, problems };
+}
+
+// Plain prose only: letters, digits, spaces and ordinary punctuation (straight or curly quotes and
+// apostrophes, dashes, $, %, §, /, &). Anything else (braces, brackets, backticks, *, #, _, <, >, |,
+// \, =, ~, ^, @) means the draft is not a clean sentence.
+const PROSE_CHARS = /^[\p{L}\p{N} .,;:!?'"’‘“”()\-–—$%§/&\n]*$/u;
+const URL_RE = /\bhttps?:\/\/|\bwww\.|\b[a-z0-9-]+\.(com|org|net|gov|io|ai|edu)\b/i;
+const MARKDOWN_RE = /\*\*|__|`|^#+\s|^\s*[-*]\s|\]\(/m;
+const JSON_RE = /[{}[\]]|"\s*:|:\s*"|\\n|\\"/;
+
+/** Problems that make an AI draft unusable as plain prose (the template is used instead). */
+export function proseProblems(text: string, sentences: string[] = splitSentences(text)): string[] {
+  const out: string[] = [];
+  if (!PROSE_CHARS.test(text)) out.push("characters outside plain prose");
+  if (JSON_RE.test(text)) out.push("JSON-like fragment");
+  if (MARKDOWN_RE.test(text)) out.push("markdown");
+  if (URL_RE.test(text)) out.push("URL");
+  const count = (re: RegExp) => (text.match(re) ?? []).length;
+  if (count(/\(/g) !== count(/\)/g)) out.push("unbalanced parentheses");
+  if (count(/"/g) % 2 !== 0) out.push("unbalanced quotes");
+  if (count(/“/g) !== count(/”/g)) out.push("unbalanced quotes");
+  for (const s of sentences) if (!/[a-z0-9%)]\.$/i.test(s.trim())) { out.push("a sentence does not end with a period"); break; }
+  return [...new Set(out)];
 }
 
 /** Split on sentence ends, ignoring decimals and "e.g."-style abbreviations. */

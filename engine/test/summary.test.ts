@@ -174,3 +174,24 @@ describe("summary lead (the visitor's selected option)", () => {
     expect(validateSummary(r.text, i).ok).toBe(true);
   });
 });
+
+describe("summary sanitizer", () => {
+  const good = () => generateSummary(base()).text;
+  it("accepts the template", () => expect(validateSummary(good(), base()).ok).toBe(true));
+  it.each([
+    ["a stray JSON tail", (t: string) => `${t}"}`],
+    ["braces", (t: string) => t.replace("one single-family home", "{one single-family home}")],
+    ["brackets", (t: string) => t.replace("a special exception", "[a special exception]")],
+    ["unbalanced parentheses", (t: string) => t.replace("(3 of 6", "3 of 6")],
+    ["unbalanced quotes", (t: string) => t.replace("By right", "\"By right")],
+    ["markdown", (t: string) => `**${t.slice(0, -1)}**.`],
+    ["a URL", (t: string) => t.replace("By right,", "By right (see https://example.org),")],
+    ["no final period", (t: string) => t.slice(0, -1)],
+    ["odd characters", (t: string) => t.replace("By right,", "By right <b>")],
+  ])("rejects %s and falls back to the template", async (_n, mutate) => {
+    const bad = mutate(good());
+    expect(validateSummary(bad, base()).ok).toBe(false);
+    const r = await resolveSummary(base(), async () => bad, 2);
+    expect(r.source).toBe("template");
+  });
+});

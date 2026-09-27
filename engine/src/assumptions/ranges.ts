@@ -23,6 +23,14 @@ export const SOURCE_BADGES = [
 export type SourceBadge = (typeof SOURCE_BADGES)[number];
 export const ASSUMPTION_BADGE: SourceBadge = "Assumption, edit me";
 
+/** Comps needed before the value range uses their 25th / 75th percentile. */
+export const MIN_COMPS_FOR_PERCENTILES = 8;
+/** Value range when there are fewer comps (an assumption, labeled as one). */
+export const VALUE_FALLBACK_SHARE = 0.15;
+/** Receipt line for every derived range (profit, gap, margin, yield). */
+export const RANGE_METHOD =
+  "The profit (or gap), margin and yield ranges combine the cost and value ranges as independent uncertainties: each side moves by the square root of (value change² + cost change²), so a low value is not paired with a high cost.";
+
 export interface MoneyRange {
   low: number;
   likely: number;
@@ -78,8 +86,8 @@ export interface PctRange {
 export interface ProFormaRanges {
   lines: RangedLine[];
   tdc: MoneyRange | null;
-  sale: { grossSales: MoneyRange | null; netSales: MoneyRange | null; profit: MoneyRange | null; marginPct: PctRange | null; pricePerSf: MoneyRange | null; basis: string; source: DataSource };
-  rent: { monthlyPerUnit: MoneyRange | null; noi: MoneyRange | null; yieldOnCostPct: PctRange | null; basis: string; source: DataSource };
+  sale: { grossSales: MoneyRange | null; netSales: MoneyRange | null; profit: MoneyRange | null; marginPct: PctRange | null; pricePerSf: MoneyRange | null; basis: string; method: string; source: DataSource };
+  rent: { monthlyPerUnit: MoneyRange | null; noi: MoneyRange | null; yieldOnCostPct: PctRange | null; basis: string; method: string; source: DataSource };
   land: { range: MoneyRange | null; source: DataSource };
   /** "$620K–$690K, likely $650K" for the chip. */
   headline: string | null;
@@ -332,7 +340,8 @@ export function proFormaRanges(
     });
   }
 
-  // ---- Revenue: sale
+  // ---- Revenue: sale. Value low / high = 25th / 75th percentile of the comps' $/SF (with at least
+  // MIN_COMPS_FOR_PERCENTILES comps), else ±VALUE_FALLBACK_SHARE, labeled as an assumption.
   const vc = plan.valueComps as (CompSet | SalesCompsLike | null);
   const rows = vc && "comps" in vc && Array.isArray((vc as CompSet).comps) ? (vc as CompSet).comps.map((c) => c.pricePerSqft).filter(has) : [];
   const saleUser = plan.sources.sale.kind === "user";
@@ -340,45 +349,64 @@ export function proFormaRanges(
   let pLo = 1, pHi = 1;
   let saleBasis = "Your price";
   if (!saleUser && ppsf != null) {
-    const q1 = rows.length >= 4 ? quantile(rows, 0.25) : null;
-    const q3 = rows.length >= 4 ? quantile(rows, 0.75) : null;
-    if (q1 != null && q3 != null) { pLo = q1 / ppsf; pHi = q3 / ppsf; saleBasis = `25th–75th percentile of ${rows.length} comparable sales per sq ft`; }
-    else { pLo = 1 - sv.revenueShare.value; pHi = 1 + sv.revenueShare.value; saleBasis = `±${Math.round(sv.revenueShare.value * 100)}% (Assumption, edit me: too few comps listed for percentiles)`; }
+    const q1 = rows.length >= MIN_COMPS_FOR_PERCENTILES ? quantile(rows, 0.25) : null;
+    const q3 = rows.length >= MIN_COMPS_FOR_PERCENTILES ? quantile(rows, 0.75) : null;
+    if (q1 != null && q3 != null) { pLo = Math.min(1, q1 / ppsf); pHi = Math.max(1, q3 / ppsf); saleBasis = `25th–75th percentile of ${rows.length} comparable sales per sq ft`; }
+    else { pLo = 1 - VALUE_FALLBACK_SHARE; pHi = 1 + VALUE_FALLBACK_SHARE; saleBasis = `±${Math.round(VALUE_FALLBACK_SHARE * 100)}% (Assumption, edit me: fewer than ${MIN_COMPS_FOR_PERCENTILES} comps listed for percentiles)`; }
   }
-  const sLow = forSaleProForma(salePriceChange<ForSaleInputs>().apply(fsHi, Math.min(pLo, pHi) - 1)).sales;
   const sMid = forSaleProForma(plan.forSale).sales;
-  const sHigh = forSaleProForma(salePriceChange<ForSaleInputs>().apply(fsLo, Math.max(pLo, pHi) - 1)).sales;
-  const gLo = forSaleProForma(salePriceChange<ForSaleInputs>().apply(plan.forSale, Math.min(pLo, pHi) - 1)).sales;
-  const gHi = forSaleProForma(salePriceChange<ForSaleInputs>().apply(plan.forSale, Math.max(pLo, pHi) - 1)).sales;
+  const gLo = forSaleProForma(salePriceChange<ForSaleInputs>().apply(plan.forSale, pLo - 1)).sales;
+  const gHi = forSaleProForma(salePriceChange<ForSaleInputs>().apply(plan.forSale, pHi - 1)).sales;
   const tri3 = (a: Receipt, b: Receipt, c: Receipt, step: number) => {
     const x = v(a), y = v(b), z = v(c);
     return x != null && y != null && z != null ? roundRange(x, y, z, step) : null;
   };
-  const mLo = v(sLow.profitMargin), mMid = v(sMid.profitMargin), mHi = v(sHigh.profitMargin);
+  // Derived results (profit, gap, margin, yield) never pair opposite extremes (low value with high
+  // cost). The value and cost ranges are combined as independent uncertainties: each side moves by
+  // sqrt(Δvalue² + Δcost²).
+  const netMid = v(sMid.netSales), netLo = v(gLo.netSales), netHi = v(gHi.netSales);
+  const profMid = v(sMid.profit);
+  let profit: MoneyRange | null = null;
+  let marginPct: PctRange | null = null;
+  if (profMid != null && netMid != null && netLo != null && netHi != null && tMid != null && tLo != null && tHi != null) {
+    const down = Math.hypot(netMid - netLo, tHi - tMid);
+    const up = Math.hypot(netHi - netMid, tMid - tLo);
+    profit = roundRange(profMid - down, profMid, profMid + up, 10000);
+    const m = profMid / tMid;
+    marginPct = pctRange(m - down / tMid, m, m + up / tMid);
+  }
   const sale = {
     grossSales: tri3(gLo.grossSales, sMid.grossSales, gHi.grossSales, 10000),
     netSales: tri3(gLo.netSales, sMid.netSales, gHi.netSales, 10000),
-    profit: tri3(sLow.profit, sMid.profit, sHigh.profit, 10000),
-    marginPct: mLo != null && mMid != null && mHi != null ? pctRange(mLo, mMid, mHi) : null,
-    pricePerSf: ppsf != null ? roundRange(ppsf * Math.min(pLo, pHi), ppsf, ppsf * Math.max(pLo, pHi), 1) : null,
+    profit,
+    marginPct,
+    pricePerSf: ppsf != null ? roundRange(ppsf * pLo, ppsf, ppsf * pHi, 1) : null,
     basis: saleBasis,
+    method: RANGE_METHOD,
     source: plan.sources.sale,
   };
 
   // ---- Revenue: rent (no rent comps: the index / FMR is one number, so the sensitivity move sets the range)
   const rentUser = plan.sources.rent.kind === "user";
   const rr = rentUser ? 0 : sv.revenueShare.value;
-  const rtLo = costInputs(plan.rental, 1), rtHi = costInputs(plan.rental, 0);
-  const rLow = rentalProForma(rentChange<RentalInputs>().apply(rtLo, -rr));
+  const rLow = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, -rr));
   const rMid = rentalProForma(plan.rental);
-  const rHigh = rentalProForma(rentChange<RentalInputs>().apply(rtHi, rr));
+  const rHigh = rentalProForma(rentChange<RentalInputs>().apply(plan.rental, rr));
   const rpu = plan.revenue.rent.perUnit;
-  const yLo = v(rLow.yieldOnCost), yMid = v(rMid.yieldOnCost), yHi = v(rHigh.yieldOnCost);
+  const noiMid = v(rMid.noi), noiLo = v(rLow.noi), noiHi = v(rHigh.noi);
+  let yieldOnCostPct: PctRange | null = null;
+  if (noiMid != null && noiLo != null && noiHi != null && tMid != null && tLo != null && tHi != null && tMid > 0) {
+    // Yield = NOI ÷ cost: relative errors of the two combined as independent uncertainties.
+    const y = noiMid / tMid;
+    const rel = (dn: number, dc: number) => Math.abs(y) * Math.hypot(noiMid ? dn / noiMid : 0, dc / tMid);
+    yieldOnCostPct = pctRange(y - rel(noiMid - noiLo, tHi - tMid), y, y + rel(noiHi - noiMid, tMid - tLo));
+  }
   const rent = {
     monthlyPerUnit: rpu != null ? roundRange(rpu * (1 - rr), rpu, rpu * (1 + rr), 10) : null,
     noi: tri3(rLow.noi, rMid.noi, rHigh.noi, 1000),
-    yieldOnCostPct: yLo != null && yMid != null && yHi != null ? pctRange(yLo, yMid, yHi) : null,
+    yieldOnCostPct,
     basis: rentUser ? "Your rent" : `±${Math.round(rr * 100)}% around the ${plan.sources.rent.kind === "data" ? "published index" : "assumed rent"} (Assumption, edit me: no listing-level rent comps)`,
+    method: RANGE_METHOD,
     source: plan.sources.rent,
   };
 
