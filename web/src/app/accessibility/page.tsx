@@ -86,7 +86,7 @@ export default function AccessibilityPage() {
           <section id="checked" aria-labelledby="checked-h">
             <h2 id="checked-h">How we checked</h2>
             <ul>
-              <li>An automated scan with axe-core (WCAG 2.0, 2.1 and 2.2, levels A and AA, plus best practices) on every page of the site, including the report.</li>
+              <li>An automated scan with axe-core (WCAG 2.0, 2.1 and 2.2, levels A and AA, plus best practices) on the main pages: home, a parcel page, its report, the Planner, Policy and Nonprofit pages, and the methods, limitations and AI pages.</li>
               <li>A reading of each page&apos;s accessibility tree, the structure a screen reader uses, along the main path: search, parcel page, a receipt, and the report.</li>
               <li>Keyboard checks of the maps, the 3D view, the sliders and the Table view buttons.</li>
             </ul>
