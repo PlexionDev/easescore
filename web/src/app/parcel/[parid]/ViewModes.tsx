@@ -3,12 +3,13 @@
 import { useState, type ReactNode } from "react";
 
 export type ViewMode = "build" | "photoreal" | "terrain" | "analysis";
-export const VIEW_MODES: ViewMode[] = ["build", "photoreal", "terrain", "analysis"];
+/** Left to right: the real place (default), the QuickFit clay model, lidar terrain, the flat analysis map. */
+export const VIEW_MODES: ViewMode[] = ["photoreal", "build", "terrain", "analysis"];
 const LABELS: Record<ViewMode, [string, string]> = {
-  build: ["Build it in 3D", "Build"],
-  photoreal: ["Context (photoreal)", "Context"],
-  terrain: ["3D Terrain", "Terrain"],
-  analysis: ["2D Analysis", "2D"],
+  photoreal: ["3D (photoreal)", "3D"],
+  build: ["QuickFit 3D", "QuickFit"],
+  terrain: ["Terrain", "Terrain"],
+  analysis: ["2D", "2D"],
 };
 
 /** Segmented control, top-center of the map area (between the left panel and the layers card). */
@@ -36,8 +37,8 @@ export function ViewSwitch({ mode, hasKey, onChange, extra }: { mode: ViewMode; 
         </div>
       )}
       {mode === "analysis" && (
-        <p className="rounded-full bg-white/85 px-3 py-1 text-xs text-slate-700 shadow backdrop-blur-md">
-          Flat plan: turn off “3D terrain” in Map layers · “Slope classes” shows lidar slope
+        <p className="hidden rounded-full bg-white/85 px-3 py-1 text-xs text-slate-700 shadow backdrop-blur-md md:block">
+          Flat plan · “Slope classes” shows lidar slope · click a neighboring lot to open it
         </p>
       )}
     </div>

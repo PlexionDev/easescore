@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { briefs, type Brief } from "@/lib/parcel-brief";
 import type { quickfit } from "@easescore/engine";
 import type { ViewMode } from "./ViewModes";
 
@@ -26,10 +28,10 @@ const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
 const pct = (s: number) => `${Math.round(s * 100)}%`;
 
 const MODE_TEXT: Record<ViewMode, string> = {
-  build: "Build it in 3D view: a clay model of the studied building (QuickFit) on the lidar ground with 2 ft contours and the neighboring houses, or its plan drawing",
-  photoreal: "3D Photoreal view: Google's photoreal 3D city with the lot outlined in yellow and the studied building as blocks",
-  terrain: "3D Terrain view: the ground from 1 m lidar with 5 ft contour lines, the lot outlined in yellow and the studied building as blocks",
-  analysis: "2D Analysis view: a flat plan of the lot with the map layers you turn on (slope classes, hazards, zoning)",
+  build: "QuickFit 3D view: a clay model of the studied building on the lidar ground with 2 ft contours and the neighboring houses, or its plan drawing",
+  photoreal: "3D photoreal view: Google's photoreal 3D city with the lot outlined in yellow, slowly orbiting",
+  terrain: "Terrain view: the ground from 1 m lidar with 5 ft contour lines and the lot outlined in yellow",
+  analysis: "2D view: a flat plan of the lot with the map layers you turn on (slope classes, hazards, zoning)",
 };
 
 /** One short summary of the studied building (also what is announced when it changes). */
@@ -62,7 +64,7 @@ export function describeParcelView(p: {
   if (f.floodwayShare) haz.push(`${pct(f.floodwayShare)} is in the FEMA floodway`);
   else if (f.floodZoneShare) haz.push(`${pct(f.floodZoneShare)} is in the FEMA 100-year flood zone`);
   out.push(haz.length ? `${haz.join("; ")}.` : "No mapped hazard or rule overlay covers the lot.");
-  out.push(p.existingOnLot ? `${p.existingOnLot} existing building${p.existingOnLot === 1 ? "" : "s"} on the lot (amber in 3D Terrain).` : "No existing building on the lot.");
+  out.push(p.existingOnLot ? `${p.existingOnLot} existing building${p.existingOnLot === 1 ? "" : "s"} on the lot (amber in Terrain).` : "No existing building on the lot.");
   const sb = [p.code.front != null ? `front ${n0(p.code.front)} ft` : null, p.code.side != null ? `sides ${n0(p.code.side)} ft` : null, p.code.rear != null ? `rear ${n0(p.code.rear)} ft` : null].filter(Boolean);
   if (sb.length) out.push(`Setbacks by code: ${sb.join(", ")} (green dashed line).`);
   if (p.envelopeSf) out.push(`Area left to build on inside the setbacks: about ${n0(p.envelopeSf)} sq ft.`);
@@ -83,10 +85,22 @@ export function DescribeButton({ open, onToggle, controls, btnRef }: { open: boo
 }
 
 /** The text panel (placed by the page above the floating panels) and the polite live region for layout changes. */
-export default function DescribeView({ id, open, onClose, lines, announce, className = "" }: {
+export default function DescribeView({ id, open, onClose, lines, announce, className = "", nearby = [], viewHash = "" }: {
   id: string; open: boolean; onClose: () => void; lines: string[]; announce: string | null; className?: string;
+  /** Parcel IDs of the nearest neighboring lots (the keyboard way to what a click on the map does). */
+  nearby?: string[];
+  /** Kept on the links so the next parcel opens in the same view. */
+  viewHash?: string;
 }) {
   const panel = useRef<HTMLElement>(null);
+  const [near, setNear] = useState<Brief[]>([]);
+  const nearKey = nearby.join(",");
+  useEffect(() => {
+    if (!open || !nearKey) return;
+    let live = true;
+    briefs(nearKey.split(",")).then((b) => { if (live) setNear(b); });
+    return () => { live = false; };
+  }, [open, nearKey]);
   useEffect(() => { if (open) panel.current?.focus({ preventScroll: true }); }, [open]);
   const [live, setLive] = useState("");
   // Announce the new layout a moment after it settles (not every intermediate step of a slider drag).
@@ -102,8 +116,23 @@ export default function DescribeView({ id, open, onClose, lines, announce, class
           onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
           className={`max-h-[55vh] overflow-y-auto rounded-2xl border border-white/50 bg-white/95 p-3 text-left text-sm leading-snug text-slate-800 shadow-xl backdrop-blur-md focus:outline-none ${className}`}>
           <div>{lines.map((l, i) => <p key={i} className={i ? "mt-1.5" : "font-medium"}>{l}</p>)}</div>
+          {near.length > 0 && (
+            <nav aria-label="Nearby parcels" className="mt-2 border-t border-slate-200 pt-2">
+              <h3 className="text-xs font-semibold text-slate-900">Nearby parcels</h3>
+              <ul className="mt-1 space-y-0.5">
+                {near.map((b) => (
+                  <li key={b.parid}>
+                    <Link href={`/parcel/${encodeURIComponent(b.parid)}${viewHash}`} className="inline-flex min-h-6 items-center text-sky-800 underline decoration-sky-300 underline-offset-2 hover:text-sky-950">
+                      {b.address} · <span className="ml-1 font-mono text-xs">{b.parid}</span>
+                    </Link>
+                    {(b.zoning || b.owner) && <span className="ml-1 text-xs text-slate-600">{[b.zoning ? `zoning ${b.zoning}` : null, b.owner?.toLowerCase()].filter(Boolean).join(", ")}</span>}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
           <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600">
-            {"Keyboard: Tab to the map, then arrow keys move (in 3D Photoreal they orbit and tilt), + and − zoom. The panel on the left and the Feasibility Study have the same numbers as text. Esc closes this."}
+            {"Keyboard: Tab to the map, then arrow keys move (in 3D photoreal they orbit and tilt), + and − zoom. Nearby parcels above open a neighboring lot, as a click on the map does. The panel on the left and the Feasibility Study have the same numbers as text. Esc closes this."}
           </p>
         </section>
       )}

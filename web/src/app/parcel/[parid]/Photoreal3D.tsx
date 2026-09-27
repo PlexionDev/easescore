@@ -1,7 +1,8 @@
 "use client";
 
-// Photoreal 3D parcel view: Google Photorealistic 3D Tiles in CesiumJS with our own overlays draped on
-// the mesh. Loaded only through next/dynamic (ssr: false); Cesium itself is a further dynamic import.
+// Photoreal 3D parcel view: Google Photorealistic 3D Tiles in CesiumJS with our own overlays (lot outline,
+// hazards, zoning) on our lidar ground, a slow orbit, and neighboring lots to hover and open. The QuickFit
+// massing lives only in the QuickFit 3D view. Loaded only through next/dynamic (ssr: false); Cesium itself is a further dynamic import.
 // All overlay geometry comes from our data (parcel_map RPC, QuickFit) and our lidar DEM, never from
 // Google's mesh.
 
@@ -9,15 +10,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as CesiumNS from "cesium";
 import { acquire, GEOID_OFFSET_M, groundHeights, prefersReducedMotion, release, sunTime, tileErrorOf, warm, type Shared, type TileError } from "@/lib/photoreal";
 import { frameParcel, START_RANGE } from "./PhotorealStill";
+import NeighborTip from "./NeighborTip";
 
 type Ring = [number, number][];
 type Geom = { type: string; coordinates: unknown };
-type Feature = { properties: { kind: string; label?: string | null }; geometry: Geom };
+type Feature = { properties: { kind: string; label?: string | null; id?: string | null }; geometry: Geom };
 export type MapFC = { type: "FeatureCollection"; bbox: number[]; center: [number, number]; features: Feature[] };
-/** QuickFit 3D boxes: lon/lat rings, bottom and top in feet (NAVD88 when zAbsolute, else above the ground), one color each. */
-export type Massing = { boxes: { ring: Ring; z0: number; z1: number; color: string }[]; zAbsolute: boolean } | null;
-export type BuildMode = "existing" | "buildable";
-export type Envelope = { rings: Ring[]; heightFt: number } | null;
 export type Insets = { left: number; bottom: number };
 /** Where the lot is, known from the pane before the map data streams in: enough to aim the camera and start tiles. */
 export type Early = { lon: number; lat: number; radiusM: number };
@@ -139,29 +137,23 @@ function viewLoaded(s: Shared, ts: CesiumNS.Cesium3DTileset, cleanups: (() => vo
   });
 }
 
-export default function Photoreal3D({ parcelKey, data, early, massing, envelope, insets, onFallback, mode: modeProp, onModeChange }: {
-  parcelKey: string; data: MapFC; early?: Early | null; massing: Massing; envelope: Envelope; insets: Insets; onFallback: () => void;
-  /** Controlled "Existing / What can be built" (the map's Build panel turns the massing on). */
-  mode?: BuildMode; onModeChange?: (m: BuildMode) => void;
+export default function Photoreal3D({ parcelKey, data, early, insets, onFallback, onPick }: {
+  parcelKey: string; data: MapFC; early?: Early | null; insets: Insets; onFallback: () => void;
+  /** A click on a neighboring lot (its parcel ID). */
+  onPick?: (parid: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const sh = useRef<Shared | null>(null);
   const tiles = useRef<CesiumNS.Cesium3DTileset | null>(null);
   const ds = useRef<CesiumNS.CustomDataSource | null>(null);
-  const build = useRef<CesiumNS.CustomDataSource | null>(null);
   const layerEnts = useRef<Record<string, CesiumNS.Entity[]>>({});
   const home = useRef<{ destination: CesiumNS.Cartesian3; orientation: { heading: number; pitch: number; roll: number } } | null>(null);
   const pivot = useRef<CesiumNS.Cartesian3 | null>(null);
-  const fade = useRef(0);
   const orbitRef = useRef(false);
   const insetsRef = useRef(insets);
   const [status, setStatus] = useState<Status>({ phase: "engine" });
   const [pending, setPending] = useState(0);
   const [ready, setReady] = useState(false); // viewer mounted + base entities placed
-  const [modeState, setModeState] = useState<BuildMode>("existing");
-  const mode = modeProp ?? modeState;
-  const setMode = (m: BuildMode) => { setModeState(m); onModeChange?.(m); };
-  const prim = useRef<CesiumNS.Primitive | null>(null);
   const [orbit, setOrbit] = useState(false);
   const [heading, setHeading] = useState(0);
   const [ground, setGround] = useState<{ parcel: number[]; base: number; rings: Ring[] } | null>(null);
@@ -203,7 +195,8 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
   // can show while the map data (lot lines, overlays) is still on its way. The parcel effect below takes over.
   const eLon = early?.lon, eLat = early?.lat, eR = early?.radiusM;
   useEffect(() => {
-    if (eLon == null || eLat == null || !host.current) return;
+    // Aim only at a real place in the county (a missing or swapped centroid would point the camera into space).
+    if (eLon == null || eLat == null || !host.current || !inCounty(eLon, eLat)) return;
     let dead = false, mine = false;
     const cleanups: (() => void)[] = [];
     (async () => {
@@ -225,7 +218,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       const r = Math.max(eR ?? 20, 6) / Math.SQRT2;
       const ring: Ring = [[-r, -r], [r, -r], [r, r], [-r, r]].map(([x, y]) => [eLon + x! / m.x, eLat + y! / m.y]);
       const f = frameParcel([ring], viewer.canvas.clientWidth, viewer.canvas.clientHeight, insetsRef.current, prefersReducedMotion() ? 1 : START_RANGE);
-      const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(eLon, eLat, h ?? 300));
+      const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(eLon, eLat, h != null && Number.isFinite(h) ? h : 300 + GEOID_OFFSET_M));
       viewer.camera.setView({ destination: C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(...f.cam), new C.Cartesian3()), orientation: { heading: f.heading, pitch: f.pitch, roll: 0 } });
       earlyCam.current = true;
       const moved = () => { userMoved.current = true; };
@@ -301,10 +294,9 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       const src = new C.CustomDataSource("easescore-parcel");
       await viewer.dataSources.add(src);
       ds.current = src;
-      const bsrc = new C.CustomDataSource("easescore-buildable");
-      await viewer.dataSources.add(bsrc);
-      build.current = bsrc;
-      cleanups.push(() => { viewer.dataSources.remove(src, true); viewer.dataSources.remove(bsrc, true); ds.current = null; build.current = null; });
+      cleanups.push(() => { viewer.dataSources.remove(src, true); ds.current = null; });
+      // A render error stops Cesium's loop (a frozen frame, often the starry sky): say so and offer the terrain view.
+      cleanups.push(scene.renderError.addEventListener(() => { if (!dead) setStatus({ phase: "error", error: { kind: "engine" } }); }));
 
       const CT = C.ClassificationType.CESIUM_3D_TILE;
       const col = (hex: string, a: number) => C.Color.fromCssColorString(hex).withAlpha(a);
@@ -382,9 +374,9 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
 
       // Camera: frame the parcel at ~45 degrees, clear of the floating panel. Same framing as the still preview
       // (PhotorealStill), which the view opens on, so the live tiles fade in over it without a jump.
-      const hs = ground.parcel;
+      const hs = ground.parcel.filter(Number.isFinite);
       const frame0 = frameParcel(parcelRings, 1, 1, insetsRef.current, 1);
-      const center = C.Cartesian3.fromDegrees(frame0.lon0, frame0.lat0, (Math.min(...hs) + Math.max(...hs)) / 2);
+      const center = C.Cartesian3.fromDegrees(frame0.lon0, frame0.lat0, hs.length ? (Math.min(...hs) + Math.max(...hs)) / 2 : 300 + GEOID_OFFSET_M);
       const enu = C.Transforms.eastNorthUpToFixedFrame(center);
       pivot.current = center;
       const view = (rangeMul: number) => {
@@ -445,16 +437,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
             material.diffuse = mix(material.diffuse, vec3(l), k);
           }`,
       });
-      // Clip the mesh inside the parcel in "What can be built"; enabled by the mode effect.
-      ts.clippingPolygons = new C.ClippingPolygonCollection({
-        polygons: parcelRings.map((r) => new C.ClippingPolygon({ positions: C.Cartesian3.fromDegreesArray(r.flat()) })),
-        enabled: false,
-      });
-      cleanups.push(() => {
-        if (ts.isDestroyed()) return;
-        ts.customShader = undefined as unknown as CesiumNS.CustomShader;
-        if (ts.clippingPolygons) ts.clippingPolygons.enabled = false;
-      });
+      cleanups.push(() => { if (!ts.isDestroyed()) ts.customShader = undefined as unknown as CesiumNS.CustomShader; });
 
       // The shared tileset is warmed before the camera reaches this parcel, so its one-time initialTilesLoaded event
       // has usually fired already; reveal when this view's requests drain (skipped if the early start already showed it).
@@ -532,178 +515,85 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
     return () => ro.disconnect();
   }, [ready]);
 
-  // "What can be built": clip the mesh, drop in a lot pad, the envelope volume, and QuickFit massing.
+  // Neighboring lots: hover outlines one and shows its card; a click (not a drag) opens it. The pointer ray meets
+  // our lidar ground (two refinements against the DEM), never Google's mesh.
+  const neighborRings = useMemo(() => data.features.filter((f) => f.properties.kind === "neighbor" && f.properties.id)
+    .map((f) => ({ id: String(f.properties.id), rings: polysOf(f.geometry).map((p) => open(p[0] ?? [])).filter((r) => r.length >= 3) }))
+    .filter((n) => n.rings.length), [data]);
+  const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  const pickRef = useRef(onPick);
+  useEffect(() => { pickRef.current = onPick; }, [onPick]);
   useEffect(() => {
-    const s = sh.current, src = build.current;
-    if (!ready || !s || !src || !ground) return;
-    let dead = false;
-    const { C } = s;
-    (async () => {
-      src.entities.removeAll();
-      const envRings = envelope?.rings.filter((r) => r.length >= 3) ?? [];
-      const [hs, envLines] = await Promise.all([
-        groundHeights(envRings.flat()),
-        Promise.all(envRings.map((r) => groundLine(C, open(r), true, ground.base))),
-      ]);
-      if (dead) return;
-      let k = 0;
-      const take = (n: number) => hs.slice(k, (k += n)).map((h) => h ?? ground.base);
-      const col = (hex: string, a: number) => C.Color.fromCssColorString(hex).withAlpha(a);
-      // Capped below 1 so a fading entity always stays in Cesium's translucent batch: when the fade reached 1 the
-      // setback line switched translucent -> opaque, and StaticGeometryColorBatch's moveItems (Cesium engine 26.3,
-      // loop index reused) then looped forever and froze the tab a few seconds after the photoreal view opened.
-      const alpha = (hex: string, a: number) => new C.ColorMaterialProperty(new C.CallbackProperty(() => col(hex, Math.min(0.99, a * fade.current)), false));
-      const shown = new C.CallbackProperty(() => fade.current > 0.02, false);
-
-      // Lot pad: the parcel surface at lidar ground heights, filling the clipped hole.
-      let i = 0;
-      for (const r of parcelRings) {
-        const heights = r.map(() => ground.parcel[i++] ?? ground.base);
-        src.entities.add({ polygon: {
-          hierarchy: new C.PolygonHierarchy(r.map((p, j) => C.Cartesian3.fromDegrees(p[0], p[1], heights[j]!))),
-          perPositionHeight: true, material: col("#b8a888", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
-        } });
-      }
-      // Buildable envelope: translucent volume from the lowest ground to the height limit.
-      for (const r of envRings) {
-        const hts = take(r.length);
-        const base = Math.min(...hts);
-        const top = Math.max(...hts) + (envelope?.heightFt ?? 40) * 0.3048;
-        src.entities.add({ polygon: {
-          hierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(r).flat())), height: base, extrudedHeight: top,
-          material: alpha("#22c55e", 0.22), outline: true, outlineColor: new C.CallbackProperty(() => col("#16a34a", 0.9 * fade.current), false), show: shown,
-        } });
-      }
-      // The setback line (envelope footprint) on the lidar ground; dashed where the mesh hides it.
-      for (const positions of envLines) {
-        src.entities.add({ polyline: {
-          positions, width: 3, arcType: C.ArcType.NONE, material: alpha("#16a34a", 1), show: shown,
-          depthFailMaterial: new C.PolylineDashMaterialProperty({ color: new C.CallbackProperty(() => col("#86efac", 0.9 * fade.current), false), dashLength: 12 }),
-        } });
-      }
-      // Cut faces around the hole. Google's mesh is a one-sided 2.5D skin with nothing under it: where it sits above
-      // our lidar ground (tree canopy on the lot line, a neighbor's wall, a bank) the clip opens a slot between the pad
-      // and the skin, and through it the camera saw the skin's culled underside, i.e. black. A double-sided wall
-      // (entity walls are never back-face culled) on the lot line, from below the pad up to the skin height sampled
-      // just outside the lot, closes it like a section cut: earth up to 1.5 m above the lidar ground, a muted foliage
-      // tone above (canopy or structure; capped at 30 m).
-      const ts = tiles.current;
-      if (ts && !ts.isDestroyed()) {
-        const skip: object[] = [];
-        for (let d = 0; d < s.viewer.dataSources.length; d++) skip.push(...s.viewer.dataSources.get(d).entities.values);
-        for (let p = 0; p < s.viewer.scene.primitives.length; p++) { const q = s.viewer.scene.primitives.get(p); if (q !== ts) skip.push(q); }
-        const walls = parcelRings.map((r) => {
-          const ring = open(r);
-          const [cx, cy] = [ring.reduce((a, p) => a + p[0], 0) / ring.length, ring.reduce((a, p) => a + p[1], 0) / ring.length];
-          const kx = 111320 * Math.cos((cy * Math.PI) / 180), ky = 110950;
-          const line = densify(ring, true);
-          // Probe 0.4 m outside the lot line (away from the centroid), where the mesh isn't clipped.
-          const probe = line.map(([x, y]) => { const dx = (x - cx) * kx, dy = (y - cy) * ky, n = Math.hypot(dx, dy) || 1; return [x + (dx / n) * 0.4 / kx, y + (dy / n) * 0.4 / ky] as [number, number]; });
-          return { line, probe };
-        });
-        const [lidar, mesh] = await Promise.all([
-          groundHeights(walls.flatMap((w) => w.line)),
-          s.viewer.scene.sampleHeightMostDetailed(walls.flatMap((w) => w.probe.map(([x, y]) => C.Cartographic.fromDegrees(x, y))), skip).catch(() => null),
-        ]);
-        if (dead) return;
-        let m = 0;
-        for (const w of walls) {
-          const n = w.line.length, g = w.line.map((_, j) => lidar[m + j] ?? ground.base);
-          // Skin height above the lidar ground (NaN where the probe missed).
-          const up = w.line.map((_, j) => { const t = mesh?.[m + j]?.height; return typeof t === "number" && Number.isFinite(t) ? t - g[j]! : NaN; });
-          m += n;
-          // Canopy is lumpy between 2 m samples: take the highest skin within two samples either side, plus 1 m.
-          const rise = up.map((_, j) => {
-            const near = up.slice(Math.max(0, j - 2), j + 3).filter(Number.isFinite);
-            const r = near.length ? Math.max(...near) : 0;
-            return Math.min(30, r > 1.5 ? r + 1 : Math.max(0, r));
-          });
-          const positions = w.line.map(([x, y]) => C.Cartesian3.fromDegrees(x, y));
-          const earthTop = rise.map((r, j) => g[j]! + Math.min(r, 1.5) + 0.1);
-          src.entities.add({ wall: {
-            positions, minimumHeights: g.map(() => ground.base - 6), maximumHeights: earthTop,
-            material: col("#9f9173", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
-          } });
-          if (rise.some((r) => r > 1.5)) src.entities.add({ wall: {
-            positions, minimumHeights: earthTop, maximumHeights: rise.map((r, j) => Math.max(earthTop[j]!, g[j]! + r + 0.1)),
-            material: col("#56604c", 1), show: shown, shadows: C.ShadowMode.RECEIVE_ONLY,
-          } });
-        }
-      }
-    })();
-    return () => { dead = true; };
-  }, [ready, ground, envelope, parcelRings]);
-
-  // QuickFit 3D massing: every floor/unit box, stair core and parking pad in ONE Primitive (GeometryInstances with a
-  // per-instance color: one draw call), at our lidar ground heights converted to Google's ellipsoid frame the same way
-  // as groundLine (NAVD88 + GEOID_OFFSET_M). Rebuilt synchronously on every change, so a slider never flickers.
-  useEffect(() => {
-    const s = sh.current;
-    if (!ready || !s || !ground) return;
+    const s = sh.current, src = ds.current;
+    if (!ready || !s || !src || !ground || !neighborRings.length) return;
     const { C, viewer } = s;
-    let dead = false;
-    let mine: CesiumNS.Primitive | null = null;
-    const boxes = massing?.boxes.filter((b) => b.ring.length >= 3) ?? [];
-    const build = (baseM: number | null) => {
-      if (dead || !boxes.length) return;
-      const toM = (ft: number) => (baseM == null ? ft * 0.3048 + GEOID_OFFSET_M : baseM + ft * 0.3048);
-      const instances = boxes.map((b) => new C.GeometryInstance({
-        geometry: new C.PolygonGeometry({
-          polygonHierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(b.ring).flat())),
-          height: toM(b.z0), extrudedHeight: toM(b.z1), vertexFormat: C.PerInstanceColorAppearance.VERTEX_FORMAT,
-        }),
-        attributes: {
-          color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color)),
-          // Where tree canopy or neighbors hide the building (common on wooded hillsides), it shows through as a ghost.
-          depthFailColor: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color).withAlpha(0.42)),
-        },
-      }));
-      mine = new C.Primitive({
-        geometryInstances: instances, appearance: new C.PerInstanceColorAppearance({ translucent: false, closed: true }),
-        depthFailAppearance: new C.PerInstanceColorAppearance({ translucent: true, flat: true, closed: true }),
-        // Cast only: receiving let the shadow map darken every face to near black (self-shadowing).
-        asynchronous: false, shadows: C.ShadowMode.CAST_ONLY, show: fade.current > 0.02,
-      });
-      viewer.scene.primitives.add(mine);
-      const old = prim.current;
-      prim.current = mine;
-      if (old && old !== mine) { viewer.scene.primitives.remove(old); if (!old.isDestroyed()) old.destroy(); }
-      viewer.scene.requestRender();
+    const canvas = viewer.canvas;
+    let dead = false, seq = 0, shownId = "", ent: CesiumNS.Entity | null = null, down: { x: number; y: number } | null = null;
+    const groundAt = async (x: number, y: number): Promise<[number, number] | null> => {
+      const ray = viewer.camera.getPickRay(new C.Cartesian2(x, y));
+      if (!ray) return null;
+      let h = ground.base, ll: [number, number] | null = null;
+      for (let k = 0; k < 3; k++) {
+        const hit = C.IntersectionTests.rayEllipsoid(ray, new C.Ellipsoid(6378137 + h, 6378137 + h, 6356752.314245 + h));
+        if (!hit) return null;
+        const c = C.Cartographic.fromCartesian(C.Ray.getPoint(ray, hit.start));
+        if (!c) return null;
+        ll = [C.Math.toDegrees(c.longitude), C.Math.toDegrees(c.latitude)];
+        if (k === 2) break;
+        const [g] = await groundHeights([ll]);
+        if (g == null) break;
+        h = g;
+      }
+      return ll;
     };
-    if (!boxes.length) {
-      const old = prim.current;
-      prim.current = null;
-      if (old) { viewer.scene.primitives.remove(old); if (!old.isDestroyed()) old.destroy(); }
-    } else if (massing!.zAbsolute) build(null);
-    else groundHeights([boxes[0]!.ring[0]!]).then(([h]) => build(h ?? ground.base));
-    return () => { dead = true; void mine; };
-  }, [ready, ground, massing]);
-  // Drop the massing when the view goes away.
-  useEffect(() => () => {
-    const p = prim.current, s = sh.current;
-    prim.current = null;
-    if (p && s && !s.viewer.isDestroyed()) { s.viewer.scene.primitives.remove(p); if (!p.isDestroyed()) p.destroy(); }
-  }, []);
-
-  useEffect(() => {
-    const s = sh.current, ts = tiles.current;
-    if (!ready || !s) return;
-    const target = mode === "buildable" ? 1 : 0;
-    if (ts?.clippingPolygons && target === 1) ts.clippingPolygons.enabled = true;
-    // Driven from Cesium's preRender (not rAF) so the fade stays in step with rendered frames.
-    const start = fade.current, t0 = performance.now(), ms = prefersReducedMotion() ? 0 : 600;
-    const un = s.viewer.scene.preRender.addEventListener(tick);
-    function tick() {
-      const k = ms ? Math.min(1, (performance.now() - t0) / ms) : 1;
-      fade.current = start + (target - start) * (k * k * (3 - 2 * k));
-      if (prim.current && !prim.current.isDestroyed()) prim.current.show = fade.current > 0.02;
-      if (k < 1) return;
-      if (target === 0 && ts?.clippingPolygons && !ts.isDestroyed()) ts.clippingPolygons.enabled = false;
-      un();
-    }
-    tick();
-    return un;
-  }, [mode, ready]);
+    const idAt = async (x: number, y: number) => {
+      const ll = await groundAt(x, y);
+      if (!ll) return "";
+      return neighborRings.find((n) => n.rings.some((r) => inRing(ll, r)))?.id ?? "";
+    };
+    const show = async (id: string, x: number, y: number) => {
+      canvas.style.cursor = id ? "pointer" : "";
+      setHover(id ? { id, x, y } : null);
+      if (id === shownId) return;
+      shownId = id;
+      if (ent) { src.entities.remove(ent); ent = null; }
+      const n = neighborRings.find((q) => q.id === id);
+      if (!n) return;
+      const positions = await groundLine(C, n.rings[0]!, true, ground.base);
+      if (dead || shownId !== id) return;
+      ent = src.entities.add({ polyline: { positions, width: 4, arcType: C.ArcType.NONE, material: C.Color.fromCssColorString("#38bdf8"),
+        depthFailMaterial: new C.PolylineDashMaterialProperty({ color: C.Color.fromCssColorString("#7dd3fc").withAlpha(0.9), dashLength: 12 }) } });
+    };
+    const rect = () => canvas.getBoundingClientRect();
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || e.buttons) return; // no hover while dragging or on touch
+      const r = rect(), x = e.clientX - r.left, y = e.clientY - r.top, my = ++seq;
+      void idAt(x, y).then((id) => { if (!dead && my === seq) void show(id, x, y); });
+    };
+    const onLeave = () => { seq++; void show("", 0, 0); };
+    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY }; };
+    const onUp = (e: PointerEvent) => {
+      const d = down;
+      down = null;
+      if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return;
+      const r = rect();
+      void idAt(e.clientX - r.left, e.clientY - r.top).then((id) => { if (!dead && id) pickRef.current?.(id); });
+    };
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerleave", onLeave);
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointerup", onUp);
+    return () => {
+      dead = true;
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerleave", onLeave);
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointerup", onUp);
+      canvas.style.cursor = "";
+      if (ent && !viewer.isDestroyed()) src.entities.remove(ent);
+      setHover(null);
+    };
+  }, [ready, ground, neighborRings]);
 
   // Camera tools.
   const animate = useCallback((ms: number, fn: (dk: number) => void) => {
@@ -837,6 +727,8 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
            role="group" aria-roledescription="3D view" tabIndex={0} onKeyDown={onKey}
            aria-label="Photoreal 3D view of the lot. Arrow keys orbit and tilt, plus and minus zoom, Home resets. Use Describe this view for the same information as text." />
 
+      {hover && !loading && <NeighborTip parid={hover.id} x={hover.x} y={hover.y} />}
+
       {loading && (
         <div className="pointer-events-none absolute z-10 w-60 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-slate-900/75 px-4 py-2.5 text-center text-slate-100 shadow-xl backdrop-blur-md"
              style={{ top: `calc((100% - ${insets.bottom}px) / 2)`, left: `calc(${insets.left}px + (100% - ${insets.left}px) / 2)` }}>
@@ -850,11 +742,12 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       {err && (
         <div className="absolute inset-0 flex items-center justify-center p-6 md:pl-[470px]" style={{ background: "radial-gradient(900px 500px at 60% 40%, #1e293b, #0f172a)" }}>
           <div className="max-w-md rounded-2xl border border-white/10 bg-white/10 p-6 text-slate-100 shadow-2xl backdrop-blur-xl">
-            <p className="text-base font-semibold">{err.kind === "key" ? "Google rejected the Map Tiles key" : err.kind === "webgl" ? "This browser can't start WebGL 3D" : "Photoreal 3D tiles didn't load"}</p>
+            <p className="text-base font-semibold">{err.kind === "key" ? "Google rejected the Map Tiles key" : err.kind === "webgl" ? "This browser can't start WebGL 3D" : err.kind === "engine" ? "Photoreal 3D stopped drawing" : "Photoreal 3D tiles didn't load"}</p>
             <p className="mt-2 text-sm text-slate-300">
               {err.kind === "key"
                 ? `The tile service answered ${err.status ?? "with an error"}. Check that the Map Tiles API is enabled for the key and that this site is an allowed referrer.`
                 : err.kind === "webgl" ? "Hardware acceleration may be off. The lidar terrain view still works."
+                : err.kind === "engine" ? "The 3D engine hit an error in this browser. The lidar terrain view still works; reloading the page may bring the photoreal view back."
                 : "The network or the tile service had a problem. The lidar terrain view still works."}
             </p>
             <button onClick={onFallback} className="mt-4 rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Switch to 3D Terrain</button>
@@ -866,22 +759,9 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
         <>
           {/* When the mobile sheet is fully open only a sliver of map shows: keep the credit lines, hide the tools. */}
           {!(insets.bottom > 0 && insets.left === 0 && typeof window !== "undefined" && insets.bottom > window.innerHeight * 0.6) && <>
-          {/* Layers + Existing / What can be built */}
+          {/* Overlays */}
           <div className="absolute right-3 top-16 z-10 w-44 rounded-2xl border border-white/40 bg-white/85 p-2 text-sm shadow-xl backdrop-blur-md md:right-4 md:w-64 md:p-3 xl:top-4">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 text-xs font-semibold" role="radiogroup" aria-label="Show">
-              {(["existing", "buildable"] as const).map((m) => (
-                <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
-                  className={`rounded-lg px-2 py-1.5 ${mode === m ? "bg-white text-slate-900 shadow" : "text-slate-600 hover:text-slate-900"}`}>
-                  {m === "existing" ? "Existing" : "What can be built"}
-                </button>
-              ))}
-            </div>
-            {mode === "buildable" && (
-              <p className="mt-2 hidden text-xs text-slate-600 md:block">
-                {massing?.boxes.length ? "Green: buildable envelope and setback line · blocks: the layout from Build it in 3D." : envelope?.rings.length ? "Green: buildable envelope. Nothing fits with these settings; try the Build panel." : "QuickFit hasn't produced an envelope for this lot."}
-              </p>
-            )}
-            <button type="button" aria-expanded={panelOpen} onClick={() => setPanelOpen(!panelOpen)} className="mt-2 flex min-h-6 w-full items-center justify-between font-semibold text-slate-800">
+            <button type="button" aria-expanded={panelOpen} onClick={() => setPanelOpen(!panelOpen)} className="flex min-h-6 w-full items-center justify-between font-semibold text-slate-800">
               Overlays <span className="text-slate-400">{panelOpen ? "–" : "+"}</span>
             </button>
             {panelOpen && (
@@ -893,7 +773,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
                     <span>{L.label}{present[L.id]!.any ? "" : " · none here"}</span>
                   </label>
                 ))}
-                <p className="pt-1 text-xs text-slate-500">Slope ≥25% (lidar) is in 2D Analysis.</p>
+                <p className="pt-1 text-xs text-slate-500">Slope ≥25% (lidar) is in the 2D view.</p>
               </div>
             )}
           </div>
@@ -928,6 +808,9 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
     </div>
   );
 }
+
+/** Inside (a margin around) Allegheny County: the only place our lidar and parcels cover. */
+const inCounty = (lon: number, lat: number) => Number.isFinite(lon) && Number.isFinite(lat) && lon > -80.6 && lon < -79.4 && lat > 40.0 && lat < 40.9;
 
 function showAll(ents: CesiumNS.Entity[], v: boolean) {
   for (const e of ents) e.show = v;

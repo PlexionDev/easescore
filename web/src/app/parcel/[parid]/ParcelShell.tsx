@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { preconnect } from "react-dom";
 import { remoteTilesBase } from "@/lib/tiles";
 import type { quickfit, score } from "@easescore/engine";
-import MapStage, { markSubject, type MapMassing } from "./MapStage";
+import MapStage, { markSubject } from "./MapStage";
 import QuickFitPanel from "./QuickFitPanel";
 import BuildPanel from "./BuildPanel";
 import MetricsBar, { type Pinned } from "./MetricsBar";
@@ -14,7 +14,6 @@ import { DrawerHost, type DrawerId } from "./Drawers";
 import PhotorealStill from "./PhotorealStill";
 import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
 import DescribeView, { DescribeButton, describeParcelView, schemeSentence, type ViewFacts } from "./DescribeView";
-import type { BuildMode, Massing } from "./Photoreal3D";
 import Clay3D, { type ClayMode } from "./Clay3D";
 import type { FinanceInputs, GenMetrics } from "@/lib/quickfit-gen";
 import {
@@ -126,24 +125,23 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   if (TILES_ORIGIN) preconnect(TILES_ORIGIN, { crossOrigin: "anonymous" });
   preconnect("https://protomaps.github.io", { crossOrigin: "anonymous" });
   const a: Affine | undefined = qfInput?.toLonLat;
-  const toLonLat = (p: [number, number]): [number, number] =>
-    a ? [a.lon0 + a.lon_per_x * p[0] + a.lon_per_y * p[1], a.lat0 + a.lat_per_x * p[0] + a.lat_per_y * p[1]] : p;
 
   // The site-fit solver needs a lot outline and the zoning rules, which we have for City of Pittsburgh parcels
-  // only; elsewhere "Build it in 3D" cannot place a building, so the page opens in 3D Terrain and says why.
+  // only; elsewhere QuickFit 3D cannot place a building and says why.
   const canSolve = !!(gen.qf2?.rules && gen.qf2.zoneCode);
   const noSolveNote = gen.qf2
-    ? "This municipality's zoning rules are not in our data (City of Pittsburgh only), so Build it in 3D cannot place a building here."
-    : "The lot outline is not in our data, so Build it in 3D cannot place a building here.";
+    ? "This municipality's zoning rules are not in our data (City of Pittsburgh only), so QuickFit 3D cannot place a building here."
+    : "The lot outline is not in our data, so QuickFit 3D cannot place a building here.";
 
-  // View mode: kept in the URL hash (#view=build|photoreal|terrain|analysis). "Build it in 3D" (clay model) first.
-  const [mode, setMode] = useState<ViewMode>(canSolve ? "build" : "terrain");
+  // View mode: kept in the URL hash (#view=photoreal|build|terrain|analysis). The real place (photoreal) first.
+  // Only the chosen view is mounted, so only one WebGL view runs at a time: switching away disposes the three.js
+  // clay model and the MapLibre map, and hands the Cesium viewer back (its render loop stops).
+  const [mode, setMode] = useState<ViewMode>(HAS_KEY ? "photoreal" : "terrain");
   const [clayMode, setClayMode] = useState<ClayMode>("3d");
-  const [stageMounted, setStageMounted] = useState(!canSolve);
   useEffect(() => {
     const read = () => {
       const m = /view=(\w+)/.exec(window.location.hash)?.[1] as ViewMode | undefined;
-      if (m && VIEW_MODES.includes(m)) { setMode(m); if (m !== "photoreal" && m !== "build") setStageMounted(true); }
+      if (m && VIEW_MODES.includes(m)) setMode(m);
     };
     read();
     window.addEventListener("hashchange", read);
@@ -151,9 +149,10 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   }, []);
   const choose = (m: ViewMode) => {
     setMode(m);
-    if (m !== "photoreal" && m !== "build") setStageMounted(true);
-    window.history.replaceState(null, "", `#view=${m}`);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#view=${m}`);
   };
+  // A neighboring lot picked in a map or 3D view opens its pane (client-side), in the same view.
+  const openParcel = (id: string) => { if (id !== parid) router.push(`/parcel/${encodeURIComponent(id)}#view=${mode}`, { scroll: false }); };
 
   // Mobile: the panel is a bottom sheet (peek / half / full), the map stays full-bleed.
   const [mobile, setMobile] = useState(false);
@@ -174,7 +173,9 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   // Desktop: the lot is framed right of the pane and (when open) the Build panel, above the metrics bar.
   const [buildOpenSet, setBuildOpen] = useState<boolean | null>(null);
   const buildOpen = buildOpenSet ?? !mobile;
-  const insets = useMemo(() => (mobile ? { left: 0, bottom: sheetPx(sheet) + BAR_H_M } : { left: PANEL_W + GUTTER + (buildOpen ? BUILD_W + GUTTER : 0), bottom: BAR_H }), [mobile, sheet, vh, buildOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The Build panel and metrics bar exist only in QuickFit 3D; the other views frame the lot right of the pane.
+  const qf = mode === "build";
+  const insets = useMemo(() => (mobile ? { left: 0, bottom: sheetPx(sheet) + (qf ? BAR_H_M : 0) } : { left: PANEL_W + GUTTER + (qf && buildOpen ? BUILD_W + GUTTER : 0), bottom: qf ? BAR_H : 0 }), [mobile, sheet, vh, buildOpen, qf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onHandleDown = (e: React.PointerEvent) => {
     drag.current = { y: e.clientY, h: sheetH, moved: false };
@@ -214,12 +215,10 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
     const ours = i >= 0;
     if (!ours && (!controls || !gen.controls || controls.typology !== gen.controls.typology)) setControls(gen.controls);
   }
-  const [buildMode, setBuildMode] = useState<BuildMode>("buildable");
   const change = (c: AppControls) => {
     touched.current = true;
     // A new building type starts from its own priced layout (keeping a front lot line the visitor picked).
     setControls(!controls || c.typology !== controls.typology ? { ...gen.defaults[c.typology], frontEdgeIndex: c.frontEdgeIndex } : c);
-    setBuildMode("buildable");
   };
   // Commit the plan to the URL (?strategy= + qf_*) once the controls settle, so the score, summary and pro forma follow.
   useEffect(() => {
@@ -240,7 +239,6 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   }, [controls]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fin = useStable(gen.fin);
-  const rulesRow = useStable(gen.rulesRow);
   const qf2 = useStable(gen.qf2);
   const det = a ? a.lon_per_x * a.lat_per_y - a.lon_per_y * a.lat_per_x : 0;
   const toLocal = ([lon, lat]: [number, number]): [number, number] => {
@@ -283,29 +281,6 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const metrics = (controls ? run.metrics : null) ?? gen.serverMetrics;
   useEffect(() => { (window as unknown as { __qfLast?: unknown }).__qfLast = { ...(run.ms ?? {}), scheme: v1?.id ?? null, error: run.error }; }, [run]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The same scheme for the Context (photoreal) and map views: boxes in lon/lat, feet NAVD88.
-  const worldBoxes = useMemo(() => {
-    if (!scheme || !a || !scheme.footprintWorld) return [];
-    const f = scheme.frame;
-    const W = (x: number, y: number): [number, number] => toLonLat([f.origin[0] + f.ux[0] * x + f.uy[0] * y, f.origin[1] + f.ux[1] * x + f.uy[1] * y]);
-    const z0s = scheme.massing.map((b) => b.z0);
-    const zmin = z0s.length ? Math.min(...z0s) : 0;
-    return scheme.massing.filter((b) => b.h > 0.2).map((b) => ({
-      ring: [W(b.x, b.y), W(b.x + b.w, b.y), W(b.x + b.w, b.y + b.d), W(b.x, b.y + b.d)] as [number, number][],
-      z0: b.z0, z1: b.z0 + b.h, color: b.kind === "roof" ? "#8a8f8c" : b.color ?? "#b9dccd", floor: b.kind === "foundation" ? 0 : Math.max(0, Math.round((b.z0 - zmin) / 10)),
-    }));
-  }, [scheme, a]); // eslint-disable-line react-hooks/exhaustive-deps
-  const massing: Massing = useMemo(() => (worldBoxes.length ? { boxes: worldBoxes.map(({ floor: _f, ...b }) => b), zAbsolute: !!qf2?.terrain } : null), [worldBoxes, qf2]);
-  const envelope = useMemo(() => {
-    const d = (scheme as unknown as { debug?: { buildable?: [number, number][][][] } } | null)?.debug;
-    if (!scheme || !a || !d?.buildable) return null;
-    const f = scheme.frame;
-    return d.buildable.map((p) => (p[0] ?? []).map(([x, y]) => toLonLat([f.origin[0] + f.ux[0] * x + f.uy[0] * y, f.origin[1] + f.ux[1] * x + f.uy[1] * y]))).filter((r) => r.length >= 3);
-  }, [scheme, a]); // eslint-disable-line react-hooks/exhaustive-deps
-  const mapMassing: MapMassing = useMemo(() => (worldBoxes.length || envelope ? { boxes: worldBoxes, envelope: envelope ?? [] } : null), [worldBoxes, envelope]);
-  const maxHeightFt = typeof rulesRow?.max_height_ft === "number" ? rulesRow.max_height_ft : 40;
-  const photoEnvelope = useMemo(() => (envelope ? { rings: envelope, heightFt: maxHeightFt } : null), [envelope, maxHeightFt]);
-
   // Pinned schemes (this tab only), up to three.
   const pinKey = `es.qf.pins.${parid}`;
   const pinsRaw = useSyncExternalStore(subscribePins, () => readPins(pinKey), () => "[]");
@@ -332,13 +307,26 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   }, [center?.[0], center?.[1], outline]); // eslint-disable-line react-hooks/exhaustive-deps
   const parcelKey = String((mapData?.features as { properties?: { kind?: string; id?: string } }[] | undefined)?.find((f) => f.properties?.kind === "parcel")?.properties?.id ?? mapData?.center?.join(",") ?? "parcel");
   const overlaysOn = !(mobile && sheet === "full");
+  // Keyboard alternative to clicking the map: the nearest neighboring lots, listed in "Describe this view".
+  const nearby = useMemo(() => {
+    const feats = (mapData?.features ?? []) as { properties?: { kind?: string; id?: string }; geometry: { type: string; coordinates: unknown } }[];
+    const parcel = feats.find((f) => f.properties?.kind === "parcel");
+    const pts = (g: { type: string; coordinates: unknown }) => (g.type === "Polygon" ? (g.coordinates as [number, number][][]).flat() : g.type === "MultiPolygon" ? (g.coordinates as [number, number][][][]).flat(2) : []);
+    if (!parcel) return [];
+    const lot = pts(parcel.geometry);
+    const kx = Math.cos(((lot[0]?.[1] ?? 40.4) * Math.PI) / 180);
+    const dist = (q: [number, number][]) => Math.min(...q.flatMap(([x, y]) => lot.map(([u, v]) => Math.hypot((x - u) * kx, y - v))));
+    return feats.filter((f) => f.properties?.kind === "neighbor" && f.properties.id && f.properties.id !== parid)
+      .map((f) => ({ id: String(f.properties!.id), d: dist(pts(f.geometry)) }))
+      .sort((x, y) => x.d - y.d).slice(0, 8).map((x) => x.id);
+  }, [mapData, parid]);
   const [descOpen, setDescOpen] = useState(false);
   const descBtn = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-100">
       <section aria-label="Map and 3D view" className="absolute inset-0">
-      {!loaded && mode !== "build" && <StagePlaceholder outline={outline} />}
+      {!loaded && mode !== "build" && !(mode === "photoreal" && HAS_KEY && early) && <StagePlaceholder outline={outline} />}
       {mode === "build" && !canSolve && (
         <div className="absolute inset-0 z-10 grid place-items-center p-4 md:pl-[472px]">
           <div role="status" className="max-w-sm rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-900 shadow-xl">
@@ -353,15 +341,14 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           onPickFront={(i) => change({ ...shownControls, frontEdgeIndex: i })} mode={clayMode} onModeChange={setClayMode}
           insets={mobile ? { left: 0, bottom: sheetPx(sheet) + BAR_H_M } : { left: PANEL_W + GUTTER + (buildOpen ? BUILD_W + GUTTER : 0), bottom: BAR_H + 12 }} />
       )}
-      {mapData && stageMounted && mode !== "build" && (
-        <div className={`absolute inset-0 ${mode === "photoreal" ? "invisible" : ""}`} aria-hidden={mode === "photoreal"}>
-          <MapStage data={mapData} massing={mapMassing} bottomInset={insets.bottom} leftInset={mobile ? 0 : PANEL_W + GUTTER + BUILD_W + GUTTER} />
-        </div>
+      {mapData && (mode === "terrain" || mode === "analysis") && (
+        <MapStage key={mode} data={mapData} variant={mode === "analysis" ? "flat" : "terrain"} onPick={openParcel}
+          bottomInset={insets.bottom} leftInset={mobile ? 0 : PANEL_W + GUTTER} />
       )}
       {mode === "photoreal" && HAS_KEY && (mapData || early) && <>
         {mapData && <PhotorealStill data={mapData} insets={insets} />}
-        <Photoreal3D parcelKey={parcelKey} data={mapData ?? NO_FEATURES} early={early} massing={massing} envelope={photoEnvelope} insets={insets}
-          onFallback={() => choose("terrain")} mode={buildMode} onModeChange={setBuildMode} />
+        <Photoreal3D parcelKey={parcelKey} data={mapData ?? NO_FEATURES} early={early} insets={insets}
+          onFallback={() => choose("terrain")} onPick={openParcel} />
       </>}
       {mapData && mode === "photoreal" && !HAS_KEY && <KeyNeeded onFallback={() => choose("terrain")} />}
       {(mapData || mode === "build") && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose}
@@ -372,10 +359,11 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           lines={describeParcelView({ mode, facts: viewFacts, scheme: v1 ?? (!scheme && gen.strategy ? gen.fixed[gen.strategy] ?? null : null), reason, binding,
             envelopeSf: (scheme as unknown as { debug?: { buildableSqft?: number } } | null)?.debug?.buildableSqft ?? null, code: { front: gen.code.front ?? null, side: gen.code.side ?? null, rear: gen.code.rear ?? null }, existingOnLot: existing.length,
             neighborBuildings: Math.max(0, ((mapData.features ?? []) as { properties?: { kind?: string } }[]).filter((f) => f.properties?.kind === "building").length - existing.length) })}
-          announce={touched.current && scheme ? schemeSentence(v1, reason, viewFacts.lotSf) : null} />
+          announce={touched.current && scheme ? schemeSentence(v1, reason, viewFacts.lotSf) : null}
+          nearby={nearby} viewHash={`#view=${mode}`} />
       )}
 
-      {(data || mapData) && overlaysOn && mode !== "analysis" && (
+      {(data || mapData) && overlaysOn && qf && (
         <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
           <BuildPanel controls={shownControls} onChange={change} onReset={() => { touched.current = true; setControls(gen.defaults[shownControls.typology]); }}
             isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} scheme={scheme} all={run.all} ms={run.ms} unavailable={canSolve ? null : noSolveNote}
@@ -383,10 +371,10 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
             edges={((scheme as unknown as { debug?: { edges?: { i: number; kind: string; lengthFt: number }[] } } | null)?.debug?.edges ?? []).map((e) => ({ i: e.i, kind: e.kind, lengthFt: e.lengthFt }))} />
         </div>
       )}
-      {(data || mapData) && overlaysOn && (
+      {(data || mapData) && overlaysOn && qf && (
         <div className="absolute left-2 right-2 z-20 md:left-[472px] md:right-4" style={{ bottom: mobile ? sheetH + 6 : 12 }}>
           <MetricsBar metrics={metrics} binding={binding} reason={reason} controls={controls} pins={pins}
-            onPin={pin} onUnpin={(k) => savePins(pins.filter((p) => p.key !== k))} onRestore={(p) => { touched.current = true; setControls(p.controls); setBuildMode("buildable"); }}
+            onPin={pin} onUnpin={(k) => savePins(pins.filter((p) => p.key !== k))} onRestore={(p) => { touched.current = true; setControls(p.controls); }}
             compact={mobile} busy={!!controls && !!run.controls && !sameControls(run.controls, controls)} />
         </div>
       )}
@@ -406,7 +394,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
         ...drawers.filter((d) => d.id === "pencils"),
         { id: "plan", title: "Change the plan", content: <>
           <section>
-            <h3 className="text-sm font-semibold text-slate-900">The layout in “Build it in 3D” (QuickFit)</h3>
+            <h3 className="text-sm font-semibold text-slate-900">The layout in QuickFit 3D</h3>
             {data ? <QuickFitPanel scheme={scheme} />
               : <p className="text-sm text-slate-700">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}
           </section>

@@ -7,6 +7,7 @@ import { tilesBase } from "@/lib/tiles";
 import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor } from "@protomaps/basemaps";
 import mlcontour from "maplibre-contour";
+import NeighborTip from "./NeighborTip";
 
 maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
 let protocolAdded = false;
@@ -30,16 +31,27 @@ const OVERLAYS: { kind: string; label: string; color: string; on: boolean }[] = 
 /** QuickFit 3D boxes in lon/lat with plate-based heights in feet (lib/quickfit-gen.ts GenBox), and the setback line. */
 export type MapMassing = { boxes: { ring: [number, number][]; z0: number; z1: number; color: string; floor: number }[]; envelope: [number, number][][] } | null;
 
-export default function MapStage({ data, massing, bottomInset = 0, leftInset = 480, onReady }: { data: FC; massing?: MapMassing; bottomInset?: number; leftInset?: number; onReady?: () => void }) {
+export default function MapStage({ data, massing, bottomInset = 0, leftInset = 480, onReady, variant = "terrain", onPick }: {
+  data: FC; massing?: MapMassing; bottomInset?: number; leftInset?: number; onReady?: () => void;
+  /** "terrain": lidar ground in 3D with contours and a slow orbit. "flat": the 2D analysis plan (north up, slope classes on). */
+  variant?: "terrain" | "flat";
+  /** A click on a neighboring lot (its parcel ID). */
+  onPick?: (parid: string) => void;
+}) {
+  const flat = variant === "flat";
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [aerial, setAerial] = useState(false);
-  const [terrain3d, setTerrain3d] = useState(true);
-  const [contours, setContours] = useState(true);
-  const [slope, setSlope] = useState(false);
+  const [terrain3d, setTerrain3d] = useState(!flat);
+  const [contours, setContours] = useState(!flat);
+  const [slope, setSlope] = useState(flat);
+  const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  const pickRef = useRef(onPick);
+  useEffect(() => { pickRef.current = onPick; }, [onPick]);
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(OVERLAYS.map((o) => [o.kind, o.on])));
   const [zoning, setZoning] = useState(true);
-  const [open, setOpen] = useState(true);
+  // Phones start with the layers card folded so it doesn't cover the map.
+  const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [loaded, setLoaded] = useState(false);
   const [orbit, setOrbit] = useState(false);
   const home = useRef<maplibregl.CameraOptions | null>(null);
@@ -87,14 +99,17 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
     });
     map.current = m;
     // The canvas takes keyboard focus (MapLibre: arrows pan, + and - zoom, Shift + arrows rotate and tilt).
-    m.getCanvas().setAttribute("aria-label", "Map of the lot in 3D terrain. Arrow keys pan, plus and minus zoom, Shift with arrow keys rotates and tilts. Use Describe this view for the same information as text.");
+    m.getCanvas().setAttribute("aria-label", `${flat ? "Flat 2D map of the lot" : "Map of the lot in 3D terrain"}. Arrow keys pan, plus and minus zoom, Shift with arrow keys rotates and tilts. Use Describe this view for the same information as text, and its Nearby parcels list to open a neighboring lot.`);
     m.getCanvas().classList.add("es-map-focus");
     if (process.env.NODE_ENV === "development") (window as any).__map = m;
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     m.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 
+    // Never left blank: the map re-measures its box whenever the container changes size (e.g. a tab shown).
+    const ro = new ResizeObserver(() => m.resize());
+    ro.observe(el.current);
     m.on("load", () => {
-      m.setTerrain({ source: "dem", exaggeration: 1.2 });
+      if (!flat) m.setTerrain({ source: "dem", exaggeration: 1.2 });
       // Slope classes (vector polygons), if generated
       m.addLayer({ id: "slope", type: "fill", source: "slope", "source-layer": "slope", layout: { visibility: "none" },
         paint: { "fill-color": ["match", ["get", "class"], 1, "#dcfce7", 2, "#fef08a", 3, "#fdba74", 4, "#ef4444", "#e5e7eb"], "fill-opacity": 0.45 } });
@@ -116,6 +131,9 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         layout: { "text-field": ["get", "label"], "text-size": 13, "text-font": ["Noto Sans Medium"] }, paint: { "text-color": "#0f172a", "text-halo-color": "#fff", "text-halo-width": 2 } });
       // Neighboring lot lines
       m.addLayer({ id: "neighbors", type: "line", source: "site", filter: ["==", ["get", "kind"], "neighbor"], paint: { "line-color": "#64748b", "line-width": 0.8, "line-opacity": 0.7 } });
+      // Neighboring lots are clickable: an invisible fill to hit, and an outline for the one under the pointer.
+      m.addLayer({ id: "neighbors-hit", type: "fill", source: "site", filter: ["==", ["get", "kind"], "neighbor"], paint: { "fill-color": "#0ea5e9", "fill-opacity": 0 } });
+      m.addLayer({ id: "neighbors-hover", type: "line", source: "site", filter: ["==", ["get", "id"], ""], paint: { "line-color": "#0284c7", "line-width": 3 } });
       // Buildings in 3D (height estimated; see receipt in the panel)
       // Neighbors are ghosted so the subject lot stays readable; the building on the subject lot is solid amber.
       m.addLayer({ id: "buildings-3d", type: "fill-extrusion", source: "site", filter: ["all", ["==", ["get", "kind"], "building"], ["!=", ["get", "subject"], true]],
@@ -133,6 +151,18 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
       m.addLayer({ id: "setback-line", type: "line", source: "setback", paint: { "line-color": "#16a34a", "line-width": 2.5, "line-dasharray": [3, 2] } });
       m.addLayer({ id: "scheme-3d", type: "fill-extrusion", source: "scheme",
         paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.95 } });
+      const hoverAt = (p: maplibregl.Point) => {
+        const f = m.queryRenderedFeatures(p, { layers: ["neighbors-hit"] })[0];
+        const id = f?.properties?.id ? String(f.properties.id) : "";
+        m.setFilter("neighbors-hover", ["all", ["==", ["get", "kind"], "neighbor"], ["==", ["get", "id"], id]]);
+        m.getCanvas().style.cursor = id ? "pointer" : "";
+        setHover(id ? { id, x: p.x, y: p.y } : null);
+        return id;
+      };
+      m.on("mousemove", (e) => { hoverAt(e.point); });
+      m.on("mouseout", () => { m.setFilter("neighbors-hover", ["==", ["get", "id"], ""]); setHover(null); });
+      // MapLibre fires click only when the pointer did not drag, so panning never opens a parcel.
+      m.on("click", (e) => { const id = hoverAt(e.point); if (id) pickRef.current?.(id); });
       // Cinematic arrival
       if (parcel) {
         // Keep the lot clear of the floating panel (440 px + gutter) when there is room for it.
@@ -140,21 +170,21 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         const left = w > 900 ? Math.min(leftInset + 24, w - 360) : Math.round(w * 0.1), side = Math.round(w * 0.1), vert = Math.round(h * 0.2);
         // Reduced motion: jump straight to the view (no fly-in); "essential" is off so MapLibre honors it too.
         const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        m.fitBounds(bboxOf(parcel.geometry), { pitch: 58, bearing: 160, maxZoom: 19.2, duration: still ? 0 : 2600,
-          padding: { top: vert, bottom: vert, left, right: side } });
+        m.fitBounds(bboxOf(parcel.geometry), { pitch: flat ? 0 : 58, bearing: flat ? 0 : 160, maxZoom: flat ? 18.6 : 19.2, duration: still || flat ? 0 : 2600,
+          padding: { top: vert, bottom: Math.max(vert, Math.min(bottomInset + 24, h - 160)), left, right: side } });
       }
       m.once("moveend", () => {
         home.current = { center: m.getCenter(), zoom: m.getZoom(), pitch: m.getPitch(), bearing: m.getBearing() };
         // Auto-orbit on load; any drag, touch or wheel stops it.
-        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setOrbit(true);
+        if (!flat && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setOrbit(true);
       });
       // Any direct user drag, touch, wheel or key stops the auto-orbit.
       for (const ev of ["mousedown", "touchstart", "wheel", "keydown"] as const) m.getCanvas().addEventListener(ev, () => setOrbit(false), { passive: true });
       setLoaded(true);
       onReady?.();
     });
-    return () => { m.remove(); map.current = null; setLoaded(false); };
-  }, [data]);
+    return () => { ro.disconnect(); m.remove(); map.current = null; setLoaded(false); };
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // QuickFit 3D massing and setback line. Heights are relative to the lowest floor plate (the extrusion sits on the terrain).
   useEffect(() => {
@@ -204,6 +234,7 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
     <div className="absolute inset-0">
       {/* Camera controls: spin, tilt, orbit, reset. Right-drag or Ctrl-drag also rotates; two-finger twist on touch. */}
       <div className="absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/40 bg-white/85 p-1 text-sm shadow-xl backdrop-blur-md md:left-[calc(50%+230px)]" style={{ bottom: bottomInset + 24 }}>
+        {!flat && <>
         <CamBtn title="Rotate left 45°" onClick={() => turn(-45)}>↺ 45°</CamBtn>
         <CamBtn title={orbit ? "Stop orbit" : "Orbit"} active={orbit} onClick={() => setOrbit(!orbit)}>{orbit ? "❚❚ Orbit" : "▶ Orbit"}</CamBtn>
         <CamBtn title="Rotate right 45°" onClick={() => turn(45)}>45° ↻</CamBtn>
@@ -211,17 +242,19 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         <CamBtn title="Tilt up" onClick={() => tilt(-15)}>▲</CamBtn>
         <CamBtn title="Tilt down" onClick={() => tilt(15)}>▼</CamBtn>
         <span className="mx-1 h-5 w-px bg-slate-300" />
+        </>}
         <CamBtn title="Reset view" onClick={() => { setOrbit(false); if (home.current) map.current?.easeTo({ ...home.current, duration: 1200 }); }}>Reset</CamBtn>
       </div>
       <div ref={el} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-      <div className="absolute right-4 top-4 w-64 rounded-2xl border border-white/40 bg-white/80 p-3 text-sm shadow-xl backdrop-blur-md">
+      {hover && <NeighborTip parid={hover.id} x={hover.x} y={hover.y} />}
+      <div className="absolute right-3 top-16 w-52 rounded-2xl md:right-4 md:top-4 md:w-64 border border-white/40 bg-white/80 p-3 text-sm shadow-xl backdrop-blur-md">
         <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-6 w-full items-center justify-between font-semibold text-slate-800">
           Map layers <span className="text-slate-400">{open ? "–" : "+"}</span>
         </button>
         {open && (
           <div className="mt-2 space-y-1.5 text-slate-700">
             <Toggle label="Aerial photo (2021–23)" checked={aerial} onChange={setAerial} />
-            <Toggle label="3D terrain (1 m lidar)" checked={terrain3d} onChange={setTerrain3d} />
+            {!flat && <Toggle label="3D terrain (1 m lidar)" checked={terrain3d} onChange={setTerrain3d} />}
             <Toggle label="Contours (5 ft)" checked={contours} onChange={setContours} />
             <Toggle label="Slope classes" checked={slope} onChange={setSlope} />
             <Toggle label="Zoning" checked={zoning} onChange={setZoning} />
