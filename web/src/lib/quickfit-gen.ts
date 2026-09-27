@@ -597,6 +597,8 @@ export function financeFor(fin: FinanceInputs, strategy: StrategyId, scheme: qui
       rents: fin.rents, primeRate: fin.prime?.rate ?? null, primeRateDate: fin.prime?.date ?? null,
       permitMonths: fin.permitMonths[strategy] ?? null, tapFeesPerUnit: fin.tapFees, overrides: o,
       stepping: rehab ? null : steppingInput(stepping),
+      // Cost model v0.2: the slope premium keys off the slope under the building footprint (lidar), stepped or not.
+      footprintSlopePct: rehab ? null : stepping?.footprintSlopePct ?? null,
     });
     pf = assumptions.evaluateDevelopment(plan);
   } catch {

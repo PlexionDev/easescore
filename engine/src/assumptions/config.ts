@@ -1,7 +1,7 @@
-// Cost assumptions config: every default lives in engine/config/cost-assumptions.v0.1.json with its
+// Cost assumptions config: every default lives in engine/config/cost-assumptions.v0.2.json with its
 // range and source label. This file only types it and lists it for the assumptions table.
 
-import raw from "../../config/cost-assumptions.v0.1.json";
+import raw from "../../config/cost-assumptions.v0.2.json";
 
 export type CostConfig = typeof raw;
 export const COST_CONFIG: CostConfig = raw;

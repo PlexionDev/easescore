@@ -50,16 +50,16 @@ describe("ranges: no false precision", () => {
 
   it("ranges come from the documented input ranges", () => {
     const hard = g.lines.find((l) => l.id === "hard_base")!;
-    expect(hard.triangulation!.used).toEqual({ low: 225, likely: 250, high: 275 });
+    expect(hard.triangulation!.used).toEqual({ low: 165, likely: 190, high: 210 });
     const slope = g.lines.find((l) => l.id === "slope_adder")!;
     // Per sq ft of building footprint.
     expect(slope.triangulation!.unit).toBe("$/SF of footprint");
     expect(slope.triangulation!.used).toEqual({ low: 30, likely: 45, high: 70 });
-    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 5, likely: 8, high: 12 });
-    // Production (spec) tier: $185 (165–205), stock plans, A&E 2–5% (likely 3%).
-    const prod = pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges;
-    expect(prod.lines.find((l) => l.id === "hard_base")!.triangulation!.used).toEqual({ low: 165, likely: 185, high: 205 });
-    expect(prod.lines.find((l) => l.id === "ae")!.triangulation!.used).toEqual({ low: 2, likely: 3, high: 5 });
+    // A&E: 4% of hard cost, at least $8,000 (range 2–8%).
+    expect(g.lines.find((l) => l.id === "ae")!.triangulation!.used).toMatchObject({ low: 2, high: 8 });
+    // Basic / builder-grade tier: $160 (150–170), cost to build.
+    const basic = pf("new_sf", { salePricePerSf: 300, tier: "basic" }).ranges;
+    expect(basic.lines.find((l) => l.id === "hard_base")!.triangulation!.used).toEqual({ low: 150, likely: 160, high: 170 });
     expect(g.tdc!.low).toBeLessThan(g.tdc!.likely);
     expect(g.tdc!.high).toBeGreaterThan(g.tdc!.likely);
   });
@@ -70,19 +70,18 @@ describe("ranges: no false precision", () => {
       else expect(l.source.badge).toBeNull();
       expect(l.source.badge).not.toBe("ICC BVD Feb 2026, national, permit-fee average");
     }
-    // Default Good spec: Pittsburgh builders. Production (spec) is our assumption (NAHB + builder overhead and profit).
+    // Default Standard infill: Pittsburgh builders' published ranges with the builder's fee removed.
     expect(g.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Pittsburgh builders (2026)");
-    expect(pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges.lines.find((l) => l.id === "hard_base")!.source.badge).toBe("Assumption, edit me");
     expect(g.lines.find((l) => l.id === "slope_adder")!.source.badge).toBe("Assumption, edit me");
     expect(g.lines.find((l) => l.id === "contingency")!.source.badge).toBe("Assumption, edit me");
   });
 
   it("triangulates hard cost per SF against NAHB national and local project benchmarks", () => {
     const pts = g.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
-    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
-    expect(pts[1]!.value).toBe(162);
-    const prod = pf("new_sf", { salePricePerSf: 300, tier: "production" }).ranges.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
-    expect(prod.map((p) => p.badge)).toEqual(["Assumption, edit me", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    // Cost to build (fee removed), the published retail range as the cross-check, NAHB national, local projects.
+    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    expect([pts[1]!.low, pts[1]!.high]).toEqual([200, 250]);
+    expect(pts[2]!.value).toBe(162);
     expect(g.lines.find((l) => l.id === "tdc")!.triangulation!.points[0]!.badge).toBe("Local project benchmark");
   });
 

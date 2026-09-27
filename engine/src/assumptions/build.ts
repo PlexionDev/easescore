@@ -31,7 +31,7 @@ export interface ProFormaFacts {
   area?: string | null;
   lot_area_sqft_gis?: number | null;
   property_tax?: { general_mills?: number | null } | null;
-  transfer_tax?: { total_pct?: number | null } | null;
+  transfer_tax?: { total_pct?: number | null; parts?: unknown } | null;
   building_footprint_sqft?: number | null;
   flood_1pct_share?: number | null;
   flood_evidence?: { tract_nfip_median_premium?: number | null } | null;
@@ -140,6 +140,12 @@ export interface PlanArgs {
    * gets the steep-slope adder, nothing is added again. Ignored for the rehab option.
    */
   stepping?: SteppingInput | null;
+  /**
+   * Slope of the ground under the site-fit building footprint (1 m lidar, plane fit), percent. The slope
+   * premium, structural engineer, steep geotech and 15% contingency key off it; the lot's average slope
+   * stands in when there is no footprint. Defaults to `stepping.footprintSlopePct` when given.
+   */
+  footprintSlopePct?: number | null;
   /** Rents by bedroom count (engine rents module: RentCast comps, else HUD SAFMR, else ZORI). When absent, built from `rents` (HUD / ZORI only). */
   rentsByBedroom?: RentsByBedroom | null;
 }
@@ -261,7 +267,13 @@ export interface DevelopmentPlan {
   /** Budget line ids that carry "Your number". */
   userLines: string[];
   lines: PlanLine[];
-  shares: { ae: number; aeRange: number[] | null; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab" };
+  shares: {
+    ae: number; aeRange: number[] | null; permits: number; other: number; permitsBasis: string; contingency: number; contingencyKind: "flat" | "hillside" | "rehab";
+    /** Cost model v0.2: plain dollar bases for the soft lines, and share ranges for the permits and other soft lines. */
+    aeBasis?: string; otherBasis?: string; otherLabel?: string; permitsRange?: number[] | null; otherRange?: number[] | null;
+  };
+  /** Where the slope that priced the site came from ("under the building footprint" or the lot average). */
+  slopeBasis: string | null;
   loanFeeShare: number;
   adders: AdderFired[];
   /** Hillside stepping that priced the stepped-foundation line (or was covered by the lot's steep-slope adder). */
@@ -291,7 +303,6 @@ export interface DevelopmentPlan {
 
 const usd = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
 const pctText = (share: number) => `${+(share * 100).toFixed(2)}%`;
-const wholePct = (share: number) => `${Math.round(share * 100)}%`;
 const rangeText = (r: number[] | undefined, kind: "usd" | "share" | "usdSf") =>
   r && r.length === 2 ? (kind === "share" ? `${pctText(r[0]!)}–${pctText(r[1]!)}` : kind === "usdSf" ? `${usd(r[0]!)}–${usd(r[1]!)}/SF` : `${usd(r[0]!)}–${usd(r[1]!)}`) : null;
 
@@ -425,33 +436,26 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const hardSite: { siteWork: number; grouting?: number; demolition?: number } = { siteWork: 0 };
   const sl = f.slope_1m;
   const mean = sl?.mean_pct;
-  const sh25 = sl?.share_over_25;
-  const steepT = cfg.siteAdders.steepSlope.trigger;
-  const modT = cfg.siteAdders.moderateSlope.trigger;
+  const LM = cfg.lineModel;
+  // Cost model v0.2 (backtest run D): the slope class comes from the slope UNDER THE BUILDING FOOTPRINT
+  // (lidar under the site-fit footprint); the lot's average slope stands in when there is no footprint.
+  // Over 15%: moderate premium + structural engineer. 25% or more: steep premium + retaining walls.
+  const fpSlope = has(a.footprintSlopePct) ? a.footprintSlopePct : has(a.stepping?.footprintSlopePct) ? a.stepping!.footprintSlopePct : null;
+  const slopeUsed: number | null = fpSlope ?? (has(mean) ? mean : null);
+  const slopeBasis: string | null = slopeUsed == null ? null : fpSlope != null ? "under the building footprint" : "lot average (no building footprint)";
   let slopeKind: "steep" | "moderate" | null = null;
-  if (!sl || (!has(mean) && !has(sh25))) {
-    if (!rehab && !(a.stepping && a.stepping.steps > 0)) exclude("slope_adder", "Hillside foundation adder", "No lidar slope data for this lot, so no slope adder was checked", "no slope data for this lot");
+  if (slopeUsed == null) {
+    if (!rehab) exclude("slope_adder", "Hillside foundation adder", "No lidar slope data for this lot, so no slope adder was checked", "no slope data for this lot");
   } else if (!rehab) {
-    if ((has(sh25) && sh25 >= steepT.shareOver25Min) || (has(mean) && mean >= steepT.meanSlopePctMin)) slopeKind = "steep";
-    else if (has(mean) && mean >= modT.meanSlopePctMin) slopeKind = "moderate";
+    if (slopeUsed >= LM.steepPct) slopeKind = "steep";
+    else if (slopeUsed > LM.slopeOverPct) slopeKind = "moderate";
   }
-  // The lot-level slope class drives staging (dumpsters) and the hillside contingency; stepping only prices the foundation.
   const lotSlopeKind = slopeKind;
   const st = !rehab && a.stepping && a.stepping.steps > 0 ? a.stepping : null;
-  let stepping: DevelopmentPlan["stepping"] = null;
-  if (st) {
-    const stepWhy = `Stepped floor plates: ${st.steps} step${st.steps === 1 ? "" : "s"} of ${st.incrementFt} ft or more, ${+st.dropFt.toFixed(1)} ft total, ground under the footprint slopes ${Math.round(st.footprintSlopePct)}% (stepping starts at ${st.thresholdPct}%)`;
-    if (slopeKind === "steep") {
-      stepping = { ...st, pricedBy: "steep_slope_adder" };
-      notes.push(`${stepWhy}. Covered by the steep-slope adder (stepped foundation, retaining walls), so it is not added again.`);
-    } else {
-      stepping = { ...st, pricedBy: "stepping" };
-      if (slopeKind === "moderate") notes.push("The moderate-slope adder is replaced by the stepped-foundation line (the stepped building needs the steep-slope foundation work), so it is not counted twice.");
-      slopeKind = "steep";
-    }
-    row("stepping", "Hillside stepping (under the footprint)", `${st.steps} step${st.steps === 1 ? "" : "s"}, ${+st.dropFt.toFixed(1)} ft drop, ${Math.round(st.footprintSlopePct)}% slope`, { sourceLabel: "1 m lidar under the site-fit footprint", sourceNote: `Threshold ${st.thresholdPct}% and ${st.incrementFt} ft plate increments are editable placeholders` }, null, false);
-  }
-  const steppedOnly = stepping?.pricedBy === "stepping";
+  // Stepped plates are drawn in 3D; the foundation is priced by the footprint-slope class above (run D).
+  const stepping: DevelopmentPlan["stepping"] = st && slopeKind === "steep" ? { ...st, pricedBy: "steep_slope_adder" } : null;
+  if (st) row("stepping", "Hillside stepping (under the footprint)", `${st.steps} step${st.steps === 1 ? "" : "s"}, ${+st.dropFt.toFixed(1)} ft drop, ${Math.round(st.footprintSlopePct)}% slope`, { sourceLabel: "1 m lidar under the site-fit footprint", sourceNote: "Priced by the slope premium for the slope under the building footprint" }, null, false);
+  const steppedOnly = false;
   // The slope premium is priced on the building footprint (the foundation area), never on the finished
   // floor area of every floor; a steep or stepped site also gets one retaining-wall lump sum per building.
   const footprintSf: number | null = has(sel.footprintSf) && sel.footprintSf > 0
@@ -462,13 +466,10 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     const def0 = slopeKind === "steep" ? cfg.siteAdders.steepSlope : cfg.siteAdders.moderateSlope;
     const def = steppedOnly ? { ...def0, label: "Stepped foundation (hillside stepping)" } : def0;
     const perSf = has(o.slopeAdderPerSf) ? o.slopeAdderPerSf : def.value;
-    const why = steppedOnly
-      ? `Stepped floor plates: ${st!.steps} step${st!.steps === 1 ? "" : "s"}, ${+st!.dropFt.toFixed(1)} ft drop under the footprint (steep-slope rate)`
-      : slopeKind === "steep"
-        ? has(sh25) && sh25 >= steepT.shareOver25Min
-          ? `Steep slope under ${wholePct(sh25)} of the lot`
-          : `Steep slope: the lot averages ${Math.round(mean!)}%`
-        : `Moderate slope: the lot averages ${Math.round(mean!)}% (8–25%)`;
+    const where = fpSlope != null ? "under the building footprint" : "(lot average, no building footprint yet)";
+    const why = slopeKind === "steep"
+      ? `Steep slope ${where}: ${Math.round(slopeUsed!)}% (${LM.steepPct}% or more)`
+      : `Moderate slope ${where}: ${Math.round(slopeUsed!)}% (over ${LM.slopeOverPct}%)`;
     const userLine = has(la.slope_adder) ? la.slope_adder : null;
     const amount = siteSuppressed ? null : userLine ?? (footprintSf != null ? r1000(perSf * footprintSf) : null);
     adders.push({
@@ -478,7 +479,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     });
     if (siteSuppressed) notes.push(`${def.label}: included in your per-home cost, so it is not added again.`);
     row("slopeAdder", `${def.label} (per sq ft of footprint)`, `${usd(perSf)}/SF of footprint`, def, rangeText(def.range, "usdSf"), has(o.slopeAdderPerSf));
-    notes.push(steppedOnly ? "Stepping is measured under the building footprint (1 m lidar)." : "Slope is measured across the whole lot (1 m lidar); the premium is priced on the building footprint.");
+    notes.push(fpSlope != null ? "Slope is measured under the building footprint (1 m lidar); the premium is priced on the footprint area." : "No building footprint yet, so the lot's average slope (1 m lidar) stands in; the premium is priced on the footprint area.");
     if (amount != null) {
       hardSite.siteWork += amount;
       lines.push({ id: "slope_adder", group: "hard", label: def.label, short: steppedOnly ? "stepped foundation" : "hillside foundation", amount, basis: userLine != null ? "Your number" : `${why}: ${footprintSf!.toLocaleString("en-US")} sq ft ${footprintBasis} × ${usd(perSf)}/SF`, sourceLabel: userLine != null ? "Your number" : has(o.slopeAdderPerSf) ? "Your input" : def.sourceLabel });
@@ -548,17 +549,16 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     }
   }
   const landslide = overlay("landslide_prone_pgh");
-  // New buildings in the overlay need the report (§906.04); interior rehab work does not disturb the slope.
-  if (landslide && !rehab) {
-    const g = cfg.siteAdders.geotechReport;
-    const amount = has(o.geotech) ? o.geotech : (g.value as number | null);
-    if (amount != null) {
-      lines.push({ id: "geotech", group: "soft", label: "Geotechnical report", short: "geotechnical report", amount, basis: "Lot is in the City's landslide-prone overlay (§906.04)", sourceLabel: has(o.geotech) ? "Your input" : g.sourceLabel });
-      row("geotech", g.label, usd(amount), g, null, has(o.geotech));
-    } else {
-      exclude("geotech", "Geotechnical report", "The lot is in the City's landslide-prone overlay (§906.04)");
-      row("geotech", g.label, "not set", g, null, false);
-    }
+  // Geotechnical report (cost model v0.2): $7,000 in the landslide-prone overlay (§906.04) or on a steep
+  // site; $4,000 over undermined ground only. Interior rehab work does not disturb the slope.
+  const steepSite = slopeKind === "steep";
+  const underminedOnly = !landslide && !steepSite && (cityUndermined || f.mines?.in_mined_out === true);
+  if (!rehab && (landslide || steepSite || underminedOnly)) {
+    const g = LM.geotech;
+    const amount = has(o.geotech) ? o.geotech : underminedOnly ? g.underminedOnly : g.hillsideOrLandslide;
+    const reason = landslide ? "Lot is in the City's landslide-prone overlay (§906.04)" : steepSite ? `Steep site (${Math.round(slopeUsed!)}% ${slopeBasis})` : "Over undermined ground";
+    lines.push({ id: "geotech", group: "soft", label: "Geotechnical report", short: "geotechnical report", amount, basis: reason, sourceLabel: has(o.geotech) ? "Your input" : g.sourceLabel });
+    row("geotech", g.label, usd(amount), { sourceLabel: g.sourceLabel, sourceNote: g.trigger }, rangeText(g.range, "usd"), has(o.geotech));
   }
   const dumpApplies = demoApplies || (lotSlopeKind === "steep" && !siteSuppressed);
   if (dumpApplies) {
@@ -574,40 +574,87 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
       row("dumpsters", dd.label, "not set", dd, null, false);
     }
   }
-  let tapFees: number | undefined;
-  if (!rehab && units != null && a.tapFeesPerUnit !== undefined) {
-    if (a.tapFeesPerUnit === null) exclude("tap_fees", "Water and sewer tap fees", "Every new home needs water and sewer connections", "fee schedule not loaded for this area");
-    else {
-      tapFees = a.tapFeesPerUnit * units;
-      lines.push({ id: "tap_fees", group: "soft", label: "Water and sewer permit, connection and meter fees", short: "tap fees", amount: tapFees, basis: `${usd(a.tapFeesPerUnit)} per home × ${units}`, sourceLabel: "Published water authority tariff" });
-    }
+  // Water/sewer tap and connection fees are part of the permits line (City: Pittsburgh Water $610 per
+  // house; suburbs: inside the flat permits-and-taps figure), so `tapFeesPerUnit` is not added again.
+  const tapFees: number | undefined = undefined;
+  // Water and sewer laterals (excavation, street opening, restoration), per house.
+  if (!rehab && units != null && !siteSuppressed) {
+    const wl = cfg.siteAdders.waterSewerLateral;
+    const amount = has(la.lateral) ? la.lateral : wl.value * units;
+    hardSite.siteWork += amount;
+    lines.push({ id: "lateral", group: "hard", label: wl.label, short: "water and sewer laterals", amount, basis: has(la.lateral) ? "Your number" : `${units} house${units === 1 ? "" : "s"} × ${usd(wl.value)}`, sourceLabel: has(la.lateral) ? "Your number" : wl.sourceLabel });
+    row("lateral", wl.label, `${usd(wl.value)} per house`, wl, rangeText(wl.range, "usd"), has(la.lateral));
   }
 
-  // ---- Soft costs
+  // ---- Soft costs (cost model v0.2 = backtest run D): dollar items with triggers, carried as shares of hard + site.
   const sc = cfg.softCosts;
   const pgh = f.assessment?.is_pittsburgh === true;
-  const tierAe = !rehab && !has(o.costPerUnit) ? ((tier as { aeShare?: number | null }).aeShare ?? null) : null;
-  let ae = has(o.aeShare) ? o.aeShare : tierAe ?? sc.architectureEngineering.value;
-  const permitComputable = pgh && !has(o.permitShare);
-  let permits = has(o.permitShare) ? o.permitShare : pgh ? sc.pittsburghBuildingPermitFee.value / 1000 : sc.permitsAndFees.value;
-  const permitsBasis = has(o.permitShare)
-    ? "Your input"
-    : permitComputable
-      ? `${usd(sc.pittsburghBuildingPermitFee.value)} per $1,000 of construction value (verify with PLI schedule)`
-      : `${pctText(permits)} of hard cost`;
-  let other = has(o.softOtherShare) ? o.softOtherShare : sc.surveyTitleLegalInsurance.value;
-  row("ae", sc.architectureEngineering.label, pctText(ae), tierAe != null && !has(o.aeShare) ? { sourceLabel: "Assumption, edit me", sourceNote: `${tier.label}: stock plans` } : sc.architectureEngineering, rangeText(sc.architectureEngineering.range, "share"), has(o.aeShare));
-  if (permitComputable) row("permits", sc.pittsburghBuildingPermitFee.label, `${usd(sc.pittsburghBuildingPermitFee.value)} per $1,000 (${pctText(permits)})`, sc.pittsburghBuildingPermitFee, null, false);
-  else row("permits", sc.permitsAndFees.label, pctText(permits), sc.permitsAndFees, rangeText(sc.permitsAndFees.range, "share"), has(o.permitShare));
-  row("other", sc.surveyTitleLegalInsurance.label, pctText(other), sc.surveyTitleLegalInsurance, rangeText(sc.surveyTitleLegalInsurance.range, "share"), has(o.softOtherShare));
-  row("gcFee", sc.gcFee.label, `not applied (${pctText(sc.gcFee.value)} when used)`, sc.gcFee, rangeText(sc.gcFee.range, "share"), false);
+  const hard0 = (hardBase ?? 0) + hardSite.siteWork + (hardSite.grouting ?? 0) + (hardSite.demolition ?? 0);
+  const nb = units ?? 1;
+  const newBuild = !rehab && hard0 > 0;
+  const toShare = (d: number) => d / hard0;
+  const aeCfg = sc.architectureEngineering;
+  const aeDollars = Math.max(aeCfg.value * hard0, aeCfg.min);
+  let ae = has(o.aeShare) ? o.aeShare : newBuild ? toShare(aeDollars) : aeCfg.value;
+  const aeBasis = has(o.aeShare) ? `${pctText(ae)} of hard cost (your input)` : newBuild ? `${pctText(aeCfg.value)} of hard cost, at least ${usd(aeCfg.min)}` : `${pctText(ae)} of hard cost`;
+  // Permits: City of Pittsburgh from the PLI 2026 schedule; suburbs a flat per-house figure to confirm.
+  const pc = sc.pittsburghBuildingPermitFee;
+  const pli = (value: number) => Math.min(pc.max, Math.max(pc.min, (pc.value * value) / 1000)) + pc.stateTrainingFee + pc.recordRetentionFee + (value > pc.techFeeValueOver ? pc.techFeeHigh : pc.techFeeLow);
+  let permitDollars: number | null = null;
+  let permitsBasis: string;
+  let permitsRange: number[] | null = null;
+  if (has(o.permitShare)) permitsBasis = "Your input";
+  else if (newBuild && pgh) {
+    const b = pli(hard0), e = pli(hard0 * pc.electricalShareOfValue), m = pli(hard0 * pc.mechanicalShareOfValue);
+    permitDollars = b + e + m + (pc.certificateOfOccupancy + pc.pittsburghWater) * nb;
+    permitsBasis = `City PLI schedule: building ${usd(b)} + electrical ${usd(e)} + mechanical ${usd(m)} + certificate of occupancy ${usd(pc.certificateOfOccupancy * nb)} + Pittsburgh Water permit and connection ${usd(pc.pittsburghWater * nb)} (per $1,000 of value)`;
+    permitsRange = [toShare(permitDollars), toShare(permitDollars)];
+  } else if (newBuild) {
+    permitDollars = sc.permitsAndFees.flatPerHouse * nb;
+    permitsBasis = `${usd(sc.permitsAndFees.flatPerHouse)} per house for permits and water/sewer tap-in fees: confirm with the municipality`;
+    permitsRange = [toShare(sc.permitsAndFees.flatRange[0]! * nb), toShare(sc.permitsAndFees.flatRange[1]! * nb)];
+    notes.push(`Permits and tap-in fees outside the City: ${usd(permitDollars)} is a placeholder (${usd(sc.permitsAndFees.flatRange[0]!)}–${usd(sc.permitsAndFees.flatRange[1]!)} per house in Pennsylvania). Confirm with the municipality and its water/sewer authority.`);
+  } else permitsBasis = pgh ? `${usd(pc.value)} per $1,000 of construction value (PLI schedule)` : `${pctText(0.015)} of hard cost`;
+  let permits = has(o.permitShare) ? o.permitShare : permitDollars != null ? toShare(permitDollars) : pgh ? pc.value / 1000 : 0.015;
+  // Structural, civil, survey, insurance, title and closing.
+  const structural = newBuild && ((slopeUsed != null && slopeUsed > LM.slopeOverPct) || steepSite) ? LM.structural.value : 0;
+  const lotSf = f.assessment?.lot_area_sqft ?? f.lot_area_sqft_gis ?? Infinity;
+  const disturbance = footprintSf != null ? Math.round(Math.min(lotSf, (Math.sqrt(footprintSf) + 2 * LM.civil.workZoneFt) ** 2 + LM.civil.drivewaySf)) : null;
+  const civil = newBuild && ((disturbance != null && disturbance >= LM.civil.disturbanceSfMin) || steepSite) ? LM.civil.value : 0;
+  const survey = newBuild ? LM.survey.value : 0;
+  const insurance = LM.insurance.value * hard0;
+  const titleClosing = LM.titleClosing.value * (land ?? 0);
+  const otherDollars = structural + civil + survey + insurance + titleClosing;
+  let other = has(o.softOtherShare) ? o.softOtherShare : newBuild ? toShare(otherDollars) : sc.surveyTitleLegalInsurance.value;
+  const otherParts = [
+    structural ? `structural engineer ${usd(structural)}` : null,
+    civil ? `civil/grading ${usd(civil)}` : null,
+    survey ? `survey ${usd(survey)}` : null,
+    `builder's risk and liability ${pctText(LM.insurance.value)} (${usd(insurance)})`,
+    land ? `title and closing ${pctText(LM.titleClosing.value)} of land (${usd(titleClosing)})` : null,
+  ].filter(Boolean);
+  const otherBasis = has(o.softOtherShare) ? `${pctText(other)} of hard cost (your input)` : newBuild ? otherParts.join(" + ") : `${pctText(other)} of hard cost`;
+  const otherRange = newBuild && !has(o.softOtherShare)
+    ? [toShare((structural ? LM.structural.range[0]! : 0) + (civil ? LM.civil.range[0]! : 0) + (survey ? LM.survey.range[0]! : 0) + LM.insurance.range[0]! * hard0 + LM.titleClosing.range[0]! * (land ?? 0)),
+       toShare((structural ? LM.structural.range[1]! : 0) + (civil ? LM.civil.range[1]! : 0) + (survey ? LM.survey.range[1]! : 0) + LM.insurance.range[1]! * hard0 + LM.titleClosing.range[1]! * (land ?? 0))]
+    : null;
+  row("ae", aeCfg.label, newBuild ? `${pctText(aeCfg.value)} of hard cost, at least ${usd(aeCfg.min)}` : pctText(ae), aeCfg, rangeText(aeCfg.range, "share"), has(o.aeShare));
+  if (newBuild && pgh) row("permits", pc.label, `${usd(pc.value)} per $1,000 of value + fees (${usd(permitDollars!)})`, pc, null, has(o.permitShare));
+  else if (newBuild) row("permits", sc.permitsAndFees.label, `${usd(sc.permitsAndFees.flatPerHouse)} per house`, sc.permitsAndFees, rangeText(sc.permitsAndFees.flatRange, "usd"), has(o.permitShare));
+  else row("permits", "Permits and fees", pctText(permits), { sourceLabel: pgh ? pc.sourceLabel : "Assumption, edit me" }, null, has(o.permitShare));
+  if (newBuild) {
+    row("structural", LM.structural.label, structural ? usd(structural) : `not needed (${LM.structural.trigger.toLowerCase()})`, { sourceLabel: LM.structural.sourceLabel, sourceNote: LM.structural.trigger }, rangeText(LM.structural.range, "usd"), false);
+    row("civil", LM.civil.label, civil ? usd(civil) : `not needed (disturbed area about ${(disturbance ?? 0).toLocaleString("en-US")} sq ft)`, { sourceLabel: LM.civil.sourceLabel, sourceNote: LM.civil.trigger }, rangeText(LM.civil.range, "usd"), false);
+    row("survey", LM.survey.label, usd(survey), LM.survey, rangeText(LM.survey.range, "usd"), false);
+    row("insurance_builder", LM.insurance.label, `${pctText(LM.insurance.value)} of hard cost`, LM.insurance, rangeText(LM.insurance.range, "share"), false);
+    row("titleClosing", LM.titleClosing.label, `${pctText(LM.titleClosing.value)} of the land price`, LM.titleClosing, rangeText(LM.titleClosing.range, "share"), false);
+  }
+  row("other", sc.surveyTitleLegalInsurance.label, pctText(other), { sourceLabel: sc.surveyTitleLegalInsurance.sourceLabel, sourceNote: otherBasis }, null, has(o.softOtherShare));
+  row("gcFee", sc.gcFee.label, "not applied", sc.gcFee, rangeText(sc.gcFee.range, "share"), false);
   if (ae > cfg.outliers.aeShareMax.value) outliers.push(`Architecture and engineering at ${pctText(ae)} of hard cost is above ${pctText(cfg.outliers.aeShareMax.value)}: unusually high — verify.`);
 
-  // ---- Contingency
-  // Hillside contingency: steep or stepped site, landslide-prone overlay or undermined ground. A moderate
-  // slope alone is a normal Pittsburgh lot (its footing premium is its own line).
-  const hazard = slopeKind === "steep" || landslide || mineApplies;
-  const contingencyKind: "flat" | "hillside" | "rehab" = rehab ? "rehab" : hazard ? "hillside" : "flat";
+  // ---- Contingency: 15% in the landslide-prone overlay or on a steep site, 10% otherwise; rehab 15%.
+  const contingencyKind: "flat" | "hillside" | "rehab" = rehab ? "rehab" : landslide || steepSite ? "hillside" : "flat";
   const cdef = cfg.contingency[contingencyKind];
   let contingency = has(o.contingencyShare) ? o.contingencyShare : cdef.value;
   row("contingency", cdef.label, pctText(contingency), cdef, null, has(o.contingencyShare));
@@ -631,25 +678,16 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const constructionMonths = has(o.constructionMonths) ? Math.round(o.constructionMonths) : cm.value;
   row("constructionMonths", fin.constructionMonths.label, `${constructionMonths}`, cm, null, has(o.constructionMonths));
 
-  const mills = f.property_tax?.general_mills;
+  // City of Pittsburgh: 2026 total millage (City + parks + library + schools + County); elsewhere the parcel's rate.
+  const mills = isCity ? cfg.propertyTax.cityMills.value : f.property_tax?.general_mills;
   const assessed = f.assessment?.fmv_total;
   const monthlyTax = has(mills) && has(assessed) ? (assessed * mills) / 1000 / 12 : null;
   if (monthlyTax == null) exclude("holding_taxes", "Property taxes while holding", "Taxes are owed while approving and building", "tax rate or assessment not loaded");
-  else row("holdingTax", "Property taxes while holding, monthly", usd(monthlyTax), { sourceLabel: "County assessment × total millage (County Treasurer)" }, null, false);
+  else row("holdingTax", "Property taxes while holding, monthly", usd(monthlyTax), isCity ? { sourceLabel: `County assessment × ${cfg.propertyTax.cityMills.value} mills`, sourceNote: cfg.propertyTax.cityMills.sourceLabel } : { sourceLabel: "County assessment × total millage (County Treasurer)" }, null, false);
 
-  const rate = has(o.constructionRate) ? o.constructionRate : has(a.primeRate) ? a.primeRate + fin.rateSpreadOverPrime.value : null;
-  if (rate == null) exclude("construction_interest", "Construction loan interest", "A construction loan pays interest while building", "prime rate not loaded");
-  else
-    row(
-      "constructionRate",
-      "Construction loan rate",
-      pctText(rate),
-      has(o.constructionRate)
-        ? { sourceLabel: "Your input" }
-        : { sourceLabel: "Bank prime rate (FRED DPRIME) + assumption", sourceNote: `Prime ${pctText(a.primeRate!)}${a.primeRateDate ? ` on ${a.primeRateDate}` : ""} + ${pctText(fin.rateSpreadOverPrime.value)} (${fin.rateSpreadOverPrime.sourceLabel})` },
-      null,
-      has(o.constructionRate),
-    );
+  // Construction loan: an assumed rate, interest-only on the drawn balance (cost model v0.2: 7.75%).
+  const rate = has(o.constructionRate) ? o.constructionRate : fin.constructionRate.value;
+  row("constructionRate", fin.constructionRate.label, pctText(rate), has(o.constructionRate) ? { sourceLabel: "Your input" } : { sourceLabel: fin.constructionRate.sourceLabel, sourceNote: `${fin.constructionRate.sourceNote}${has(a.primeRate) ? ` Latest prime in our data: ${pctText(a.primeRate)}${a.primeRateDate ? ` on ${a.primeRateDate}` : ""}.` : ""}` }, rangeText(fin.constructionRate.range, "share"), has(o.constructionRate));
   const ltc = has(o.ltc) ? o.ltc : fin.loanToCost.value;
   row("ltc", fin.loanToCost.label, pctText(ltc), fin.loanToCost, null, has(o.ltc));
   row("draw", fin.averageDrawShare.label, pctText(fin.averageDrawShare.value), fin.averageDrawShare, null, false);
@@ -730,12 +768,15 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   const perHome = finishedSf != null && units ? finishedSf / units : null;
   if (!rehab && nc && has(nc.median_living_area_sqft) && perHome != null && perHome < nc.median_living_area_sqft * cfg.comps.smallLayoutRatio.value)
     sizeWarning = `This layout is small for new construction nearby: ${Math.round(perHome).toLocaleString("en-US")} vs ${Math.round(nc.median_living_area_sqft).toLocaleString("en-US")} sq ft typical per home.${perUnitPrice == null && !has(o.salePricePerSf) ? " The value assumes a home this size sells for the same price per sq ft." : ""}`;
-  const tt = f.transfer_tax?.total_pct;
+  // Realty transfer tax (total): City 5% (4.5% in the Baldwin-Whitehall School District); elsewhere the parcel's rate.
+  const ttc = saleCfg.transferTax;
+  const bwSd = JSON.stringify(f.transfer_tax?.parts ?? "").includes("Baldwin-Whitehall");
+  const tt = isCity ? (bwSd ? ttc.cityBaldwinWhitehallPct : ttc.cityPct) : f.transfer_tax?.total_pct ?? ttc.suburbDefaultPct;
   const sellerTt = has(tt) ? (tt / 100) * saleCfg.sellerTransferTaxShare.value : null;
   if (sellerTt == null && tenure === "sale") exclude("transfer_tax", "Seller's realty transfer tax", "Pennsylvania and local transfer tax is due at sale", "rate not loaded");
   const sellingShare = saleCfg.brokerShare.value + (sellerTt ?? 0);
   row("broker", saleCfg.brokerShare.label, pctText(saleCfg.brokerShare.value), saleCfg.brokerShare, null, false);
-  if (sellerTt != null) row("transferTax", "Seller's share of the realty transfer tax", `${pctText(sellerTt)} (half of ${+tt!.toFixed(2)}%)`, { sourceLabel: "Transfer tax rates (PA Dept. of Revenue, local)", sourceNote: saleCfg.sellerTransferTaxShare.sourceNote }, null, false);
+  if (sellerTt != null) row("transferTax", "Seller's share of the realty transfer tax", `${pctText(sellerTt)} (half of ${+tt!.toFixed(2)}%)`, { sourceLabel: isCity || !has(f.transfer_tax?.total_pct) ? ttc.sourceLabel : "Transfer tax rates (PA Dept. of Revenue, local)", sourceNote: saleCfg.sellerTransferTaxShare.sourceNote }, null, false);
   row("salesMonths", saleCfg.salesMonths.label, String(saleCfg.salesMonths.value), saleCfg.salesMonths, null, false);
 
   const saleMix: UnitRow[] | undefined =
@@ -858,7 +899,8 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     footprintSf,
     userLines: Object.keys(la).filter((k) => has(la[k])),
     lines,
-    shares: { ae, aeRange: tierAe != null && !has(o.aeShare) ? ((tier as { aeRange?: number[] | null }).aeRange ?? null) : null, permits, other, permitsBasis, contingency, contingencyKind },
+    shares: { ae, aeRange: null, permits, other, permitsBasis, contingency, contingencyKind, aeBasis, otherBasis, otherLabel: newBuild ? "Structural, civil, survey, insurance and closing" : undefined, permitsRange, otherRange },
+    slopeBasis,
     loanFeeShare: fin.loanFeeShare.value,
     adders,
     stepping,

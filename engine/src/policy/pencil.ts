@@ -1,7 +1,7 @@
 // "Does it plausibly pencil?" at policy scale: one quick test per parcel for the scheme the rules allow
 // by right, in three scenarios. Deliberately simpler than the parcel pro forma (no financing detail, no
 // site adders): the policy view needs an honest range across thousands of lots, not a single underwrite.
-// Every input is a sourced default from engine/config/cost-assumptions.v0.1.json or a value from data.
+// Every input is a sourced default from engine/config/cost-assumptions.v0.2.json or a value from data.
 
 import { COST_CONFIG, type CostConfig } from "../assumptions/config";
 
@@ -20,7 +20,7 @@ export interface ValueBand {
 }
 
 export interface CostBasis {
-  /** Construction $/finished sq ft: low / likely / high (the "good" tier range). */
+  /** Construction $/finished sq ft: low / likely / high (the default tier range). */
   costPsf: Triple;
   /** Soft costs as a share of hard cost: low / likely / high. */
   softShare: Triple;

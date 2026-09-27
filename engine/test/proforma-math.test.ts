@@ -35,7 +35,7 @@ describe("fix 1: slope premium on the footprint, not per finished sq ft of every
     const r = evaluateDevelopment(plan(STEEP));
     const hard = r.plan.lines.filter((l) => l.group === "hard").reduce((t, l) => t + l.amount, 0);
     expect(r.budget.find((b) => b.id === "ae")!.amount).toBe(Math.round((r.plan.shares.ae * hard) / 1000) * 1000);
-    expect(r.budget.find((b) => b.id === "contingency")!.amount).toBe(Math.round((0.12 * hard) / 1000) * 1000);
+    expect(r.budget.find((b) => b.id === "contingency")!.amount).toBe(Math.round((0.15 * hard) / 1000) * 1000);
   });
   it("a stepped building is priced once (the lot's steep adder covers it)", () => {
     const st = { steps: 2, dropFt: 5, footprintSlopePct: 30, thresholdPct: 15, incrementFt: 2.5 };

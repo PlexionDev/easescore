@@ -202,8 +202,8 @@ export function proFormaRanges(
   const pgh = plan.shares.permitsBasis.includes("per $1,000");
   const shares: Record<string, [number, number, number]> = {
     ae: [...shareRange("ae", plan.shares.ae, plan.shares.aeRange ?? sc.architectureEngineering.range), plan.shares.ae] as unknown as [number, number, number],
-    permits: [...(pgh ? [plan.shares.permits, plan.shares.permits] : shareRange("permits", plan.shares.permits, sc.permitsAndFees.range)), plan.shares.permits] as unknown as [number, number, number],
-    other_soft: [...shareRange("other", plan.shares.other, sc.surveyTitleLegalInsurance.range), plan.shares.other] as unknown as [number, number, number],
+    permits: [...(plan.shares.permitsRange && !edited("permits") ? plan.shares.permitsRange : pgh ? [plan.shares.permits, plan.shares.permits] : shareRange("permits", plan.shares.permits, sc.permitsAndFees.range)), plan.shares.permits] as unknown as [number, number, number],
+    other_soft: [...(plan.shares.otherRange && !edited("other") ? plan.shares.otherRange : shareRange("other", plan.shares.other, sc.surveyTitleLegalInsurance.range)), plan.shares.other] as unknown as [number, number, number],
   };
 
   // ---- Low / high finance inputs (cost side only)
@@ -263,19 +263,16 @@ export function proFormaRanges(
           basis = you ? "Your number" : `${rh.basis} (Assumption, edit me)`;
           break;
         }
-        const prod = tier.id === "production";
-        const tierBadge: SourceBadge = prod ? ASSUMPTION_BADGE : "Pittsburgh builders (2026)";
+        const tierBadge: SourceBadge = "Pittsburgh builders (2026)";
         source = baseUser || mineLine("hard_base") ? USER : badge(tierBadge, `${tier.costPerSf.sourceLabel} (${tier.label})`);
-        basis = baseUser || mineLine("hard_base") ? "Your number" : `${tier.label} range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (${prod ? "NAHB 2024 construction cost + typical builder overhead and profit; cross-check: Pittsburgh basic range" : "Pittsburgh builders"})`;
+        basis = baseUser || mineLine("hard_base") ? "Your number" : `${tier.label} range $${tier.costPerSf.range[0]}–$${tier.costPerSf.range[1]}/SF (Pittsburgh builders' published ranges with the builder's fee removed)`;
         if (plan.finishedSf) {
           const used = roundRange((lo ?? 0) / plan.finishedSf, (likely ?? 0) / plan.finishedSf, (hi ?? 0) / plan.finishedSf, 1);
           const nr = config.construction.nationalReference;
           const points: TriangulationPoint[] = [
-            prod
-              ? { label: `${tier.label} (NAHB 2024 + builder overhead and profit)`, badge: ASSUMPTION_BADGE, low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "NAHB 2024 construction cost plus typical builder overhead and profit." }
-              : { label: `Pittsburgh builders, ${tier.label}`, badge: "Pittsburgh builders (2026)", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Includes builder overhead and profit." },
-            ...(prod ? [(() => { const bt = tierOf(config, "basic"); return { label: `Pittsburgh builders, ${bt.label}`, badge: "Pittsburgh builders (2026)" as SourceBadge, low: bt.costPerSf.range[0]!, high: bt.costPerSf.range[1]!, value: bt.costPerSf.value, note: "Published builder price to an owner; includes builder overhead and profit." }; })()] : []),
-            { label: "NAHB national average", badge: "NAHB 2024, national, excludes builder fee", low: nr.value, high: nr.value, value: nr.value, note: "National production builders, construction only; excludes builder overhead and profit, so it sits below a builder's price." },
+            { label: `${tier.label}, cost to build (builder fee removed)`, badge: "Pittsburgh builders (2026)", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Published Pittsburgh builder ranges ÷ about 1.20 (builder overhead and profit removed)." },
+            { label: `Pittsburgh builders' published retail, ${tier.label}`, badge: "Pittsburgh builders (2026)", low: tier.retail.range[0]!, high: tier.retail.range[1]!, value: null, note: "Price to an owner, including the builder's fee: the cross-check." },
+            { label: "NAHB national average", badge: "NAHB 2024, national, excludes builder fee", low: nr.value, high: nr.value, value: nr.value, note: "National production builders, construction only; excludes builder overhead and profit." },
           ];
           if (perHomeSf) {
             const per = benchmarks.map((p) => p.perUnit / perHomeSf);
@@ -337,7 +334,7 @@ export function proFormaRanges(
       case "interest":
         lo = v(cLo.constructionInterest); hi = v(cHi.constructionInterest);
         source = edited("constructionRate") ? USER : badge(ASSUMPTION_BADGE, b.sourceLabel);
-        basis = "Loan interest moves with the cost range (rate: prime rate + an assumed spread)";
+        basis = "Loan interest moves with the cost range (rate: an assumed construction-loan rate)";
         break;
       case "loan_fees": {
         const lLo = v(cLo.constructionLoan), lHi = v(cHi.constructionLoan);

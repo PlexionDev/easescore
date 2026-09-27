@@ -24,7 +24,7 @@ const STEEP: Facts = {
 };
 const MINE: Facts = {
   ...FLAT,
-  slope_1m: { mean_pct: 15, share_over_15: 0.5, share_over_25: 0.1 },
+  slope_1m: { mean_pct: 18, share_over_15: 0.5, share_over_25: 0.1 },
   mines: { in_city_undermined: false, in_mined_out: false, msi_risk: "confirmed" },
   site: { building_count: 1 },
   building_footprint_sqft: 800,
@@ -50,17 +50,19 @@ const plan = (facts: Facts, extra: Partial<assumptions.PlanArgs> = {}) =>
   buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: SCHEME, comps: COMPS, newComps: NEW, rents: RENTS, primeRate: 0.07, permitMonths: 4, tapFeesPerUnit: 1000, ...extra });
 
 describe("cost config", () => {
-  it("has a version stamp and the Good spec tier at $250 as the default (owner decision)", () => {
-    expect(COST_CONFIG.version).toMatch(/^cost-assumptions\.v\d/);
+  it("has a version stamp and Standard infill at $190 (cost to build, builder fee removed) as the default", () => {
+    expect(COST_CONFIG.version).toBe("cost-assumptions.v0.2");
     const def = assumptions.tierOf(COST_CONFIG, undefined);
-    expect(def.label).toBe("Good spec");
-    expect(def.costPerSf.value).toBe(250);
-    const prod = assumptions.tierOf(COST_CONFIG, "production");
-    expect(prod.costPerSf.value).toBe(185);
-    expect(prod.costPerSf.sourceLabel).toBe("NAHB 2024 construction cost + typical builder overhead and profit; cross-check: Pittsburgh basic range $175–225.");
-    expect(COST_CONFIG.construction.tiers.map((t) => `${t.label} ${t.costPerSf.range.join("–")}`)).toEqual([
-      "Production (spec) 165–205", "Basic 175–225", "Good spec 225–275", "Better 275–350", "High-end 350–450", "Custom 450–600",
+    expect(def.label).toBe("Standard infill");
+    expect(def.costPerSf.value).toBe(190);
+    expect(COST_CONFIG.construction.tiers.map((t) => `${t.label} ${t.costPerSf.value} (${t.costPerSf.range.join("–")}) retail ${t.retail.range.join("–")}`)).toEqual([
+      "Basic / builder-grade 160 (150–170) retail 178–200",
+      "Standard infill 190 (165–210) retail 200–250",
+      "Mid-range 240 (210–270) retail 250–325",
+      "High-end 320 (270–375) retail 325–450",
+      "Custom / luxury 420 (375–470) retail 450–565",
     ]);
+    expect(COST_CONFIG.disclaimer).toBe("Costs are the cost to build and exclude builder fees, general contractor markup and sales commissions. If you hire a builder, add their fee (often 15–25%). Soft costs, fees and taxes follow published local schedules where available and labeled assumptions elsewhere. Confirm with local bids.");
   });
   it("labels the grouting default as owner-provided local data", () => {
     expect(COST_CONFIG.siteAdders.mineGrouting.value).toBe(40000);
@@ -136,9 +138,9 @@ describe("your own program", () => {
     const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: prog });
     expect(p.program).toMatchObject({ units: 4, footprintPerUnitSf: 400, finishedPerUnitSf: 680, garagePerUnitSf: 400, grossSf: 4800 });
     expect(p.finishedSf).toBe(2720);
-    // Tier cost: finished area at $250 + garage level at half the tier rate.
-    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 250 * 0.5);
-    expect(p.forSale.hardCost).toBe(2720 * 250 + 1600 * 125);
+    // Tier cost: finished area at $190 (to $1,000) + garage level at half the tier rate.
+    expect(p.lines.find((l) => l.id === "garage_level")?.amount).toBe(1600 * 190 * 0.5);
+    expect(p.forSale.hardCost).toBe(517000 + 1600 * 95);
   });
   it("uses your cost per home without double counting the garage, and adds site adders unless they are included", () => {
     const no = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000 } });
@@ -150,8 +152,9 @@ describe("your own program", () => {
     expect(no.lines.find((l) => l.id === "hard_base")?.sourceLabel).toBe("Your number");
     const yes = plan(STEEP, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, costPerUnit: 200000, costIncludesSite: true } });
     expect(yes.lines.some((l) => l.id === "slope_adder" || l.id === "retaining_walls")).toBe(false);
-    expect(yes.adders[0]!.reason).toBe("Steep slope under 80% of the lot → included in your per-home cost");
-    expect(yes.exclusions.map((e) => e.id)).toEqual(["geotech"]);
+    expect(yes.adders[0]!.reason).toBe("Steep slope (lot average, no building footprint yet): 40% (25% or more) → included in your per-home cost");
+    expect(yes.exclusions.map((e) => e.id)).toEqual([]);
+    expect(yes.lines.some((l) => l.id === "lateral")).toBe(false);
   });
   it("uses your sale price per home and checks it against new-build sales", () => {
     const p = plan(FLAT, { scheme: TOWN, strategy: "townhouse_row", overrides: { ...prog, salePricePerUnit: 350000, units: 3 } });
@@ -166,20 +169,21 @@ describe("site adders", () => {
   it("fires nothing on a flat lot", () => {
     const p = plan(FLAT);
     expect(p.adders).toEqual([]);
-    expect(p.forSale.hardSiteLines).toEqual({ siteWork: 0 });
+    // Only the water and sewer laterals ($10,000 per house).
+    expect(p.forSale.hardSiteLines).toEqual({ siteWork: 10000 });
   });
   it("fires the steep adder with a plain reason", () => {
     const p = plan(STEEP);
     expect(p.adders.map((a) => a.id)).toEqual(["steep_slope", "retaining_walls"]);
-    expect(p.adders[0]!.reason).toBe("Steep slope under 80% of the lot → +$45 per sq ft of footprint");
+    expect(p.adders[0]!.reason).toBe("Steep slope (lot average, no building footprint yet): 40% (25% or more) → +$45 per sq ft of footprint");
     // Footprint 1,000 sq ft × $45, not 1,700 finished sq ft × a per-floor rate.
     expect(p.adders[0]!.amount).toBe(45 * 1000);
     expect(p.adders[1]!.amount).toBe(15000);
   });
-  it("fires the moderate adder from the average slope", () => {
+  it("fires the moderate adder over 15% (lot average when there is no footprint slope)", () => {
     const p = plan(MINE);
     expect(p.adders[0]!.id).toBe("moderate_slope");
-    expect(p.adders[0]!.reason).toBe("Moderate slope: the lot averages 15% (8–25%) → +$20 per sq ft of footprint");
+    expect(p.adders[0]!.reason).toBe("Moderate slope (lot average, no building footprint yet): 18% (over 15%) → +$20 per sq ft of footprint");
     expect(p.adders[0]!.amount).toBe(20 * 1000);
     expect(p.adders.some((a) => a.id === "retaining_walls")).toBe(false);
   });
@@ -198,8 +202,8 @@ describe("site adders", () => {
     expect(i.minePath).toBe("insurance");
     expect(i.forSale.hardSiteLines?.grouting).toBeUndefined();
     // PA DEP chart: $3.75 + $0.25 per $1,000 of coverage; coverage = construction cost.
-    expect(i.msiCoverage).toBe(250 * 1700);
-    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 250 * 1700) / 1000, 6);
+    expect(i.msiCoverage).toBe(323000);
+    expect(i.msiPremium?.value).toBeCloseTo(3.75 + (0.25 * 323000) / 1000, 6);
     expect(finance.msiAnnualPremium(i.msiCoverage).value).toBe(i.msiPremium?.value);
   });
   it("lets the user switch the mine path", () => {
@@ -211,11 +215,13 @@ describe("site adders", () => {
 
 describe("contingency", () => {
   it("is flat on a flat lot, hillside on slopes or hazards, rehab for rehab", () => {
-    expect(plan(FLAT).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.07 });
-    expect(plan(STEEP).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.12 });
-    expect(plan(UNDERMINED).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.12 });
-    // A moderate slope alone is a normal lot: flat contingency (its footing premium is its own line).
-    expect(plan({ ...FLAT, slope_1m: { mean_pct: 12, share_over_15: 0.2, share_over_25: 0 } }).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.07 });
+    expect(plan(FLAT).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.1 });
+    expect(plan(STEEP).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.15 });
+    // Cost model v0.2 (run D): 15% only in the landslide-prone overlay or on a steep site; undermined ground alone is 10%.
+    expect(plan(UNDERMINED).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.1 });
+    expect(plan({ ...FLAT, slope_1m: { mean_pct: 20, share_over_15: 0.2, share_over_25: 0 } }).shares).toMatchObject({ contingencyKind: "flat", contingency: 0.1 });
+    // A steep footprint on an otherwise flat lot is a steep site.
+    expect(plan(FLAT, { footprintSlopePct: 30 }).shares).toMatchObject({ contingencyKind: "hillside", contingency: 0.15 });
     const r = buildDevelopmentInputs({ strategy: "rehab_existing", facts: { ...FLAT, assessment: { ...FLAT.assessment, use: "SINGLE FAMILY", living_area_sqft: 1200, fmv_total: 50000 } }, scheme: null, comps: COMPS, asIsComps: COMPS, rents: RENTS, primeRate: 0.07, permitMonths: 3 });
     expect(r.shares).toMatchObject({ contingencyKind: "rehab", contingency: 0.15 });
     // Purchase price from nearby as-is sales ($300/SF × 1,200 sq ft), never the assessed value.
@@ -231,13 +237,14 @@ describe("items that apply but have no cost yet", () => {
     expect(p.evidence).toBe("partial");
     const s = plan(STEEP);
     expect(s.exclusions.map((e) => e.text)).toEqual([
-      "Not included: Geotechnical report — cost not set yet",
       "Not included: Dumpsters and DOMI street permit — cost not set yet",
     ]);
+    // The geotechnical report is priced: $7,000 in the landslide-prone overlay or on a steep site.
+    expect(s.forSale.softSiteLines?.geotechnical).toBe(7000);
     // The pro forma still computes with the known lines.
     const r = evaluateDevelopment(s);
     expect(r.tdc).not.toBeNull();
-    expect(r.headline).toMatch(/Partial estimate: 2 cost items are not included yet/);
+    expect(r.headline).toMatch(/Partial estimate: 1 cost item/);
   });
   it("disappear from the list once the user enters a cost", () => {
     const p = plan(STEEP, { overrides: { geotech: 5000, dumpsters: 3000 } });
@@ -245,36 +252,51 @@ describe("items that apply but have no cost yet", () => {
     expect(p.evidence).toBe("complete");
     expect(p.forSale.softSiteLines?.geotechnical).toBe(5000);
   });
-  it("flags missing tap fees for new homes where the tariff is not loaded", () => {
-    expect(plan(FLAT, { tapFeesPerUnit: null }).exclusions.map((e) => e.id)).toEqual(["tap_fees"]);
+  it("counts water/sewer connection fees once, inside the permits line (City: Pittsburgh Water $610)", () => {
+    const p = plan(FLAT, { tapFeesPerUnit: null });
+    expect(p.exclusions).toEqual([]);
+    expect(p.lines.some((l) => l.id === "tap_fees")).toBe(false);
+    expect(p.shares.permitsBasis).toMatch(/Pittsburgh Water permit and connection \$610/);
+  });
+  it("uses a flat $12,000 per house outside the City, flagged to confirm with the municipality", () => {
+    const p = plan({ ...FLAT, assessment: { ...FLAT.assessment, is_pittsburgh: false }, transfer_tax: { total_pct: 2 } });
+    const r = evaluateDevelopment(p);
+    expect(r.budget.find((b) => b.id === "permits")!.amount).toBe(12000);
+    expect(p.shares.permitsBasis).toMatch(/confirm with the municipality/);
+    expect(p.notes.some((n) => /Confirm with the municipality/.test(n))).toBe(true);
   });
 });
 
 describe("pro forma", () => {
   it("adds up: TDC equals the sum of the budget lines (hand-checked flat lot)", () => {
     const r = evaluateDevelopment(plan(FLAT));
-    const hard = 250 * 1700; // 425,000
-    const soft = hard * (0.08 + 0.006 + 0.03) + 1000; // A&E + PLI $6/$1,000 + survey/legal + tap fees
-    const contingency = hard * 0.07;
+    // Cost model v0.2 (run D), City flat lot: 1,700 sq ft × $190 = $323,000 + $10,000 laterals.
+    const hard = 323000 + 10000;
     const land = 13000; // Larimer vacant-land sales: $4.46/sq ft × 3,000 sq ft = $13,380, rounded
+    const ae = Math.max(0.04 * hard, 8000); // 13,320
+    const pli = (v: number) => Math.min(8000, Math.max(130, (6 * v) / 1000)) + 4.5 + 5 + (v > 10000 ? 25 : 15);
+    const permits = pli(hard) + 2 * pli(hard * 0.05) + 130 + 610; // building + electrical + mechanical + CO + Pittsburgh Water
+    const other = 2500 + 0.015 * hard + 0.015 * land; // survey + builder's risk + title/closing (no structural, no civil: 3,000 sq ft disturbed)
+    const soft = ae + permits + other;
+    const contingency = hard * 0.1;
     const before = land + hard + soft + contingency;
     const loan = 0.8 * before;
-    const interest = (loan * 0.5 * 0.08 * 9) / 12; // prime 7% + 1%, 9 months, half drawn
+    const interest = (loan * 0.55 * 0.0775 * 10) / 12; // 7.75%, 10 months, 55% drawn on average
     const fees = loan * 0.01;
-    const holding = ((10000 * 24) / 1000 / 12) * (4 + 9);
+    const holding = ((10000 * 27.307) / 1000 / 12) * (4 + 10); // City 2026 millage
     const tdc = before + interest + fees + holding;
     // Totals to $10,000; lines to $1,000 (their sum is within rounding of the total).
     expect(r.tdc).toBe(Math.round(tdc / 10000) * 10000);
     const parts = r.budget.filter((b) => b.group !== "total").reduce((t, b) => t + (b.amount ?? 0), 0);
     expect(Math.abs(parts - tdc)).toBeLessThanOrEqual(5000);
     for (const b of r.budget) if (b.amount != null && b.group !== "total") expect(b.amount % 1000).toBe(0);
-    // Sale: $300/SF × 1,700 SF = $510,000 (to $5,000); selling costs 5% broker + half of 4% transfer tax, to $1,000.
+    // Sale: $300/SF × 1,700 SF = $510,000 (to $5,000); selling costs: no commissions + half of the City's 5% transfer tax, to $1,000.
     expect(r.sale.grossSales).toBe(510000);
-    expect(r.sale.sellingCosts).toBe(36000);
+    expect(r.sale.sellingCosts).toBe(13000);
     // The math uses the rounded figures: sales − selling costs − total cost.
-    expect(r.sale.profit).toBe(510000 - 36000 - r.tdc!);
+    expect(r.sale.profit).toBe(510000 - 13000 - r.tdc!);
     expect(r.narrative).toMatchObject({ tenure: "sale", totalCost: r.tdc, value: r.sale.netSales });
-    expect(r.sentences[0]).toMatch(/^Cost: land \$13,000 \+ construction \$425,000 \+ design and engineering \$34,000 \+ contingency/);
+    expect(r.sentences[0]).toMatch(/^Cost: land \$13,000 \+ construction \$323,000 \+ /);
   });
   it("says so plainly when there are not enough comps", () => {
     const p = plan(FLAT, { newComps: null });
@@ -294,8 +316,8 @@ describe("pro forma", () => {
     expect(r.narrative).toMatchObject({ tenure: "rent", monthlyRent: 1500, noi: r.rent.noi });
   });
   it("applies overrides and marks them as the user's", () => {
-    const p = plan(FLAT, { overrides: { tier: "better", land: 30000, aeShare: 0.13 } });
-    expect(p.costPerSf).toBe(310);
+    const p = plan(FLAT, { overrides: { tier: "mid_range", land: 30000, aeShare: 0.13 } });
+    expect(p.costPerSf).toBe(240);
     expect(p.land).toMatchObject({ value: 30000, sourceLabel: "Your number", flag: null });
     expect(p.assumptions.find((a) => a.key === "ae")).toMatchObject({ edited: true, sourceLabel: "Your input" });
     expect(p.outliers[0]).toMatch(/unusually high — verify/);
@@ -335,5 +357,27 @@ describe("privacy", () => {
     const text = JSON.stringify([evaluateDevelopment(plan(STEEP)), evaluateDevelopment(plan(UNDERMINED)), evaluateDevelopment(plan(MINE, { overrides: { tenure: "rent" } }))]);
     for (const s of FORBIDDEN) expect(text.includes(s)).toBe(false);
     expect(EMAIL.test(text)).toBe(false);
+  });
+});
+
+describe("cost model v0.2 = backtest run D (COST-MODEL-LOCKED §H sanity house)", () => {
+  // 2,000 sq ft on 2 floors, City of Pittsburgh, flat lot, no hazards, land excluded; approval 4 months.
+  const H: Facts = {
+    slope_1m: { mean_pct: 2, share_over_15: 0, share_over_25: 0 }, overlays: [], mines: { in_city_undermined: false, in_mined_out: false, msi_risk: null }, site: { building_count: 0 },
+    assessment: { use: null, fmv_land: 0, fmv_total: 0, living_area_sqft: null, is_pittsburgh: true, lot_area_sqft: 3000 },
+    property_tax: { general_mills: 27.307 }, transfer_tax: { total_pct: 5 }, owner_class: "private", area: null,
+  };
+  it("costs $473,014 before land, as run D computed it", () => {
+    const p = buildDevelopmentInputs({
+      strategy: "new_sf", facts: H, scheme: { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 2000, footprintSf: 1000, stories: 2 },
+      comps: null, newComps: null, rents: null, primeRate: 0.07, permitMonths: 4, overrides: { tenure: "sale", salePricePerUnit: 600000, land: 0 },
+    });
+    const c = evaluateDevelopment(p).forSale.costs;
+    const val = (x: finance.Receipt) => (x.status === "ok" ? Math.round(x.value) : null);
+    expect(val(c.hard)).toBe(390000); // $380,000 building + $10,000 laterals
+    expect(val(c.soft)).toBe(27394); // A&E $15,600 + permits $3,444 + survey $2,500 + insurance $5,850
+    expect(val(c.contingency)).toBe(39000);
+    expect(val(c.financing)).toBe(16620); // interest $12,969 + lender fees $3,651
+    expect(val(c.tdc)).toBe(473014);
   });
 });

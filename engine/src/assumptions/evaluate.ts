@@ -80,9 +80,9 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   const share = (id: string, label: string, s: number, basis: string, sourceLabel: string): BudgetLine => ({
     id, group: "soft", label, amount: hard != null ? r1k(s * hard) : null, basis: mine(id) ? "Your number" : basis, sourceLabel: mine(id) ? "Your number" : sourceLabel,
   });
-  budget.push(share("ae", "Architecture and engineering", plan.shares.ae, `${pct1(plan.shares.ae)} of hard cost`, sourceOf(plan, "ae")));
+  budget.push(share("ae", "Architecture and design", plan.shares.ae, plan.shares.aeBasis ?? `${pct1(plan.shares.ae)} of hard cost`, sourceOf(plan, "ae")));
   budget.push(share("permits", "Building permit and fees", plan.shares.permits, plan.shares.permitsBasis, sourceOf(plan, "permits")));
-  budget.push(share("other_soft", "Survey, title, legal and insurance", plan.shares.other, `${pct1(plan.shares.other)} of hard cost`, sourceOf(plan, "other")));
+  budget.push(share("other_soft", plan.shares.otherLabel ?? "Survey, title, legal and insurance", plan.shares.other, plan.shares.otherBasis ?? `${pct1(plan.shares.other)} of hard cost`, sourceOf(plan, "other")));
   for (const l of plan.lines.filter((x) => x.group === "soft")) budget.push(r1kLine(l));
   budget.push({
     id: "contingency", group: "contingency", label: `Contingency (${plan.shares.contingencyKind})`, amount: r1k(v(c.contingency)),

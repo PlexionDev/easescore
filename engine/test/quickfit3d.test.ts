@@ -140,6 +140,7 @@ describe("QuickFit 3D generator", () => {
       strategy: "duplex", facts: proFormaFacts(FACTS), scheme: r.scheme, selected: sel2, comps: null, newComps: NEW,
       rents: FIN.rents, primeRate: 0.075, primeRateDate: "2026-09-01", permitMonths: null, tapFeesPerUnit: 3000, overrides: {},
       stepping: { steps: r.stepping.steps, dropFt: r.stepping.dropFt, footprintSlopePct: r.stepping.footprintSlopePct!, thresholdPct: STEPPING.thresholdPct, incrementFt: STEPPING.incrementFt },
+      footprintSlopePct: r.stepping.footprintSlopePct,
     }));
     expect(pf).not.toBeNull();
     expect(JSON.stringify(pf!.ranges)).toBe(JSON.stringify(pf2.ranges));
@@ -151,8 +152,8 @@ describe("QuickFit 3D generator", () => {
     expect(m.units).toBe(sel2.units);
     expect(m.grossSf).toBe(sel2.grossFloorAreaSf);
     expect(m.avgUnitSf).toBe(Math.round(sel2.finishedSf! / sel2.units!));
-    // Stepping priced once, through the builder.
-    expect(pf!.plan.stepping?.pricedBy).toBe("stepping");
+    // The slope under the footprint prices the foundation once, through the builder.
+    expect(pf!.plan.slopeBasis).toBe("under the building footprint");
     expect(pf!.plan.lines.filter((l) => l.id === "slope_adder")).toHaveLength(1);
   });
 
@@ -167,35 +168,37 @@ describe("QuickFit 3D generator", () => {
   });
 });
 
-describe("Hillside stepping in the pro forma (assumptions builder input)", () => {
-  const base = (facts: assumptions.ProFormaFacts, stepping: assumptions.SteppingInput | null) =>
-    assumptions.buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 1700, footprintSf: 1000, stories: 2 }, comps: null, newComps: NEW, rents: null, stepping });
+describe("Slope under the building footprint in the pro forma (cost model v0.2 = backtest run D)", () => {
+  const base = (facts: assumptions.ProFormaFacts, stepping: assumptions.SteppingInput | null, footprintSlopePct?: number | null) =>
+    assumptions.buildDevelopmentInputs({ strategy: "new_sf", facts, scheme: { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 1700, footprintSf: 1000, stories: 2 }, comps: null, newComps: NEW, rents: null, stepping, footprintSlopePct });
   const ST: assumptions.SteppingInput = { steps: 2, dropFt: 5, footprintSlopePct: 22, thresholdPct: 15, incrementFt: 2.5 };
   const f = (mean: number, sh25: number): assumptions.ProFormaFacts => ({ ...proFormaFacts(FACTS), slope_1m: { mean_pct: mean, share_over_15: 0, share_over_25: sh25 } });
 
-  it("adds a stepped-foundation line at the steep-slope rate on a lot with no slope adder", () => {
+  it("prices the moderate premium and the structural engineer when the footprint slope is over 15%", () => {
     const p = base(f(4, 0), ST);
     const l = p.lines.filter((x) => x.id === "slope_adder");
     expect(l).toHaveLength(1);
-    expect(l[0]!.label).toMatch(/Stepped foundation/);
     // Priced on the footprint (1,000 sq ft), not the finished area of every floor.
-    expect(l[0]!.amount).toBe(assumptions.COST_CONFIG.siteAdders.steepSlope.value * 1000);
-    expect(p.stepping?.pricedBy).toBe("stepping");
+    expect(l[0]!.amount).toBe(assumptions.COST_CONFIG.siteAdders.moderateSlope.value * 1000);
+    expect(p.adders.map((a) => a.id)).toEqual(["moderate_slope"]);
+    expect(p.assumptions.find((r) => r.key === "structural")!.value).toBe("$8,000");
   });
 
-  it("replaces (never adds to) the moderate-slope adder", () => {
-    const p = base(f(12, 0), ST);
-    expect(p.lines.filter((x) => x.id === "slope_adder")).toHaveLength(1);
+  it("prices the steep premium and retaining walls at 25% or more under the footprint", () => {
+    const p = base(f(4, 0), { ...ST, footprintSlopePct: 30 });
     expect(p.adders.map((a) => a.id)).toEqual(["steep_slope", "retaining_walls"]);
+    expect(p.stepping?.pricedBy).toBe("steep_slope_adder");
   });
 
-  it("adds nothing when the lot already gets the steep-slope adder", () => {
-    const without = base(f(40, 0.8), null), withSt = base(f(40, 0.8), ST);
-    expect(withSt.lines.map((l) => [l.id, l.amount])).toEqual(without.lines.map((l) => [l.id, l.amount]));
-    expect(withSt.stepping?.pricedBy).toBe("steep_slope_adder");
+  it("uses the footprint slope, not the lot, when both are known", () => {
+    const flatSpot = base(f(40, 0.8), null, 10);
+    expect(flatSpot.adders).toEqual([]);
+    expect(flatSpot.assumptions.find((r) => r.key === "structural")!.value).toMatch(/^not needed/);
   });
 
-  it("changes nothing without stepping", () => {
-    expect(JSON.stringify(base(f(12, 0), null).lines)).toBe(JSON.stringify(base(f(12, 0), { ...ST, steps: 0 }).lines));
+  it("falls back to the lot's average slope when there is no footprint slope", () => {
+    expect(base(f(20, 0), null).adders.map((a) => a.id)).toEqual(["moderate_slope"]);
+    expect(base(f(12, 0), null).adders).toEqual([]);
+    expect(base(f(20, 0), null).slopeBasis).toBe("lot average (no building footprint)");
   });
 });

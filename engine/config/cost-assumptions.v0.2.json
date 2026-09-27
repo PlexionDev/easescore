@@ -1,0 +1,840 @@
+{
+  "version": "cost-assumptions.v0.2",
+  "effectiveDate": "2026-09-27",
+  "_note": "Pro forma cost defaults for Allegheny County. Every value is editable in the app and carries its source label. Money is US dollars; shares are decimals (0.08 = 8%). A value of null means the item has no default yet: when it applies to a project, the pro forma lists it as 'Not included' instead of counting it as zero.",
+  "construction": {
+    "_note": "Cost to build per finished (livable) square foot, above a standard foundation, with the builder's fee removed (COST-MODEL-LOCKED §A: published Pittsburgh builder rates ÷ about 1.20). Excludes builder fees, general contractor markup and sales commissions, land, demolition, unusual site or foundation work, and soft costs.",
+    "unit": "$/finished SF",
+    "defaultTier": "standard_infill",
+    "tiers": [
+      {
+        "id": "basic",
+        "label": "Basic / builder-grade",
+        "meaning": "Stock plans, builder-grade finishes",
+        "costPerSf": {
+          "value": 160,
+          "range": [
+            150,
+            170
+          ],
+          "sourceLabel": "Pittsburgh builder published ranges with the builder's fee removed (÷ about 1.20)",
+          "sourceNote": "Published retail ranges from Pittsburgh builders (Incline Homes 2026; Shannon Staley & Sons 2026; Home Builder Digest). Builder fee (overhead and profit) of about 20% removed per NAHB 2024 (overhead 5.7% + profit 11.0% of price on construction at 64.4%). Assumption, edit me. Cross-check: NAHB 2024 national construction cost $162/SF."
+        },
+        "retail": {
+          "range": [
+            178,
+            200
+          ],
+          "label": "Published retail $178–$200/SF (with builder fee)"
+        },
+        "aeShare": null,
+        "aeRange": null
+      },
+      {
+        "id": "standard_infill",
+        "label": "Standard infill",
+        "meaning": "Clean modern finishes, efficient plan (default)",
+        "costPerSf": {
+          "value": 190,
+          "range": [
+            165,
+            210
+          ],
+          "sourceLabel": "Pittsburgh builder published ranges with the builder's fee removed (÷ about 1.20)",
+          "sourceNote": "Published retail ranges from Pittsburgh builders (Incline Homes 2026; Shannon Staley & Sons 2026; Home Builder Digest). Builder fee (overhead and profit) of about 20% removed per NAHB 2024 (overhead 5.7% + profit 11.0% of price on construction at 64.4%). Assumption, edit me."
+        },
+        "retail": {
+          "range": [
+            200,
+            250
+          ],
+          "label": "Published retail $200–$250/SF (with builder fee)"
+        },
+        "aeShare": null,
+        "aeRange": null
+      },
+      {
+        "id": "mid_range",
+        "label": "Mid-range",
+        "meaning": "Upgraded finishes, some custom millwork",
+        "costPerSf": {
+          "value": 240,
+          "range": [
+            210,
+            270
+          ],
+          "sourceLabel": "Pittsburgh builder published ranges with the builder's fee removed (÷ about 1.20)",
+          "sourceNote": "Published retail ranges from Pittsburgh builders (Incline Homes 2026; Shannon Staley & Sons 2026; Home Builder Digest). Builder fee (overhead and profit) of about 20% removed per NAHB 2024 (overhead 5.7% + profit 11.0% of price on construction at 64.4%). Assumption, edit me."
+        },
+        "retail": {
+          "range": [
+            250,
+            325
+          ],
+          "label": "Published retail $250–$325/SF (with builder fee)"
+        },
+        "aeShare": null,
+        "aeRange": null
+      },
+      {
+        "id": "high_end",
+        "label": "High-end",
+        "meaning": "Architect-designed, premium materials",
+        "costPerSf": {
+          "value": 320,
+          "range": [
+            270,
+            375
+          ],
+          "sourceLabel": "Pittsburgh builder published ranges with the builder's fee removed (÷ about 1.20)",
+          "sourceNote": "Published retail ranges from Pittsburgh builders (Incline Homes 2026; Shannon Staley & Sons 2026; Home Builder Digest). Builder fee (overhead and profit) of about 20% removed per NAHB 2024 (overhead 5.7% + profit 11.0% of price on construction at 64.4%). Assumption, edit me."
+        },
+        "retail": {
+          "range": [
+            325,
+            450
+          ],
+          "label": "Published retail $325–$450/SF (with builder fee)"
+        },
+        "aeShare": null,
+        "aeRange": null
+      },
+      {
+        "id": "custom",
+        "label": "Custom / luxury",
+        "meaning": "Fully bespoke; the top of the range is open-ended",
+        "costPerSf": {
+          "value": 420,
+          "range": [
+            375,
+            470
+          ],
+          "sourceLabel": "Pittsburgh builder published ranges with the builder's fee removed (÷ about 1.20)",
+          "sourceNote": "Published retail ranges from Pittsburgh builders (Incline Homes 2026; Shannon Staley & Sons 2026; Home Builder Digest). Builder fee (overhead and profit) of about 20% removed per NAHB 2024 (overhead 5.7% + profit 11.0% of price on construction at 64.4%). Assumption, edit me."
+        },
+        "retail": {
+          "range": [
+            450,
+            565
+          ],
+          "label": "Published retail $450–$565+/SF (with builder fee)"
+        },
+        "aeShare": null,
+        "aeRange": null
+      }
+    ],
+    "nationalReference": {
+      "label": "National average construction cost",
+      "value": 162,
+      "unit": "$/SF",
+      "sourceLabel": "NAHB Cost of Constructing a Home 2024 (national reference, not a Pittsburgh default)",
+      "sourceNote": "Production builders, construction cost only; excludes builder overhead and profit. Shown for comparison only."
+    },
+    "garageLevelShareOfTier": {
+      "label": "Tuck-under garage level cost (share of the tier rate per sq ft)",
+      "value": 0.5,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Unfinished garage floor: structure, slab and door, no interior finishes."
+    },
+    "rehabNote": "Rehab cost is estimated from the building's condition in the County assessment (condition tier, year built, finished area). Ranges are our assumptions: edit them with a contractor's walk-through. New-construction rates are never used for a rehab.",
+    "rehab": {
+      "_note": "Rehab (renovation) cost per finished sq ft by condition tier. Condition comes from the County assessment (condition_desc). Unsourced ranges: labeled 'Assumption, edit me' in the app.",
+      "unit": "$/finished SF",
+      "tiers": [
+        {
+          "id": "light",
+          "label": "Light refresh (paint, floors, fixtures)",
+          "conditions": [
+            "EXCELLENT",
+            "VERY GOOD",
+            "GOOD"
+          ],
+          "costPerSf": {
+            "value": 35,
+            "range": [
+              20,
+              55
+            ],
+            "sourceLabel": "Assumption, edit me"
+          }
+        },
+        {
+          "id": "moderate",
+          "label": "Moderate rehab (kitchen, baths, some systems)",
+          "conditions": [
+            "AVERAGE"
+          ],
+          "costPerSf": {
+            "value": 75,
+            "range": [
+              50,
+              110
+            ],
+            "sourceLabel": "Assumption, edit me"
+          }
+        },
+        {
+          "id": "heavy",
+          "label": "Heavy rehab (most systems, roof, windows)",
+          "conditions": [
+            "FAIR",
+            "POOR"
+          ],
+          "costPerSf": {
+            "value": 130,
+            "range": [
+              95,
+              175
+            ],
+            "sourceLabel": "Assumption, edit me"
+          }
+        },
+        {
+          "id": "gut",
+          "label": "Gut rehab (structure and everything inside)",
+          "conditions": [
+            "VERY POOR",
+            "UNSOUND"
+          ],
+          "costPerSf": {
+            "value": 175,
+            "range": [
+              130,
+              230
+            ],
+            "sourceLabel": "Assumption, edit me"
+          }
+        }
+      ],
+      "unknownConditionTier": "moderate",
+      "oldHouse": {
+        "label": "Older house (built before 1940): lead paint, knob-and-tube wiring, plaster",
+        "builtBefore": 1940,
+        "factor": 1.15,
+        "sourceLabel": "Assumption, edit me"
+      }
+    }
+  },
+  "siteAdders": {
+    "_note": "Added on top of the base construction cost. The pro forma lists each adder that fired and why.",
+    "moderateSlope": {
+      "label": "Moderate slope under the building (over 15%): deeper, stepped footings",
+      "value": 20,
+      "range": [
+        10,
+        35
+      ],
+      "unit": "$ per sq ft of building footprint",
+      "sourceLabel": "Assumption, edit me",
+      "sourceNote": "Priced on the building footprint (the foundation area), never on the finished floor area of every floor. Confirm with bids.",
+      "trigger": {
+        "meanSlopePctMin": 15,
+        "_note": "Cost model v0.2: fires when the slope under the building footprint (1 m lidar under the QuickFit footprint; the lot's average slope when there is no footprint) is over 15% and under 25%."
+      }
+    },
+    "steepSlope": {
+      "label": "Steep slope under the building (25% or more): stepped foundation",
+      "value": 45,
+      "range": [
+        30,
+        70
+      ],
+      "unit": "$ per sq ft of building footprint",
+      "sourceLabel": "Assumption, edit me",
+      "sourceNote": "Priced on the building footprint (the foundation area), never on the finished floor area of every floor. Confirm with bids.",
+      "trigger": {
+        "shareOver25Min": 0.5,
+        "meanSlopePctMin": 25,
+        "_note": "Cost model v0.2: fires when the slope under the building footprint is 25% or more (the lot's average slope when there is no footprint)."
+      }
+    },
+    "retainingWalls": {
+      "label": "Retaining walls (steep lot)",
+      "value": 15000,
+      "range": [
+        8000,
+        30000
+      ],
+      "unit": "$ per building (lump sum)",
+      "sourceLabel": "Assumption, edit me",
+      "sourceNote": "One lump sum per building on a steep or stepped site. Confirm with bids."
+    },
+    "mineGrouting": {
+      "label": "Mine subsidence: grouting (lump sum)",
+      "value": 40000,
+      "range": [
+        30000,
+        50000
+      ],
+      "unit": "$",
+      "sourceLabel": "Local project data (owner-provided)",
+      "sourceNote": "Editable default, not a quote. Actual cost depends on mine depth and lot size."
+    },
+    "mineInsurance": {
+      "label": "Mine subsidence insurance (yearly premium)",
+      "value": null,
+      "unit": "$/year",
+      "sourceLabel": "PA DEP MSI published rate",
+      "sourceNote": "Premium computed from the PA DEP rate chart in the finance module; coverage is set to the construction cost, within the chart's limits."
+    },
+    "geotechReport": {
+      "label": "Geotechnical report (landslide-prone overlay)",
+      "value": null,
+      "unit": "$",
+      "sourceLabel": "Awaiting local cost data"
+    },
+    "demolition": {
+      "label": "Demolition of the existing structure",
+      "value": null,
+      "unit": "$/SF of structure",
+      "sourceLabel": "Awaiting local cost data"
+    },
+    "dumpstersAndStreetPermit": {
+      "label": "Dumpsters and DOMI street-occupancy permit (no on-site staging)",
+      "value": null,
+      "unit": "$ per container + permit",
+      "sourceLabel": "Awaiting local cost data",
+      "sourceNote": "DOMI fee schedule applies inside the City of Pittsburgh."
+    },
+    "waterSewerLateral": {
+      "label": "Water and sewer laterals (excavation, street opening, restoration)",
+      "value": 10000,
+      "range": [
+        5000,
+        15000
+      ],
+      "unit": "$ per house",
+      "sourceLabel": "Assumption; confirm with a contractor",
+      "sourceNote": "COST-MODEL-LOCKED §B. Separate from the utility permit and connection fees."
+    }
+  },
+  "softCosts": {
+    "_note": "Cost model v0.2 (COST-MODEL-LOCKED §C–D): soft costs are dollar items with triggers, shown as their share of hard cost (construction plus site lines).",
+    "architectureEngineering": {
+      "label": "Architecture and design (sealed plans)",
+      "value": 0.04,
+      "range": [
+        0.02,
+        0.08
+      ],
+      "sourceLabel": "Assumption, edit me",
+      "sourceNote": "4% of hard cost, at least $8,000. Custom architects 6–10% (Thompson Communities); PA sealed plans add $3–12k; NAHB average A&E $6,480 (production).",
+      "min": 8000
+    },
+    "permitsAndFees": {
+      "label": "Suburban permits and water/sewer tap-in fees (confirm with the municipality)",
+      "value": 0.03,
+      "range": [
+        0.01,
+        0.03
+      ],
+      "sourceLabel": "Assumption: confirm with the municipality",
+      "sourceNote": "Municipal permit schedules and sewer/water tap-in fees vary. Pennsylvania-wide $7,000–25,000 (costtobuildhouse, aggregator). Flat $12,000 per house until municipal schedules are loaded.",
+      "flatPerHouse": 12000,
+      "flatRange": [
+        7000,
+        25000
+      ]
+    },
+    "pittsburghBuildingPermitFee": {
+      "label": "City of Pittsburgh building permit (PLI 2026 fee schedule)",
+      "value": 6.0,
+      "unit": "$ per $1,000 of construction value",
+      "effectiveDate": "2026-01-01",
+      "sourceLabel": "City of Pittsburgh PLI 2026 fee schedule; Pittsburgh Water permits",
+      "sourceNote": "Building $6.00 per $1,000 of construction value (min $130, max $8,000) + state training fund $4.50 + record retention $5 + technology fee ($15, or $25 above $10,000); electrical and mechanical permits priced the same way on 5% of value each (assumption); certificate of occupancy $130; Pittsburgh Water residential permit $40 + connection and meter $570 = $610 (no tapping fees since 2022).",
+      "min": 130,
+      "max": 8000,
+      "stateTrainingFee": 4.5,
+      "recordRetentionFee": 5,
+      "techFeeValueOver": 10000,
+      "techFeeHigh": 25,
+      "techFeeLow": 15,
+      "electricalShareOfValue": 0.05,
+      "mechanicalShareOfValue": 0.05,
+      "certificateOfOccupancy": 130,
+      "pittsburghWater": 610
+    },
+    "surveyTitleLegalInsurance": {
+      "label": "Structural, civil, survey, insurance, title and closing",
+      "value": 0.03,
+      "range": [
+        0.02,
+        0.05
+      ],
+      "sourceLabel": "Assumption, edit me",
+      "sourceNote": "Dollar items with triggers (COST-MODEL-LOCKED §C, F)."
+    },
+    "gcFee": {
+      "label": "General contractor fee (only when trade-level costs are entered)",
+      "value": 0.15,
+      "range": [
+        0.12,
+        0.18
+      ],
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Not applied. The tiers are the cost to build and exclude builder fees and general contractor markup; if you hire a builder, add their fee (often 15–25%)."
+    }
+  },
+  "contingency": {
+    "_note": "Share of hard cost plus site lines. Cost model v0.2: 15% in the landslide-prone overlay or on a steep site (25% or more under the building); 10% otherwise; rehab 15%.",
+    "flat": {
+      "label": "Contingency (new build)",
+      "value": 0.1,
+      "sourceLabel": "Incline Homes (10%)"
+    },
+    "hillside": {
+      "label": "Contingency (landslide-prone or steep site)",
+      "value": 0.15,
+      "sourceLabel": "Assumption, edit me"
+    },
+    "rehab": {
+      "label": "Contingency (rehab)",
+      "value": 0.15,
+      "sourceLabel": "Assumption — editable"
+    }
+  },
+  "financing": {
+    "_note": "Construction financing = loan × average share drawn × rate × construction months ÷ 12 (finance module).",
+    "rateSpreadOverPrime": {
+      "label": "Construction loan rate above the prime rate",
+      "value": 0.01,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Added to the Bank Prime Loan Rate (Federal Reserve, via FRED series DPRIME) stored in our database."
+    },
+    "loanToCost": {
+      "label": "Construction loan as a share of cost (LTC)",
+      "value": 0.8,
+      "sourceLabel": "Assumption — editable"
+    },
+    "averageDrawShare": {
+      "label": "Average share of the loan drawn while building",
+      "value": 0.55,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Average balance drawn over the build (COST-MODEL-LOCKED §E)."
+    },
+    "loanFeeShare": {
+      "label": "Lender fees as a share of the loan",
+      "value": 0.01,
+      "sourceLabel": "Assumption — editable"
+    },
+    "constructionMonths": {
+      "label": "Months to build",
+      "single": {
+        "value": 10,
+        "sourceLabel": "Assumption, edit me (Incline Homes: 6–9 months standard, 9–12+ larger)"
+      },
+      "multi": {
+        "value": 12,
+        "sourceLabel": "Assumption — editable"
+      },
+      "rehab": {
+        "value": 6,
+        "sourceLabel": "Assumption — editable"
+      }
+    },
+    "approvalMonthsFallback": {
+      "label": "Months to approval when the Ease Score has no estimate",
+      "value": null,
+      "sourceLabel": "Awaiting local data"
+    },
+    "constructionRate": {
+      "label": "Construction loan rate (interest-only on the drawn balance)",
+      "value": 0.0775,
+      "range": [
+        0.0725,
+        0.0875
+      ],
+      "sourceLabel": "Assumption, edit me: prime 6.75% + 1.0",
+      "sourceNote": "Prime rate 6.75% (unchanged since December 2025) + 0.5–2.0 points for a construction loan; default 7.75%."
+    }
+  },
+  "sale": {
+    "brokerShare": {
+      "label": "Sales commissions (excluded: cost-to-build basis)",
+      "value": 0,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Sales commissions are excluded; add them if you sell through a broker."
+    },
+    "sellerTransferTaxShare": {
+      "label": "Share of the realty transfer tax the seller pays",
+      "value": 0.5,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Pennsylvania custom splits the transfer tax evenly; the rate comes from our transfer tax data."
+    },
+    "salesMonths": {
+      "label": "Months to sell after completion",
+      "value": 3,
+      "sourceLabel": "Assumption — editable"
+    },
+    "transferTax": {
+      "cityPct": 5,
+      "cityBaldwinWhitehallPct": 4.5,
+      "suburbDefaultPct": 2,
+      "sourceLabel": "Realty transfer tax: City of Pittsburgh 5% total (1% state + 3% City + 1% school); City in Baldwin-Whitehall SD 4.5%; elsewhere the parcel's municipal rate (2% when not loaded)"
+    }
+  },
+  "comps": {
+    "_note": "How finished homes are valued. New builds use new-construction sales only; rehab uses existing-home sales matched on size and age. Older-home sales are never the value of a new build: when new-construction sales are too few, they are shown only as a labeled floor.",
+    "newConstruction": {
+      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000, within ±40% of the planned home's size when enough. Same City neighborhood (or municipality) when it has at least 5 such sales, otherwise areas of the same market tier (never a richer market), nearest first; widen from ¼ mile to 3 miles until 8, keep the nearest 12; drop sales beyond 1.5× the middle-half spread of $/SF; at least 5 needed.",
+      "years": 3,
+      "maxAgeAtSaleYears": 10,
+      "minLivingAreaSqft": 600,
+      "minPrice": 20000,
+      "minComps": 5,
+      "radiiMi": [
+        0.25,
+        0.5,
+        1,
+        2,
+        3
+      ],
+      "selection": {
+        "_note": "How the new-construction comp set is chosen (deterministic). 1) Same City neighborhood (or same municipality outside the City) when it has at least sameAreaMinComps sales; otherwise the nearest sales by distance. 2) Widen by radius until nearestMin sales, then keep the nearest nearestMax. 3) Drop sales whose $/SF is beyond outlierIqrMultiplier x IQR from the quartiles (listed in the receipt). Editable assumptions.",
+        "sameAreaMinComps": 5,
+        "nearestMin": 8,
+        "nearestMax": 12,
+        "outlierIqrMultiplier": 1.5,
+        "tierBand": 0.35,
+        "tierBandLabel": "Assumption, edit me",
+        "tierMinSales": 10,
+        "tierYears": 3,
+        "tierYearsFallback": 5,
+        "tierNeighbors": 3,
+        "sizeBand": 0.4,
+        "sizeBandLabel": "Assumption, edit me",
+        "tierNote": "Market-tier matching (appraisal-style, never demographic): when the subject's own area has fewer than sameAreaMinComps new-construction sales, candidate comps must come from areas whose market tier (median $/SF of existing-home sales, engine/config/area-market-tiers.json; 5 years when 3 have too few sales) is within ±tierBand of the subject area's tier. An area with no tier borrows the median tier of its tierNeighbors nearest tiered areas. Too few sales in the band: any area priced no higher than the band's top (never a richer market). Still too few: no new-home value (older-home sales shown as a floor); comps are never pulled from richer markets by distance alone. Comps are kept within ±sizeBand of the planned home's finished size when that leaves enough sales.",
+        "sourceLabel": "Assumption — editable"
+      },
+      "singleFamilyUses": [
+        "SINGLE FAMILY"
+      ],
+      "attachedUses": [
+        "TOWNHOUSE",
+        "ROWHOUSE"
+      ],
+      "sourceLabel": "Allegheny County sales (valid new-construction comps)"
+    },
+    "existingMatch": {
+      "rule": "After-repair value: nearby valid sales of the same use in Good or better condition (county assessment condition), kept when living area is within 35% of the building; at least 5, otherwise all Good-or-better sales nearby with a note. As-is sales of older homes are not used as the value after a rehab.",
+      "afterRepairConditions": [
+        "GOOD",
+        "VERY GOOD",
+        "EXCELLENT"
+      ],
+      "livingAreaTolerance": 0.35,
+      "yearBuiltTolerance": 25,
+      "minComps": 5,
+      "sourceLabel": "Allegheny County sales (homes in Good or better condition, matched on size)"
+    },
+    "smallLayoutRatio": {
+      "label": "Layout size below which it is called small for new construction nearby (share of the comps' median size)",
+      "value": 0.67,
+      "sourceLabel": "Assumption — editable"
+    }
+  },
+  "rent": {
+    "fmrBedroomsFallback": {
+      "label": "Bedrooms used for the HUD Fair Market Rent fallback",
+      "single": 3,
+      "multi": 2,
+      "sourceLabel": "Assumption — editable"
+    },
+    "bedroomsByOption": {
+      "label": "Bedrooms per home by option (default mix)",
+      "new_sf": 3,
+      "duplex": 3,
+      "townhouse_row": 3,
+      "three_four_unit": 2,
+      "adu": 1,
+      "rehab_existing": 3,
+      "sourceLabel": "Assumption, edit me"
+    }
+  },
+  "operating": {
+    "_note": "Rental operating assumptions. Property tax uses the actual millage from our data; mine subsidence insurance uses the PA DEP chart.",
+    "vacancyShare": {
+      "label": "Vacancy and credit loss",
+      "value": 0.05,
+      "sourceLabel": "Assumption — editable"
+    },
+    "managementShareOfEgi": {
+      "label": "Property management fee (share of collected rent)",
+      "value": 0.08,
+      "sourceLabel": "Assumption — editable"
+    },
+    "maintenancePerUnitYear": {
+      "label": "Maintenance and repairs per home, yearly",
+      "value": 1000,
+      "sourceLabel": "Assumption — editable"
+    },
+    "propertyInsurancePerUnitYear": {
+      "label": "Property insurance per home, yearly",
+      "value": 1200,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Replace with an insurer's quote."
+    },
+    "replacementReservesPerUnitYear": {
+      "label": "Replacement reserves per home, yearly",
+      "value": 300,
+      "sourceLabel": "Assumption — editable"
+    },
+    "ownerUtilitiesPerUnitYear": {
+      "label": "Utilities paid by the owner per home, yearly",
+      "value": 0,
+      "sourceLabel": "Assumption — editable",
+      "sourceNote": "Tenants pay utilities in separately metered homes."
+    },
+    "assessedValueNote": "After completion, the assessed value = the median ratio of County assessed value to sale price for recently completed new homes × the finished value; the County sets the real figure."
+  },
+  "absorption": {
+    "_note": "How fast finished homes sell or lease. Shown in the report with the count of nearby new-construction sales per year as support; not a market study.",
+    "leaseUpMonths": {
+      "label": "Months to lease up a rental after completion",
+      "value": 3,
+      "sourceLabel": "Assumption — editable"
+    }
+  },
+  "taxAbatement": {
+    "_note": "Illustrative tax abatement scenario in the style of Pennsylvania LERTA programs (the Local Economic Revitalization Tax Assistance Act lets taxing bodies phase in the added assessed value from new construction). Program terms were not verified against a current City or County program page, so the report labels this scenario illustrative. Report query keys pf_abate_pct (percent) and pf_abate_years override the defaults.",
+    "label": "Tax abatement on the new construction value (LERTA-style, illustrative)",
+    "abatedShare": {
+      "label": "Share of the property tax on the added (improvement) value that is abated",
+      "value": 1.0,
+      "sourceLabel": "Assumption — editable"
+    },
+    "years": {
+      "label": "Years the abatement lasts",
+      "value": 10,
+      "sourceLabel": "Assumption — editable"
+    }
+  },
+  "pencils": {
+    "thinMarginBelow": {
+      "label": "Profit margin below which a for-sale project is called 'thin'",
+      "value": 0.1,
+      "sourceLabel": "Assumption — editable"
+    },
+    "thinYieldOnCostBelow": {
+      "label": "Yield on cost below which a rental is called 'thin'",
+      "value": null,
+      "sourceLabel": "Awaiting local data",
+      "sourceNote": "Needs a local market cap rate."
+    }
+  },
+  "sensitivity": {
+    "_note": "How far each assumption is moved for the scenario table and the 'which assumption matters most' chart.",
+    "costShare": {
+      "label": "Construction cost change",
+      "value": 0.1,
+      "sourceLabel": "Assumption — editable"
+    },
+    "revenueShare": {
+      "label": "Sale price or rent change",
+      "value": 0.1,
+      "sourceLabel": "Assumption — editable"
+    },
+    "landShare": {
+      "label": "Land price change",
+      "value": 0.25,
+      "sourceLabel": "Assumption — editable"
+    },
+    "rateShift": {
+      "label": "Interest rate change (percentage points)",
+      "value": 0.01,
+      "sourceLabel": "Assumption — editable"
+    },
+    "delayMonths": {
+      "label": "Approval delay (months)",
+      "value": 6,
+      "sourceLabel": "Assumption — editable"
+    }
+  },
+  "outliers": {
+    "_note": "Sanity checks, not defaults: lines far above the tier ranges are flagged 'unusually high — verify'.",
+    "siteFoundationPerSfMax": {
+      "label": "Foundation and site work per finished SF (single-family)",
+      "value": 100
+    },
+    "aeShareMax": {
+      "label": "Architecture and engineering share of hard cost",
+      "value": 0.12
+    },
+    "specialtyMetalworkPerSfMax": {
+      "label": "Specialty metalwork per SF",
+      "value": 15
+    }
+  },
+  "benchmarks": {
+    "_note": "Recent Allegheny County projects, total development cost per unit (construction + soft + financing). For sanity checks only, never defaults.",
+    "projects": [
+      {
+        "name": "Hazelwood apartment rehab (Rising Tide Partners, nonprofit)",
+        "type": "Gut rehab, small multifamily",
+        "units": 9,
+        "totalCost": 2700000,
+        "perUnit": 300000,
+        "sourceLabel": "WESA, Feb 2025"
+      },
+      {
+        "name": "Mosaic Apartments",
+        "type": "New 5-story, affordable",
+        "units": 48,
+        "totalCost": 28500000,
+        "perUnit": 594000,
+        "sourceLabel": "NEXTpittsburgh"
+      },
+      {
+        "name": "Hill Top Villas, Fairywood (Tryko Partners)",
+        "type": "New, 1-BR affordable",
+        "units": 48,
+        "totalCost": 22900000,
+        "perUnit": 477000,
+        "sourceLabel": "PublicSource"
+      },
+      {
+        "name": "Hazelwood Green 46-unit building",
+        "type": "New, affordable",
+        "units": 46,
+        "totalCost": 24400000,
+        "perUnit": 530000,
+        "sourceLabel": "PublicSource"
+      },
+      {
+        "name": "Lytle Street, Hazelwood Green (TREK)",
+        "type": "New",
+        "units": 50,
+        "totalCost": 24000000,
+        "perUnit": 480000,
+        "sourceLabel": "NEXTpittsburgh"
+      },
+      {
+        "name": "First & Market (Beacon Communities)",
+        "type": "Historic office-to-residential",
+        "units": 93,
+        "totalCost": 43000000,
+        "perUnit": 462000,
+        "sourceLabel": "NEXTpittsburgh / PublicSource"
+      }
+    ],
+    "homeownershipSubsidy": {
+      "label": "Subsidy needed per affordable for-sale home (Main + Elm, ELDI partner estimate)",
+      "range": [
+        200000,
+        300000
+      ],
+      "sourceLabel": "Main + Elm (ELDI partner) estimate"
+    },
+    "landReference": {
+      "label": "Habitat Pittsburgh bought two Larimer land-bank lots",
+      "value": 13000,
+      "lots": 2,
+      "sourceLabel": "Habitat for Humanity of Greater Pittsburgh (reported)"
+    }
+  },
+  "land": {
+    "_note": "Land price from vacant-land sales (engine/config/land-comps.v0.1.json), never from the assessed land value. Private lots: the area's median sale price per sq ft of lot × this lot's area; range = 25th–75th percentile. Public lots (City, URA, County, Housing Authority, other public owners): the agency sets the price; range from what agencies actually sold lots for (the County's GOVT SALE code) up to the private median. Your number always overrides.",
+    "publicOwnerClasses": [
+      "city",
+      "ura",
+      "county",
+      "hacp",
+      "other_public"
+    ],
+    "publicFlag": "Public land: price set by the agency",
+    "sourceLabel": "Allegheny County vacant-land sales",
+    "rehabPurchase": {
+      "_note": "Rehab purchase price: nearby home sales (as-is, all conditions) median $/SF × the building's living area; range ±15% (Assumption, edit me). Never the assessed value.",
+      "rangeShare": 0.15
+    }
+  },
+  "propertyTax": {
+    "_note": "After completion, the assessed value is estimated from completed projects: the County assessed value of new homes built in the last years ÷ their first sale price (engine/config/tax-assessment-ratio.v0.1.json), × this project's value. Permit values are a diagnostic only.",
+    "minSales": 20,
+    "cityMills": {
+      "value": 27.307,
+      "sourceLabel": "2026 millage: City 9.67 + parks 0.50 + library 0.25 + Pittsburgh Public Schools 10.457 + Allegheny County 6.43",
+      "sourceNote": "WESA (Dec 2025); County rate: confirm current."
+    }
+  },
+  "rounding": {
+    "_note": "Display and math use the rounded values. Each receipt shows the raw value once.",
+    "rent": 50,
+    "salePrice": 5000,
+    "costLine": 1000,
+    "total": 10000
+  },
+  "lineModel": {
+    "_note": "Cost model v0.2 = backtest run D (.planning/backtest-ab/models/runD.json). Every item is an editable default with its trigger and source.",
+    "slopeOverPct": 15,
+    "steepPct": 25,
+    "structural": {
+      "label": "Structural engineer",
+      "value": 8000,
+      "range": [
+        5000,
+        15000
+      ],
+      "sourceLabel": "Assumption, edit me (Thompson Communities)",
+      "trigger": "Slope under the building footprint over 15%, or a steep site"
+    },
+    "civil": {
+      "label": "Civil / grading and stormwater plan",
+      "value": 8000,
+      "range": [
+        5000,
+        15000
+      ],
+      "disturbanceSfMin": 5000,
+      "workZoneFt": 10,
+      "drivewaySf": 600,
+      "sourceLabel": "Assumption, edit me (Pittsburgh site-plan guide; Thompson Communities)",
+      "trigger": "Disturbed area 5,000 sq ft or more (footprint squared up + 10 ft work zone + 600 sq ft drive and walk, capped at the lot), or a steep site"
+    },
+    "survey": {
+      "label": "Boundary and topographic survey",
+      "value": 2500,
+      "range": [
+        1500,
+        5000
+      ],
+      "sourceLabel": "Assumption, edit me (local builder's actual cost; Thompson Communities)"
+    },
+    "geotech": {
+      "label": "Geotechnical report (with borings)",
+      "hillsideOrLandslide": 7000,
+      "underminedOnly": 4000,
+      "range": [
+        3000,
+        12000
+      ],
+      "sourceLabel": "Assumption, edit me (City geotechnical rules; local builder's actual cost; Thompson Communities)",
+      "trigger": "$7,000 in the landslide-prone overlay or on a steep site; $4,000 over undermined ground only"
+    },
+    "insurance": {
+      "label": "Builder's risk and liability insurance",
+      "value": 0.015,
+      "range": [
+        0.01,
+        0.02
+      ],
+      "sourceLabel": "Assumption, edit me"
+    },
+    "titleClosing": {
+      "label": "Title, legal and closing on the land purchase",
+      "value": 0.015,
+      "range": [
+        0.01,
+        0.02
+      ],
+      "sourceLabel": "Assumption, edit me"
+    },
+    "contingency": {
+      "base": 0.1,
+      "landslideOrSteep": 0.15,
+      "sourceLabel": "Incline Homes (10%); 15% in the landslide-prone overlay or on a steep site (assumption)"
+    }
+  },
+  "disclaimer": "Costs are the cost to build and exclude builder fees, general contractor markup and sales commissions. If you hire a builder, add their fee (often 15–25%). Soft costs, fees and taxes follow published local schedules where available and labeled assumptions elsewhere. Confirm with local bids."
+}
