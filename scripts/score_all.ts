@@ -1,7 +1,8 @@
 // Precompute Ease Scores for the planner view into public.parcel_scores.
 //
 // Run: scripts/score_all.sh [--scope city|county] [--buckets 200] [--from 0] [--to 199]
-//                           [--workers 8] [--sql-concurrency 4] [--dry] [--verify 20]
+//                           [--workers N] [--sql-concurrency 4] [--budget-ms 8000] [--dry] [--verify 20]
+//                           [--hoods "A,B"] [--skip-hoods "A,B"] [--pause-ms 0]
 //
 // How it works: parcels are split into hash buckets (abs(hashtext(parid)) % buckets) so each bulk
 // query stays under the 2-minute statement limit. scripts/score_all.sql pulls the score inputs for
@@ -12,11 +13,11 @@
 // --verify N scores N parcels both ways (bulk inputs vs. the per-parcel RPCs the parcel page uses)
 // and reports any difference, without writing.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cpus } from "node:os";
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import * as score from "../engine/src/score/index";
 
 type Json = any;
@@ -63,8 +64,19 @@ const HAZARD_LABEL: Record<string, string> = {
  * Returns null when nothing costs a full point.
  */
 export function topBlocker(best: score.StrategyResult | null, cfg: score.EaseScoreConfig): string | null {
-  if (!best) return null;
-  if (best.redFlags.length) return RED_FLAG_LABEL[best.redFlags[0]!.id] ?? best.redFlags[0]!.title;
+  return blockerList(best, cfg)[0] ?? null;
+}
+
+/**
+ * Every factor or callout costing at least one score point on this strategy, most costly first, in plain
+ * words. Red flags come first, then a v0.2 hazard band cap, then the point losses. Data gaps are not blockers.
+ */
+export function blockerList(best: score.StrategyResult | null, cfg: score.EaseScoreConfig): string[] {
+  if (!best) return [];
+  const head: string[] = best.redFlags.map((f) => RED_FLAG_LABEL[f.id] ?? f.title);
+  // v0.2: a hazard band cap (mostly landslide-prone, or largely steep) is a binding constraint.
+  const cap = (best as { cap?: { reason: string } | null }).cap;
+  if (cap) head.push(/landslide/i.test(cap.reason) ? HAZARD_LABEL.landslideProne! : "Steep slope");
   const loss = new Map<string, number>();
   const add = (label: string | null, pts: number) => { if (label && pts > 0) loss.set(label, (loss.get(label) ?? 0) + pts); };
   const F = Object.fromEntries(best.factors.map((f) => [f.id, f])) as Record<string, score.FactorResult>;
@@ -92,7 +104,8 @@ export function topBlocker(best: score.StrategyResult | null, cfg: score.EaseSco
       dimLabel = VARIANCE_LABEL.find(([r]) => rules.includes(r))?.[1] ?? "Dimensional variance";
     } else if (i.fitStatus === "contextual") dimLabel = "Setbacks";
     add(permLabel, pts(f1, 100 - permScore));
-    add(dimLabel, pts(f1, permScore * (1 - dim)));
+    // Whatever the permission score does not explain is dimensional (v0.2 also caps variance paths).
+    add(dimLabel, pts(f1, Math.max(permScore * (1 - dim), permScore - f1.subscore)));
   }
 
   // F2 terrain.
@@ -156,11 +169,10 @@ export function topBlocker(best: score.StrategyResult | null, cfg: score.EaseSco
   const f7 = F.F7;
   if (f7 && f7.subscore != null) add("Low market activity", pts(f7, 100 - f7.subscore));
 
-  let bestLabel: string | null = null;
-  let bestPts = 1; // at least one full point
-  for (const [label, p] of [...loss.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)))
-    if (p > bestPts + 1e-9) { bestLabel = label; bestPts = p; }
-  return bestLabel;
+  // At least one full point; ties broken by label so the order is deterministic.
+  const ranked = [...loss.entries()].filter(([, p]) => p > 1 + 1e-9)
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([l]) => l);
+  return [...new Set([...head, ...ranked])];
 }
 
 function unitsSummary(res: score.EaseScoreResult): { byRight: number | null; withRelief: number | null } {
@@ -181,18 +193,33 @@ function unitsSummary(res: score.EaseScoreResult): { byRight: number | null; wit
   return { byRight, withRelief };
 }
 
+/** Strategies that add homes. The planner ranks on the best of these; rehab is shown alongside. */
+export const NEW_HOUSING = ["new_sf", "duplex", "three_four_unit", "townhouse_row", "adu"];
+
 export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: string, cfg: score.EaseScoreConfig) {
-  const best = res.strategies.find((s) => s.strategy === res.best) ?? null;
+  // Same ordering as the engine's best pick (no red flags, score, evidence, strategy order), limited to new
+  // housing. Options whose zoning could not be checked (ADU rules are not transcribed yet) rank only when no
+  // option has a zoning answer: a missing factor is left out of the average and would otherwise float them up.
+  const housing = res.strategies.filter((s) => NEW_HOUSING.includes(s.strategy));
+  const zoned = housing.filter((s) => s.factors.some((f) => f.id === "F1" && f.subscore != null));
+  const bestId = score.pickBest(zoned.length ? zoned : housing, cfg.strategies);
+  const best = res.strategies.find((s) => s.strategy === bestId) ?? null;
+  const rehab = res.strategies.find((s) => s.strategy === "rehab_existing" && s.applicable && s.score != null) ?? null;
   const flags = best?.redFlags ?? res.strategies.find((s) => s.applicable)?.redFlags ?? [];
   const a = facts.assessment ?? {};
   const present = (a.fmv_building ?? 0) > 0 || !!a.year_built || (facts.building_footprint_sqft ?? 0) > 0;
   const units = unitsSummary(res);
+  const blockers = blockerList(best, cfg);
+  const ov = (layer: string) => (facts.overlays ?? []).some((o: Json) => o.layer === layer && o.share > 0);
+  const floodway = (facts.flood_evidence?.floodway_share ?? 0) > 0
+    || (facts.overlays ?? []).some((o: Json) => o.layer === "flood_fema_nfhl" && String(o.attrs?.subtype ?? "").toUpperCase() === "FLOODWAY" && o.share > 0);
+  const steep = facts.slope_1m?.share_over_25 ?? facts.slope?.steep_share ?? null;
   const dates: Record<string, string | null> = {};
   for (const f of best?.factors ?? []) for (const [k, v] of Object.entries(f.dates)) if (v) dates[k] = v;
   return {
     parid: facts.parid,
     config_version: res.configVersion,
-    best_strategy: res.best,
+    best_strategy: bestId,
     score: best?.score ?? null,
     band: best?.band ?? null,
     range_lo: best?.range?.[0] ?? null,
@@ -200,7 +227,8 @@ export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: 
     preliminary: !!best?.labels.includes(score.PRELIMINARY),
     red_flag_count: flags.length,
     red_flags: flags.map((f) => ({ id: f.id, title: f.title })),
-    top_blocker: topBlocker(best, cfg),
+    top_blocker: blockers[0] ?? null,
+    blockers,
     by_right_units: units.byRight,
     units_with_relief: units.withRelief,
     months_to_permit: best?.predictedMonthsToPermit?.months ?? null,
@@ -208,8 +236,8 @@ export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: 
     badge_score: best?.planningBadge.points ?? null,
     factor_scores: best ? Object.fromEntries(best.factors.map((f) => [f.id, f.subscore])) : null,
     vacant: !present,
-    owner_class: facts.context?.public_owner ? "public" : "private",
-    tax_delinquent: facts.context?.tax_delinquent ?? null,
+    // owner_class / owner_type / owner_agency / tax_delinquent / council_district come from
+    // parcel_owner_class and parcel_geo (planner_attach_owner_geo, run at the end), so they are not sent here.
     zoning: facts.zoning?.code ?? null,
     neighborhood: facts.context?.neighborhood ?? null,
     municipality: facts.context?.municipality ?? a.municipality ?? null,
@@ -218,6 +246,15 @@ export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: 
     lat: facts.centroid?.lat ?? null,
     address: a.address || null,
     data_dates: dates,
+    transit_m: facts.transit?.nearest_frequent_stop_m ?? null,
+    hz_floodway: floodway,
+    hz_landslide: ov("landslide_prone_pgh"),
+    hz_undermined: facts.mines?.in_city_undermined === true || facts.mines?.in_mined_out === true || ov("undermined_pgh"),
+    steep_share: steep,
+    cap_label: (best as { cap?: { label: string } | null } | null)?.cap?.label ?? null,
+    badge_matches: best ? Object.fromEntries(best.planningBadge.criteria.map((c) => [c.id, c.matched])) : null,
+    rehab_score: rehab?.score ?? null,
+    rehab_band: rehab?.band ?? null,
     computed_at: computedAt,
   };
 }
@@ -280,26 +317,29 @@ export function assemble(row: { parid: string; facts: Json; qf: Json; ease: Json
   return { facts, quickfitInput, easeInputs, zba: facts.zoning ? sh.zba[facts.zoning.code] ?? null : null, pgh };
 }
 
-// ------------------------------------------------------------------------------ worker
+// ------------------------------------------------------------------------------ scoring
+
+export const NOTE_NO_FIT = "Lot-fit test not run in the batch (large or irregular lot): unit counts omitted; open the parcel page for the site fit.";
+
+/** Score one parcel. `fit: false` skips the QuickFit lot-fit test (fallback for solver errors / time budget). */
+export function scoreOne(item: Json, shared: Shared, computedAt: string, fit = true) {
+  const x = assemble(structuredClone(item), shared);
+  const res = score.scoreParcel(x.facts, {
+    quickfitInput: fit ? x.quickfitInput : null, easeInputs: x.easeInputs as score.EaseInputsRpc, zba: x.zba,
+    permitTimes: x.pgh ? shared.permitTimes : undefined, unlocks: false,
+  });
+  const row = plannerRow(x.facts, res, computedAt, score.DEFAULT_CONFIG);
+  return fit ? { ...row, note: null } : { ...row, by_right_units: null, units_with_relief: null, note: NOTE_NO_FIT };
+}
 
 if (!isMainThread) {
-  const cfg = score.DEFAULT_CONFIG;
-  parentPort!.on("message", (msg: { id: number; items: Json[]; shared: Shared; computedAt: string }) => {
-    const out: Json[] = [];
-    const errors: string[] = [];
-    for (const item of msg.items) {
-      try {
-        const x = assemble(item, msg.shared);
-        const res = score.scoreParcel(x.facts, {
-          quickfitInput: x.quickfitInput, easeInputs: x.easeInputs as score.EaseInputsRpc, zba: x.zba,
-          permitTimes: x.pgh ? msg.shared.permitTimes : undefined, unlocks: false,
-        });
-        out.push(plannerRow(x.facts, res, msg.computedAt, cfg));
-      } catch (err) {
-        errors.push(`${item.parid}: ${(err as Error).message}`);
-      }
+  const shared = workerData as Shared;
+  parentPort!.on("message", (msg: { id: number; item: Json; computedAt: string }) => {
+    try {
+      parentPort!.postMessage({ id: msg.id, row: scoreOne(msg.item, shared, msg.computedAt) });
+    } catch (err) {
+      parentPort!.postMessage({ id: msg.id, error: (err as Error).message });
     }
-    parentPort!.postMessage({ id: msg.id, rows: out, errors });
   });
 }
 
@@ -317,11 +357,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function sql<T = Json[]>(query: string): Promise<T> {
   const ref = /https:\/\/([^.]+)\./.exec(process.env.NEXT_PUBLIC_SUPABASE_URL!)![1];
   for (let attempt = 0; ; attempt++) {
-    const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
+    let r: Response;
+    try {
+      r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+    } catch (e) {
+      if (attempt >= 4) throw e;
+      console.log(`  SQL request error (${(e as Error).message}); retrying`);
+      await sleep(2000 * 2 ** attempt);
+      continue;
+    }
     const text = await r.text();
     if (r.ok) return JSON.parse(text) as T;
     if (attempt >= 4 || (r.status < 500 && r.status !== 429)) throw new Error(`SQL failed ${r.status}: ${text.slice(0, 400)}`);
@@ -401,10 +449,11 @@ async function verify(n: number, shared: Shared, where: string) {
     const [facts, qf, ease] = await Promise.all([
       rpc("parcel_facts", { p_parid: row.parid }), rpc("parcel_quickfit_input", { p_parid: row.parid }), rpc("parcel_ease_inputs", { p_parid: row.parid }),
     ]);
+    if (!facts) { console.log(`  skip ${row.parid}: parcel_facts RPC returned nothing (timeout?)`); continue; }
     const zba = (facts as Json)?.zoning?.code ? await rpc("zba_grant_rates", { p_district: (facts as Json).zoning.code }) : null;
     const ref = score.scoreParcel(facts as Json, { quickfitInput: qf as Json, easeInputs: ease as Json, zba: zba as Json, permitTimes: score.isCityParcel(facts as Json) ? shared.permitTimes : undefined, unlocks: false });
     const a = plannerRow(x.facts, bulk, "", cfg), b = plannerRow(facts, ref, "", cfg);
-    const keys = ["best_strategy", "score", "band", "range_lo", "range_hi", "red_flag_count", "top_blocker", "by_right_units", "units_with_relief", "months_to_permit", "planning_badge", "badge_score", "factor_scores", "vacant", "owner_class", "tax_delinquent", "zoning"] as const;
+    const keys = ["best_strategy", "rehab_score", "rehab_band", "score", "band", "range_lo", "range_hi", "red_flag_count", "top_blocker", "blockers", "by_right_units", "units_with_relief", "months_to_permit", "planning_badge", "badge_score", "factor_scores", "vacant", "zoning", "transit_m", "hz_floodway", "hz_landslide", "hz_undermined", "steep_share", "cap_label"] as const;
     const diff = keys.filter((k) => JSON.stringify((a as Json)[k]) !== JSON.stringify((b as Json)[k]));
     if (diff.length) console.log(`  DIFF ${row.parid}: ${diff.map((k) => `${k} bulk=${JSON.stringify((a as Json)[k])} rpc=${JSON.stringify((b as Json)[k])}`).join("; ")}`);
     else same++;
@@ -418,64 +467,89 @@ async function main() {
   const buckets = Number(arg("buckets", "200"));
   const from = Number(arg("from", "0"));
   const to = Number(arg("to", String(buckets - 1)));
-  const nWorkers = Number(arg("workers", String(Math.max(1, cpus().length - 2))));
+  // Default: half the cores, so the dev server and browser checks keep running alongside.
+  const nWorkers = Number(arg("workers", String(Math.max(1, Math.floor(cpus().length / 2)))));
   const sqlConc = Number(arg("sql-concurrency", "4"));
   const dry = flag("dry");
-  const where = scope === "city" ? CITY_WHERE : `not (${CITY_WHERE})`;
+  // --hoods "A,B" scores only those neighborhoods (demo areas first); --skip-hoods "A,B" scores the rest.
+  const hoodList = (v: string) => v.split(",").map((x) => `'${x.trim().replace(/'/g, "''")}'`).filter((x) => x !== "''").join(",");
+  const hoodSql = (v: string) => `exists (select 1 from public.parcel_context c where c.parid = p.parid and c.neighborhood in (${hoodList(v)}))`;
+  const where = [scope === "city" ? CITY_WHERE : `not (${CITY_WHERE})`,
+    ...(arg("hoods", "") ? [hoodSql(arg("hoods", ""))] : []),
+    ...(arg("skip-hoods", "") ? [`not ${hoodSql(arg("skip-hoods", ""))}`] : [])].join(" and ");
   const t0 = Date.now();
   const shared = await loadShared();
   console.log(`shared inputs loaded in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${Object.keys(shared.rules).length} rule rows, ${Object.keys(shared.zba).length} districts, sample city ${shared.sample.city.length} / county ${shared.sample.county.length}`);
+  if (arg("dump-shared", "")) { writeFileSync(arg("dump-shared", ""), JSON.stringify(shared)); return; }
   if (flag("verify")) return verify(Number(arg("verify", "20")), shared, where);
 
   const template = readFileSync(join(ROOT, "scripts/score_all.sql"), "utf8");
-  const workers = Array.from({ length: nWorkers }, () => new Worker(fileURLToPath(import.meta.url)));
-  const idle = [...workers];
+  const budgetMs = Number(arg("budget-ms", "5000"));
+  const file = fileURLToPath(import.meta.url);
+  // Worker pool, one parcel per message. A parcel over the time budget has its worker terminated
+  // and replaced; it is then scored without the lot-fit test (see NOTE_NO_FIT), as are solver errors.
+  const idle: Worker[] = Array.from({ length: nWorkers }, () => new Worker(file, { workerData: shared }));
   const waiters: ((w: Worker) => void)[] = [];
   const getWorker = () => new Promise<Worker>((res) => { const w = idle.pop(); if (w) res(w); else waiters.push(res); });
   const release = (w: Worker) => { const next = waiters.shift(); if (next) next(w); else idle.push(w); };
   let msgId = 0;
-  const run = (w: Worker, items: Json[], computedAt: string) => new Promise<{ rows: Json[]; errors: string[] }>((res) => {
+  const stats = { parcels: 0, scored: 0, noFitTimeout: 0, noFitError: 0, failed: 0, bands: {} as Record<string, number>, blockers: {} as Record<string, number>, strategies: {} as Record<string, number> };
+  const scoreItem = async (item: Json, computedAt: string): Promise<Json | null> => {
+    let w = await getWorker();
     const id = ++msgId;
-    const on = (m: Json) => { if (m.id === id) { w.off("message", on); res(m); } };
-    w.on("message", on);
-    w.postMessage({ id, items, shared, computedAt });
-  });
+    const outcome = await new Promise<{ row?: Json; error?: string; timeout?: boolean }>((res) => {
+      const timer = setTimeout(() => { w.off("message", on); res({ timeout: true }); }, budgetMs);
+      const on = (m: Json) => { if (m.id === id) { clearTimeout(timer); w.off("message", on); res(m); } };
+      w.on("message", on);
+      w.postMessage({ id, item, computedAt });
+    });
+    if (outcome.timeout) { void w.terminate(); w = new Worker(file, { workerData: shared }); }
+    release(w);
+    if (outcome.row) return outcome.row;
+    if (outcome.timeout) stats.noFitTimeout++;
+    else { stats.noFitError++; if (stats.noFitError <= 20) console.log(`  solver error ${item.parid}: ${outcome.error?.slice(0, 120)}`); }
+    try { return scoreOne(item, shared, computedAt, false); } catch (e) {
+      stats.failed++; console.log(`  failed ${item.parid}: ${(e as Error).message.slice(0, 160)}`); return null;
+    }
+  };
 
-  const stats = { parcels: 0, scored: 0, errors: 0, sqlMs: 0, scoreMs: 0, bands: {} as Record<string, number>, blockers: {} as Record<string, number> };
-  const pending: Promise<void>[] = [];
   const doBucket = async (k: number) => {
     const ts = Date.now();
-    const rows = await sql<Json[]>(template.replaceAll("{{WHERE}}", () => `${where} and abs(hashtext(p.parid)) % ${buckets} = ${k}`));
-    stats.sqlMs += Date.now() - ts;
+    const inputFile = arg("input-file", "");
+    const rows = inputFile ? (JSON.parse(readFileSync(inputFile, "utf8")) as Json[])
+      : await sql<Json[]>(template.replaceAll("{{WHERE}}", () => `${where} and abs(hashtext(p.parid)) % ${buckets} = ${k}`));
+    const fetchS = (Date.now() - ts) / 1000;
     const computedAt = new Date().toISOString();
-    const per = Math.ceil(rows.length / nWorkers) || 1;
-    const tsc = Date.now();
-    const parts = await Promise.all(Array.from({ length: Math.ceil(rows.length / Math.min(per, 50)) }, async (_, j) => {
-      const w = await getWorker();
-      try { return await run(w, rows.slice(j * Math.min(per, 50), (j + 1) * Math.min(per, 50)), computedAt); } finally { release(w); }
-    }));
-    stats.scoreMs += Date.now() - tsc;
-    const out = parts.flatMap((p) => p.rows);
-    for (const p of parts) for (const e of p.errors) { stats.errors++; if (stats.errors <= 20) console.log(`  error ${e}`); }
+    const out = (await Promise.all(rows.map((r) => scoreItem(r, computedAt)))).filter((r): r is Json => !!r);
     for (const r of out) {
       stats.bands[r.band ?? "No score"] = (stats.bands[r.band ?? "No score"] ?? 0) + 1;
       stats.blockers[r.top_blocker ?? "(none)"] = (stats.blockers[r.top_blocker ?? "(none)"] ?? 0) + 1;
+      stats.strategies[r.best_strategy ?? "(none)"] = (stats.strategies[r.best_strategy ?? "(none)"] ?? 0) + 1;
     }
     if (!dry) await upload(out);
     stats.parcels += rows.length;
     stats.scored += out.length;
     const el = (Date.now() - t0) / 1000;
-    console.log(`bucket ${k}: ${rows.length} parcels (sql ${((Date.now() - ts) / 1000).toFixed(0)}s) · total ${stats.scored.toLocaleString()} scored, ${stats.errors} errors, ${el.toFixed(0)}s elapsed`);
+    console.log(`bucket ${k}: ${rows.length} parcels (fetch ${fetchS.toFixed(0)}s, bucket ${((Date.now() - ts) / 1000).toFixed(0)}s) · total ${stats.scored.toLocaleString()} scored, no-fit ${stats.noFitTimeout} over budget + ${stats.noFitError} solver errors, ${stats.failed} failed, ${el.toFixed(0)}s elapsed, ${(stats.scored / el).toFixed(1)}/s`);
   };
   const queue = Array.from({ length: to - from + 1 }, (_, i) => from + i);
-  const lanes = Array.from({ length: sqlConc }, async () => { for (let k = queue.shift(); k !== undefined; k = queue.shift()) await doBucket(k); });
-  pending.push(...lanes);
-  await Promise.all(pending);
-  for (const w of workers) await w.terminate();
+  // --pause-ms: wait between bucket queries so live pages keep their share of the database.
+  const pauseMs = Number(arg("pause-ms", "0"));
+  await Promise.all(Array.from({ length: sqlConc }, async () => {
+    for (let k = queue.shift(); k !== undefined; k = queue.shift()) { await doBucket(k); if (pauseMs) await sleep(pauseMs); }
+  }));
+  for (const w of idle) await w.terminate();
+  if (!dry) {
+    // Ownership and council district from their own tables, then the cached broad summaries.
+    for (let k = 0; k < 8; k++)
+      await sql(`select public.planner_attach_owner_geo(${k}, 8)`).catch((e) => console.log(`  owner/geo attach ${k} failed: ${(e as Error).message.slice(0, 160)}`));
+    await sql("select public.planner_refresh_cache()").catch((e) => console.log(`  summary cache refresh failed: ${(e as Error).message.slice(0, 160)}`));
+  }
   const secs = (Date.now() - t0) / 1000;
-  console.log(`\ndone: ${stats.scored.toLocaleString()} of ${stats.parcels.toLocaleString()} parcels scored in ${secs.toFixed(0)}s (${stats.errors} errors)${dry ? " [dry run, nothing written]" : ""}`);
+  console.log(`\ndone: ${stats.scored.toLocaleString()} of ${stats.parcels.toLocaleString()} parcels scored in ${secs.toFixed(0)}s; lot-fit skipped for ${stats.noFitTimeout} (over ${budgetMs} ms) + ${stats.noFitError} (solver errors); ${stats.failed} failed${dry ? " [dry run, nothing written]" : ""}`);
   console.log("bands:", JSON.stringify(stats.bands));
+  console.log("best new-housing strategy:", JSON.stringify(stats.strategies));
   console.log("top blockers:", JSON.stringify(Object.entries(stats.blockers).sort((a, b) => b[1] - a[1]).slice(0, 15)));
 }
 
-if (isMainThread) main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
+if (isMainThread && process.env.SCORE_ALL_LIB !== "1") main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

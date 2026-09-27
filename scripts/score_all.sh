@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bundle scripts/score_all.ts with the engine (esbuild from engine/node_modules) and run it with Node.
-# Usage: scripts/score_all.sh [--scope city|county] [--buckets 200] [--from 0] [--to 199] [--workers 8]
-#                             [--sql-concurrency 4] [--dry] [--verify 20]
+# Usage: scripts/score_all.sh [--scope city|county] [--buckets 200] [--from 0] [--to 199] [--workers N] [--budget-ms 8000]
+#                             [--sql-concurrency 4] [--dry] [--verify 20] [--hoods "A,B"] [--skip-hoods "A,B"]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out="${TMPDIR:-/tmp}/easescore-score-all.mjs"

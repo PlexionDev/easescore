@@ -1,0 +1,23 @@
+/* Staff memo: sober black on white, US Letter. Printed by /api/planner/memo. */
+@page{size:Letter;margin:0.7in 0.75in}
+.memo{font-family:var(--memo-sans),system-ui,sans-serif;color:#000;background:#fff;font-size:10.5pt;line-height:1.4;max-width:7in;margin:0 auto;padding:24px 0}
+.memo h1{font-size:18pt;font-weight:700;margin:0 0 4pt}
+.memo h2{font-size:12.5pt;font-weight:700;margin:14pt 0 5pt;border-bottom:0.75pt solid #000;padding-bottom:2pt}
+.memo h3{font-size:11pt;font-weight:700;margin:10pt 0 4pt}
+.memo p{margin:0 0 5pt}
+.memo .meta{font-size:9.5pt;color:#333}
+.memo table{width:100%;border-collapse:collapse;font-size:9pt;margin:4pt 0 8pt}
+.memo th,.memo td{border-bottom:0.5pt solid #999;padding:3pt 4pt;text-align:left;vertical-align:top}
+.memo th{font-weight:700;border-bottom:0.75pt solid #000}
+.memo td.n,.memo th.n{text-align:right;font-variant-numeric:tabular-nums}
+.memo ul{margin:2pt 0 6pt;padding-left:14pt}
+.memo li{margin:0 0 2pt}
+.memo .grid{display:grid;grid-template-columns:1fr 1fr;gap:4pt 18pt}
+.memo .kv{display:flex;justify-content:space-between;border-bottom:0.5pt dotted #999;padding:1.5pt 0;font-size:9.5pt}
+.memo .kv b{font-weight:600}
+.memo .big{font-size:22pt;font-weight:700;line-height:1}
+.memo .fine{font-size:8pt;color:#333}
+.memo .page{break-after:page}
+.memo .page:last-child{break-after:auto}
+.memo .bar{display:inline-block;height:6pt;background:#000;vertical-align:middle}
+@media screen{.memo .page{border-bottom:1px dashed #999;padding-bottom:24px;margin-bottom:24px}}
