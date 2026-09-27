@@ -58,7 +58,7 @@
       "A": 80,
       "S": 60,
       "C": 45,
-      "N": 15,
+      "N": 0,
       "nonconformingContinuation": 60
     },
     "dimensional": {
@@ -83,7 +83,7 @@
       "side": 0
     },
     "varianceProbeNote": "Setbacks tried to see whether a dimensional variance could make a building fit at all.",
-    "permissionNote": "P by right, A administrator exception, S special exception, C conditional use, N use variance needed. nonconformingContinuation applies to rehab of an existing residential building whose use the district no longer permits (continued as a legal nonconforming use); default pending review of the Chapter 921 text."
+    "permissionNote": "P by right, A administrator exception, S special exception, C conditional use, N not allowed (0 points; the use would need a rezoning or a use variance, so the option shows as \"not allowed\"; was 15 before 2026-09-27). nonconformingContinuation applies to rehab of an existing residential building whose use the district no longer permits (continued as a legal nonconforming use); default pending review of the Chapter 921 text."
   },
   "f2": {
     "steepSlopeCurve": [

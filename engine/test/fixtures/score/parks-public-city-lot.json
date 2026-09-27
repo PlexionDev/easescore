@@ -1,0 +1,1606 @@
+{
+ "_note": "Public City-owned parcel 0005B00021000000 in the P (Parks and Open Space) district, captured from the live RPCs 2026-09-27. Public owner; no personal data.",
+ "facts": {
+  "site": {
+   "sources": "County building footprints & centerlines; City centerlines (paper streets); county landslide inventory; USGS NHD; USFWS NWI; PA DEP Land Recycling; EPA ACRES",
+   "building_count": 0,
+   "streams_within_100ft": false,
+   "wetlands_within_100ft": false
+  },
+  "mines": {
+   "caveat": "Mine maps are incomplete; absence of a mapped mine is not proof that no mine exists.",
+   "sources": {
+    "mine_map": "PA Mine Map Atlas (PASDA / PA DEP)",
+    "mined_out": "PA DEP Digitized Mined Out Areas, Coal Underground (DMO MOA)",
+    "coal_bearing": "PA DEP Mine Subsidence Insurance risk map (MSI Risk Confirmed / Possible)",
+    "city_undermined": "City of Pittsburgh Undermined Areas (UM-O)"
+   },
+   "msi_risk": "confirmed",
+   "in_mined_out": false,
+   "mine_map_pdf": "https://www.pasda.psu.edu/minemaps/Map_Repository/Other_Collections/WPA_Maps/PDF_Images/WPA_Carnegie_Sht_3_PGH.pdf",
+   "mine_map_url": "https://www.minemaps.psu.edu/?LocalSheetID=WPA_Carnegie_Sht_3_PGH",
+   "mine_map_sheet": "WPA_Carnegie_Sht_3_PGH",
+   "in_coal_bearing": true,
+   "mined_out_share": 0,
+   "dist_mined_out_ft": null,
+   "in_city_undermined": true,
+   "mines_within_500ft": null,
+   "seams_within_500ft": null
+  },
+  "parid": "0005B00021000000",
+  "slope": {
+   "cells": 7,
+   "source": "USGS 3DEP elevation",
+   "mean_pct": 36.6,
+   "steep_share": 1,
+   "resolution_m": 10
+  },
+  "tract": {
+   "name": "1911",
+   "geoid": "42003191100",
+   "acs_year": 2024,
+   "population": 2346,
+   "median_rent": 1492,
+   "vacancy_rate": 9.44,
+   "median_income": 104286,
+   "rent_burden_30_pct": 25.75,
+   "rent_burden_50_pct": 13.47
+  },
+  "zoning": {
+   "code": "P",
+   "type": "PARKS AND OPEN SPACE",
+   "rules": {
+    "notes": "The Use Table shows P for Single-Unit Detached in the P district. Exterior side yard is 20 ft. Site Plan Review applies on lots of 2,400 sf or more (\u00a7905.01.D).",
+    "max_far": 1,
+    "citation": "\u00a7905.01.C site development standards table; \u00a7911.02 Use Table; \u00a7914.02.A",
+    "two_unit": "N",
+    "confidence": "confirmed",
+    "multi_unit": "N",
+    "three_unit": "N",
+    "district_name": "Parks and Open Space",
+    "max_height_ft": 40,
+    "parking_per_unit": 1,
+    "min_lot_area_sqft": 3200,
+    "max_height_stories": 3,
+    "min_rear_setback_ft": 20,
+    "min_side_setback_ft": 5,
+    "max_lot_coverage_pct": null,
+    "min_front_setback_ft": 30,
+    "single_unit_detached": "P",
+    "contextual_front_setback": true,
+    "min_lot_area_per_unit_sqft": null
+   },
+   "source": "City of Pittsburgh Zoning Districts"
+  },
+  "context": {
+   "sources": "County municipal boundaries; City neighborhoods & street trees; City-owned properties; County tax liens",
+   "municipality": "PITTSBURGH",
+   "neighborhood": "Duquesne Heights",
+   "public_owner": "City of Pittsburgh",
+   "tax_delinquent": false,
+   "delinquency_band": null,
+   "street_trees_15m": 0
+  },
+  "hud_fmr": {
+   "br0": 1230,
+   "br1": 1320,
+   "br2": 1590,
+   "br3": 2030,
+   "br4": 2190,
+   "zip": "15211",
+   "year": 2026,
+   "level": "small area (ZIP)",
+   "source": "HUD Fair Market Rents"
+  },
+  "permits": {
+   "recent": [],
+   "count_5y": 0
+  },
+  "schools": {
+   "district": "City of Pittsburgh",
+   "pps_high": "Brashear",
+   "pps_middle": "SOUTH HILLS 6-8",
+   "district_match": true,
+   "pps_elementary": "Whittier K-5",
+   "district_assessment": "Pittsburgh",
+   "near_district_line_m": null
+  },
+  "transit": {
+   "source": "Pittsburgh Regional Transit GTFS (weekday 7-9am)",
+   "nearest_any_stop_m": 716,
+   "frequent_stops_800m": 0,
+   "nearest_frequent_stop_m": 1069
+  },
+  "centroid": {
+   "lat": 40.432628,
+   "lon": -80.025981
+  },
+  "overlays": [
+   {
+    "attrs": {
+     "source": "PA DEP MSI Mine Subsidence Risk (Possible/No Known Mining)",
+     "msi_class": "possible"
+    },
+    "label": "MSI risk: coal present, mining possible",
+    "layer": "coal_bearing",
+    "share": 0.167
+   },
+   {
+    "attrs": {
+     "source": "PA DEP MSI Mine Subsidence Risk (Confirmed)",
+     "msi_class": "confirmed"
+    },
+    "label": "MSI risk: mining confirmed",
+    "layer": "coal_bearing",
+    "share": 0.833
+   },
+   {
+    "attrs": {
+     "in_city": "Y",
+     "authority": "PWSA/ALCOSAN",
+     "sewershed": "S-40-00"
+    },
+    "label": "S-40-00",
+    "layer": "combined_sewer",
+    "share": 0.516
+   },
+   {
+    "attrs": {
+     "in_city": "Y",
+     "authority": "PWSA/ALCOSAN",
+     "sewershed": "S-41-00"
+    },
+    "label": "S-41-00",
+    "layer": "combined_sewer",
+    "share": 0.484
+   },
+   {
+    "attrs": {
+     "acres": 1054.607
+    },
+    "label": "landslide-prone",
+    "layer": "landslide_prone_pgh",
+    "share": 1
+   },
+   {
+    "attrs": {
+     "creep": "",
+     "rills": "",
+     "debris": "",
+     "red_beds": "Y",
+     "rockfall": "",
+     "prehistoric": "",
+     "man_made_fill": "",
+     "very_steep_slope": ""
+    },
+    "label": null,
+    "layer": "landslide_recorded",
+    "share": 0.987
+   },
+   {
+    "attrs": {
+     "undermined": "Yes"
+    },
+    "label": "undermined",
+    "layer": "undermined_pgh",
+    "share": 0.301
+   },
+   {
+    "attrs": {
+     "code": "RCO - Mount Washington Community Development Corporation",
+     "criteria": "RCO - Mount Washington Community Development Corporation"
+    },
+    "label": "RCO - Mount Washington Community Development Corporation",
+    "layer": "zoning_overlay_pgh",
+    "share": 1
+   }
+  ],
+  "slope_1m": {
+   "cells": 866,
+   "source": "USGS 3DEP 1 m lidar DEM (PA_WesternPA_2019)",
+   "max_pct": 65.4,
+   "p95_pct": 55,
+   "mean_pct": 39.9,
+   "steep_25": true,
+   "resolution_m": 1,
+   "share_over_15": 0.995,
+   "share_over_25": 0.983,
+   "share_over_40": 0.454
+  },
+  "condemned": false,
+  "utilities": {
+   "sewer": {
+    "served": null,
+    "source": "No public sewer service-area layer for Allegheny County (searched WPRDC, PASDA, PA DEP, county GIS); sewersheds are drainage basins, not service areas",
+    "status": "unknown"
+   },
+   "water": {
+    "pwsid": "5020038",
+    "served": true,
+    "source": "PA DEP Public Water Supplier Service Areas (eMapPA layer 302)",
+    "system": "PITTSBURGH W AND S AUTH",
+    "owner_type": "Authority",
+    "dist_to_service_area_m": 0
+   },
+   "caveat": "Service-area maps are approximate and show where a public system serves, not whether this lot has a connection. Confirm with the utility.",
+   "computed_at": "2026-09-26T21:31:49.632658+00:00"
+  },
+  "assessment": {
+   "use": "MUNICIPAL GOVERNMENT",
+   "as_of": "2026-09-01",
+   "class": "GOVERNMENT",
+   "source": "Allegheny County Property Assessments",
+   "address": "AUGUSTA ST",
+   "stories": null,
+   "fmv_land": 3300,
+   "municode": "119",
+   "abatement": false,
+   "condition": null,
+   "fmv_total": 3300,
+   "homestead": null,
+   "owner_type": "CORPORATION",
+   "year_built": null,
+   "fmv_building": 0,
+   "municipality": "19th Ward - PITTSBURGH",
+   "is_pittsburgh": true,
+   "lot_area_sqft": 10000,
+   "last_sale_date": "1912-09-21",
+   "last_sale_price": 0,
+   "living_area_sqft": null
+  },
+  "muni_rules": {
+   "confidence": "confirmed",
+   "source_url": "https://www.pgh2o.com/residential-commercial-customers/buying-or-selling-property/dye-testing https://www.pittsburghpa.gov/Business-Development/City-Planning/Zoning/Planning-Applications-and-Processes/Property-Certification https://localwebdesigncompany.com/pennsylvanialandtitles/wp-content/uploads/sites/224/2024/03/Allegheny-County-Dye-Test-Occupancy-Info-Rev.-2024.pdf",
+   "pos_details": "no resale occupancy inspection; City Property Certification (zoning/historic/violations paperwork) required at every sale or refinance closing",
+   "municipality": "Pittsburgh City",
+   "sewer_lateral_at_sale": "Y",
+   "sewer_lateral_details": "conditional: PWSA dye test before sale only in separate sanitary sewer areas (Evidence of Compliance application decides); valid 3 yrs; no CCTV",
+   "point_of_sale_inspection": "N",
+   "occupancy_permit_at_resale": "N"
+  },
+  "shares_wall": false,
+  "property_tax": {
+   "year": 2026,
+   "parts": [
+    {
+     "name": "Allegheny County",
+     "mills": 6.43,
+     "rate_type": "general",
+     "jurisdiction_type": "county"
+    },
+    {
+     "name": "City Of Pittsburgh",
+     "mills": 9.67,
+     "rate_type": "general",
+     "jurisdiction_type": "municipality"
+    },
+    {
+     "name": "PITTSBURGH",
+     "mills": 10.25,
+     "rate_type": "general",
+     "jurisdiction_type": "school_district"
+    }
+   ],
+   "source": "Allegheny County Treasurer 2026 millage listings",
+   "split_rate": false,
+   "general_mills": 26.35
+  },
+  "transfer_tax": {
+   "parts": [
+    {
+     "rate_pct": 1,
+     "confidence": "confirmed",
+     "jurisdiction": "Commonwealth of Pennsylvania",
+     "jurisdiction_type": "state"
+    },
+    {
+     "rate_pct": 3,
+     "confidence": "confirmed",
+     "jurisdiction": "Pittsburgh City",
+     "jurisdiction_type": "municipality"
+    },
+    {
+     "rate_pct": 1,
+     "confidence": "confirmed",
+     "jurisdiction": "Pittsburgh School District (in Pittsburgh City)",
+     "jurisdiction_type": "school_district"
+    }
+   ],
+   "source": "PA Dept. of Revenue; Allegheny County local realty transfer tax rates",
+   "total_pct": 5
+  },
+  "flood_evidence": {
+   "sources": "FEMA NFHL; OpenFEMA NFIP redacted policies & claims (aggregated by tract); Pittsburgh 311; PWSA/3RWW combined sewersheds",
+   "sfha_share": 0,
+   "x500_share": 0,
+   "floodway_share": 0,
+   "in_combined_sewer": true,
+   "tract_nfip_policies": 51,
+   "flooding_311_5y_tract": 112,
+   "tract_nfip_claims_10y": 0,
+   "tract_nfip_median_premium": 909
+  },
+  "street_frontage": "none",
+  "flood_1pct_share": 0,
+  "lot_area_sqft_gis": 9296,
+  "tract_designations": {
+   "dda": false,
+   "qct": false,
+   "oz_source_url": "https://www.cdfifund.gov/opportunity-zones",
+   "dda_source_url": "https://www.huduser.gov/portal/datasets/qct.html",
+   "qct_source_url": "https://www.huduser.gov/portal/datasets/qct.html",
+   "opportunity_zone": false
+  },
+  "env_sites_within_500ft": 0,
+  "building_footprint_sqft": null,
+  "landslides_within_300ft": 2,
+  "red_bed_landslides_300ft": 2,
+  "streams_or_wetlands_within_100ft": false
+ },
+ "quickfitInput": {
+  "crs": "EPSG:2272 shifted to centroid",
+  "edges": [
+   {
+    "i": 0,
+    "az": 291.3,
+    "len": 97.4,
+    "street_ft": 399.1
+   },
+   {
+    "i": 1,
+    "az": 204.7,
+    "len": 92.3,
+    "street_ft": null
+   },
+   {
+    "i": 2,
+    "az": 115.8,
+    "len": 96.2,
+    "street_ft": 406.4
+   },
+   {
+    "i": 3,
+    "az": 25.3,
+    "len": 99.9,
+    "street_ft": 391.3
+   }
+  ],
+  "masks": [
+   {
+    "mode": "flag",
+    "label": "Undermined overlay (\u00a7906.05)",
+    "polygon": [
+     [
+      [
+       54.75,
+       27.08
+      ],
+      [
+       57.01,
+       29.14
+      ],
+      [
+       -25.65,
+       61.44
+      ],
+      [
+       -35.11,
+       40.91
+      ],
+      [
+       -34.31,
+       40.09
+      ],
+      [
+       -32.41,
+       38.26
+      ],
+      [
+       -27.47,
+       34.05
+      ],
+      [
+       -23.8,
+       30.78
+      ],
+      [
+       -22.69,
+       29.55
+      ],
+      [
+       -21.53,
+       28.14
+      ],
+      [
+       -17.01,
+       21.79
+      ],
+      [
+       -10.78,
+       15.14
+      ],
+      [
+       -8.54,
+       13.56
+      ],
+      [
+       -6.07,
+       12.07
+      ],
+      [
+       4.68,
+       7.64
+      ],
+      [
+       15.21,
+       4.56
+      ],
+      [
+       17.53,
+       3.92
+      ],
+      [
+       19.58,
+       3.43
+      ],
+      [
+       24.84,
+       2.42
+      ],
+      [
+       29.91,
+       4.36
+      ],
+      [
+       31.83,
+       5.7
+      ],
+      [
+       33.99,
+       7.39
+      ],
+      [
+       43.72,
+       16.44
+      ],
+      [
+       54.75,
+       27.08
+      ]
+     ]
+    ]
+   },
+   {
+    "mode": "flag",
+    "label": "Landslide-prone overlay (\u00a7906.04)",
+    "polygon": [
+     [
+      [
+       22.34,
+       -64.32
+      ],
+      [
+       65.1,
+       25.98
+      ],
+      [
+       -25.65,
+       61.44
+      ],
+      [
+       -64.27,
+       -22.4
+      ],
+      [
+       22.34,
+       -64.32
+      ]
+     ]
+    ]
+   }
+  ],
+  "notes": [
+   null,
+   "Front edges are inferred from the nearest opened street centerline; confirm on a survey.",
+   "Only the FEMA floodway is cut from the buildable area; steep-slope areas are not cut yet."
+  ],
+  "units": "ft",
+  "parcel": [
+   [
+    65.1,
+    25.98
+   ],
+   [
+    -25.65,
+    61.44
+   ],
+   [
+    -64.27,
+    -22.4
+   ],
+   [
+    22.34,
+    -64.32
+   ]
+  ],
+  "pieces": 1,
+  "toLonLat": {
+   "lat0": 40.4326226076955,
+   "lon0": -80.0259812874279,
+   "lat_per_x": 7.06812028212767e-08,
+   "lat_per_y": 2.74408793860204e-06,
+   "lon_per_x": 3.59107854890794e-06,
+   "lon_per_y": -9.25743328110684e-08
+  },
+  "zbaCounts": [
+   {
+    "denied": 1,
+    "granted": 8,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.C.2"
+   },
+   {
+    "denied": 2,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.01.E.6"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.05.D.2(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "905.01.C"
+   },
+   {
+    "denied": 1,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.C"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.85"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "925.06.C.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.29"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.6(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.A"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.28"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.01.F"
+   },
+   {
+    "denied": 0,
+    "granted": 5,
+    "reliefType": "dimensional_variance",
+    "codeSection": "921.02.A.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.5"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.10"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.11.A.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.k(2)"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.E.2"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "special_exception",
+    "codeSection": "916.04.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.02.A.4"
+   },
+   {
+    "denied": 0,
+    "granted": 4,
+    "reliefType": "special_exception",
+    "codeSection": "916.09"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.09.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.O"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "918.02"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "appeal",
+    "codeSection": "923.02.D"
+   },
+   {
+    "denied": 1,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.E"
+   },
+   {
+    "denied": 1,
+    "granted": 11,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.02"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.01.D"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "905.02.C"
+   },
+   {
+    "denied": 0,
+    "granted": 7,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.K"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "appeal",
+    "codeSection": "911.03"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.13"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.41"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.04.A"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "925.06.G"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "905.05.E.4.a(1)(b)"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.E"
+   },
+   {
+    "denied": 2,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.O.3"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "905.04.E.4"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.N.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "other",
+    "codeSection": "921.02.A.4"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.K.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.3(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "914.07.D.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.63.a"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.8(d)(ii)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "review",
+    "codeSection": "921.02.A.4"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.83.c"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.k"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.13(c)(1)(iii)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "011.04.A.53"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.07.C.5"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.7(c)"
+   },
+   {
+    "denied": 0,
+    "granted": 5,
+    "reliefType": "conditional_use",
+    "codeSection": "910.01.D.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.03.M.7"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "921.02.A"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.07.G.2"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "appeal",
+    "codeSection": "922.08.C"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "appeal",
+    "codeSection": "923.02.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.7"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "922.08.C"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "conditional_use",
+    "codeSection": "993.01"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.06"
+   },
+   {
+    "denied": 0,
+    "granted": 4,
+    "reliefType": "dimensional_variance",
+    "codeSection": "921.02.A.4"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "915.02.A.1(e)"
+   },
+   {
+    "denied": 1,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "921.02.A"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.23"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "922.04.E.i"
+   },
+   {
+    "denied": 1,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.L"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.8"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "915.02.A.1.e"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.9"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.65.f"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.07.C.4"
+   },
+   {
+    "denied": 1,
+    "granted": 8,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.D.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.02.A"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "conditional_use",
+    "codeSection": "922.06.D.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.N.3"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "905.04.I.2.a"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "918.03.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "922.15"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "conditional_use",
+    "codeSection": "911.02.A.64"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.72"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.3(b)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.10.A"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "907.03.B"
+   },
+   {
+    "denied": 1,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.5"
+   },
+   {
+    "denied": 1,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.5(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.57(a)"
+   },
+   {
+    "denied": 2,
+    "granted": 7,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.L.3"
+   },
+   {
+    "denied": 2,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.7"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.03.L.3"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.B"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "conditional_use",
+    "codeSection": "910.01.D.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.02.C"
+   },
+   {
+    "denied": 0,
+    "granted": 6,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.B.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.04.B.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "other",
+    "codeSection": "919.03.M.8(d)(ii)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.46"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "appeal",
+    "codeSection": "917.07.D.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "909.01.Q.5.F.i"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "review",
+    "codeSection": "914.07.G.2"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.29"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.07.C"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "907.04"
+   },
+   {
+    "denied": 3,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.L(3)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "other",
+    "codeSection": "919.03.M.5"
+   },
+   {
+    "denied": 0,
+    "granted": 6,
+    "reliefType": "dimensional_variance",
+    "codeSection": "925.06.C"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.6.a"
+   },
+   {
+    "denied": 2,
+    "granted": 28,
+    "reliefType": "use_variance",
+    "codeSection": "911.02"
+   },
+   {
+    "denied": 1,
+    "granted": 6,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.22"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.16"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.07.G.2.a"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.05"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.99"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "915.02.D"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.02.A.8"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.06"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "911.02"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "appeal",
+    "codeSection": "925.06.G"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.05.B.5"
+   },
+   {
+    "denied": 0,
+    "granted": 27,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.64"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.07.B(17)"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.K(1)"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.04.C"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.03"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.28(H)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.02.C"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.02.B"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M.4"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "919.03.P"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.05.M.5(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "912.04.K(1)"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.94"
+   },
+   {
+    "denied": 3,
+    "granted": 28,
+    "reliefType": "special_exception",
+    "codeSection": "911.02"
+   },
+   {
+    "denied": 1,
+    "granted": 17,
+    "reliefType": "special_exception",
+    "codeSection": "921.02.A.4"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "905.01.C"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.75"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.07.C.3"
+   },
+   {
+    "denied": 0,
+    "granted": 5,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.04.B"
+   },
+   {
+    "denied": 1,
+    "granted": 5,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.C"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "919.03.P.2.b"
+   },
+   {
+    "denied": 0,
+    "granted": 3,
+    "reliefType": "conditional_use",
+    "codeSection": "911.04.A.23"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "909.02.D.6"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "conditional_use",
+    "codeSection": "922.06"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "914.06.A"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.69.A(a)"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "special_exception",
+    "codeSection": "919.02.C.3"
+   },
+   {
+    "denied": 4,
+    "granted": 4,
+    "reliefType": "dimensional_variance",
+    "codeSection": "903.03.D"
+   },
+   {
+    "denied": 1,
+    "granted": 0,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.65"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "918.03"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.M"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.03.N.1(a)"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04.H"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.57.a"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "914.07.G.2"
+   },
+   {
+    "denied": 0,
+    "granted": 5,
+    "reliefType": "dimensional_variance",
+    "codeSection": "926.12"
+   },
+   {
+    "denied": 1,
+    "granted": 7,
+    "reliefType": "dimensional_variance",
+    "codeSection": "912.04"
+   },
+   {
+    "denied": 0,
+    "granted": 8,
+    "reliefType": "dimensional_variance",
+    "codeSection": "916.09"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "921.02.A.2"
+   },
+   {
+    "denied": 0,
+    "granted": 2,
+    "reliefType": "review",
+    "codeSection": "911.02"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "921.02.A.1.a.1"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "919.05"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "special_exception",
+    "codeSection": "911.04.A.83"
+   },
+   {
+    "denied": 0,
+    "granted": 0,
+    "reliefType": "dimensional_variance",
+    "codeSection": "923.02.B"
+   },
+   {
+    "denied": 0,
+    "granted": 1,
+    "reliefType": "dimensional_variance",
+    "codeSection": "904.02.B.2"
+   }
+  ],
+  "frontEdges": [],
+  "streetSideEdges": []
+ },
+ "easeInputs": {
+  "parid": "0005B00021000000",
+  "market": {
+   "as_of": "2026-09-27",
+   "rules": "Valid arm's-length sales (price >= $1,000) plus completed building permits in the last 3 years within 1/2 mile, ranked against a fixed 1% sample of City parcels.",
+   "scope": "city",
+   "source": "Allegheny County Property Sale Transactions; City of Pittsburgh PLI permits",
+   "activity": 118,
+   "sample_n": 1420,
+   "percentile": 28.7,
+   "sales_3y_half_mile": 86,
+   "sample_computed_on": "2026-09-26",
+   "completed_permits_3y_half_mile": 32
+  },
+  "env_sites": {
+   "rules": "Site points on the lot, or within 50 ft of it. EPA ACRES records carry no status and count as active.",
+   "source": "PA DEP Land Recycling Program; EPA ACRES brownfields",
+   "on_parcel": 0,
+   "adjacent_50ft": 0,
+   "active_on_parcel": 0,
+   "active_on_or_adjacent": 0
+  }
+ },
+ "zba": {
+  "rules": "Counts one row per requested item; granted = outcome \"granted\" or \"partially granted\"; denied = outcome \"denied\"; withdrawn, expired and pending items are not counted.",
+  "source": "Pittsburgh Zoning Board of Adjustment and City Council zoning decisions (zoning_cases / zoning_requests)",
+  "district": "P",
+  "by_relief": {
+   "use_variance": {
+    "to": "2025-02-05",
+    "from": "2025-02-05",
+    "denied": 0,
+    "decided": 1,
+    "granted": 1
+   },
+   "conditional_use": {
+    "to": "2016-09-07",
+    "from": "2011-12-13",
+    "denied": 0,
+    "decided": 2,
+    "granted": 2
+   },
+   "special_exception": {
+    "to": "2026-05-28",
+    "from": "2025-10-20",
+    "denied": 1,
+    "decided": 7,
+    "granted": 6
+   },
+   "dimensional_variance": {
+    "to": null,
+    "from": null,
+    "denied": 0,
+    "decided": 3,
+    "granted": 3
+   }
+  }
+ }
+}

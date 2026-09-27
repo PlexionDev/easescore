@@ -10,3 +10,4 @@ export {
 export { piecewise, bandFor } from "./curves";
 export type * from "./types";
 export { selectScheme, type SelectedScheme, type SelectSchemeArgs, type ProgramOverrides, type UnitProgram, type SchemeLike } from "./selected";
+export { rankOptions, optionZoningPath, OPTION_NAME, LEAD_PENCILS, LEAD_SUBSIDY, type OptionRow, type PencilState, type ZoningPathKind } from "./options";

@@ -34,7 +34,7 @@ const CODE_TEXT: Record<string, string> = {
   A: "allowed with an administrator exception",
   S: "allowed only by special exception (Zoning Board hearing)",
   C: "allowed only as a conditional use (Planning Commission and City Council)",
-  N: "not permitted (a use variance would be needed)",
+  N: "not allowed (it would need a rezoning, or a use variance)",
 };
 
 const USE_TEXT: Record<string, string> = {
@@ -202,6 +202,8 @@ export function f1Zoning(
     sources.push("Pittsburgh Zoning Code Chapter 921 (nonconformities)", CITE.ncMaintenance);
   } else if (CODE_APPROVAL[code]) {
     approvals.push(CODE_APPROVAL[code]!);
+    // Not allowed: 0 permission points (config f1.permission.N) and a "not allowed" status the options list shows.
+    if (code === "N") inputs.status = "not_allowed";
   }
   inputs.permissionScore = permScore;
 
