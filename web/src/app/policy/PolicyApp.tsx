@@ -183,6 +183,11 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     label: "One more story", source: "EaseScore.AI zoning table (max stories and height per district)",
     date: "config v0.2", kind: "assumption" as const, method: LEVER_METHOD.height,
   }] : [])];
+  const rNewly: Receipt[] = [{
+    label: "Parcels newly buildable by right", source: rHomes[0]!.source, date: rHomes[0]!.date, kind: "data",
+    method: "Parcels a lever applies to that allow no new home by right under today's code and allow at least one after the change (same lot-fit test as the homes count). Low end: only parcels that need no lot split. High end: adds lots the fit test could not finish in time, in proportion to the lots tested.",
+    notes: "A parcel counts once however many homes it gains.",
+  }, ...rHomes.slice(1)];
   const rPencil: Receipt[] = meta ? [{
     label: "Homes that plausibly pencil at today's prices", source: "Allegheny County sales and assessments (new-construction sales); cost assumptions v0.1 (Pittsburgh builder published ranges)",
     date: dates, kind: "assumption",
@@ -328,7 +333,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
           <StatCard variant="band" label="More homes allowed by right" receipt={<ReceiptButton receipts={rHomes} />}
             value={h ? <RangeValue value={h} size="lg" signed /> : <span className="pol-dash">—</span>}
             sub={active.length ? "vs. today’s code" : "no rule change"} />
-          <StatCard variant="band" label="Parcels newly buildable by right" receipt={<ReceiptButton receipts={rHomes} />}
+          <StatCard variant="band" label="Parcels newly buildable by right" receipt={<ReceiptButton receipts={rNewly} />}
             value={nb ? <RangeValue value={nb} size="lg" /> : <span className="pol-dash">—</span>}
             sub={summary ? `of ${summary.eligible.toLocaleString()} parcels a lever applies to` : " "} />
           <StatCard variant="band" label="Likely to pencil at today’s prices" receipt={rPencil.length ? <ReceiptButton receipts={rPencil} /> : undefined}
