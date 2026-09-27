@@ -125,7 +125,9 @@ export function compsGrid(
         else why.push(`a size close to the typical sale (${Math.round(typical).toLocaleString("en-US")} sq ft)`);
       }
       second = ` Projected pricing of ${usd(round5k(p25 * sf))}–${usd(round5k(p75 * sf))} per home (${usd(p25)}–${usd(p75)}/SF, the middle half of all ${inSet} sales; the study uses the median, ${usd(med)}/SF, × ${sf.toLocaleString("en-US")} sq ft) reflects ${why.join(" and ")}. Parking is not in the County sale records, so it is not adjusted.`;
-    } else if (!ok) second = ` Fewer than ${minComps} new-construction sales qualify, so no sale value is estimated from them.`;
+    } else if (!ok) second = med != null && !opts.userValue
+      ? ` Fewer than ${minComps} new-construction sales qualify, so the value from them (median ${usd(med)}/SF) is indicative only (low confidence).`
+      : ` Fewer than ${minComps} new-construction sales qualify, so no sale value is estimated from them.`;
     reconciliation = first + second;
   }
 

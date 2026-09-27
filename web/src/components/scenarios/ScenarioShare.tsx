@@ -83,12 +83,14 @@ export function ScenarioShare({ enabled, parid, strategy, scheme, tier, summary,
   return (
     <div className={`mt-2 rounded-lg border px-3 py-2 text-[11px] ${enabled && pref == null ? "border-sky-200 bg-sky-50 text-sky-950" : "border-slate-200 bg-slate-50/70 text-slate-600"}`}>
       {enabled
-        ? <p>{NOTICE}</p>
+        ? <p>{NOTICE} Sharing is off unless you untick &ldquo;Don&apos;t use my numbers&rdquo;; only the property and numbers are kept.</p>
         : <p>Your numbers stay in your browser: this site does not collect scenarios.</p>}
-      <label className="mt-1 flex items-center gap-1.5 font-medium text-slate-800">
-        <input type="checkbox" checked={dont} onChange={(e) => set(e.target.checked ? "dont" : enabled ? "share" : null)} />
-        Don&apos;t use my numbers
-      </label>
+      {enabled && (
+        <label className="mt-1 flex items-center gap-1.5 font-medium text-slate-800">
+          <input type="checkbox" checked={dont} onChange={(e) => set(e.target.checked ? "dont" : "share")} />
+          Don&apos;t use my numbers
+        </label>
+      )}
     </div>
   );
 }

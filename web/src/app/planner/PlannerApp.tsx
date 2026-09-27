@@ -211,7 +211,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
         right={<PlannerSummary s={muniScored ? result : null} f={filters} set={set} loading={loading} />}
         bottom={pins.length ? <CompareTray rows={pins} onRemove={(id) => setPins((ps) => ps.filter((p) => p.parid !== id))} onClear={() => setPins([])} onFocus={(r) => setOpen(r)} badgeFor={badgeFor} /> : null}
         footer={<DataDateFooter sources={dataDates}
-          note={`${rescoring}Scores precomputed for ${(options?.total ?? 0).toLocaleString("en-US")} parcels (${["City of Pittsburgh", ...(options?.municipalities ?? []).filter((m) => m !== CITY).map(titleCase)].join(", ")}) with score config v${(options?.config_versions ?? []).join(", v")}${options?.computed_at ? ` (latest ${options.computed_at.slice(0, 10)})` : ""}; policy what-ifs off. Score and band describe the best option that adds homes. Outside the City, zoning rules are not loaded, so scores are ranges.`} />}
+          note={`${rescoring}Scores precomputed for ${(options?.total ?? 0).toLocaleString("en-US")} parcels (${["City of Pittsburgh", ...(options?.municipalities ?? []).filter((m) => m !== CITY).map(titleCase)].join(", ")}) with score config v${(options?.config_versions ?? []).join(", v")}${options?.computed_at ? ` (latest ${options.computed_at.slice(0, 10)})` : ""}; policy what-ifs off. Score and band describe the best option that adds homes. Outside the City, zoning rules are not loaded, so parcels there are shown as Partial.`} />}
       >
         <div className="pl-top">
           <p className="es-sr" role="status">{result ? `${total.toLocaleString("en-US")} parcel${total === 1 ? "" : "s"} match these filters, sorted by ${SORT_TEXT[sort]}.` : ""}</p>
@@ -232,8 +232,8 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
           {!muniScored ? (
             <div style={{ padding: 16 }}>
               <EmptyState dataset={`Scores for ${titleCase(filters.muni)}`}>
-                Only City of Pittsburgh parcels are scored so far. Outside the City, zoning rules are not loaded, so scores there will show as ranges with a
-                &ldquo;zoning not loaded&rdquo; note. Pick the City of Pittsburgh to rank sites now.
+                Only City of Pittsburgh parcels are scored so far. Outside the City, zoning rules are not loaded, so parcels there are
+                shown as Partial (no Ease Score). Pick the City of Pittsburgh to rank sites now.
               </EmptyState>
             </div>
           ) : (

@@ -31,6 +31,20 @@ export function months(n: number): string {
   return `about ${r} month${r === 1 ? "" : "s"}`;
 }
 
+/**
+ * Months to a building permit as a range, the one rule used everywhere (pane, Planner, report, narrative):
+ * the estimate ×0.75 to ×1.25, rounded to whole months, at least 1 month wide, always containing the
+ * estimate. [0, 1] reads "under 1 month".
+ */
+export function permitRange(m: number): [number, number] {
+  const lo = Math.max(0, Math.floor(m * 0.75));
+  return [lo, Math.max(lo + 1, Math.ceil(m * 1.25))];
+}
+export function permitRangeText(m: number): string {
+  const [lo, hi] = permitRange(m);
+  return lo === 0 ? `under ${hi} month${hi === 1 ? "" : "s"}` : `${lo}-${hi} months`;
+}
+
 /** "about 4 weeks". */
 export function weeks(n: number): string {
   const r = Math.round(n);

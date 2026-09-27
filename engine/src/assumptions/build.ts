@@ -254,6 +254,8 @@ export interface DevelopmentPlan {
   valueComps: CompSet | SalesCompsLike | null;
   /** New builds: older-home $/SF shown only as a floor. */
   floor: { pricePerSf: number; text: string } | null;
+  /** New builds with 1–4 new-construction sales: the value is indicative only (low confidence). */
+  indicative: { count: number; text: string } | null;
   /** "Your price $350,000 vs. recent new-build median $629,950 (...)". */
   priceCheck: string | null;
   /** Hard base comes from the user's per-home number. */
@@ -422,7 +424,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     else if (has(o.costPerSf)) row("costPerSf", "Your rehab budget per finished sq ft", `${usd(costPerSf)}/SF`, { sourceLabel: "Your number" }, null, true);
   } else {
     row("tier", "Build quality", `${tier.label} — ${tier.meaning}`, { sourceLabel: tier.costPerSf.sourceLabel }, null, o.tier !== undefined && o.tier !== cfg.construction.defaultTier);
-    row("costPerSf", "Construction cost per finished sq ft (includes builder overhead and profit)", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
+    row("costPerSf", "Construction cost per finished sq ft", `${usd(costPerSf)}/SF`, tier.costPerSf, rangeText(tier.costPerSf.range, "usdSf"), has(o.costPerSf));
   }
   const garageShare = cfg.construction.garageLevelShareOfTier;
   const perUnitCost = has(o.costPerUnit) && units != null ? { value: o.costPerUnit, includesSite: o.costIncludesSite === true } : null;
@@ -731,8 +733,13 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   else row("holdingTax", "Property taxes while holding, monthly", usd(monthlyTax), isCity ? { sourceLabel: `County assessment × ${cfg.propertyTax.cityMills.value} mills`, sourceNote: cfg.propertyTax.cityMills.sourceLabel } : { sourceLabel: "County assessment × total millage (County Treasurer)" }, null, false);
 
   // Construction loan: an assumed rate, interest-only on the drawn balance (cost model v0.2: 7.75%).
-  const rate = has(o.constructionRate) ? o.constructionRate : fin.constructionRate.value;
-  row("constructionRate", fin.constructionRate.label, pctText(rate), has(o.constructionRate) ? { sourceLabel: "Your input" } : { sourceLabel: fin.constructionRate.sourceLabel, sourceNote: `${fin.constructionRate.sourceNote}${has(a.primeRate) ? ` Latest prime in our data: ${pctText(a.primeRate)}${a.primeRateDate ? ` on ${a.primeRateDate}` : ""}.` : ""}` }, rangeText(fin.constructionRate.range, "share"), has(o.constructionRate));
+  // Loan rate default = the latest prime rate in our data + 1.0 point (owner decision 9/27); the cost model's fixed rate only when prime is missing.
+  const primeRate = has(a.primeRate) ? a.primeRate : null;
+  const rateDefault = primeRate != null ? Math.round((primeRate + 0.01) * 10000) / 10000 : fin.constructionRate.value;
+  const rate = has(o.constructionRate) ? o.constructionRate : rateDefault;
+  row("constructionRate", fin.constructionRate.label, pctText(rate), has(o.constructionRate) ? { sourceLabel: "Your input" } : primeRate != null
+    ? { sourceLabel: `Prime ${pctText(primeRate)}${a.primeRateDate ? ` (${a.primeRateDate})` : ""} + 1.0 point (assumption, edit me)`, sourceNote: `Latest bank prime rate in our data (Federal Reserve, FRED DPRIME)${a.primeRateDate ? ` on ${a.primeRateDate}` : ""}, plus 1.0 point for a construction loan (lenders typically charge prime + 0.5–2.0).` }
+    : { sourceLabel: `Assumption, edit me: ${pctText(fin.constructionRate.value)} (prime + about 1 point)`, sourceNote: `Prime rate not loaded; the cost model's default of ${pctText(fin.constructionRate.value)} is used (lenders typically charge prime + 0.5–2.0 points).` }, rangeText(fin.constructionRate.range, "share"), has(o.constructionRate));
   const ltc = has(o.ltc) ? o.ltc : fin.loanToCost.value;
   row("ltc", fin.loanToCost.label, pctText(ltc), fin.loanToCost, null, has(o.ltc));
   row("draw", fin.averageDrawShare.label, pctText(fin.averageDrawShare.value), fin.averageDrawShare, null, false);
@@ -777,6 +784,11 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     !rehab && old && old.status === "ok" && old.sufficient !== false && old.comparable_use === "single family" && has(old.median_price_per_sqft)
       ? { pricePerSf: old.median_price_per_sqft, text: `Older homes nearby sold for a median ${usd(old.median_price_per_sqft)} per sq ft (${old.count} sales within ${old.radius_mi} mi). That is a floor, not the value of a new home.` }
       : null;
+  // 1–4 new-construction sales: an indicative value from them (low confidence); the older-home floor stays as a second reference.
+  const nThin = !rehab && c && !compsOk && (c.count ?? 0) > 0 && has(c.median_price_per_sqft) ? c.count ?? 0 : 0;
+  const indicative = nThin
+    ? { count: nThin, text: `Indicative: ${nThin} sale${nThin === 1 ? "" : "s"}, low confidence` }
+    : null;
   const compSource = rehab ? ("sourceLabel" in (c ?? {}) ? (c as CompSet).sourceLabel : "Allegheny County sales (existing homes)") : cfg.comps.newConstruction.sourceLabel;
   const compText = compsOk
     ? `${rehab ? "After-repair value based on your rehab budget: m" : "M"}edian of ${c!.count} ${rehab ? "Good-or-better " : "new-construction "}sales within ${c!.radius_mi} mi${c!.date_range?.from ? ` (${c!.date_range.from} to ${c!.date_range.to})` : ""}`
@@ -788,9 +800,11 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
         ? `No value: ${c.note.replace(/\s*No (new-home value|value|estimate) is (estimated|made)\.?$/, "")}`
         : "No value: there are not enough comparable sales nearby to price a finished home.";
   const perUnitPrice = has(o.salePricePerUnit) && units != null ? o.salePricePerUnit : null;
-  const pricePerSf = perUnitPrice != null ? (finishedSf ? (perUnitPrice * units!) / finishedSf : null) : has(o.salePricePerSf) ? o.salePricePerSf : compsOk ? c!.median_price_per_sqft! : null;
-  const saleBasis = perUnitPrice != null ? `Your sale price per home` : has(o.salePricePerSf) ? "Your sale price per sq ft" : compText;
-  const saleSource = perUnitPrice != null || has(o.salePricePerSf) ? "Your input" : compsOk ? compSource : "Insufficient comps";
+  const pricePerSf = perUnitPrice != null ? (finishedSf ? (perUnitPrice * units!) / finishedSf : null) : has(o.salePricePerSf) ? o.salePricePerSf : compsOk || indicative ? c!.median_price_per_sqft! : null;
+  const userPrice = perUnitPrice != null || has(o.salePricePerSf);
+  const saleBasis = perUnitPrice != null ? `Your sale price per home` : has(o.salePricePerSf) ? "Your sale price per sq ft"
+    : indicative ? `${indicative.text}: median of ${c!.count} new-construction sale${c!.count === 1 ? "" : "s"} within ${c!.radius_mi} mi (${cfg.comps.newConstruction.minComps} needed for a reliable value). Enter a sale price if you know better.` : compText;
+  const saleSource = userPrice ? "Your input" : compsOk ? compSource : indicative ? `${indicative.text} (${compSource})` : "Insufficient comps";
   if (pricePerSf == null && perUnitPrice == null && tenure === "sale") {
     const why = saleBasis.replace(/^No value: /, "").replace(/\.?$/, ".");
     missing.push(`No sale value yet. ${why.charAt(0).toUpperCase()}${why.slice(1)}${floor ? ` ${floor.text}` : ""} Enter a sale price to test it.`);
@@ -930,6 +944,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
     sizeWarning,
     valueComps: c,
     floor,
+    indicative: userPrice || tenure !== "sale" ? null : indicative,
     priceCheck,
     perUnitCost,
     tier: { id: tier.id, label: tier.label },

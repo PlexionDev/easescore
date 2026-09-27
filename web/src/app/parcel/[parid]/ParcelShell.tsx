@@ -59,6 +59,8 @@ export interface GenProps {
   serverMetrics: GenMetrics | null;
   code: Partial<Record<EdgeKind, number | null>>;
   notApplicable: Partial<Record<Typology, string>>;
+  /** "Nearby new homes sold: median X sq ft (N sales)", from the pro forma's new-construction comps; information only. */
+  nearbySize?: string | null;
 }
 
 // Pinned schemes live in sessionStorage (this tab only); an in-memory copy covers private mode.
@@ -388,7 +390,7 @@ export default function ParcelShell({ parid, header, pane, planExtras, drawers, 
         <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
           <BuildPanel controls={shownControls} onChange={change} onReset={() => { touched.current = true; setControls(gen.defaults[shownControls.typology]); }}
             isDefault={sameControls(shownControls, gen.defaults[shownControls.typology])} code={gen.code} scheme={scheme} all={run.all} ms={run.ms} unavailable={canSolve ? null : noSolveNote}
-            open={buildOpen} onToggle={() => setBuildOpen(!buildOpen)} notApplicable={gen.notApplicable}
+            open={buildOpen} onToggle={() => setBuildOpen(!buildOpen)} notApplicable={gen.notApplicable} nearbySize={gen.nearbySize ?? null}
             edges={((scheme as unknown as { debug?: { edges?: { i: number; kind: string; lengthFt: number }[] } } | null)?.debug?.edges ?? []).map((e) => ({ i: e.i, kind: e.kind, lengthFt: e.lengthFt }))} />
         </div>
       )}

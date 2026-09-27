@@ -22,7 +22,7 @@ const FACTORS: { id: FactorId; label: string; rule: string }[] = [
   { id: "F4", label: "Access and infrastructure", rule: "Street frontage (opened street, paper street, city steps, or none) times water and sewer service (inside, unknown, or outside), plus a small bonus near frequent transit." },
   { id: "F5", label: "Approval burden and time", rule: "Starts at 100 and loses points for each approval beyond a building permit, a required geotechnical report, a historic district, and a demolition. Also yields months to a permit." },
   { id: "F6", label: "Lot and acquisition readiness", rule: "Vacant or teardown-ready lots score highest; for a rehab, the county's condition rating sets the score. Tax delinquency and public ownership adjust it." },
-  { id: "F7", label: "Market activity", rule: "Percentile rank of nearby valid sales and completed permits." },
+  { id: "F7", label: "Recent sales and permit activity", rule: "Percentile rank of nearby valid sales and completed permits (a volume measure, separate from the new-home price signal beside the score)." },
 ];
 
 const PERMISSION: [string, string][] = [
@@ -275,7 +275,8 @@ export default function MethodsPage() {
                 overlay or on a steep site; {pct(costs.contingency.rehab.value)} for a rehab.
               </li>
               <li>
-                <strong>Financing:</strong> construction loan at {pct(costs.financing.constructionRate.value)}, interest-only,{" "}
+                <strong>Financing:</strong> construction loan at the latest bank prime rate in our data (Federal Reserve, FRED) plus 1.0 point
+                ({pct(costs.financing.constructionRate.value)} only if prime is not loaded), interest-only,{" "}
                 {pct(costs.financing.loanToCost.value)} of cost, with {pct(costs.financing.averageDrawShare.value)} of the loan drawn on average over{" "}
                 {costs.financing.constructionMonths.single.value} months for one home; lender fees {pct(costs.financing.loanFeeShare.value)} of the loan.
               </li>

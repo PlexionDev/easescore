@@ -770,7 +770,7 @@ export default function Photoreal3D({ parcelKey, data, early, insets, onFallback
                   <label key={L.id} className={`flex cursor-pointer items-center gap-2 ${present[L.id]!.any ? "" : "opacity-45"}`}>
                     <input type="checkbox" className="accent-slate-800" checked={!!on[L.id]} onChange={(e) => setOverride({ ...override, [L.id]: e.target.checked })} />
                     <span className="h-3 w-3 rounded-sm border border-slate-300" style={{ background: Object.values(L.kinds)[0] }} />
-                    <span>{L.label}{present[L.id]!.any ? "" : " · none here"}</span>
+                    <span>{L.label}{present[L.id]!.any ? "" : L.label.includes("(City)") ? " · none here; not mapped outside the City" : " · none here"}</span>
                   </label>
                 ))}
                 <p className="pt-1 text-xs text-slate-500">Slope ≥25% (lidar) is in the 2D view.</p>

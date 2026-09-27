@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { bandLabel, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
 import {
-  BADGE_NOTE, BADGE_PRIVATE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
+  BADGE_NOTE, BADGE_PRIVATE_NOTE, blockerText, monthsRangeText, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
   parseFilters, parseSort, partialBest, partialNote, plannerOptions, plannerQuery, SMALL_INFILL_CAP, titleCase, type PlannerRow,
 } from "@/lib/planner";
 import "./memo.css";
@@ -38,7 +38,7 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
         <div>
           <div className="kv"><span>By-right yield</span><b>{r.by_right_units ?? "not computed"}</b></div>
           <div className="kv"><span>Yield with approvals</span><b>{r.units_with_relief ?? "not computed"}</b></div>
-          <div className="kv"><span>Months to a building permit (estimate)</span><b>{r.months_to_permit != null ? `about ${r.months_to_permit}` : "—"}</b></div>
+          <div className="kv"><span>Months to a building permit (estimate)</span><b>{monthsRangeText(r.months_to_permit)}</b></div>
           <div className="kv"><span>Frequent transit</span><b>{r.transit_m != null ? `${n(Math.round((r.transit_m * FT_PER_M) / 10) * 10)} ft` : "—"}</b></div>
           {r.owner_class === "public" ? <div className="kv"><span>Tax-delinquent</span><b>{r.tax_delinquent == null ? "unknown" : r.tax_delinquent ? "yes" : "no"}</b></div> : null}
           <div className="kv"><span>Planning badge{r.owner_class === "public" ? ` (${BADGE_NOTE.toLowerCase()})` : ""}</span><b>{r.owner_class === "public" ? r.planning_badge ?? "none" : BADGE_PRIVATE_NOTE}</b></div>
@@ -49,7 +49,7 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
       <ul>
         {r.red_flags.map((f) => <li key={f.id}><b>Blocked unless resolved:</b> {f.title}.</li>)}
         {r.cap_label ? <li>{r.cap_label}.</li> : null}
-        {r.blockers.length ? <li>What costs the most points, in order: {r.blockers.join("; ")}.</li> : <li>No factor costs a full point.</li>}
+        {r.blockers.length ? <li>What costs the most points, in order: {r.blockers.map(blockerText).join("; ")}.</li> : <li>No factor costs a full point.</li>}
         <li>Mapped hazards: {hz.length ? hz.join("; ") : "none on record"}.</li>
         {r.note ? <li>{r.note}</li> : null}
       </ul>
@@ -123,7 +123,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
         <h3>What holds these sites back (share of matching parcels; a parcel can have several)</h3>
         <table>
           <thead><tr><th>Blocker</th><th className="n">Parcels</th><th className="n">Share</th></tr></thead>
-          <tbody>{top.map((b) => <tr key={b.blocker}><td>{b.blocker}</td><td className="n">{n(b.n)}</td><td className="n">{Math.round((100 * b.n) / Math.max(1, sum.total))}%</td></tr>)}</tbody>
+          <tbody>{top.map((b) => <tr key={b.blocker}><td>{blockerText(b.blocker)}</td><td className="n">{n(b.n)}</td><td className="n">{Math.round((100 * b.n) / Math.max(1, sum.total))}%</td></tr>)}</tbody>
         </table>
 
         <h2>Shortlist</h2>
@@ -134,8 +134,8 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
             {rows.map((r, i) => (
               <tr key={r.parid}>
                 <td>{i + 1}</td><td>{parcelLabel(r)}</td><td>{r.neighborhood ?? "—"}</td><td>{r.zoning ?? "not loaded"}</td>
-                <td className="n">{r.score ?? "—"} {r.band ? bandLabel(r.band) : ""}</td><td>{r.top_blocker ?? "none major"}</td>
-                <td className="n">{r.by_right_units ?? "—"}</td><td className="n">{r.units_with_relief ?? "—"}</td><td className="n">{r.months_to_permit ?? "—"}</td>
+                <td className="n">{r.score ?? "—"} {r.band ? bandLabel(r.band) : ""}</td><td>{r.top_blocker ? blockerText(r.top_blocker) : "none major"}</td>
+                <td className="n">{r.by_right_units ?? "—"}</td><td className="n">{r.units_with_relief ?? "—"}</td><td className="n">{monthsRangeText(r.months_to_permit)}</td>
               </tr>
             ))}
           </tbody>

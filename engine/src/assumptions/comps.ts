@@ -264,8 +264,8 @@ export function newConstructionComps(
   const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+; otherwise sales from areas in the same market tier or lower (never a richer market), else the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF.${tierText}${sizeText} Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median ${$(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
   const note = ok
     ? used > radii[0]! && scope !== "same_area" ? `Search widened to ${used} mi (${shownSteps.join("; ")}).` : null
-    : scope === "none" ? `Insufficient new-construction comps in this market tier or lower: ${chosen.length} sale(s) (${steps.join("; ")}); richer markets nearby are not used. No new-home value is estimated.`
-    : `Insufficient new-construction comps: only ${chosen.length} sale(s) of homes built within ${r.maxAgeAtSaleYears} years of the sale, within ${reach} mi in the last ${r.years} years (${steps.join("; ")}). No new-home value is estimated.`;
+    : scope === "none" ? `Insufficient new-construction comps in this market tier or lower: ${chosen.length} sale(s) (${steps.join("; ")}); richer markets nearby are not used. ${chosen.length ? "The value from them is indicative only (low confidence)." : "No new-home value is estimated."}`
+    : `Insufficient new-construction comps: only ${chosen.length} sale(s) of homes built within ${r.maxAgeAtSaleYears} years of the sale, within ${reach} mi in the last ${r.years} years (${steps.join("; ")}). ${chosen.length ? "Too few for a reliable value, so the value from them is indicative only (low confidence)." : "No new-home value is estimated."}`;
   const set = summarize(chosen, {
     kind: "new_construction",
     status: ok ? "ok" : "insufficient comps",
@@ -278,6 +278,12 @@ export function newConstructionComps(
     sourceLabel: r.sourceLabel,
   });
   return { ...set, selection: { scope, tier, size, areas, dropped, p25PerSqft: p25, p75PerSqft: p75, receipt } };
+}
+
+/** "Nearby new homes sold: median 1,650 sq ft (4 sales)" from a new-construction comp set; null without sizes. Information only. */
+export function nearbyNewHomeSizeText(c: { kind?: string; count?: number | null; median_living_area_sqft?: number | null } | null | undefined): string | null {
+  if (!c || c.kind !== "new_construction" || !c.count || c.median_living_area_sqft == null) return null;
+  return `Nearby new homes sold: median ${Math.round(c.median_living_area_sqft).toLocaleString("en-US")} sq ft (${c.count} sale${c.count === 1 ? "" : "s"})`;
 }
 
 /** Existing-home comps from the same-use search, kept when size and age are close to the building's. */

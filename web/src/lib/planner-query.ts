@@ -7,6 +7,7 @@
 // matchRow() is its TypeScript mirror, used by the unit tests and to check exports against the table.
 
 import { bandLabel, partialText, relabelBands } from "@easescore/engine/src/score/bands";
+import { permitRange, permitRangeText } from "@easescore/engine/src/narrative/format";
 
 export type Band = "Easy" | "Moderate" | "Hard" | "Very hard";
 export const BANDS: Band[] = ["Easy", "Moderate", "Hard", "Very hard"];
@@ -30,7 +31,7 @@ export const FACTORS: { id: string; label: string; weight: number }[] = [
   { id: "F4", label: "Access & utilities", weight: 15 },
   { id: "F5", label: "Approvals & time", weight: 15 },
   { id: "F6", label: "Lot readiness", weight: 5 },
-  { id: "F7", label: "Market activity", weight: 5 },
+  { id: "F7", label: "Recent sales and permit activity", weight: 5 },
 ];
 export const STRATEGY_TEXT: Record<string, string> = {
   new_sf: "New single-family",
@@ -352,6 +353,12 @@ export function filtersToDb(input: Filters): Record<string, unknown> {
  * (migration 091). The parcel's own blocker list still shows it.
  */
 export const SECONDARY_ONLY_BLOCKER = "Low market activity";
+/**
+ * Display text for a stored blocker. "Low market activity" (score factor F7: volume of recent sales and
+ * permits) reads "Low recent sales and permit activity (5% of the score)" so it is not confused with the pane's new-home price
+ * signal. Stored values (and filters) are unchanged.
+ */
+export const blockerText = (b: string): string => (b === SECONDARY_ONLY_BLOCKER ? "Low recent sales and permit activity (5% of the score)" : b);
 /** The blockers the planner's bars and filters count for a row (mirror of migration 091). */
 export const effectiveBlockers = (r: Pick<PlannerRow, "blockers" | "top_blocker">): string[] =>
   r.blockers.filter((b) => b !== SECONDARY_ONLY_BLOCKER || r.top_blocker === b);
@@ -471,16 +478,14 @@ export function approvalNeeded(r: Pick<PlannerRow, "by_right_units" | "blockers"
  */
 export function monthsRange(m: number | null): [number, number] | null {
   if (m == null) return null;
-  const lo = Math.max(1, Math.floor(m * 0.75));
-  const hi = Math.max(lo + 1, Math.ceil(m * 1.25));
-  return [lo, hi];
+  // One rule everywhere (engine narrative/format.ts): the range always contains the estimate.
+  return permitRange(m);
 }
 /** What "months to permit" counts (the Ease Score estimate), shown wherever the number appears. */
 export const PERMIT_SCOPE_NOTE = "Building-permit review only (plus any zoning hearing the option needs); zoning review, site-plan, geotechnical review, PWSA and DOMI steps are not included.";
 export const MONTHS_RANGE_NOTE = `Shown as a range (the estimate x0.75 to x1.25, rounded to whole months) to reflect the uncertainty in a single-point prediction. ${PERMIT_SCOPE_NOTE}`;
 export const monthsRangeText = (m: number | null): string => {
-  const r = monthsRange(m);
-  return r ? `${r[0]}-${r[1]} months` : "—";
+  return m == null ? "—" : permitRangeText(m);
 };
 
 // ------------------------------------------------------------------------------ text helpers

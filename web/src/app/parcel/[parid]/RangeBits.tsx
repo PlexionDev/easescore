@@ -9,6 +9,13 @@ type MoneyRange = assumptions.MoneyRange;
 export function RangeValue({ r, strong = false }: { r: MoneyRange | null; strong?: boolean }) {
   if (!r) return <span className="text-slate-400">—</span>;
   const s = assumptions.shortMoney;
+  // A low end that rounds to $0 reads "under $3K", never a fake "$0".
+  if (r.low === 0 && r.high > 0) return (
+    <span className="tabular-nums">
+      <span className={strong ? "font-semibold text-slate-900" : "text-slate-900"}>under {s(r.high)}</span>
+      <span className="block text-[10px] text-slate-500">likely {s(r.likely)}</span>
+    </span>
+  );
   if (r.low === r.high) return <span className={`tabular-nums ${strong ? "font-semibold text-slate-900" : "text-slate-900"}`}>{s(r.likely)}</span>;
   return (
     <span className="tabular-nums">

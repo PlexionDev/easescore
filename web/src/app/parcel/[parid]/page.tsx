@@ -189,9 +189,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string }[]) => x[0]?.reason ?? null).catch(() => null);
   // Privacy: the planning-priority badge is shown only for publicly owned land (owner_class = 'public');
   // an error or timeout is treated the same as "not public" so a badge never shows without knowing.
-  const ownerClassP = fetch(`${SB_URL}/rest/v1/parcel_scores?select=owner_class&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
+  const ownerClassP = fetch(`${SB_URL}/rest/v1/parcel_scores?select=owner_class,owner_agency&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
     headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
-  }).then((r) => (r.ok ? r.json() : [])).then((x: { owner_class: string | null }[]) => x[0]?.owner_class ?? null).catch(() => null);
+  }).then((r) => (r.ok ? r.json() : [])).then((x: { owner_class: string | null; owner_agency: string | null }[]) => x[0] ?? null).catch(() => null);
   // One retry for the map (a busy database can time a call out).
   const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid).then((m) => m ?? parcelMap(parid))), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
   stage.catch(() => undefined);
@@ -328,6 +328,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   for (const o of plans?.options ?? []) {
     const y = o.pf?.rent.yieldOnCost;
     if (o.pf && !o.pf.plan.missing.length && o.pf.verdict == null && o.pf.plan.tenure === "rent" && y != null) pencilDetail[o.strategy] = `Rental: ${Math.round(y * 100)}% yield`;
+    // 1–4 new-construction sales: the verdict is indicative (low confidence) and says so.
+    else if (o.pf && !o.pf.plan.missing.length && o.pf.indicative && o.pf.verdict) pencilDetail[o.strategy] = `${score.PENCIL_LABEL[o.pf.verdict]} (indicative)`;
     // A required cost that is not priced (demolition of the existing building): no verdict, and it says why.
     else if (o.pf?.plan.missing.some((t) => /^Demolition of the existing building is not priced/.test(t))) pencilDetail[o.strategy] = "Can't tell yet: demolition not priced";
   }
@@ -371,7 +373,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const tiles: [string, string, string | null][] = [
     ["Lot size", lotSf ? `${Math.round(lotSf).toLocaleString("en-US")} sq ft` : NR, lotSf ? `${(lotSf / 43560).toFixed(2)} acre` : null],
     ["Average slope", slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? `${`${Math.round(Number(over25) * 100)}%`} over 25%` : null],
-    ["Hazards", hz == null ? "No data" : hz.length ? HAZARD_TILE[hz[0]!] ?? hz[0]! : "None mapped", hz && hz.length > 1 ? `+${hz.length - 1} more` : hz ? "in our data" : null],
+    ["Hazards", hz == null ? "No data" : hz.length ? HAZARD_TILE[hz[0]!] ?? hz[0]! : isCity ? "None mapped" : "Not mapped outside the City", hz && hz.length > 1 ? `+${hz.length - 1} more` : hz ? (isCity || hz.length ? "in our data" : null) : null],
     // Downtown / high-density district: the tile's place line becomes the modeling cap, "Models 1–4" homes (same height; full note in the drawer and report).
     ["Zoning", f.zoning?.code ?? "No data", f.zoning?.code ? (isCity ? (isHighDensityZone(f.zoning.code) ? "Models 1–4" : "Pittsburgh") : titleCase(f.context?.municipality ?? a?.municipality) || null) : titleCase(f.context?.municipality ?? a?.municipality) || null],
   ];
@@ -379,8 +381,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Zoning not loaded (outside the City, or no district): a partial screen, no numeric score.
   // No numeric score: zoning not loaded (outside the City, or no district), or the score treated a built-on lot as empty.
   const unscored = await unscoredP;
-  const ownerClass = await ownerClassP;
-  const badgePublic = ownerClass === "public";
+  const ownerRow = await ownerClassP;
+  const badgePublic = ownerRow?.owner_class === "public";
   const useBuilt = score.buildingUnscored(f);
   // A lot we can't verify (no outline, recorded vs mapped size more than 2× apart, over 2 acres): Partial, never "Pencils".
   const lotReason = score.lotUnverifiable(f);
@@ -401,7 +403,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const bestLine = !best
     ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partialReason === "no_outline" || partialReason === "lot_mismatch" || partialReason === "large_site" || partialReason === "not_housing" ? `Can't determine; ${partialLine!.replace(/^./, (m) => m.toLowerCase())}` : partial ? "Can't determine; the score did not see what is on this lot" : "No option is allowed and fits this lot") : null)
     : [`${best.name}${bestUnits ? ` · ${bestUnits} home${bestUnits === 1 ? "" : "s"}` : ""} (${best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, "")})`,
-        best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
+        best.leadLabel === score.LEAD_SUBSIDY ? `needs subsidy or lower costs${pencilDetail[best.strategy]?.endsWith("(indicative)") ? " (indicative)" : ""}` : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
   // Market strength beside the score: the new-construction comp set the pro forma prices from.
   const marketSet = (selected && P.newComps[selected.strategy]) ?? P.newComps.new_sf ?? Object.values(P.newComps).find(Boolean) ?? null;
   const market = assumptions.marketSignal(marketSet);
@@ -547,7 +549,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {selected && <Callouts selected={selected} max={20} />}
       {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
       {easeResult && selected
-        ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} badgePublic={badgePublic} />
+        ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} badgePublic={badgePublic} ownerAgency={ownerRow?.owner_agency ?? null} />
         : null}
       <section className="rounded border border-zinc-200 p-3">
         <h3 className="text-sm font-semibold">Sales comps</h3>
@@ -608,6 +610,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
           const zr = (f.zoning as { rules?: { min_front_setback_ft?: number | null; min_side_setback_ft?: number | null; min_rear_setback_ft?: number | null; exterior_side_setback_ft?: number | null } } | undefined)?.rules;
           return { front: zr?.min_front_setback_ft ?? null, side: zr?.min_side_setback_ft ?? null, rear: zr?.min_rear_setback_ft ?? null, streetSide: zr?.exterior_side_setback_ft ?? zr?.min_front_setback_ft ?? null };
         })(),
+        nearbySize: assumptions.nearbyNewHomeSizeText(marketSet as assumptions.CompSet | null),
         notApplicable: Object.fromEntries(QF2_TYPES.map((t) => [t.id, easeResult?.strategies.find((x) => x.strategy === t.strategy && !x.applicable)?.notApplicableReason ?? undefined]).filter(([, v]) => v)),
       }} />
   );

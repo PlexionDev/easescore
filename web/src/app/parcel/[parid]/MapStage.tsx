@@ -281,7 +281,7 @@ function Toggle({ label, checked, onChange, swatch, dim }: { label: string; chec
     <label className={`flex cursor-pointer items-center gap-2 ${dim ? "opacity-45" : ""}`}>
       <input type="checkbox" className="accent-slate-800" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {swatch && <span className="h-3 w-3 rounded-sm" style={{ background: swatch }} />}
-      <span>{label}{dim ? " · none here" : ""}</span>
+      <span>{label}{dim ? (label.includes("(City)") ? " · none here; not mapped outside the City" : " · none here") : ""}</span>
     </label>
   );
 }

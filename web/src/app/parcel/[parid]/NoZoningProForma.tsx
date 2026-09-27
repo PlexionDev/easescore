@@ -3,7 +3,7 @@
 // lib/parcel-plan.ts userBuildingPlan. The form re-requests the page with ub_* keys, so the Feasibility study
 // link and PDF carry the same building. A banner stays pinned over every number: zoning was not checked.
 
-import { score } from "@easescore/engine";
+import { assumptions, score } from "@easescore/engine";
 import type { UserBuildingPlan } from "@/lib/parcel-plan";
 import ProFormaPanel from "./ProFormaPanel";
 
@@ -28,6 +28,7 @@ export default function NoZoningProForma({ parid, sp, plan, municipality, overri
   const b = plan.building;
   const keep = Object.entries(sp).filter(([k, v]) => typeof v === "string" && !Object.values(K).includes(k as never)) as [string, string][];
   const label = score.USER_BUILDING_TYPES.find((t) => t.id === b.type)!.label;
+  const nearby = assumptions.nearbyNewHomeSizeText(plan.pf?.plan.valueComps as assumptions.CompSet | null | undefined);
   return (
     <div className="space-y-2">
       <ZoningNotCheckedBanner municipality={municipality} sticky />
@@ -54,7 +55,7 @@ export default function NoZoningProForma({ parid, sp, plan, municipality, overri
           </label>
           <div className="col-span-3 flex flex-wrap items-center gap-2">
             <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Price this building</button>
-            <p className="text-[11px] text-slate-600">Pricing: {score.userBuildingText(b)} ({label.toLowerCase()}). Finished sq ft; a duplex is 2 homes.</p>
+            <p className="text-[11px] text-slate-600">Pricing: {score.userBuildingText(b)} ({label.toLowerCase()}). Finished sq ft; a duplex is 2 homes.{nearby ? ` ${nearby}.` : ""}</p>
           </div>
         </form>
       </section>

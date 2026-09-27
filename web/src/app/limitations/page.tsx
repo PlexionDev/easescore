@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 const GAPS: { what: string; detail: string; vintage: string }[] = [
   {
     what: "Zoning covers the City of Pittsburgh only",
-    detail: "Allegheny County has about 130 municipalities with their own zoning and no county-wide zoning map. Outside the City, zoning is marked missing, the score shows a range, and the page asks you to confirm with the municipality.",
+    detail: "Allegheny County has about 130 municipalities with their own zoning and no county-wide zoning map. Outside the City, zoning is marked missing, the parcel is shown as Partial with no Ease Score, and the page asks you to confirm with the municipality.",
     vintage: "City zoning map, 2026",
   },
   {
@@ -51,7 +51,7 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
   },
   {
     what: "Costs are editable assumptions, not bids",
-    detail: "Construction uses published Pittsburgh builder ranges and labeled estimates. Demolition, geotechnical reports and dumpsters have no local cost yet and are shown as “Not included.” Rehab is not estimated automatically; enter your own budget. Slope adders use slope across the whole lot, not under the building.",
+    detail: "Construction uses published Pittsburgh builder ranges and labeled estimates. Demolition and dumpsters have no local cost yet and are shown as “Not included.” Geotechnical reports use a labeled default ($7,000 in the landslide-prone overlay or on a steep site; $4,000 over undermined ground only; edit it). Rehab is not estimated automatically; enter your own budget. Slope adders use the slope under the building footprint.",
     vintage: "Cost assumptions effective 2026-09-26",
   },
   {
@@ -224,7 +224,7 @@ export default function LimitationsPage() {
             </div>
             <h3>What it gets wrong</h3>
             <ul>
-              <li>Zoning rules are loaded for the City of Pittsburgh only. Elsewhere the score shows a range and asks you to check with the municipality.</li>
+              <li>Zoning rules are loaded for the City of Pittsburgh only. Elsewhere the parcel is shown as Partial with no Ease Score and asks you to check with the municipality.</li>
               <li>Rents from nearby listings are asking rents, not signed leases.</li>
               <li>Property taxes after you build are estimates. They come from how similar new homes were assessed, and the receipt shows the spread. The County sets the real figure.</li>
               <li>Costs are published ranges and labeled estimates, not bids. Items with no local cost show as &ldquo;Not included,&rdquo; not zero.</li>

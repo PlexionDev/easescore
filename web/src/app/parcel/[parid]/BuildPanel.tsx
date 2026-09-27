@@ -21,7 +21,7 @@ const TONE: Record<Scheme["status"], string> = {
 const SB: { k: EdgeKind; label: string }[] = [{ k: "front", label: "Front" }, { k: "side", label: "Side" }, { k: "rear", label: "Rear" }, { k: "streetSide", label: "Street side" }];
 const FIELD = "w-full rounded-md border border-slate-400 bg-white px-2 py-1 text-[13px] tabular-nums text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600";
 
-export default function BuildPanel({ controls, onChange, onReset, isDefault, code, scheme, all, ms, unavailable, open, onToggle, notApplicable, edges }: {
+export default function BuildPanel({ controls, onChange, onReset, isDefault, code, scheme, all, ms, unavailable, open, onToggle, notApplicable, edges, nearbySize }: {
   controls: AppControls;
   onChange: (c: AppControls) => void;
   onReset: () => void;
@@ -40,6 +40,8 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
   notApplicable: Partial<Record<Typology, string>>;
   /** Lot edges for the front-lot-line picker (index, kind, length). */
   edges: { i: number; kind: string; lengthFt: number }[];
+  /** "Nearby new homes sold: median X sq ft (N sales)"; information only (the default size is unchanged). */
+  nearbySize?: string | null;
 }) {
   const id = useId();
   const set = (p: Partial<AppControls>) => onChange({ ...controls, ...p });
@@ -87,19 +89,20 @@ export default function BuildPanel({ controls, onChange, onReset, isDefault, cod
           <div className="grid grid-cols-3 gap-2">
             <label className="flex flex-col gap-0.5 text-xs font-medium text-slate-800" htmlFor={`${id}-st`}>Stories
               <select id={`${id}-st`} className={FIELD} value={controls.stories ?? ""} onChange={(e) => set({ stories: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">Auto{s ? ` (${s.stories})` : ""}</option>
+                <option value="">Auto{s?.stories ? ` (${s.stories})` : ""}</option>
                 {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-0.5 text-xs font-medium text-slate-800" htmlFor={`${id}-w`}>{controls.typology === "townhouse_row" ? "Home width" : "Width"} (ft)
-              <input id={`${id}-w`} type="number" inputMode="numeric" min={12} max={80} className={FIELD} placeholder={s ? `auto ${controls.typology === "townhouse_row" ? Math.round(s.widthFt / Math.max(1, s.units.length)) : s.widthFt}` : "auto"}
+              <input id={`${id}-w`} type="number" inputMode="numeric" min={12} max={80} className={FIELD} placeholder={s && s.widthFt > 0 && s.units.length ? `auto ${controls.typology === "townhouse_row" ? Math.round(s.widthFt / s.units.length) : s.widthFt}` : "auto"}
                 value={controls.unitWidthFt ?? ""} onChange={(e) => set({ unitWidthFt: numOrNull(e.target.value, 12, 80) })} />
             </label>
             <label className="flex flex-col gap-0.5 text-xs font-medium text-slate-800" htmlFor={`${id}-d`}>Depth (ft)
-              <input id={`${id}-d`} type="number" inputMode="numeric" min={16} max={90} className={FIELD} placeholder={s ? `auto ${s.depthFt}` : "auto"}
+              <input id={`${id}-d`} type="number" inputMode="numeric" min={16} max={90} className={FIELD} placeholder={s && s.depthFt > 0 ? `auto ${s.depthFt}` : "auto"}
                 value={controls.depthFt ?? ""} onChange={(e) => set({ depthFt: numOrNull(e.target.value, 16, 90) })} />
             </label>
           </div>
+          {nearbySize && <p className="text-[11px] text-slate-600">{nearbySize}.</p>}
           <label className="flex flex-col gap-0.5 text-xs font-medium text-slate-800" htmlFor={`${id}-pk`}>Parking
             <select id={`${id}-pk`} className={FIELD} value={controls.parking} onChange={(e) => set({ parking: e.target.value as AppParking })}>
               {PARKING.map((p) => <option key={p.v} value={p.v}>{p.label}</option>)}

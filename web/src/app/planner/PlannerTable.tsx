@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BandPill, CheckboxField } from "@/components/seats";
-import { BADGE_NOTE, FT_PER_M, bandLabel, MONTHS_RANGE_NOTE, duplicateAddresses, monthsRangeText, ownerShort, parcelLabel, titleCase, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
+import { BADGE_NOTE, FT_PER_M, bandLabel, MONTHS_RANGE_NOTE, blockerText, duplicateAddresses, monthsRangeText, ownerShort, parcelLabel, titleCase, type Dir, type PlannerRow, type Sort } from "@/lib/planner";
 
 type ColId = "neighborhood" | "zoning" | "lot" | "owner" | "score" | "blocker" | "byright" | "relief" | "hazards" | "months" | "badge" | "transit" | "rehab" | "district";
 type Col = { id: ColId; label: string; title?: string; sort?: Sort; num?: boolean; cell: (r: PlannerRow) => ReactNode; always?: boolean };
@@ -26,7 +26,7 @@ const COLS: Col[] = [
       </span>
     ),
   },
-  { id: "blocker", label: "Top blocker", cell: (r) => r.top_blocker ?? <span className="pl-muted">None major</span> },
+  { id: "blocker", label: "Top blocker", cell: (r) => (r.top_blocker ? blockerText(r.top_blocker) : null) ?? <span className="pl-muted">None major</span> },
   { id: "byright", label: "By right", title: "Most homes a new building fits with the use allowed by right and no dimensional variance", sort: "by_right_units", num: true, cell: (r) => r.by_right_units ?? (r.note ? <span title={r.note}>n/a</span> : "—") },
   { id: "relief", label: "Yield with approvals", title: "Most homes on any path short of a use variance", sort: "units_with_relief", num: true, cell: (r) => r.units_with_relief ?? (r.note ? <span title={r.note}>n/a</span> : "—") },
   {
@@ -117,7 +117,7 @@ export default function PlannerTable({ rows, offset, sort, dir, onSort, hover, s
                 aria-label={`Pin ${parcelLabel(r)} to compare`} />
               <button type="button" className="pl-card-btn" onClick={() => onOpen(r)}>
                 <span className="pl-card-top"><span className="pl-rank">{offset + i + 1}</span> <b>{parcelLabel(r, dupAddr.has(titleCase(r.address)))}</b></span>
-                <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {r.top_blocker ?? "None major"}</span>
+                <span className="pl-card-mid"><span className="pl-score"><b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} /></span> {r.top_blocker ? blockerText(r.top_blocker) : "None major"}</span>
                 <span className="pl-card-sub">{[r.neighborhood, r.zoning, `${r.by_right_units ?? "—"} by right, ${r.units_with_relief ?? "—"} with approvals`].filter(Boolean).join(" · ")}</span>
               </button>
             </li>

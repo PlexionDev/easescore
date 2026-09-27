@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FACTORS, bandLabel, partialBest, parcelLabel, titleCase, type PlannerRow } from "@/lib/planner";
+import { FACTORS, bandLabel, blockerText, monthsRangeText, partialBest, parcelLabel, titleCase, type PlannerRow } from "@/lib/planner";
 import { bestWithHomes } from "@/lib/best-option";
 
 export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor }: {
@@ -42,10 +42,10 @@ export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor
               </div>
               <dl>
                 <dt>Score</dt><dd><strong>{r.score ?? "—"}</strong> {r.band ? bandLabel(r.band) : ""}</dd>
-                <dt>Top blockers</dt><dd style={{ whiteSpace: "normal", maxWidth: 140 }}>{r.blockers.slice(0, 2).join(", ") || "None major"}</dd>
+                <dt>Top blockers</dt><dd style={{ whiteSpace: "normal", maxWidth: 140 }}>{r.blockers.slice(0, 2).map(blockerText).join(", ") || "None major"}</dd>
                 <dt>Best new homes</dt><dd>{r.band === "Partial" ? partialBest(r) : bestWithHomes(r) ?? "—"}</dd>
                 <dt>Most homes by right, any type / with relief</dt><dd>{r.by_right_units ?? "—"} / {r.units_with_relief ?? "—"}</dd>
-                <dt>Months to permit</dt><dd>{r.months_to_permit != null ? `~${r.months_to_permit}` : "—"}</dd>
+                <dt>Months to permit</dt><dd>{monthsRangeText(r.months_to_permit)}</dd>
                 <dt>Hazards</dt><dd>{hz || "none mapped"}</dd>
                 <dt>Rehab existing</dt><dd>{r.rehab_score != null ? `${r.rehab_score} ${bandLabel(r.rehab_band, "")}` : r.band === "Partial" && !r.vacant ? "not scored" : "no building"}</dd>
                 <dt>Planning badge</dt><dd>{badgeFor(r) ?? "None"}</dd>
@@ -61,7 +61,7 @@ export default function CompareTray({ rows, onRemove, onClear, onFocus, badgeFor
                   );
                 })}
               </div>
-              <p style={{ marginTop: 8 }}><Link href={`/parcel/${encodeURIComponent(r.parid.trim())}`}>Open in Developer view →</Link></p>
+              <p style={{ marginTop: 8 }}><Link href={`/developer?parcel=${encodeURIComponent(r.parid.trim())}`}>Open in Developer view →</Link></p>
             </article>
           );
         })}

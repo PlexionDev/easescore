@@ -8,7 +8,7 @@ import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
 import { relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import { bandLabel, partialNote,
-  BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, approvalNeeded, bestOptionHeadline, monthsRangeText, ownerLabel, parcelLabel, titleCase,
+  BAND_COLOR, FACTORS, FT_PER_M, NO_BAND_COLOR, approvalNeeded, bestOptionHeadline, blockerText, monthsRangeText, ownerLabel, parcelLabel, titleCase,
   type PlannerRow,
 } from "@/lib/planner";
 
@@ -54,7 +54,7 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
             {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
             <section>
               <h3 style={{ fontSize: 13, fontWeight: 650 }}>Site constraints</h3>
-              {r.blockers.length ? <ol style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>{r.blockers.map((b) => <li key={b}>{b}</li>)}</ol>
+              {r.blockers.length ? <ol style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>{r.blockers.map((b) => <li key={b}>{blockerText(b)}</li>)}</ol>
                 : <p className="pl-hint">Nothing costs a full point.</p>}
             </section>
             <div className="pl-facts">
@@ -80,7 +80,7 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
             <p className="pl-hint">Precomputed with score config v{r.config_version} on {r.computed_at.slice(0, 10)}. The Developer view recomputes it live with the full receipts, pro forma and checklist.</p>
           </div>
           <div className="pl-drawer-foot">
-            <Link className="es-btn es-btn-primary" href={`/parcel/${encodeURIComponent(r.parid.trim())}`}>Open in Developer view</Link>
+            <Link className="es-btn es-btn-primary" href={`/developer?parcel=${encodeURIComponent(r.parid.trim())}`}>Open in Developer view</Link>
             <SeatButton onClick={onPin}>{pinned ? "Unpin" : "Pin to compare"}</SeatButton>
           </div>
         </div>

@@ -109,7 +109,7 @@ describe("templates", () => {
 
   it("easy case", () => {
     const r = generateNarrative(EASY);
-    expect(stripTerms(r.canBuild.text)).toBe("Yes, a duplex is allowed by right and fits the lot's size and setback rules (about 4 months to a building permit, review time only).");
+    expect(stripTerms(r.canBuild.text)).toBe("Yes, a duplex is allowed by right and fits the lot's size and setback rules (2-5 months to a building permit, review time only).");
     expect(r.pencils.text).toBe(
       "Yes: it costs about $412,000 to build and would be worth about $455,000, a $43,000 {{term:margin|profit}} (11%).",
     );
@@ -135,7 +135,7 @@ describe("templates", () => {
     const r = generateNarrative(NO_PRO_FORMA);
     expect(r.pencils.text).toBe("We can't tell yet: the cost and value estimate for this plan isn't available.");
     expect(r.pencilsMath).toBeNull();
-    expect(stripTerms(r.canBuild.text)).toBe("Yes, a single-family home is allowed by right, but the front setback needs a variance (about 7 months to a building permit, review time only).");
+    expect(stripTerms(r.canBuild.text)).toBe("Yes, a single-family home is allowed by right, but the front setback needs a variance (5-9 months to a building permit, review time only).");
     expect(r.barriers.map((b) => stripTerms(b.text))).toEqual([
       "The lot is over old coal mines: plan on grouting, $30,000 to $50,000 (editable default).",
       "The lot is in a landslide-prone area: plan on a geotechnical report, $3,000 to $6,000.",

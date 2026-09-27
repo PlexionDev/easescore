@@ -13,6 +13,7 @@ import type { CompSet } from "./comps";
 /** Fixed set of source badges. The UI shows "Assumption, edit me" in amber. */
 export const SOURCE_BADGES = [
   "Pittsburgh builders (2026)",
+  "Pittsburgh builders (2026), retail price including builder fee",
   // Listed for completeness; not cited by any line until the Feb 2026 ICC table is verified from a public page.
   "ICC BVD Feb 2026, national, permit-fee average",
   "NAHB 2024, national, excludes builder fee",
@@ -278,7 +279,7 @@ export function proFormaRanges(
           const nr = config.construction.nationalReference;
           const points: TriangulationPoint[] = [
             { label: `${tier.label}, cost to build (builder fee removed)`, badge: "Pittsburgh builders (2026)", low: tier.costPerSf.range[0]!, high: tier.costPerSf.range[1]!, value: tier.costPerSf.value, note: "Published Pittsburgh builder ranges ÷ about 1.20 (builder overhead and profit removed)." },
-            { label: `Pittsburgh builders' published retail, ${tier.label}`, badge: "Pittsburgh builders (2026)", low: tier.retail.range[0]!, high: tier.retail.range[1]!, value: null, note: "Price to an owner, including the builder's fee: the cross-check." },
+            { label: `Pittsburgh builders' published retail, ${tier.label}`, badge: "Pittsburgh builders (2026), retail price including builder fee", low: tier.retail.range[0]!, high: tier.retail.range[1]!, value: null, note: "Price to an owner, including the builder's fee: the cross-check." },
             { label: "NAHB national average", badge: "NAHB 2024, national, excludes builder fee", low: nr.value, high: nr.value, value: nr.value, note: "National production builders, construction only; excludes builder overhead and profit." },
           ];
           if (perHomeSf) {

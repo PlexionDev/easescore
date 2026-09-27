@@ -5,6 +5,7 @@ import {
   SRC, USE_LABEL, ask, buildsNew, confidenceNote, hasStructure, isConstruction, isPittsburgh, notNeeded,
   overlayLabelled, overlays, pct, steepShare, usePermission,
 } from "./helpers";
+import { COST_CONFIG } from "./assumptions/config";
 import type { ParcelFacts, Phase, ProjectAnswers, Trigger } from "./types";
 
 export interface CatalogItem {
@@ -140,7 +141,7 @@ export const CATALOG: CatalogItem[] = [
       if (pgh && p.cut_fill_over_25 === true) t.push({ status: "REQUIRED", reason: "Your grading has cut or fill slopes over 25%: a geotechnical report must certify them, with walls or terraces at least every 10 ft (§915.02.A.1.c).", source: SRC.project });
       else if (pgh && steepShare > 0 && p.cut_fill_over_25 === undefined && (p.type === undefined || buildsNew(p))) t.push({ status: "ASK", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}). Will your grading create cut or fill slopes over 25%? If so, a geotechnical report is required (§915.02.A.1.c).`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
       const inOverlay = overlays(f, "landslide_prone_pgh").length > 0 || cityUM;
-      if (!inOverlay && steepShare > 0 && (p.type === undefined || buildsNew(p))) t.push({ status: "LIKELY", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}) outside the hazard overlays: not a code trigger by itself, but an engineer will likely want soil data.`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
+      if (!inOverlay && steepShare > 0 && (p.type === undefined || buildsNew(p))) t.push({ status: "POSSIBLE", reason: `${pct(steepShare)} of the lot is steeper than 25% (${res}) outside the hazard overlays: not a code trigger by itself, but an engineer may want soil data.`, source: s1 ? "USGS 3DEP 1 m lidar" : SRC.slope });
 
       // Recorded landslides and red beds (evidence, not code triggers)
       if ((f.landslides_within_300ft ?? 0) > 0) t.push({ status: "POSSIBLE", reason: `${f.landslides_within_300ft} mapped slope-movement area(s) within 300 ft (1982 inventory: old slides, creep, fill). Not a code trigger by itself, but officials may ask for a soils investigation (IRC R401.4; PLI guidance).`, source: "Allegheny County slope-movement inventory (Pomeroy, 1982)" });
@@ -266,7 +267,7 @@ export const CATALOG: CatalogItem[] = [
     citation: "Pittsburgh Code §178E.08(c)",
     rule: (f, p) => {
       const r = overlayLabelled(f, /RCO/i);
-      const who = r.length ? (r[0]!.label?.replace(/^.*?RCO[:\s-]*/i, "") ?? "the local RCO") : "the Registered Community Organization for this area";
+      const who = r.length ? (r[0]!.label?.replace(/^.*?RCO[:\s-]*/i, "") ?? "the local RCO") : "the Registered Community Organization (RCO) for this neighborhood (find it on the City's RCO map)";
       if (!isPittsburgh(f)) return [notNeeded("City of Pittsburgh process; not applicable here.")];
       const perm = usePermission(f, p);
       const hearing = perm && ["C", "S", "N"].includes(perm.code);
@@ -303,7 +304,7 @@ export const CATALOG: CatalogItem[] = [
     rule: (f) => {
       if (!isPittsburgh(f)) return [{ status: "POSSIBLE", reason: `Confirm with ${f.assessment?.municipality ?? "the municipality"}.` }];
       const rules = f.zoning?.rules;
-      if (rules?.contextual_front_setback) return [{ status: "POSSIBLE", reason: `${f.zoning!.code} lets the front setback follow neighboring buildings (§925.06). Useful when the ${rules.min_front_setback_ft ?? "?"} ft standard doesn't fit; comparing neighbors needs building footprints (loading).`, source: "Pittsburgh Zoning Code" }];
+      if (rules?.contextual_front_setback) return [{ status: "POSSIBLE", reason: `${f.zoning!.code} lets the front setback follow neighboring buildings (§925.06). Useful when the ${rules.min_front_setback_ft ?? "?"} ft standard doesn't fit; comparing neighbors needs building footprints; confirm with the Zoning Administrator.`, source: "Pittsburgh Zoning Code" }];
       if (!rules) return [{ status: "POSSIBLE", reason: "No zoning rule found for this parcel's district." }];
       return [notNeeded("District doesn't use contextual front setbacks.", "Pittsburgh Zoning Code")];
     },
@@ -377,7 +378,7 @@ export const CATALOG: CatalogItem[] = [
     rule: (f, p) => {
       const st = steepShare(f);
       if (buildsNew(p) && st && st.share >= 0.1) return [{ status: "LIKELY", reason: `Hillside construction (${pct(st.share)} of lot over 25%). A land operations permit is needed at 50 cu yd of grading or a 5 ft cut on a 25% slope (Pittsburgh §1003.03).`, source: st.label }];
-      if (buildsNew(p)) return [{ status: "POSSIBLE", reason: "Depends on cut/fill volume (threshold pending)." }];
+      if (buildsNew(p)) return [{ status: "POSSIBLE", reason: isPittsburgh(f) ? "Depends on cut/fill volume: a land operations permit is needed at 50 cu yd of grading or a 5 ft cut on a 25% slope (Pittsburgh §1003.03)." : `Depends on cut/fill volume; confirm the grading threshold with ${f.assessment?.municipality ?? "the municipality"}.` }];
       return p.type ? [notNeeded("No significant earthwork expected.")] : [needsType(p)!];
     },
   },
@@ -398,7 +399,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "stormwater", item: "Stormwater management plan", category: "Environmental", phase: "permits",
     issuer: "Water & sewer authority / municipality", trigger: "New impervious area / disturbance above threshold", data: ["Footprint", "Disturbed area"], citation: null,
-    rule: (_f, p) => (buildsNew(p) ? [{ status: "LIKELY", reason: "New roof and paving add impervious area (threshold pending).", source: SRC.project }] : p.type ? [notNeeded("No new impervious area expected.")] : [needsType(p)!]),
+    rule: (f, p) => (buildsNew(p) ? [{ status: "LIKELY", reason: isPittsburgh(f) ? "New roof and paving add impervious area. The City requires a stormwater plan when a project disturbs 5,000+ sq ft or adds 500+ sq ft of impervious surface." : `New roof and paving add impervious area; confirm the stormwater threshold with ${f.assessment?.municipality ?? "the municipality"}.`, source: SRC.project }] : p.type ? [notNeeded("No new impervious area expected.")] : [needsType(p)!]),
   },
   { id: "electrical_permit", item: "Electrical permit", category: "Permit", phase: "permits", issuer: "PLI / inspection agency", trigger: "New wiring/service", data: ["Project"], citation: null,
     rule: (_f, p) => (!p.type ? [needsType(p)!] : isConstruction(p) ? [{ status: "LIKELY", reason: "New or altered wiring.", source: SRC.project }] : [notNeeded("Demolition only.")]) },
@@ -580,7 +581,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "tap_fees", item: "Sewer/water tap-in & connection fees", category: "Hidden cost", phase: "permits",
     issuer: "Water / sewer authority", trigger: "New units or new connections", data: ["Units", "Authority tariffs"], citation: null,
-    rule: (f, p) => (buildsNew(p) || p.type === "conversion" ? [{ status: "LIKELY", reason: `New ${p.units ?? ""} unit(s) or connections: tap and capacity fees can run thousands per unit (authority tariff table loading).`.replace("  ", " "), source: SRC.project }] : p.type ? [notNeeded("No new units or connections.")] : [ask("What kind of project is this (new build, addition, rehab, demolition, conversion)?")]),
+    rule: (f, p) => (buildsNew(p) || p.type === "conversion" ? [{ status: "LIKELY", reason: isPittsburgh(f) ? "Pittsburgh Water: $40 permit + $570 connection and meter; no tapping fees since 2022." : "Confirm with the local sewer/water authority.", source: SRC.project }] : p.type ? [notNeeded("No new units or connections.")] : [ask("What kind of project is this (new build, addition, rehab, demolition, conversion)?")]),
   },
   {
     id: "lead_service_line", item: "Lead water service line", category: "Hidden cost", phase: "due_diligence",
@@ -608,7 +609,7 @@ export const CATALOG: CatalogItem[] = [
   {
     id: "access", item: "Access problems (steps-only, paper street, landlocked)", category: "Hidden cost", phase: "due_diligence",
     issuer: "DOMI / surveyor / attorney", trigger: "No drivable street frontage", data: ["Street centerlines", "City steps"], citation: null,
-    rule: (f) => (f.street_frontage === undefined ? [{ status: "POSSIBLE", reason: "Street and city-steps data are loading; confirm drivable access for construction." }] : f.street_frontage === "none" ? [{ status: "LIKELY", reason: "No street frontage found: may be landlocked or reached only by steps or an unopened street.", source: "Street centerlines" }] : [notNeeded("Parcel fronts a street.", "Street centerlines")]),
+    rule: (f) => (f.street_frontage === undefined ? [{ status: "POSSIBLE", reason: "No street or city-steps match found for this parcel; confirm drivable access for construction." }] : f.street_frontage === "none" ? [{ status: "LIKELY", reason: "No street frontage found: may be landlocked or reached only by steps or an unopened street.", source: "Street centerlines" }] : [notNeeded("Parcel fronts a street.", "Street centerlines")]),
   },
   {
     id: "utility_upgrade", item: "Utility upgrades (electric service, transformer)", category: "Hidden cost", phase: "design_engineering",
@@ -621,9 +622,10 @@ export const CATALOG: CatalogItem[] = [
     rule: (f, p) => {
       if (!(buildsNew(p) || p.type === "rehab")) return [notNeeded("No reassessment trigger.")];
       const tx = f.property_tax, value = f.assessment?.fmv_total ?? 0;
-      const rate = tx?.split_rate ? null : tx?.general_mills;
-      const today = rate != null ? ` Today: ${rate} mills × $${Math.round(value).toLocaleString()} assessed = about $${Math.round((rate * value) / 1000).toLocaleString()}/yr.` : "";
-      return [{ status: "REQUIRED", reason: `New construction is reassessed the year after completion (a prorated interim bill is possible).${today} Every $100,000 of added assessed value adds about $${rate != null ? Math.round(rate * 100).toLocaleString() : "?"}/yr.`, source: tx ? "Allegheny County Treasurer 2026 millage" : SRC.assessment }];
+      const cm = COST_CONFIG.propertyTax.cityMills;
+      const rate = isPittsburgh(f) ? cm.value : tx?.split_rate ? null : tx?.general_mills;
+      const today = rate != null ? ` Today: ${rate} mills${isPittsburgh(f) ? ` (${cm.sourceLabel.replace(/^2026 millage: /, "")})` : ""} × $${Math.round(value).toLocaleString()} assessed = about $${Math.round((rate * value) / 1000).toLocaleString()}/yr.` : "";
+      return [{ status: "REQUIRED", reason: `New construction is reassessed the year after completion (a prorated interim bill is possible).${today} Every $100,000 of added assessed value adds about $${rate != null ? Math.round(rate * 100).toLocaleString() : "?"}/yr.`, source: isPittsburgh(f) ? "City of Pittsburgh 2026 millage (WESA, Dec 2025)" : tx ? "Allegheny County Treasurer 2026 millage" : SRC.assessment }];
     },
   },
   {

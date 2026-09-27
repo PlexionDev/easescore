@@ -1,7 +1,7 @@
 // Derived figures the narrative is allowed to state. Templates compute from these, and the
 // validator adds them to the fact pool, so "derivable from the input JSON" has one definition.
 
-import { mathInWords, roundMoney, type MathSentence, type MathStep } from "./format";
+import { mathInWords, permitRange, roundMoney, type MathSentence, type MathStep } from "./format";
 import type { NarrativeFacts, NarrativeProForma } from "./types";
 
 export interface Derived {
@@ -34,6 +34,8 @@ export function proFormaMath(p: NarrativeProForma): MathSentence | null {
 
 export function derive(facts: NarrativeFacts): Derived {
   const values: number[] = [];
+  // Permit time is written as a range (format.ts permitRange): both ends are derived facts.
+  if (facts.score?.predictedMonthsToPermit != null) values.push(...permitRange(facts.score.predictedMonthsToPermit));
   const p = facts.proForma ?? null;
   let margin: number | null = null;
   let marginPct: number | null = null;

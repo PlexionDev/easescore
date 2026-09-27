@@ -60,7 +60,7 @@ function CompBlock({ comps, floor, newBuild, plan }: { comps: Comps; floor: stri
         {c.date_range?.from ? ` · sold ${c.date_range.from} to ${c.date_range.to}` : ""}
       </p>
       {c.search_steps?.length ? <p className="text-[11px] text-slate-500">Search: {c.search_steps.join(" → ")}.</p> : null}
-      {c.note && <p className="text-[11px] text-slate-500">{c.note}</p>}
+      {c.note && <p className="text-[11px] text-slate-500">{plan.indicative ? c.note.replace(/No new-home value is estimated\.?$/, "Too few for a reliable value, so the value from them is indicative only (low confidence).") : c.note}</p>}
       {c.selection && <p className="text-[11px] text-slate-600">{c.selection.receipt}</p>}
       {c.selection && c.selection.dropped.length > 0 && (
         <ul className="text-[11px] text-slate-500">
@@ -117,7 +117,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {review ? <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900" title={review}>{score.LOT_REVIEW}<span className="sr-only">{`: ${review}`}</span></span> : r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={score.PENCIL_TIP[r.verdict]} aria-describedby="pf-panel-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-panel-verdict-tip" className="sr-only">{score.PENCIL_TIP[r.verdict]}</span></span>}
+            {review ? <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900" title={review}>{score.LOT_REVIEW}<span className="sr-only">{`: ${review}`}</span></span> : r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={score.PENCIL_TIP[r.verdict]} aria-describedby="pf-panel-verdict-tip">{VERDICT_TEXT[r.verdict]}{r.indicative ? " (indicative)" : ""}<span id="pf-panel-verdict-tip" className="sr-only">{score.PENCIL_TIP[r.verdict]}</span></span>}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
                 <details>
                   <summary className="flex cursor-pointer justify-between text-slate-800">
                     <span>Closing, selling &amp; carrying costs</span>
-                    <span className="tabular-nums">{minorRange ? <RangeValue r={minorRange} /> : usd(minorSum)}</span>
+                    <span className="tabular-nums">{minorRange ? <RangeValue r={minorRange} /> : minor.some((b) => b.amount != null) ? usd(minorSum) : "—"}</span>
                   </summary>
                   <table className="mt-1 w-full">
                     <tbody>

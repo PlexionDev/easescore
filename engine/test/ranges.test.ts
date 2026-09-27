@@ -79,7 +79,7 @@ describe("ranges: no false precision", () => {
   it("triangulates hard cost per SF against NAHB national and local project benchmarks", () => {
     const pts = g.lines.find((l) => l.id === "hard_base")!.triangulation!.points;
     // Cost to build (fee removed), the published retail range as the cross-check, NAHB national, local projects.
-    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "Pittsburgh builders (2026)", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
+    expect(pts.map((p) => p.badge)).toEqual(["Pittsburgh builders (2026)", "Pittsburgh builders (2026), retail price including builder fee", "NAHB 2024, national, excludes builder fee", "Local project benchmark"]);
     expect([pts[1]!.low, pts[1]!.high]).toEqual([200, 250]);
     expect(pts[2]!.value).toBe(162);
     expect(g.lines.find((l) => l.id === "tdc")!.triangulation!.points[0]!.badge).toBe("Local project benchmark");

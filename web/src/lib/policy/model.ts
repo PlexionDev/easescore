@@ -7,6 +7,7 @@ import {
   annualTax, ledger, normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, MATCH_BLOCK,
   type Abatement, type LedgerRow, type LeverState, type TaxBody, type Triple,
 } from "@easescore/engine/src/policy/index";
+import costs from "@easescore/engine/config/cost-assumptions.v0.2.json";
 
 export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, MATCH_BLOCK, type LeverState, type Triple };
 
@@ -183,7 +184,12 @@ export function fiscal(s: Summary, meta: PolicyMeta | null, abate: Scenario["aba
   const mainSchool = schoolRows[0]?.body.mills ?? bodies.find((b) => b.id === "school")?.mills ?? 0;
   const totalMills = general.reduce((t, b) => t + b.mills, 0) + mainSchool;
   const mainSchoolName = schoolRows[0]?.body.name ?? bodies.find((b) => b.id === "school")?.name;
-  const millsParts = [...general.map((b) => `${b.name} ${b.mills}`), ...(mainSchoolName ? [`${mainSchoolName} ${mainSchool}`] : [])].join(" + ");
+  const cityMills = costs.propertyTax.cityMills.value;
+  // Revenue here uses the Treasurer rows as loaded; say so when they predate the City's 2026 total.
+  const staleNote = Math.abs(totalMills - cityMills) > 0.005
+    ? `; computed at ${Math.round(totalMills * 1000) / 1000} mills (before the 2026 parks/library/school update; the City's 2026 total is ${cityMills})`
+    : "";
+  const millsParts = [...general.map((b) => `${b.name} ${b.mills}`), ...(mainSchoolName ? [`${mainSchoolName} ${mainSchool}`] : [])].join(" + ") + staleNote;
   return {
     rows, av, total: sum((r) => r.revenue), abatementTotal: sum((r) => r.abatementPerYear),
     doingNothing: annualTax(s.av_before_gaining, totalMills), totalMills, millsParts, abatement: ab,

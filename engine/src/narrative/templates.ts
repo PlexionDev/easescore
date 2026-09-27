@@ -3,7 +3,7 @@
 // Same facts in → same sentences out. Jargon only inside {{term:…|…}} markers.
 
 import { derive } from "./derive";
-import { capitalize, GLOSSARY, list, money, moneyRange, months, pct, roundMoney, term, weeks } from "./format";
+import { capitalize, GLOSSARY, list, money, moneyRange, months, pct, permitRangeText, roundMoney, term, weeks } from "./format";
 import type { CostRange, NarrativeFacts, NarrativeResult, NarrativeSentence } from "./types";
 
 const t = (text: string): NarrativeSentence => ({ text, source: "template" });
@@ -48,7 +48,7 @@ export function canBuildSentence(f: NarrativeFacts): string {
   const use = z.useLabel;
   const s = f.score;
   const where = z.district ? `the ${z.district} district` : "this zoning district";
-  const tail = s.predictedMonthsToPermit != null ? ` (${months(s.predictedMonthsToPermit)} to a building permit, review time only)` : "";
+  const tail = s.predictedMonthsToPermit != null ? ` (${permitRangeText(s.predictedMonthsToPermit)} to a building permit, review time only)` : "";
 
   if (s.redFlags.length > 0) {
     const labels = list(s.redFlags.map((r) => lc(trimDot(r.label))));

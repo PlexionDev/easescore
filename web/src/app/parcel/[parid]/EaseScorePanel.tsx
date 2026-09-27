@@ -4,6 +4,7 @@
 
 import { assumptions, narrative, score } from "@easescore/engine";
 import FourAnswers from "./FourAnswers";
+import { monthsRangeText } from "@/lib/planner-query";
 import { SheetButton } from "./Drawers";
 
 type Result = score.EaseScoreResult;
@@ -137,12 +138,13 @@ const MARKET_STYLE: Record<assumptions.MarketLevel, string> = {
 export function MarketLine({ market }: { market: assumptions.MarketSignal }) {
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-slate-700">
-      <span className={`rounded-full border px-2 py-0.5 font-semibold ${MARKET_STYLE[market.level]}`}>{`Market: ${market.level}`}</span>
-      <span className="min-w-0">{market.count ? `${market.count} new-construction sale${market.count === 1 ? "" : "s"} nearby${market.medianPerSf != null ? `, median $${Math.round(market.medianPerSf).toLocaleString("en-US")}/sq ft` : ""}` : "No recent new-construction sales nearby"}</span>
-      <SheetButton label={"Receipt"} title={"Market strength: receipt"}>
+      <span className={`rounded-full border px-2 py-0.5 font-semibold ${MARKET_STYLE[market.level]}`}>{`New-home prices nearby: ${market.level}`}</span>
+      <span className="min-w-0">{market.count ? `${market.count} sale${market.count === 1 ? "" : "s"}${market.medianPerSf != null ? `, $${Math.round(market.medianPerSf).toLocaleString("en-US")}/sq ft` : ""}` : "No recent new-construction sales nearby"}</span>
+      <SheetButton label={"Receipt"} title={"New-home prices nearby: receipt"}>
         <p className="text-slate-800">{market.receipt}</p>
         <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Rule applied</h4>
         <p>{market.rule}</p>
+        <p className="mt-2 text-[12px] text-slate-600">Market strength is new-home prices; the score&apos;s market factor counts recent sales and permits.</p>
         <p className="mt-2 text-[12px] text-slate-500">Separate from the Ease Score, which measures barriers to building, not whether it&apos;s a good investment. Source: Allegheny County Property Sale Transactions and Assessments.</p>
       </SheetButton>
     </p>
@@ -241,11 +243,24 @@ function signed(n: number) {
   return `${n > 0 ? "+" : ""}${n}`;
 }
 
+/**
+ * The score's badge knows only the City-owned list; the Planner reads the County owner classes
+ * (parcel_owner_class: URA, Land Bank, HACP ...). Use that same class here so both pages agree.
+ */
+function publicOwnerBadge(pb: Strategy["planningBadge"], agency: string | null, redFlags: number): Strategy["planningBadge"] {
+  if (!agency || !pb.criteria.some((c) => c.id === "public_owner" && !c.matched)) return pb;
+  const criteria = pb.criteria.map((c) => (c.id === "public_owner" ? { ...c, matched: true, note: `Owned by ${agency} (County owner records, as in the Planner).` } : c));
+  const total = criteria.reduce((t, c) => t + c.weight, 0) || 1;
+  const points = Math.round((criteria.reduce((t, c) => t + (c.matched ? c.weight : 0), 0) * 100) / total);
+  const tier = (score.DEFAULT_CONFIG.planningBadge.tiers.find((t) => points >= t.min && (!t.requiresNoRedFlags || redFlags === 0))?.tier ?? null) as Strategy["planningBadge"]["tier"];
+  return { ...pb, criteria, points, tier };
+}
+
 /** The "Details" drawer: four answers, full callouts, time to a permit, planning badge, unlocks, notes. */
-export function DetailsContent({ result, selected, answers, pencilsNote, badgePublic }: { result: Result; selected: Strategy; answers: narrative.NarrativeResult | null; pencilsNote?: string | null; badgePublic: boolean }) {
+export function DetailsContent({ result, selected, answers, pencilsNote, badgePublic, ownerAgency }: { result: Result; selected: Strategy; answers: narrative.NarrativeResult | null; pencilsNote?: string | null; badgePublic: boolean; ownerAgency?: string | null }) {
   const s = selected;
   const p = s.predictedMonthsToPermit;
-  const pb = s.planningBadge;
+  const pb = publicOwnerBadge(s.planningBadge, badgePublic ? ownerAgency ?? null : null, s.redFlags.length);
   const unlocks = s.unlocks.filter((u) => u.evaluated);
   const unlockGains = unlocks.filter((u) => (u.scoreDelta ?? 0) > 0 || (u.unitsDelta ?? 0) > 0);
   const notEvaluated = s.unlocks.find((u) => !u.evaluated)?.reason;
@@ -281,7 +296,7 @@ export function DetailsContent({ result, selected, answers, pencilsNote, badgePu
       {s.applicable && p && (
         <section>
           <h3 className="text-sm font-semibold text-slate-900">Time to a permit</h3>
-          <p className="text-sm text-slate-800">About <b>{p.months} months</b>{p.upperMonths != null ? ` (up to ${p.upperMonths})` : ""} <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{p.estimate ? "Estimate" : "City permit records"}</span></p>
+          <p className="text-sm text-slate-800"><b>{monthsRangeText(p.months)}</b> <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{p.estimate ? "Estimate" : "City permit records"}</span></p>
           <p className="text-[11px] text-slate-600">Building-permit review only (plus any zoning hearing this option needs); zoning review, site-plan, geotech, PWSA and DOMI steps are not included.</p>
           {p.targetOnly && <p className="text-[11px] text-slate-500">Building-permit part: the City&apos;s review target for one round ({p.label ?? "City target, not measured"}). Each revision request adds time.</p>}
           {p.queuePending != null && <p className="text-[11px] text-slate-500">{p.queuePending} building permits waiting for City review{p.queueAsOf ? ` (as of ${p.queueAsOf})` : ""}.</p>}

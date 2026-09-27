@@ -13,6 +13,7 @@ import { narrative, score as ease } from "@easescore/engine";
 import { approvalItems, oddsFor, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
 import { HIGH_DENSITY_NOTE, isHighDensityZone } from "@/lib/planner-query";
+import { monthsRangeText } from "@/lib/planner-query";
 import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
 import { ExitLead } from "./exit";
 import { CompsGrid, ConfidenceGrades } from "./evidence";
@@ -449,7 +450,7 @@ export function S1(x: Ctx) {
           <div className="kicker" title={PENCILS_TIP}>Pencils?</div>
           {m.proForma.verdict ? (
             <div className="v">
-              {ease.lotUnverifiable(m.facts) ? ease.LOT_REVIEW : PENCILS_TEXT[m.proForma.verdict]}
+              {ease.lotUnverifiable(m.facts) ? ease.LOT_REVIEW : PENCILS_TEXT[m.proForma.verdict]}{m.proForma.indicative ? " (indicative)" : ""}
               {m.scenario.tenure === "sale" && m.proForma.sale.margin != null ? ` · ${m.proForma.sale.margin < 0 ? "−" : ""}${pct(Math.abs(m.proForma.sale.margin), 1)}` : ""}
               {fn(x, "cost_config")}
             </div>
@@ -465,7 +466,7 @@ export function S1(x: Ctx) {
           <div className="kicker">Months to permit</div>
           {m.score.status === "ready" && m.score.permit ? (
             <div className="v">
-              {m.score.permit.upperMonths ? `${num(m.score.permit.months, 0)}–${num(m.score.permit.upperMonths, 0)}` : `about ${num(m.score.permit.months, 0)}`}
+              {monthsRangeText(m.score.permit.months)}
               {fn(x, "ease_score")}
             </div>
           ) : (
@@ -1058,7 +1059,7 @@ export function S5(x: Ctx) {
         </figcaption>
       </figure>
       {m.score.status === "ready" && m.score.permit ? (
-        <Callout tone="plain" title={`Predicted time to a permit: ${m.score.permit.upperMonths ? `${num(m.score.permit.months, 0)} to ${num(m.score.permit.upperMonths, 0)}` : `about ${num(m.score.permit.months, 1)}`} months`}>
+        <Callout tone="plain" title={`Predicted time to a permit: ${monthsRangeText(m.score.permit.months)} (building-permit review only)`}>
           <p>
             {m.score.permit.method === "heuristic"
               ? "This is an estimate built from the approval steps this project needs, not from permit records for similar projects."
@@ -1452,9 +1453,14 @@ const has = (rows: { key: string; edited: boolean }[], key: string) => rows.some
 export function S8(x: Ctx) {
   const { m } = x;
   const f = m.facts;
-  const pt = f.property_tax;
-  const rp = m.rental;
   const a = f.assessment;
+  const pt0 = f.property_tax;
+  // City of Pittsburgh: the cost model's 2026 total (City + parks + library + schools + County), same as the pro forma.
+  const cm = assumptions.COST_CONFIG.propertyTax.cityMills;
+  const pt = pt0 && a?.is_pittsburgh === true
+    ? { ...pt0, general_mills: cm.value, parts: cm.sourceLabel.replace(/^2026 millage: /, "").split(" + ").map((x) => { const mm = /^(.*) ([\d.]+)$/.exec(x); return { name: mm?.[1] ?? x, jurisdiction_type: "2026 rate", mills: Number(mm?.[2] ?? 0) }; }) }
+    : pt0;
+  const rp = m.rental;
   const currentTax = pt?.general_mills != null && a?.fmv_total ? (a.fmv_total * pt.general_mills) / 1000 : null;
   const tTax = pt ? x.tab() : 0;
   const taxesAfter = TaxesAfterBlock(x);
@@ -1695,7 +1701,8 @@ export function S11(x: Ctx) {
   const sale = m.proForma.plan.tenure === "sale";
   const t = x.tab();
   const fig = x.fig();
-  const monthlyTax = f.property_tax?.general_mills != null && f.assessment?.fmv_total ? (f.assessment.fmv_total * f.property_tax.general_mills) / 1000 / 12 : null;
+  const millsNow = f.assessment?.is_pittsburgh === true ? assumptions.COST_CONFIG.propertyTax.cityMills.value : f.property_tax?.general_mills ?? null;
+  const monthlyTax = millsNow != null && f.assessment?.fmv_total ? (f.assessment.fmv_total * millsNow) / 1000 / 12 : null;
   const cfg = assumptions.COST_CONFIG.sensitivity;
   const moveText = (id: string, v: number) =>
     id.startsWith("constructionRate") ? `${v >= 0 ? "+" : "−"}${num(Math.abs(v) * 100, 0)} pt` : id.startsWith("approvalDelay") ? `+${num(v, 0)} mo` : `${v >= 0 ? "+" : "−"}${num(Math.abs(v) * 100, 0)}%`;
@@ -1767,7 +1774,7 @@ export function S11(x: Ctx) {
         Every month of delay adds holding costs: taxes, insurance and loan interest. Taxes alone on today’s assessment are about{" "}
         {monthlyTax != null ? (
           <>
-            <b>{money(monthlyTax)}</b> a month ({money(f.assessment?.fmv_total)} × {num(f.property_tax?.general_mills, 2)} ÷ 1,000 ÷ 12){fn(x, "assessment", "millage")}
+            <b>{money(monthlyTax)}</b> a month ({money(f.assessment?.fmv_total)} × {num(millsNow, 3)} ÷ 1,000 ÷ 12){fn(x, "assessment", "millage")}
           </>
         ) : (
           "unknown"

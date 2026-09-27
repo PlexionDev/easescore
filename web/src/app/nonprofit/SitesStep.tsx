@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { BandPill, CheckboxField, EmptyState, Segmented } from "@/components/seats";
 import { TYPICAL_NOTE, acquisitionPath, statusNote } from "@/lib/nonprofit/acquisition";
 import { bestWithHomes } from "@/lib/best-option";
+import { blockerText } from "@/lib/planner-query";
 import { MAX_LOTS, STRATEGY_TEXT, shortParid, type Site, type SiteFilters, type SitesResult } from "@/lib/nonprofit/types";
 import type { Layer } from "./AreaMap";
 
@@ -85,7 +86,7 @@ export default function SitesStep({ hood, result, loading, filters, onFilters, s
                     {s.qct ? <span className="np-ok">QCT</span> : null}
                     <span className={flags.length ? "np-bad" : "np-ok"}>{flags.length ? `${flags.length} red flag${flags.length > 1 ? "s" : ""}: ${flags.map((f) => f.title).join("; ")}` : "No red flags"}</span>
                   </p>
-                  {s.top_blocker ? <p className="np-site-meta">Biggest drag on the score: {s.top_blocker.toLowerCase()}{s.best_strategy ? ` · easiest build: ${bestWithHomes(s) ?? STRATEGY_TEXT[s.best_strategy] ?? s.best_strategy}` : ""}</p> : null}
+                  {s.top_blocker ? <p className="np-site-meta">Biggest drag on the score: {blockerText(s.top_blocker).toLowerCase()}{s.best_strategy ? ` · easiest build: ${bestWithHomes(s) ?? STRATEGY_TEXT[s.best_strategy] ?? s.best_strategy}` : ""}</p> : null}
                   {path ? (
                     <details className="np-acq">
                       <summary>How to get this lot <span className="np-typical">Typical</span></summary>

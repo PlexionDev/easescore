@@ -88,20 +88,30 @@ describe("comparable sales", () => {
     expect(p.revenue.sale.pricePerSf).toBe(300);
     expect(p.valueComps).toBe(NEW);
   });
-  it("says 'insufficient new-construction comps' and shows older homes only as a floor", () => {
+  it("with 1–4 new-construction sales gives an indicative value (low confidence) and keeps older homes as a floor", () => {
     const few = assumptions.newConstructionComps(AT, [...OLD_SALES, ...NEW_SALES.slice(0, 4)], { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "single-family homes" });
     expect(few.status).toBe("insufficient comps");
     expect(few.radius_mi).toBe(3);
     expect(few.note).toMatch(/^Insufficient new-construction comps: only 4 sale/);
     const oldComps = { status: "ok", sufficient: true, count: 20, radius_mi: 0.25, comparable_use: "single family", median_price_per_sqft: 150 };
     const p = plan(FLAT, { newComps: few, comps: oldComps });
-    expect(p.revenue.sale.pricePerSf).toBeNull();
+    expect(p.revenue.sale.pricePerSf).toBe(few.median_price_per_sqft);
+    expect(p.indicative?.text).toBe("Indicative: 4 sales, low confidence");
     expect(p.floor?.pricePerSf).toBe(150);
-    expect(p.missing[0]).toMatch(/Insufficient new-construction comps/);
-    expect(p.missing[0]).toMatch(/That is a floor, not the value of a new home/);
+    expect(p.missing.some((m) => /No sale value/.test(m))).toBe(false);
     const r = evaluateDevelopment(p);
-    expect(r.sale.grossSales).toBeNull();
-    expect(r.narrative?.risks?.[0]).toMatch(/Too few recent new-home sales/);
+    expect(r.sale.grossSales).not.toBeNull();
+    expect(r.indicative).toBe("Indicative: 4 sales, low confidence");
+    expect(r.headline).toMatch(/^Indicative: 4 sales, low confidence\. /);
+    expect(r.narrative?.risks?.[0]).toMatch(/value is indicative/);
+    // Zero new-construction sales: still no value; ask for a sale price, older homes as a floor.
+    const none = assumptions.newConstructionComps(AT, OLD_SALES, { asOf: "2026-09-26", uses: ["SINGLE FAMILY"], useLabel: "single-family homes" });
+    const p0 = plan(FLAT, { newComps: none, comps: oldComps });
+    expect(p0.revenue.sale.pricePerSf).toBeNull();
+    expect(p0.indicative).toBeNull();
+    expect(p0.missing[0]).toMatch(/Insufficient new-construction comps/);
+    expect(p0.missing[0]).toMatch(/That is a floor, not the value of a new home/);
+    expect(evaluateDevelopment(p0).narrative?.risks?.[0]).toMatch(/Too few recent new-home sales/);
   });
   it("ignores homes older than ten years at sale and sales outside the window", () => {
     const stale = NEW_SALES.map((x) => ({ ...x, yearBuilt: 2010 }));
@@ -387,7 +397,8 @@ describe("cost model v0.2 = backtest run D (COST-MODEL-LOCKED §H sanity house)"
   it("costs $473,014 before land, as run D computed it", () => {
     const p = buildDevelopmentInputs({
       strategy: "new_sf", facts: H, scheme: { units: 1, grossFloorAreaSf: 2000, netFloorAreaSf: 2000, footprintSf: 1000, stories: 2 },
-      comps: null, newComps: null, rents: null, primeRate: 0.07, permitMonths: 4, overrides: { tenure: "sale", salePricePerUnit: 600000, land: 0 },
+      // Run D used the cost model's fixed 7.75% loan rate (the live default is now latest prime + 1 point).
+      comps: null, newComps: null, rents: null, primeRate: 0.07, permitMonths: 4, overrides: { tenure: "sale", salePricePerUnit: 600000, land: 0, constructionRate: 0.0775 },
     });
     const c = evaluateDevelopment(p).forSale.costs;
     const val = (x: finance.Receipt) => (x.status === "ok" ? Math.round(x.value) : null);

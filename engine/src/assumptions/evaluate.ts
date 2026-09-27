@@ -53,6 +53,8 @@ export interface ProFormaResult {
   sellOutCarry: number | null;
   rent: { monthlyRent: number | null; annualRent: number | null; vacancy: number | null; opex: number | null; noi: number | null; yieldOnCost: number | null };
   verdict: "yes" | "thin" | "no" | null;
+  /** "Indicative: N sale(s), low confidence" when the value comes from 1–4 new-construction sales; the verdict is then indicative too. */
+  indicative: string | null;
   /** One plain sentence answering "does it pencil?" (or why it can't be answered). */
   headline: string;
   /** The math as "A − B = C" sentences. */
@@ -93,7 +95,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   });
   budget.push({ id: "interest", group: "financing", label: "Construction loan interest", amount: r1k(v(c.constructionInterest)), basis: c.constructionInterest.formula, sourceLabel: sourceOf(plan, "constructionRate") });
   budget.push({ id: "loan_fees", group: "financing", label: "Lender fees", amount: v(c.constructionLoan) != null ? r1k(v(c.constructionLoan)! * plan.loanFeeShare) : null, basis: `${pct1(plan.loanFeeShare)} of the loan`, sourceLabel: sourceOf(plan, "loanFees") });
-  budget.push({ id: "holding", group: "financing", label: "Property taxes while approving and building", amount: r1k(v(c.holdingCosts)), basis: c.holdingCosts.formula, sourceLabel: "County assessment × millage" });
+  budget.push({ id: "holding", group: "financing", label: "Property taxes while approving and building", amount: r1k(v(c.holdingCosts)), basis: `${c.holdingCosts.formula}${(v(c.holdingCosts) ?? 0) > 0 && r1k(v(c.holdingCosts)) === 0 ? ` (about ${usd(v(c.holdingCosts)!)}: under $500 at today's assessment, so it rounds to $0)` : ""}`, sourceLabel: "County assessment × millage" });
   // Totals to $10,000; profit, margin and yield use the rounded figures shown.
   const tdcRaw = v(c.tdc);
   const tdc = tdcRaw != null ? Math.round(tdcRaw / 10000) * 10000 + 0 : null;
@@ -196,6 +198,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
         ? `No: it costs about ${about(tdc)} and the rent would not cover running costs.`
         : `Unlevered (before any loan payments): it costs about ${about(tdc)} and would bring in about ${usd(Math.round(rent.noi / 1000) * 1000)} a year after running costs, ${pct1(rent.yieldOnCost ?? 0)} on cost. A local cap rate is needed to value it.`;
   else headline = "Can't tell yet: an input is missing.";
+  if (plan.indicative && !plan.missing.length && plan.tenure === "sale" && sale.profit != null) headline = `${plan.indicative.text}. ${headline}`;
   if (!plan.missing.length && plan.exclusions.length) headline += ` Partial estimate: ${plan.exclusions.length} cost item${plan.exclusions.length === 1 ? " is" : "s are"} not included yet.`;
 
   // ---- Narrative facts for "Does it pencil?"
@@ -220,7 +223,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   const newBuild = plan.strategy !== "rehab_existing";
   const vc = plan.valueComps;
   if (plan.tenure === "sale" && plan.revenue.sale.sourceLabel !== "Your input" && (!vc || vc.status !== "ok" || vc.sufficient === false)) {
-    risks.push(newBuild ? "Too few recent new-home sales nearby to price a new house, so its value is not estimated." : "Too few similar home sales nearby to price the finished home.");
+    risks.push(newBuild ? (plan.indicative ? `Only ${plan.indicative.count} recent new-home sale${plan.indicative.count === 1 ? "" : "s"} nearby, so the value is indicative (low confidence).` : "Too few recent new-home sales nearby to price a new house, so its value is not estimated.") : "Too few similar home sales nearby to price the finished home.");
     steps.push(newBuild ? "Ask a local agent or appraiser what new homes like this sell for nearby." : "Ask a local agent or appraiser what a fixed-up home like this sells for nearby.");
   }
   if (plan.sizeWarning) risks.push("The layout is small next to new homes that sold nearby, so the sale value is uncertain.");
@@ -247,6 +250,7 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
     sellOutCarry: sellOutCarryR,
     rent,
     verdict,
+    indicative: plan.tenure === "sale" && plan.indicative && sale.profit != null ? plan.indicative.text : null,
     headline,
     sentences,
     narrative,

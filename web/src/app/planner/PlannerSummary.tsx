@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { EmptyState, RangeValue, ReceiptButton, type Receipt } from "@/components/seats";
-import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, NO_BAND_COLOR, policyKey, SMALL_INFILL_CAP, type Filters, type PlannerSummary } from "@/lib/planner";
+import { BAND_COLOR, BANDS, BLOCKER_LEVER, bandLabel, blockerText, NO_BAND_COLOR, policyKey, SMALL_INFILL_CAP, type Filters, type PlannerSummary } from "@/lib/planner";
 
 const BLOCKER_RECEIPT: Receipt = {
   label: "Site constraints",
@@ -66,7 +66,7 @@ export default function PlannerSummary({ s, f, set, loading }: {
             return (
               <button key={b.blocker} type="button" className={`pl-blk${on ? " on" : ""}`} aria-pressed={on}
                 onClick={() => set({ hasBlocker: on ? undefined : b.blocker })}>
-                <span className="pl-blk-row"><span className="pl-blk-label">{b.blocker}</span><b>{pct}%</b></span>
+                <span className="pl-blk-row"><span className="pl-blk-label">{blockerText(b.blocker)}</span><b>{pct}%</b></span>
                 <span className="pl-blk-bar" aria-hidden="true"><span style={{ width: `${Math.max(2, pct)}%` }} /></span>
               </button>
             );
@@ -75,7 +75,7 @@ export default function PlannerSummary({ s, f, set, loading }: {
         </div>
         {policyHref && lever ? (
           <p style={{ marginTop: 8 }}><Link className="pl-link" href={policyHref}>Test changing the {leverText} rule{levers.length > 1 ? "s" : ""} →</Link>
-            <span className="pl-hint" style={{ display: "block" }}>{ruleBlockers.slice(0, 3).map((b) => `${b.blocker} ${Math.round((100 * b.n) / s.total)}%`).join(" · ")} of these parcels.</span></p>
+            <span className="pl-hint" style={{ display: "block" }}>{ruleBlockers.slice(0, 3).map((b) => `${blockerText(b.blocker)} ${Math.round((100 * b.n) / s.total)}%`).join(" · ")} of these parcels.</span></p>
         ) : null}
       </section>
 
