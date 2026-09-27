@@ -6,11 +6,11 @@ import Link from "next/link";
 import { assumptions, finance } from "@easescore/engine";
 import { PF } from "@/lib/proforma";
 import { OpenDrawer } from "./Drawers";
+import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
 
 type SP = Record<string, string | string[] | undefined>;
 
 const usd = (n: number | null | undefined) => (typeof n === "number" && Number.isFinite(n) ? `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}` : "—");
-const pct = (share: number | null | undefined) => (typeof share === "number" && Number.isFinite(share) ? `${share < 0 ? "−" : ""}${Math.abs(share * 100).toFixed(1)}%` : "—");
 
 const VERDICT_STYLE: Record<string, string> = {
   yes: "bg-emerald-100 text-emerald-800",
@@ -88,6 +88,13 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
   const groups = ["land", "hard", "soft", "contingency", "financing"] as const;
   const minor = r.budget.filter((b) => b.minor);
   const minorSum = minor.reduce((t, b) => t + (b.amount ?? 0), 0);
+  const rg = r.ranges;
+  const gap = (rg.sale.profit?.likely ?? 0) < 0;
+  const line = (id: string) => rg.lines.find((l) => l.id === id) ?? null;
+  const minorRange = minor.reduce<assumptions.MoneyRange | null>((t, b) => {
+    const x = line(b.id)?.range;
+    return x ? { low: (t?.low ?? 0) + x.low, likely: (t?.likely ?? 0) + x.likely, high: (t?.high ?? 0) + x.high } : t;
+  }, null);
 
   return (
     <section aria-label="Does it pencil?" className="rounded-xl border border-slate-200 bg-white/80 p-3">
@@ -101,7 +108,9 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         </div>
         <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{p.configVersion}</span>
       </div>
-      <p className="mt-2 text-sm text-slate-900">{r.headline}</p>
+      {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
+      <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rounded to $1,000 per line and $10,000 for totals.</p>
 
       {p.units != null && p.finishedSf != null && (
         <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
@@ -122,17 +131,23 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500">Total cost</p>
-          <p className="text-sm font-semibold tabular-nums text-slate-900">{usd(r.tdc)}</p>
+          <p className="text-sm"><RangeValue r={rg.tdc} strong /></p>
         </div>
         <div className="rounded-lg border border-slate-200 p-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-slate-500">{sale ? "Profit" : "NOI / year"}</p>
-          <p className="text-sm font-semibold tabular-nums text-slate-900">{usd(sale ? r.sale.profit : r.rent.noi)}</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">{sale ? (gap ? "Gap (short)" : "Profit") : "NOI / year"}</p>
+          <p className="text-sm"><RangeValue r={sale ? (gap && rg.sale.profit ? { low: -rg.sale.profit.high, likely: -rg.sale.profit.likely, high: -rg.sale.profit.low } : rg.sale.profit) : rg.rent.noi} strong /></p>
         </div>
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500" title={sale ? "Profit ÷ total cost" : "NOI ÷ total cost"}>{sale ? "Margin" : "Yield on cost"}</p>
-          <p className="text-sm font-semibold tabular-nums text-slate-900">{pct(sale ? r.sale.margin : r.rent.yieldOnCost)}</p>
+          <p className="text-sm"><PctRangeValue r={sale ? rg.sale.marginPct : rg.rent.yieldOnCostPct} /></p>
         </div>
       </div>
+      <ul className="mt-2 space-y-1 text-[12px] text-slate-700">
+        <li className="flex flex-wrap items-center gap-1"><b>Land:</b> <RangeValue r={rg.land.range} /> <SourceBadge s={rg.land.source} /></li>
+        {sale
+          ? <li className="flex flex-wrap items-center gap-1"><b>Value:</b> {rg.sale.pricePerSf ? `$${rg.sale.pricePerSf.low}–$${rg.sale.pricePerSf.high}/SF (likely $${rg.sale.pricePerSf.likely})` : "not set"} <SourceBadge s={rg.sale.source} /> <span className="text-[11px] text-slate-500">{rg.sale.basis}</span></li>
+          : <li className="flex flex-wrap items-center gap-1"><b>Rent:</b> {rg.rent.monthlyPerUnit ? `$${rg.rent.monthlyPerUnit.low.toLocaleString("en-US")}–$${rg.rent.monthlyPerUnit.high.toLocaleString("en-US")} a month (likely $${rg.rent.monthlyPerUnit.likely.toLocaleString("en-US")})` : "not set"} <SourceBadge s={rg.rent.source} /> <span className="text-[11px] text-slate-500">{rg.rent.basis}</span></li>}
+      </ul>
 
       {p.exclusions.length > 0 && (
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[13px] text-amber-950">
@@ -159,8 +174,9 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         </div>
       )}
 
-      <details className="mt-2 text-sm">
-        <summary className="cursor-pointer text-xs font-semibold text-slate-700 underline decoration-dotted underline-offset-2">Cost lines and sources</summary>
+      <details open className="mt-2 text-sm">
+        <summary className="cursor-pointer text-xs font-semibold text-slate-700 underline decoration-dotted underline-offset-2">Cost lines, ranges and sources</summary>
+        <p className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">Badges: <SourceBadge s={{ kind: "badge", badge: "Pittsburgh builders (2026)", label: "Pittsburgh builders (2026)", asOf: null }} /> published local source · <SourceBadge s={{ kind: "data", badge: null, label: "Public data (dated)", asOf: null }} /> dataset · <SourceBadge s={{ kind: "badge", badge: "Assumption, edit me", label: "Assumption, edit me", asOf: null }} /> our assumption: edit it under &ldquo;Change the assumptions&rdquo;</p>
         <table className="mt-1 w-full text-left text-[12px]">
           <tbody>
             {groups.map((g) => {
@@ -168,15 +184,19 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
               if (!rows.length) return null;
               return [
                 <tr key={`h-${g}`}><td colSpan={2} className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{GROUP_TEXT[g]}</td></tr>,
-                ...rows.map((b) => (
-                  <tr key={b.id} className="align-top">
-                    <td className="py-0.5 pr-2">
-                      <span className="text-slate-800">{b.label}</span>
-                      <span className="block text-[11px] text-slate-500">{b.basis} · {b.sourceLabel}</span>
-                    </td>
-                    <td className="py-0.5 text-right tabular-nums text-slate-900">{usd(b.amount)}</td>
-                  </tr>
-                )),
+                ...rows.map((b) => {
+                  const l = line(b.id);
+                  return (
+                    <tr key={b.id} className="align-top">
+                      <td className="py-1 pr-2">
+                        <span className="text-slate-800">{b.label}</span> {l && <SourceBadge s={l.source} />}
+                        <span className="block text-[11px] text-slate-500">{b.basis}{l ? ` · ${l.rangeBasis}` : ""}</span>
+                        {l?.triangulation && l.triangulation.points.length > 1 && <TriangulationStrip t={l.triangulation} />}
+                      </td>
+                      <td className="py-1 text-right text-slate-900">{l ? <RangeValue r={l.range} /> : usd(b.amount)}</td>
+                    </tr>
+                  );
+                }),
               ];
             })}
             <tr className="align-top">
@@ -184,14 +204,14 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
                 <details>
                   <summary className="flex cursor-pointer justify-between text-slate-800">
                     <span>Closing, selling &amp; carrying costs</span>
-                    <span className="tabular-nums">{usd(minorSum)}</span>
+                    <span className="tabular-nums">{minorRange ? <RangeValue r={minorRange} /> : usd(minorSum)}</span>
                   </summary>
                   <table className="mt-1 w-full">
                     <tbody>
                       {minor.map((b) => (
                         <tr key={b.id} className="align-top">
-                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">{b.label}</span><span className="block text-[11px] text-slate-500">{b.basis} · {b.sourceLabel}</span></td>
-                          <td className="py-0.5 text-right tabular-nums text-slate-700">{usd(b.amount)}</td>
+                          <td className="py-0.5 pr-2 pl-3"><span className="text-slate-700">{b.label}</span> {line(b.id) && <SourceBadge s={line(b.id)!.source} />}<span className="block text-[11px] text-slate-500">{b.basis}{line(b.id) ? ` · ${line(b.id)!.rangeBasis}` : ""}</span></td>
+                          <td className="py-0.5 text-right text-slate-700">{line(b.id) ? <RangeValue r={line(b.id)!.range} /> : usd(b.amount)}</td>
                         </tr>
                       ))}
                       {sale && r.sale.sellingCosts != null && (
@@ -205,9 +225,9 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
                 </details>
               </td>
             </tr>
-            <tr className="border-t border-slate-300 font-semibold">
-              <td className="py-1">Total development cost</td>
-              <td className="py-1 text-right tabular-nums">{usd(r.tdc)}</td>
+            <tr className="border-t border-slate-300 align-top font-semibold">
+              <td className="py-1">Total development cost{line("tdc")?.triangulation && <TriangulationStrip t={line("tdc")!.triangulation!} />}</td>
+              <td className="py-1 text-right"><RangeValue r={rg.tdc} strong /></td>
             </tr>
             <tr>
               <td className="text-[11px] text-slate-500">Per home · per finished sq ft</td>
@@ -216,7 +236,7 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
           </tbody>
         </table>
         <p className="mt-1 text-[11px] text-slate-600">
-          {sale ? <>Sale value: {p.revenue.sale.basis} ({p.revenue.sale.sourceLabel}).</> : <>Rent: {p.revenue.rent.basis} ({p.revenue.rent.sourceLabel}).</>}
+          {sale ? <>Sale value: {p.revenue.sale.basis} ({p.sources.sale.label}).</> : <>Rent: {p.revenue.rent.basis} ({p.sources.rent.label}).</>} Land: {p.sources.land.label}.
         </p>
         <p className="text-[11px] text-slate-600">Size: {p.sizeBasis}.</p>
         {p.msiPremium?.status === "ok" && (
