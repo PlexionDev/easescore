@@ -549,7 +549,10 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
       let k = 0;
       const take = (n: number) => hs.slice(k, (k += n)).map((h) => h ?? ground.base);
       const col = (hex: string, a: number) => C.Color.fromCssColorString(hex).withAlpha(a);
-      const alpha = (hex: string, a: number) => new C.ColorMaterialProperty(new C.CallbackProperty(() => col(hex, a * fade.current), false));
+      // Capped below 1 so a fading entity always stays in Cesium's translucent batch: when the fade reached 1 the
+      // setback line switched translucent -> opaque, and StaticGeometryColorBatch's moveItems (Cesium engine 26.3,
+      // loop index reused) then looped forever and froze the tab a few seconds after the photoreal view opened.
+      const alpha = (hex: string, a: number) => new C.ColorMaterialProperty(new C.CallbackProperty(() => col(hex, Math.min(0.99, a * fade.current)), false));
       const shown = new C.CallbackProperty(() => fade.current > 0.02, false);
 
       // Lot pad: the parcel surface at lidar ground heights, filling the clipped hole.
