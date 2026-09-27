@@ -19,13 +19,26 @@ export interface Pinned {
 
 const MAX_PINS = 3;
 const sm = assumptions.shortMoney;
-// Ranges that cross or sit below zero read "−$970K to −$360K" rather than a dash between two minus signs.
-const money = (r: Money3 | null) => (r ? (r.low === r.high ? sm(r.likely) : `${sm(r.low)}${r.low < 0 ? " to " : "–"}${sm(r.high)}`) : "—");
+// Low to high, K/M rounding, true minus sign. Ranges that cross or sit below zero read "−$340K to −$40K"
+// rather than a dash between two minus signs.
+const lohi = (r: Money3) => [Math.min(r.low, r.high), Math.max(r.low, r.high)] as const;
+const money = (r: Money3 | null) => {
+  if (!r) return "—";
+  const [lo, hi] = lohi(r);
+  return sm(lo) === sm(hi) ? sm(r.likely) : `${sm(lo)}${lo < 0 ? " to " : "–"}${sm(hi)}`;
+};
 /** Phones: the likely value only ("~$1.7M"); the range is in the pinned compare and the pro forma. */
 const m1 = (r: Money3 | null) => (r ? `${r.low === r.high ? "" : "≈ "}${sm(r.likely)}` : "—");
 const likely = (r: Money3 | null) => (r && r.low !== r.high ? `likely ${sm(r.likely)}` : null);
-const p1 = (x: number) => `${x < 0 ? "−" : ""}${Math.abs(x)}%`;
-const pct = (r: Money3 | null) => (r ? (r.low === r.high ? p1(r.likely) : r.low < 0 ? `${p1(r.low)} to ${p1(r.high)}` : `${r.low}–${r.high}%`) : "—");
+/** Percent with a true minus; one decimal under 10%, whole above. */
+const p1 = (x: number, d: number) => { const v = Number(x.toFixed(d)); return `${v < 0 ? "−" : ""}${Math.abs(v).toFixed(d)}%`; };
+const pct = (r: Money3 | null) => {
+  if (!r) return "—";
+  const [lo, hi] = lohi(r);
+  const d = Math.max(Math.abs(lo), Math.abs(hi)) < 10 ? 1 : 0;
+  if (p1(lo, d) === p1(hi, d)) return p1(r.likely, d);
+  return lo < 0 ? `${p1(lo, d)} to ${p1(hi, d)}` : `${p1(lo, d).replace(/%$/, "")}–${p1(hi, d)}`;
+};
 const n = (x: number | null | undefined, unit = "") => (x == null ? "—" : `${Math.round(x).toLocaleString("en-US")}${unit}`);
 
 export function controlsLabel(c: AppControls): string {
@@ -43,7 +56,7 @@ function cells(m: GenMetrics | null) {
     { k: "Parking", v: pk?.spaces != null ? String(pk.spaces) : pk?.kind === "none" ? "0" : "—", sub: pk?.required != null ? `${pk.required} required` : pk?.kind === "tuck" ? "tuck-under" : pk?.kind === "pad" ? "pad" : null },
     { k: "Total cost", v: money(m?.totalCost ?? null), sub: likely(m?.totalCost ?? null) },
     { k: rent ? "Rent a year" : "Value (sales)", v: money(m?.value ?? null), sub: likely(m?.value ?? null) },
-    { k: rent ? "NOI a year" : (m?.profit?.likely ?? 0) < 0 ? "Gap" : "Profit", v: money(m?.profit ?? null), sub: likely(m?.profit ?? null), tone: m?.profit ? (m.profit.likely < 0 ? "neg" : "pos") : null },
+    { k: rent ? "NOI a year" : m?.profit && m.profit.low < 0 && m.profit.high > 0 ? "Profit or gap" : (m?.profit?.likely ?? 0) < 0 ? "Gap" : "Profit", v: money(m?.profit ?? null), sub: likely(m?.profit ?? null), tone: m?.profit ? (m.profit.likely < 0 ? "neg" : "pos") : null },
     { k: "Yield on cost", v: pct(m?.yieldOnCostPct ?? null), sub: rent ? "a year" : m?.marginPct ? `sale margin ${pct(m.marginPct)}` : "if rented" },
   ] as { k: string; v: string; sub: string | null; tone?: "neg" | "pos" | null }[];
 }
