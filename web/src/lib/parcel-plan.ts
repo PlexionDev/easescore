@@ -5,7 +5,7 @@
 // evaluateDevelopment) with the pane's comps, rents, rates and lidar grid. Pure: no I/O.
 
 import { assumptions, quickfit, score, type ParcelFacts } from "@easescore/engine";
-import type { PanePayload } from "./pane-core";
+import { compArea, type PanePayload } from "./pane-core";
 import {
   GEN_TYPOLOGIES, controlsFromQuery, controlsFromScheme, financeFor, generate, plates, proFormaFacts, sameControls, typologyForStrategy,
   type FinanceInputs, type GenControls, type GenInput, type GenParcel, type GenTypology, type SteppingResult,
@@ -41,7 +41,7 @@ export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.C
   const isCity = score.isCityParcel(f);
   const rulesRow = isCity ? ((f.zoning as { rules?: quickfit.QuickFitRules | null } | undefined)?.rules ?? null) : null;
   const fin: FinanceInputs = {
-    facts: proFormaFacts(f), sfComps: P.sfComps, newComps: P.newComps, rehabComps: P.rehabComps,
+    facts: { ...proFormaFacts(f), owner_class: P.owner?.owner_class ?? null, area: compArea(f) }, sfComps: P.sfComps, newComps: P.newComps, rehabComps: P.rehabComps,
     rents: P.rent as FinanceInputs["rents"], prime: P.prime, tapFees: P.tapFees,
     permitMonths: Object.fromEntries((ease?.strategies ?? []).map((x) => [x.strategy, x.predictedMonthsToPermit?.months ?? null])),
     overrides: a.overrides,

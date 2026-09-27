@@ -15,7 +15,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.7|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.8|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -42,6 +42,8 @@ export interface PaneInputs {
   compDetails: Record<string, { year_built: number | null; condition_desc: string | null }> | null;
   /** Lidar elevation grid under the lot (lib/terrain-grid.ts), sampled by the caller; null when not covered. */
   terrain?: TerrainGrid | null;
+  /** parcel_owner_class row (land pricing: public lots are priced by the agency). */
+  owner?: { owner_class: string | null; agency_name: string | null } | null;
 }
 
 export interface PanePayload {
@@ -63,6 +65,8 @@ export interface PanePayload {
   score: score.EaseScoreResult | null;
   newComps: Partial<Record<score.StrategyId, assumptions.CompSet | null>>;
   rehabComps: assumptions.CompSet | null;
+  /** Owner class (private, city, ura, county, hacp, other_public, nonprofit) and agency name. */
+  owner: { owner_class: string | null; agency_name: string | null } | null;
 }
 
 /**
@@ -150,6 +154,7 @@ export function buildPane(i: PaneInputs): PanePayload {
     score: result,
     newComps,
     rehabComps,
+    owner: i.owner ? { owner_class: i.owner.owner_class ?? null, agency_name: i.owner.agency_name ?? null } : null,
   };
 }
 

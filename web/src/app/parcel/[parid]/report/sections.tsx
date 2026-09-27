@@ -1923,8 +1923,8 @@ export function AppC(x: Ctx) {
         </tbody>
       </table>
       <p className="small">
-        Site adders on top of the tier: moderate slope (8–25%) +{money(cc.siteAdders.moderateSlope.value)}/SF (range {money(cc.siteAdders.moderateSlope.range[0])}–{money(cc.siteAdders.moderateSlope.range[1])}); steep slope or stepped
-        foundation +{money(cc.siteAdders.steepSlope.value)}/SF (range {money(cc.siteAdders.steepSlope.range[0])}–{money(cc.siteAdders.steepSlope.range[1])}), both “{cc.siteAdders.steepSlope.sourceLabel}”; mine grouting{" "}
+        Site adders on top of the tier: moderate slope (8–25%) +{money(cc.siteAdders.moderateSlope.value)} per sq ft of building footprint (range {money(cc.siteAdders.moderateSlope.range[0])}–{money(cc.siteAdders.moderateSlope.range[1])}); steep slope or stepped
+        foundation +{money(cc.siteAdders.steepSlope.value)} per sq ft of footprint (range {money(cc.siteAdders.steepSlope.range[0])}–{money(cc.siteAdders.steepSlope.range[1])}) plus retaining walls {money(cc.siteAdders.retainingWalls.value)} per building, all “{cc.siteAdders.steepSlope.sourceLabel}”; mine grouting{" "}
         {money(cc.siteAdders.mineGrouting.value)} (range {money(cc.siteAdders.mineGrouting.range[0])}–{money(cc.siteAdders.mineGrouting.range[1])}), “{cc.siteAdders.mineGrouting.sourceLabel}”; geotechnical report, demolition and
         dumpsters: awaiting local cost data{fn(x, "cost_config")}.
       </p>

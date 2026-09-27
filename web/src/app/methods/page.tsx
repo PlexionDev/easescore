@@ -239,7 +239,7 @@ export default function MethodsPage() {
               </li>
               <li>
                 <strong>Hillside adders</strong> fire from the lidar slope: moderate slope {usd(costs.siteAdders.moderateSlope.value)} and steep slope{" "}
-                {usd(costs.siteAdders.steepSlope.value)} per finished square foot, each with the reason shown.
+                {usd(costs.siteAdders.steepSlope.value)} per square foot of building footprint (the foundation area, not every floor), plus {usd(costs.siteAdders.retainingWalls.value)} of retaining walls per building on a steep or stepped site, each with the reason shown.
               </li>
               <li><strong>Undermined lots:</strong> the mine grouting or mine subsidence insurance path; the premium comes from the PA DEP rate chart.</li>
               <li>

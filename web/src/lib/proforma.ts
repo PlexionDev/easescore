@@ -58,6 +58,8 @@ export const PF = {
   costPerUnit: "pf_unit_cost",
   costIncludesSite: "pf_unit_site",
   salePricePerUnit: "pf_unit_price",
+  /** Prefix: pf_line_<budget line id>=dollars ("Your number" on that line). */
+  lineAmounts: "pf_line_",
 } as const satisfies Record<keyof assumptions.CostOverrides, string>;
 
 const PERCENT_KEYS = new Set<keyof assumptions.CostOverrides>(["aeShare", "permitShare", "softOtherShare", "contingencyShare", "constructionRate", "ltc"]);
@@ -76,12 +78,17 @@ export function readCostOverrides(sp: SP): assumptions.CostOverrides {
   const inc = s(PF.costIncludesSite);
   if (inc === "yes" || inc === "no") o.costIncludesSite = inc === "yes";
   for (const [key, q] of Object.entries(PF) as [keyof assumptions.CostOverrides, string][]) {
-    if (key === "tenure" || key === "tier" || key === "minePath" || key === "parking" || key === "costIncludesSite") continue;
+    if (key === "tenure" || key === "tier" || key === "minePath" || key === "parking" || key === "costIncludesSite" || key === "lineAmounts") continue;
     const raw = s(q)?.replace(/[$,%\s]/g, "");
     if (raw === undefined) continue;
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0) continue;
     (o as Record<string, number>)[key] = PERCENT_KEYS.has(key) ? n / 100 : n;
+  }
+  for (const [k, v] of Object.entries(sp)) {
+    if (!k.startsWith(PF.lineAmounts) || typeof v !== "string") continue;
+    const n = Number(v.replace(/[$,\s]/g, ""));
+    if (v.trim() !== "" && Number.isFinite(n) && n >= 0) (o.lineAmounts ??= {})[k.slice(PF.lineAmounts.length)] = n;
   }
   return o;
 }
@@ -179,6 +186,6 @@ export async function rehabComps(
 export function withoutOverrides(sp: SP): URLSearchParams {
   const q = new URLSearchParams();
   const pf = new Set<string>(Object.values(PF));
-  for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && !pf.has(k)) q.set(k, v);
+  for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && !pf.has(k) && !k.startsWith(PF.lineAmounts)) q.set(k, v);
   return q;
 }

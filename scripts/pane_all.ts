@@ -70,7 +70,7 @@ if (!isMainThread) {
         // Same as singleFamilyComps(): the parcel's own comps when they are single-family sales.
         sfComps: sales?.comparable_use === "single family" ? sales : r.sf ?? null,
         prime: sh.prime, tapFees: facts?.assessment?.is_pittsburgh === true ? sh.tapFeesCity : null,
-        newSales: sh.newSales, compDetails: r.details ?? {}, terrain: await terrainFor(r.qf),
+        newSales: sh.newSales, compDetails: r.details ?? {}, terrain: await terrainFor(r.qf), owner: r.owner ?? null,
       };
       parentPort!.postMessage({ id: m.id, stored: toStored(buildPane(inputs)) });
     } catch (e) {
@@ -197,6 +197,7 @@ function batchSql(ids: string[]): string {
              public.parcel_sales_comps(parid) sales, public.parcel_rent_comps(parid) rent
       from ids)
     select b.parid, b.facts, b.qf, b.ease, b.sales, b.rent,
+      (select jsonb_build_object('owner_class', o.owner_class, 'agency_name', o.agency_name) from public.parcel_owner_class o where o.parid = b.parid) owner,
       case when b.sales->>'comparable_use' = 'single family' then null else public.parcel_sales_comps(b.parid, 5, 'SINGLE FAMILY') end sf,
       (select jsonb_object_agg(a.parid, jsonb_build_object('year_built', a.year_built, 'condition_desc', a.condition_desc))
          from public.assessments a where a.parid in (select c->>'parid' from jsonb_array_elements(b.sales->'comps') c)) details

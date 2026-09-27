@@ -546,6 +546,8 @@ export interface FinanceInputs {
   overrides: assumptions.CostOverrides;
   /** Per strategy: the score's fit scheme id and its F1 inputs (zoning path). */
   results: Partial<Record<StrategyId, { schemeId: string | null; f1: Record<string, unknown> | null }>>;
+  /** Rents by bedroom count (engine rents module); absent = HUD / ZORI fallback from `rents`. */
+  rentsByBedroom?: assumptions.PlanArgs["rentsByBedroom"];
 }
 
 /** The pro forma facts subset (keeps the browser payload small). */
@@ -554,7 +556,9 @@ export function proFormaFacts(f: Record<string, unknown>): assumptions.ProFormaF
   const a = (f.assessment ?? null) as Record<string, unknown> | null;
   return {
     slope_1m: pick("slope_1m"), overlays: pick("overlays"), mines: pick("mines"), site: pick("site"),
-    assessment: a ? { use: (a.use ?? null) as string | null, fmv_land: (a.fmv_land ?? null) as number | null, fmv_total: (a.fmv_total ?? null) as number | null, living_area_sqft: (a.living_area_sqft ?? null) as number | null, is_pittsburgh: (a.is_pittsburgh ?? null) as boolean | null, tax_year: (a.tax_year ?? null) as number | null, as_of: (a.as_of ?? null) as string | null } : null,
+    assessment: a ? { use: (a.use ?? null) as string | null, fmv_land: (a.fmv_land ?? null) as number | null, fmv_total: (a.fmv_total ?? null) as number | null, living_area_sqft: (a.living_area_sqft ?? null) as number | null, is_pittsburgh: (a.is_pittsburgh ?? null) as boolean | null, tax_year: (a.tax_year ?? null) as number | null, as_of: (a.as_of ?? null) as string | null,
+      condition: (a.condition ?? null) as string | null, year_built: (a.year_built ?? null) as number | null, lot_area_sqft: (a.lot_area_sqft ?? null) as number | null } : null,
+    lot_area_sqft_gis: pick("lot_area_sqft_gis"),
     property_tax: pick("property_tax"), transfer_tax: pick("transfer_tax"), building_footprint_sqft: pick("building_footprint_sqft"),
     flood_1pct_share: pick("flood_1pct_share"), flood_evidence: pick("flood_evidence"),
   };
@@ -588,7 +592,7 @@ export function financeFor(fin: FinanceInputs, strategy: StrategyId, scheme: qui
   try {
     const plan = assumptions.buildDevelopmentInputs({
       strategy, facts: fin.facts, scheme, selected,
-      comps: rehab ? fin.rehabComps : fin.sfComps,
+      comps: rehab ? fin.rehabComps : fin.sfComps, asIsComps: fin.sfComps, rentsByBedroom: fin.rentsByBedroom ?? null,
       newComps: fin.newComps[strategy] ?? null,
       rents: fin.rents, primeRate: fin.prime?.rate ?? null, primeRateDate: fin.prime?.date ?? null,
       permitMonths: fin.permitMonths[strategy] ?? null, tapFeesPerUnit: fin.tapFees, overrides: o,
