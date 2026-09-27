@@ -12,6 +12,7 @@ import MetricsBar, { type Pinned } from "./MetricsBar";
 import { DrawerHost, type DrawerId } from "./Drawers";
 import PhotorealStill from "./PhotorealStill";
 import { ViewSwitch, KeyNeeded, VIEW_MODES, type ViewMode } from "./ViewModes";
+import DescribeView, { DescribeButton, describeParcelView, schemeSentence, type ViewFacts } from "./DescribeView";
 import type { BuildMode, Massing } from "./Photoreal3D";
 import {
   QF_KEYS, boxColor, controlsToQuery, sameControls, typologyDef,
@@ -81,7 +82,7 @@ function useStable<T>(v: T): T {
   return useMemo(() => v, [key]);
 }
 
-export default function ParcelShell({ parid, pane, planExtras, drawers, stage, outline, center, gen }: {
+export default function ParcelShell({ parid, pane, planExtras, drawers, stage, outline, center, gen, viewFacts }: {
   parid: string;
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
@@ -96,6 +97,8 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   /** Lot centroid [lon, lat] from the pane: the photoreal view aims there and starts tiles before the map data. */
   center?: [number, number] | null;
   gen: GenProps;
+  /** Lot, hazard and zoning facts for "Describe this view" (same numbers as the pane). */
+  viewFacts?: ViewFacts;
 }) {
   const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   // The page re-renders (new stage promise) whenever the plan is committed to the URL; keep the map data of the
@@ -283,9 +286,12 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const parcelKey = String((mapData?.features as { properties?: { kind?: string; id?: string } }[] | undefined)?.find((f) => f.properties?.kind === "parcel")?.properties?.id ?? mapData?.center?.join(",") ?? "parcel");
   const overlaysOn = !(mobile && sheet === "full");
   const shownControls = controls ?? gen.defaults.sf;
+  const [descOpen, setDescOpen] = useState(false);
+  const descBtn = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-100">
+      <section aria-label="Map and 3D view" className="absolute inset-0">
       {!loaded && <StagePlaceholder outline={outline} />}
       {mapData && stageMounted && (
         <div className={`absolute inset-0 ${mode === "photoreal" ? "invisible" : ""}`} aria-hidden={mode === "photoreal"}>
@@ -298,7 +304,16 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           onFallback={() => choose("terrain")} mode={buildMode} onModeChange={setBuildMode} />
       </>}
       {mapData && mode === "photoreal" && !HAS_KEY && <KeyNeeded onFallback={() => choose("terrain")} />}
-      {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose} />}
+      {mapData && <ViewSwitch mode={mode} hasKey={HAS_KEY} onChange={choose}
+        extra={viewFacts ? <DescribeButton open={descOpen} onToggle={() => setDescOpen(!descOpen)} controls="es-describe" btnRef={descBtn} /> : null} />}
+      {mapData && viewFacts && (
+        <DescribeView id="es-describe" open={descOpen} onClose={() => { setDescOpen(false); descBtn.current?.focus(); }}
+          className="absolute left-3 right-3 top-28 z-40 md:left-[472px] md:right-auto md:top-16 md:w-[min(380px,calc(100%-490px))] xl:left-[calc(50%+92px)] xl:-translate-x-1/2"
+          lines={describeParcelView({ mode, facts: viewFacts, scheme: result?.scheme ?? (gen.strategy ? gen.fixed[gen.strategy] ?? null : null), reason: result?.reason ?? null, binding: result?.binding ?? null,
+            envelopeSf: result?.envelopeSf ?? null, code: gen.code, existingOnLot: existing.length,
+            neighborBuildings: Math.max(0, ((mapData.features ?? []) as { properties?: { kind?: string } }[]).filter((f) => f.properties?.kind === "building").length - existing.length) })}
+          announce={touched.current && result ? schemeSentence(result.scheme, result.reason, viewFacts.lotSf) : null} />
+      )}
 
       {(mapData || qfInput) && overlaysOn && mode !== "analysis" && (
         <div className={`absolute left-3 top-16 z-20 md:left-[472px] md:right-auto md:top-16 md:w-[300px] ${buildOpen ? "right-3" : "w-[calc(100%-13.5rem)]"}`}>
@@ -314,8 +329,10 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
             compact={mobile} busy={!!controls && !!run.result && !sameControls(run.result.controls, controls)} />
         </div>
       )}
+      </section>
 
-      <aside
+      <main
+        aria-label="Parcel details"
         className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-2xl border border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl md:inset-x-auto md:bottom-4 md:left-4 md:top-4 md:w-[440px] md:rounded-2xl md:bg-white/85 ${dragH == null ? "transition-[height] duration-300" : ""}`}
         style={mobile ? { height: sheetH } : undefined}>
         <button type="button" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
@@ -323,7 +340,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
           <span className="h-1.5 w-10 rounded-full bg-slate-300" />
         </button>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-1 md:pt-5">{pane}</div>
-      </aside>
+      </main>
       <DrawerHost drawers={[
         ...drawers.filter((d) => d.id === "pencils"),
         { id: "plan", title: "Change the plan", content: <>

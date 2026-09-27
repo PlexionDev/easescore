@@ -86,6 +86,9 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
       attributionControl: { compact: true },
     });
     map.current = m;
+    // The canvas takes keyboard focus (MapLibre: arrows pan, + and - zoom, Shift + arrows rotate and tilt).
+    m.getCanvas().setAttribute("aria-label", "Map of the lot in 3D terrain. Arrow keys pan, plus and minus zoom, Shift with arrow keys rotates and tilts. Use Describe this view for the same information as text.");
+    m.getCanvas().classList.add("es-map-focus");
     if (process.env.NODE_ENV === "development") (window as any).__map = m;
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     m.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
@@ -135,7 +138,9 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         // Keep the lot clear of the floating panel (440 px + gutter) when there is room for it.
         const w = m.getContainer().clientWidth, h = m.getContainer().clientHeight;
         const left = w > 900 ? Math.min(leftInset + 24, w - 360) : Math.round(w * 0.1), side = Math.round(w * 0.1), vert = Math.round(h * 0.2);
-        m.fitBounds(bboxOf(parcel.geometry), { pitch: 58, bearing: 160, maxZoom: 19.2, duration: 2600, essential: true,
+        // Reduced motion: jump straight to the view (no fly-in); "essential" is off so MapLibre honors it too.
+        const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        m.fitBounds(bboxOf(parcel.geometry), { pitch: 58, bearing: 160, maxZoom: 19.2, duration: still ? 0 : 2600,
           padding: { top: vert, bottom: vert, left, right: side } });
       }
       m.once("moveend", () => {
@@ -143,8 +148,8 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         // Auto-orbit on load; any drag, touch or wheel stops it.
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setOrbit(true);
       });
-      // Any direct user drag or touch stops the auto-orbit.
-      for (const ev of ["mousedown", "touchstart", "wheel"] as const) m.getCanvas().addEventListener(ev, () => setOrbit(false), { passive: true });
+      // Any direct user drag, touch, wheel or key stops the auto-orbit.
+      for (const ev of ["mousedown", "touchstart", "wheel", "keydown"] as const) m.getCanvas().addEventListener(ev, () => setOrbit(false), { passive: true });
       setLoaded(true);
       onReady?.();
     });
@@ -208,9 +213,9 @@ export default function MapStage({ data, massing, bottomInset = 0, leftInset = 4
         <span className="mx-1 h-5 w-px bg-slate-300" />
         <CamBtn title="Reset view" onClick={() => { setOrbit(false); if (home.current) map.current?.easeTo({ ...home.current, duration: 1200 }); }}>Reset</CamBtn>
       </div>
-      <div ref={el} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} aria-label="3D parcel map" />
+      <div ref={el} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
       <div className="absolute right-4 top-4 w-64 rounded-2xl border border-white/40 bg-white/80 p-3 text-sm shadow-xl backdrop-blur-md">
-        <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between font-semibold text-slate-800">
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-6 w-full items-center justify-between font-semibold text-slate-800">
           Map layers <span className="text-slate-400">{open ? "–" : "+"}</span>
         </button>
         {open && (

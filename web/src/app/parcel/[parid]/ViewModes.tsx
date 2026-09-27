@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 export type ViewMode = "photoreal" | "terrain" | "analysis";
 export const VIEW_MODES: ViewMode[] = ["photoreal", "terrain", "analysis"];
@@ -11,10 +11,11 @@ const LABELS: Record<ViewMode, [string, string]> = {
 };
 
 /** Segmented control, top-center of the map area (between the left panel and the layers card). */
-export function ViewSwitch({ mode, hasKey, onChange }: { mode: ViewMode; hasKey: boolean; onChange: (m: ViewMode) => void }) {
+export function ViewSwitch({ mode, hasKey, onChange, extra }: { mode: ViewMode; hasKey: boolean; onChange: (m: ViewMode) => void; /** Under the tabs (e.g. "Describe this view"). */ extra?: ReactNode }) {
   const [hint, setHint] = useState(!hasKey);
   return (
     <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-2 md:left-[472px] md:top-4 md:translate-x-0 md:items-start xl:left-[calc(50%+92px)] xl:-translate-x-1/2 xl:items-center">
+      <div className="flex items-center gap-1.5">
       <div role="tablist" aria-label="Map view" className="flex gap-1 rounded-full border border-white/40 bg-slate-900/75 p-1 text-sm shadow-xl backdrop-blur-md">
         {VIEW_MODES.map((m) => (
           <button key={m} role="tab" aria-selected={mode === m} onClick={() => onChange(m)}
@@ -23,6 +24,8 @@ export function ViewSwitch({ mode, hasKey, onChange }: { mode: ViewMode; hasKey:
             {m === "photoreal" && !hasKey && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400" aria-label="needs a key" />}
           </button>
         ))}
+      </div>
+      {extra}
       </div>
       {hint && mode !== "photoreal" && (
         <div className="flex items-center gap-2 rounded-full bg-slate-900/75 px-3 py-1 text-xs text-slate-200 shadow-lg backdrop-blur-md">

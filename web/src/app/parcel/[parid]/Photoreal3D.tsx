@@ -753,6 +753,30 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
     setOrbit(false);
     s.viewer.camera.flyTo({ ...home.current, duration: prefersReducedMotion() ? 0 : 1.4, easingFunction: s.C.EasingFunction.QUADRATIC_IN_OUT });
   };
+  /** Move the camera toward (k > 0) or away from (k < 0) the lot by a share of the distance to it. */
+  const zoom = (k: number) => {
+    const s = sh.current, pv = pivot.current;
+    if (!s || !pv) return;
+    setOrbit(false);
+    const d = s.C.Cartesian3.distance(s.viewer.camera.positionWC, pv);
+    const amt = d * Math.abs(k);
+    if (k > 0 && d - amt < 15) return; // stay above the lot
+    animate(300, (dk) => (k > 0 ? s.viewer.camera.zoomIn(amt * dk) : s.viewer.camera.zoomOut(amt * dk)));
+  };
+  // Keyboard on the focused 3D view: arrows orbit and tilt, + / - zoom, Home resets.
+  const onKey = (e: React.KeyboardEvent) => {
+    const k = e.key;
+    if (k === "ArrowLeft") spin(-15);
+    else if (k === "ArrowRight") spin(15);
+    else if (k === "ArrowUp") tilt(-10);
+    else if (k === "ArrowDown") tilt(10);
+    else if (k === "+" || k === "=") zoom(0.25);
+    else if (k === "-" || k === "_") zoom(-0.33);
+    else if (k === "Home") reset();
+    else return;
+    e.preventDefault();
+    userMoved.current = true;
+  };
   const capture = async () => {
     const s = sh.current, ts = tiles.current;
     if (!s || capturing) return;
@@ -806,8 +830,9 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
   return (
     <div className="absolute inset-0">
       {/* Transparent until the first view has loaded, then fades in over the still preview underneath. */}
-      <div ref={host} className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${loading ? "opacity-0" : "opacity-100"}`}
-           aria-label="Photoreal 3D view of the parcel" role="img" />
+      <div ref={host} className={`es-map-focus absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${loading ? "opacity-0" : "opacity-100"}`}
+           role="group" aria-roledescription="3D view" tabIndex={0} onKeyDown={onKey}
+           aria-label="Photoreal 3D view of the lot. Arrow keys orbit and tilt, plus and minus zoom, Home resets. Use Describe this view for the same information as text." />
 
       {loading && (
         <div className="pointer-events-none absolute z-10 w-60 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-slate-900/75 px-4 py-2.5 text-center text-slate-100 shadow-xl backdrop-blur-md"
@@ -853,7 +878,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
                 {massing?.boxes.length ? "Green: buildable envelope and setback line · blocks: the layout from Build it in 3D." : envelope?.rings.length ? "Green: buildable envelope. Nothing fits with these settings; try the Build panel." : "QuickFit hasn't produced an envelope for this lot."}
               </p>
             )}
-            <button onClick={() => setPanelOpen(!panelOpen)} className="mt-2 flex w-full items-center justify-between font-semibold text-slate-800">
+            <button type="button" aria-expanded={panelOpen} onClick={() => setPanelOpen(!panelOpen)} className="mt-2 flex min-h-6 w-full items-center justify-between font-semibold text-slate-800">
               Overlays <span className="text-slate-400">{panelOpen ? "–" : "+"}</span>
             </button>
             {panelOpen && (

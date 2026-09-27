@@ -58,3 +58,20 @@ export function describeSitePlan(f: DrawingFacts): string {
   if (f.steepShareOfLot != null && f.steepShareOfLot > 0) out.push(`${Math.round(f.steepShareOfLot * 100)}% of the lot is steep ground.`);
   return out.join(" ");
 }
+
+/** Plain names for the parcel overlay layers (parcel_facts.overlays[].layer). */
+const OVERLAY_LABEL: Record<string, string> = {
+  landslide_prone_pgh: "the City's landslide-prone overlay",
+  undermined_pgh: "the City's undermined-area overlay",
+  historic_district_pgh: "a City historic district",
+  inclusionary_pgh: "the City's inclusionary housing overlay",
+  parking_reduction_pgh: "a City parking-reduction area",
+  zoning_overlay_pgh: "a City zoning overlay",
+  landslide_recorded: "a slope-movement area on the 1982 landslide inventory (a historic map)",
+  combined_sewer: "the combined-sewer service area",
+  mined_out_dep: "a PA DEP mapped mine area",
+  wetland_nwi: "a mapped wetland (National Wetlands Inventory)",
+  greenway_pgh: "a City greenway",
+  flood_fema_nfhl: "a FEMA flood zone",
+};
+export const overlayLabel = (layer: string) => OVERLAY_LABEL[layer] ?? layer.replace(/_pgh$/, "").replace(/_/g, " ");

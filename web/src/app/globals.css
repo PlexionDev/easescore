@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* Accessibility (WCAG 2.2): keyboard focus on map and 3D canvases is drawn inside the canvas edge so the
+   floating panels never cover the whole ring; reduced motion turns off app-wide transitions and animations. */
+.es-map-focus:focus { outline: none; }
+.es-map-focus:focus-visible { outline: 3px solid #0284c7; outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
