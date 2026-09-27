@@ -2,12 +2,7 @@
 
 import Form from "next/form";
 import { useRef } from "react";
-
-/**
- * Public example for the "Try" button: a vacant, URA-owned lot on Heldman St in Crawford-Roberts
- * (Lower Hill), zoned RM-M. Map-block-lot search resolves it to parcel 0011A00151000000.
- */
-export const EXAMPLE_QUERY = "11-A-151";
+import { EXAMPLE_QUERY } from "./constants";
 
 const EMPTY = "Enter an address or parcel ID.";
 

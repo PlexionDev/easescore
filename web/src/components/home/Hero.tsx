@@ -19,7 +19,7 @@ export default function Hero() {
       <picture className="hero-image">
         <source media="(max-width:640px)" srcSet={mobile} />
         <source srcSet={desktop} />
-        {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- alt comes from getImageProps */}
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- alt comes from getImageProps */}
         <img {...img} />
       </picture>
       <div className="hero-shade" />
