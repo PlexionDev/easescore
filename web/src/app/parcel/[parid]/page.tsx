@@ -321,8 +321,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const thumbLabel = thumbTyp ? score.OPTION_NAME[QF2_TYPES.find((t) => t.id === thumbTyp)!.strategy] : null;
   const detailsHint = selected ? `${selected.factors.length} factors and receipts` : "receipts";
 
+  // One wrapper so the pane sets its own (tighter) rhythm: everything fits one 1440×900 screen.
   const pane = (
-    <>
+    <div className="space-y-3">
       {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
       <header>
         <div className="flex items-start justify-between gap-2">
@@ -372,7 +373,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         <DownloadReport parid={parid} query={reportQuery} label={"Download the PDF"} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
       </div>
       <p className="text-[11px] leading-snug text-slate-600">Decision support only: not legal, financial, zoning or engineering advice. Confirm with the permitting office and a professional.</p>
-    </>
+    </div>
   );
 
   const projectForm = (
