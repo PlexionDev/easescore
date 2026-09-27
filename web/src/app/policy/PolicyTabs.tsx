@@ -26,7 +26,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
           : <>New capacity lands in {rows.length} neighborhood{rows.length === 1 ? "" : "s"}.</>}
         {share >= 0.5 && top.length >= 5 ? " That is concentrated: check those neighborhoods’ infrastructure and displacement pressure." : ""}
       </p>
-      <div className="pol-tablewrap">
+      <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
         <table className="pol-table">
           <caption className="es-sr">Homes added by right, by neighborhood</caption>
           <thead>
@@ -53,7 +53,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
       {!flags.geo ? (
         <EmptyState compact dataset="Council district boundaries">The by-district view appears when the parcel-to-council-district crosswalk is loaded.</EmptyState>
       ) : places?.by_district?.length ? (
-        <div className="pol-tablewrap">
+        <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
           <table className="pol-table">
             <caption className="es-sr">Homes added by right, by City Council district</caption>
             <thead><tr><th scope="col">Council district</th><th scope="col" className="num">Parcels gaining</th><th scope="col" className="num">Newly buildable</th>
@@ -97,7 +97,7 @@ export function WhoTab({ flags, who, computing }: { flags: DataFlags; who: Who |
             <li><b>{share(who.homes_majority_renter)}</b> is in tracts where most households rent.</li>
             <li><b>{share(who.homes_displacement_flag)}</b> is in tracts flagged for displacement risk: rent burden that high <em>and</em> median sale prices up 15% or more ({who.price_window ?? "last four years"}, last 24 months vs the 24 before).</li>
           </ul>
-          <div className="pol-tablewrap">
+          <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
             <table className="pol-table">
               <caption className="es-sr">Census context for the tracts that gain the most capacity</caption>
               <thead><tr><th scope="col">Census tract</th><th scope="col" className="num">Homes added</th><th scope="col" className="num">Median household income</th>
@@ -138,7 +138,7 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
   const money = (r: { low: number; likely: number; high: number }) => <RangeValue value={r} format="money" size="sm" />;
   return (
     <div className="pol-fiscal">
-      <div className="pol-tablewrap">
+      <div className="pol-tablewrap" tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
         <table className="pol-table">
           <caption className="es-sr">Fiscal ledger by taxing body</caption>
           <thead>

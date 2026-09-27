@@ -113,7 +113,7 @@ export default function LimitationsPage() {
 
           <section id="gaps" aria-labelledby="gaps-h">
             <h2 id="gaps-h">Data gaps and vintages</h2>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead>
                   <tr><th scope="col">Gap</th><th scope="col">What it means for you</th><th scope="col">Data date</th></tr>

@@ -106,7 +106,7 @@ export default function MethodsPage() {
               Score = the sum of (weight × factor score) over the factors that have data, divided by the sum of those weights.
               The weights add up to {totalWeight}.
             </p>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <caption>Factor weights (from the engine config)</caption>
                 <thead>
@@ -125,7 +125,7 @@ export default function MethodsPage() {
             </div>
 
             <h3>Bands</h3>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Band</th><th scope="col" className={d.num}>Score</th></tr></thead>
                 <tbody>
@@ -141,7 +141,7 @@ export default function MethodsPage() {
 
             <h3>Zoning permission</h3>
             <p>Use permission comes from the City&apos;s §911.02 Use Table. The permission score is multiplied by the lot-fit factor.</p>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Code</th><th scope="col">Meaning</th><th scope="col" className={d.num}>Points</th></tr></thead>
                 <tbody>
@@ -166,7 +166,7 @@ export default function MethodsPage() {
             </p>
 
             <h3>Geohazard multipliers</h3>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead><tr><th scope="col">Condition on the lot</th><th scope="col" className={d.num}>Multiplier</th></tr></thead>
                 <tbody>

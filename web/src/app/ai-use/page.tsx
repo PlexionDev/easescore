@@ -59,7 +59,7 @@ export default function AiUsePage() {
 
           <section id="building" aria-labelledby="building-h">
             <h2 id="building-h">AI used to build the project</h2>
-            <div className={d.tableWrap}>
+            <div className={d.tableWrap} tabIndex={0} role="region" aria-label="Table (scrolls sideways on small screens)">
               <table className={d.table}>
                 <thead>
                   <tr><th scope="col">Tool</th><th scope="col">Model or version</th><th scope="col">Used for</th></tr>

@@ -36,6 +36,8 @@ export default function SeatHeader({ seat, controls, actions, hrefs }: {
         <BrandMark />
         <span>EaseScore<b>.AI</b></span>
       </Link>
+      {/* The page's one heading for screen readers: the seat's job ("Compare and rank sites"). */}
+      <h1 className="es-sr-only">{SEATS.find((s) => s.id === current)?.job ?? "EaseScore.AI"}</h1>
       <nav className="es-seat-switch" aria-label="Switch seat">
         {SEATS.map((s) => {
           const on = s.id === current;

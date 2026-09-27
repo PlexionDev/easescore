@@ -39,6 +39,8 @@
 .prose p { margin-top: 12px; }
 .prose ul, .prose ol { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 8px; }
 .prose a { color: var(--river); text-underline-offset: 3px; }
+/* Links inside running text are underlined (WCAG 1.4.1: not by color alone). */
+.doc p a, .doc td a, .doc .prose li a { text-decoration: underline; text-underline-offset: 3px; }
 .prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: #eaeeeb; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
 .muted { color: var(--slate); }
 .lede { margin-top: 16px; font-size: clamp(17px, 1.5vw, 19px); color: var(--slate); max-width: 60ch; }

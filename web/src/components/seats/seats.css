@@ -251,7 +251,7 @@
 .es-datefoot li a{color:var(--es-ink);text-decoration:underline;text-decoration-color:var(--es-line);text-underline-offset:2px}
 .es-datefoot-date{font-variant-numeric:tabular-nums}
 .es-datefoot-note{margin-top:6px}
-.es-datefoot-note a{color:var(--es-green)}
+.es-datefoot-note a{color:var(--es-green);text-decoration:underline;text-underline-offset:2px}
 
 /* ---------- Export menu ---------- */
 .es-menu-wrap{position:relative;display:inline-flex}
@@ -286,3 +286,4 @@
 @media (prefers-reduced-motion:reduce){
   .es-seat *,.es-seat *::before,.es-seat *::after,.es-seat.es-drawer{transition:none!important;animation:none!important}
 }
+.es-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
