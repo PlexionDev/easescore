@@ -62,7 +62,7 @@ See `docs/DATA.md` for the full table-by-table row counts, coverage notes, and k
 | Census ACS API | — | Configured, not yet used in app code. Env var: `CENSUS_API_KEY` |
 | HUD User Fair Market Rents (FMR) API | — | Used by the data loaders (not called at request time). Env var: `HUD_API_TOKEN` |
 | FRED (Federal Reserve Economic Data) API | — | Configured, not yet used in app code. Env var: `FRED_API_KEY` |
-| RentCast API | — | Configured, not yet used in app code. Env var: `RENTCAST_API_KEY`. **Rule: RentCast API responses must never be stored in the repo** (see `PLANNING.md` §1). |
+| RentCast API — market statistics by ZIP (`GET /v1/markets?zipCode=&dataType=Rental`, https://developers.rentcast.io/reference/market-statistics) | Retrieval date shown on each receipt | Median asking rent by bedroom count for the parcel's ZIP. Called only from the on-demand `/api/rents` route when the ZIP is not cached; cached in the database 30 days (RentCast API Terms §1 allow storing and displaying API data); hard limits 50/day and 800/month (US Eastern), enforced in SQL (migration 195). Env var: `RENTCAST_API_KEY`. Responses are never stored in the repo. |
 
 ## Libraries and dev tools
 | Name | Version | License | Used for |

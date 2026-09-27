@@ -29,7 +29,8 @@ export function buildSources(m: ReportModel): CiteRegistry {
   c.define("sewer", { title: "Combined sewersheds", publisher: "PWSA / 3 Rivers Wet Weather", date: NOT_RECORDED });
   const rb = m.rentsByBedroom;
   const pulled = rb?.sources.find((x) => /RentCast/.test(x.label))?.asOf ?? null;
-  c.define("rentcast", { title: "Rental listings (asking rents) near the parcel", publisher: "RentCast", date: pulled ? `pulled ${pulled}` : NOT_RECORDED, url: "https://www.rentcast.io/api", note: rb?.caveat });
+  const zipStats = rb?.sources.some((x) => /RentCast market statistics/.test(x.label)) ?? false;
+  c.define("rentcast", { title: zipStats ? "Market statistics by ZIP code (median asking rent by bedroom count)" : "Rental listings (asking rents) near the parcel", publisher: "RentCast", date: pulled ? `retrieved ${pulled}` : NOT_RECORDED, url: zipStats ? "https://developers.rentcast.io/reference/market-statistics" : "https://www.rentcast.io/api", note: rb?.caveat });
   c.define("env", { title: "Land Recycling Program sites; ACRES brownfields", publisher: "PA DEP; US EPA", date: NOT_RECORDED, note: m.ease?.env_sites?.rules });
   c.define("hydro", { title: "Streams (National Hydrography Dataset) and wetlands (National Wetlands Inventory)", publisher: "USGS; US Fish and Wildlife Service", date: NOT_RECORDED });
   c.define("streets", { title: "Street centerlines (opened and paper streets)", publisher: "Allegheny County; City of Pittsburgh", date: NOT_RECORDED, note: "Frontage = an opened street centerline within 20 m of the lot. Confirm on a survey." });

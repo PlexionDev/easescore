@@ -1,7 +1,11 @@
-// Rent by bedroom count: asking-rent comps (RentCast listings) summarized into {likely, low, high},
-// cross-checked against HUD Small Area Fair Market Rents and the Zillow ZIP rent index (ZORI).
+// Rent by bedroom count: RentCast market statistics for the parcel's ZIP (median asking rent by
+// bedroom count), or asking-rent comps (RentCast listings, no longer pulled by default), summarized
+// into {likely, low, high}, cross-checked against HUD Small Area Fair Market Rents and ZORI.
 // Deterministic: the same listings, benchmarks and date always give the same numbers.
 // When there are not enough listings, falls back to HUD (then ZORI), labeled as a benchmark.
+
+import type { ZipMarket } from "./market";
+export * from "./market";
 
 /** One rental listing, already stripped to listing facts (never owner, agent or contact fields). */
 export interface RentListing {
@@ -34,13 +38,17 @@ export interface RentsInput {
   listings: Record<number, RentListing[] | null>;
   /** When the listings were pulled (ISO date), for the source line. */
   pulledOn?: string | null;
+  /** RentCast market statistics for the parcel's ZIP (used when there are no listing comps). */
+  market?: ZipMarket | null;
+  /** Why there are no market statistics (e.g. "RentCast limit reached; showing HUD Fair Market Rent."). */
+  marketNote?: string | null;
   hud: HudBenchmark | null;
   zori: ZoriBenchmark | null;
   /** Target home size by bedroom count (sq ft); defaults to TARGET_SQFT. */
   targetSqft?: Record<number, number>;
 }
 
-export type RentBasis = "rentcast_comps" | "hud_safmr" | "zori" | "none";
+export type RentBasis = "rentcast_comps" | "rentcast_market" | "hud_safmr" | "zori" | "none";
 
 export interface RentCompRow {
   /** Block-level ("400 block of Roberts St") — safe for the screen. */
@@ -81,6 +89,10 @@ export interface RentEstimate {
   zori: number | null;
   /** Listings found but not enough (< MIN_COMPS) — why the fallback was used. */
   note: string | null;
+  /** RentCast ZIP statistics behind this estimate (basis rentcast_market). */
+  market?: { zip: string; retrievedOn: string; median: number; average: number | null; min: number | null; max: number | null; listings: number } | null;
+  /** YYYY-MM-DD the RentCast data was retrieved (basis rentcast_market). */
+  retrievedOn?: string | null;
 }
 
 export interface RentSource { label: string; asOf: string | null; url: string }
@@ -153,7 +165,7 @@ const hudFor = (h: HudBenchmark | null, br: number): number | null => {
 };
 
 /** One bedroom count. */
-export function rentForBedrooms(br: number, listings: RentListing[] | null, input: Pick<RentsInput, "asOf" | "hud" | "zori" | "pulledOn" | "targetSqft">): RentEstimate {
+export function rentForBedrooms(br: number, listings: RentListing[] | null, input: Pick<RentsInput, "asOf" | "hud" | "zori" | "pulledOn" | "targetSqft" | "market" | "marketNote">): RentEstimate {
   const target = input.targetSqft?.[br] ?? TARGET_SQFT[br] ?? 1000;
   const hud = hudFor(input.hud, br);
   const zori = input.zori?.latest_rent != null ? Math.round(input.zori.latest_rent) : null;
@@ -202,9 +214,33 @@ export function rentForBedrooms(br: number, listings: RentListing[] | null, inpu
     };
   }
 
-  const why = listings == null
-    ? "Rent data temporarily unavailable (RentCast listings could not be reached or the monthly quota is used up)."
-    : `Only ${comps.length} matching listing${comps.length === 1 ? "" : "s"} within ${RADII_MI[RADII_MI.length - 1]!} mi (need ${MIN_COMPS}).`;
+  // RentCast market statistics for the ZIP (median asking rent for this bedroom count).
+  const ms = input.market?.byBedroom?.[br] ?? null;
+  const msCount = ms?.totalListings ?? 0;
+  if (input.market && ms && ms.medianRent != null && ms.medianRent > 0 && msCount >= MIN_COMPS) {
+    const m = input.market;
+    const med = ms.medianRent;
+    const span = ms.minRent != null && ms.maxRent != null ? ` Listings ranged ${usd(Math.round(ms.minRent))}–${usdBare(Math.round(ms.maxRent))}${ms.averageRent != null ? `; average ${usd(Math.round(ms.averageRent))}` : ""}.` : "";
+    return {
+      bedrooms: br, likely: round50(med), low: round50(med * (1 - FALLBACK_BAND)), high: round50(med * (1 + FALLBACK_BAND)),
+      basis: "rentcast_market",
+      basisLabel: `RentCast market statistics for ZIP ${m.zip}, retrieved ${m.retrievedOn}`,
+      comps: [], compCount: 0, radiusMi: null, targetSqft: target,
+      rules: `All ${brWord} asking rents RentCast tracks in ZIP ${m.zip} (${msCount} listings). Not adjusted for size, age or condition.`,
+      method: `Likely = RentCast's median asking rent for ${brWord} listings in ZIP ${m.zip}.${span} Range = ±${Math.round(FALLBACK_BAND * 100)}% around the median (an assumption, not a market range). All rounded to the nearest $50.`,
+      hud, zori, note: null,
+      market: { zip: m.zip, retrievedOn: m.retrievedOn, median: med, average: ms.averageRent, min: ms.minRent, max: ms.maxRent, listings: msCount },
+      retrievedOn: m.retrievedOn,
+    };
+  }
+
+  const why = input.market && ms
+    ? `RentCast shows only ${msCount} ${brWord} listing${msCount === 1 ? "" : "s"} in ZIP ${input.market.zip} (need ${MIN_COMPS}); showing HUD Fair Market Rent.`
+    : input.market
+      ? `RentCast has no ${brWord} statistics for ZIP ${input.market.zip}; showing HUD Fair Market Rent.`
+      : listings == null
+        ? input.marketNote ?? "RentCast data unavailable; showing HUD Fair Market Rent."
+        : `Only ${comps.length} matching listing${comps.length === 1 ? "" : "s"} within ${RADII_MI[RADII_MI.length - 1]!} mi (need ${MIN_COMPS}).`;
   const bench = hud != null
     ? { v: hud, basis: "hud_safmr" as const, label: `HUD Small Area Fair Market Rent FY${input.hud?.year ?? "?"}, ZIP ${input.hud?.zip ?? "?"} (benchmark, not listings)` }
     : zori != null
@@ -227,6 +263,7 @@ export function rentsByBedroom(input: RentsInput): RentsByBedroom {
   const byBedroom: Record<number, RentEstimate> = {};
   for (const br of brs) byBedroom[br] = rentForBedrooms(br, input.listings[br] ?? null, input);
   const sources: RentSource[] = [];
+  if (input.market && brs.some((b) => byBedroom[b]!.basis === "rentcast_market")) sources.push({ label: `RentCast market statistics for ZIP ${input.market.zip} (median asking rent by bedroom count)`, asOf: input.market.retrievedOn, url: "https://developers.rentcast.io/reference/market-statistics" });
   if (brs.some((b) => byBedroom[b]!.compCount > 0)) sources.push({ label: "RentCast rental listings (asking rents)", asOf: input.pulledOn ?? null, url: "https://www.rentcast.io/api" });
   if (input.hud) sources.push({ label: `HUD Small Area Fair Market Rents FY${input.hud.year ?? "?"}${input.hud.zip ? `, ZIP ${input.hud.zip}` : ""}`, asOf: input.hud.year != null ? `FY${input.hud.year}` : null, url: "https://www.huduser.gov/portal/datasets/fmr/smallarea/index.html" });
   if (input.zori) sources.push({ label: `Zillow Observed Rent Index (ZORI), ZIP ${input.zori.zip ?? "?"}`, asOf: input.zori.latest_month ?? null, url: "https://www.zillow.com/research/data/" });
@@ -244,7 +281,7 @@ export function rentOneLiner(e: RentEstimate): string {
   if (e.likely == null || e.low == null || e.high == null) return `No rent evidence for a ${e.bedrooms === 0 ? "studio" : `${e.bedrooms}-bedroom`} here. Enter a rent to test it.`;
   const what = e.bedrooms === 0 ? "a studio" : `a ${e.bedrooms}-bedroom`;
   const checks = [e.hud != null ? "HUD" : null, e.zori != null ? "Zillow" : null].filter(Boolean);
-  const tail = e.basis === "rentcast_comps"
+  const tail = e.basis === "rentcast_comps" || e.basis === "rentcast_market"
     ? `${e.basisLabel}${checks.length ? `, checked against ${checks.join(" and ")}` : ""}.`
     : `${e.basisLabel}. ${e.note ?? ""}`.trim();
   return `${usd(e.low)}–${usdBare(e.high)}/month for ${what} · likely ${usd(e.likely)}. ${tail}`;

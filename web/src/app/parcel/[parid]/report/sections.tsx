@@ -816,7 +816,7 @@ function OptionsAndPrecedent({ x }: { x: Ctx }) {
     <>
       {rows.length > 0 && (
         <>
-          <div className="tcap">Best options for this lot (ease and money kept separate; the easiest option that pencils first)</div>
+          <div className="tcap">Highest and best use (screening): what works best on this lot (ease and money kept separate; the easiest option that pencils first)</div>
           <table>
             <thead><tr><th>#</th><th>Option</th><th>Ease Score</th><th>Zoning path</th><th>Pencils?</th></tr></thead>
             <tbody>
@@ -1240,7 +1240,7 @@ function RentsByBedroomBlock(x: Ctx) {
   const withComps = est.filter((e) => e.comps.length > 0);
   const tE = x.tab();
   const brLabel = (n: number) => (n === 0 ? "Studio" : `${n} bedroom${n > 1 ? "s" : ""}`);
-  const cite = (e: (typeof est)[number]) => (e.basis === "rentcast_comps" ? fn(x, "rentcast") : e.basis === "hud_safmr" ? fn(x, "hud_fmr") : e.basis === "zori" ? fn(x, "zori") : null);
+  const cite = (e: (typeof est)[number]) => (e.basis === "rentcast_comps" || e.basis === "rentcast_market" ? fn(x, "rentcast") : e.basis === "hud_safmr" ? fn(x, "hud_fmr") : e.basis === "zori" ? fn(x, "zori") : null);
   return (
     <>
       <div className="tcap">Table {tE}. Rent by bedroom count (monthly, rounded to $50)</div>
@@ -1262,6 +1262,7 @@ function RentsByBedroomBlock(x: Ctx) {
         {est[0]!.method} {est[0]!.rules} {rb.caveat}
         {withComps.length && !x.print ? " On screen, listings show the block only; the downloadable PDF lists full street addresses." : ""}
       </p>
+      {!withComps.length && <p className="small muted">Rents use RentCast market statistics for the parcel&apos;s ZIP code (median asking rent by bedroom count), not individual nearby listings, so no listing table is shown. Where RentCast statistics are not available the table says why and uses HUD Small Area Fair Market Rent.</p>}
       {withComps.map((e) => {
         const t = x.tab();
         return (

@@ -869,7 +869,7 @@ export function buildDevelopmentInputs(a: PlanArgs): DevelopmentPlan {
   } : ASSUME;
   const rentSrc: DataSource = has(o.rentPerUnit) ? USER : estOk ? {
     label: `${rentEst!.basisLabel}, ${brText}`,
-    asOf: rentEst!.basis === "hud_safmr" ? (hudB?.year != null ? `FY${hudB.year}` : null) : rentEst!.basis === "zori" ? (zoriB?.latest_month ?? "").slice(0, 7) || null : a.rentsByBedroom?.asOf ?? null, kind: "data",
+    asOf: rentEst!.basis === "rentcast_market" ? rentEst!.retrievedOn ?? null : rentEst!.basis === "hud_safmr" ? (hudB?.year != null ? `FY${hudB.year}` : null) : rentEst!.basis === "zori" ? (zoriB?.latest_month ?? "").slice(0, 7) || null : a.rentsByBedroom?.asOf ?? null, kind: "data",
   } : ASSUME;
 
   const evidence: Evidence = missing.length ? "missing" : exclusions.length ? "partial" : "complete";

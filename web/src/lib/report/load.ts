@@ -296,7 +296,7 @@ export interface ReportModel {
   sitePlan: SitePlanSheet | null;
   /** The parcel page's plan for the same URL (lib/parcel-plan.ts): when set, `scheme` and `proForma` are the page's. */
   pagePlan: Pick<ParcelPlan, "scheme" | "stepping" | "selected" | "pf"> & { strategy: string } | null;
-  /** Rents by bedroom (RentCast listings with FULL comp addresses — this report only; HUD/ZORI fallback). */
+  /** Rents by bedroom (RentCast ZIP market statistics from the cache — the report never calls RentCast; HUD SAFMR fallback). */
   rentsByBedroom: rentsEngine.RentsByBedroom | null;
   /** Where the parcel data came from: the precomputed pane row, or computed now (and stored for next time). */
   paneSource: "row" | "live";
