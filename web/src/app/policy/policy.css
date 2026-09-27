@@ -62,3 +62,7 @@
 .pol-facts { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.5; color: #111b1a; }
 .pol-linkbtn { padding: 0; border: 0; background: none; color: #156b54; font: inherit; text-decoration: underline; cursor: pointer; }
 .pol-linkbtn:focus-visible { outline: 2px solid #156b54; outline-offset: 2px; }
+.pol-viewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 8px}
+.pol-viewbar .es-seg-wrap{display:flex;align-items:center;gap:8px}
+.pol-viewnote{font-size:12.5px;color:var(--es-muted)}
+.pol-panel:focus{outline:none}

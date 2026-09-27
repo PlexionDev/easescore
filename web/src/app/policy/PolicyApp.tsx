@@ -74,6 +74,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const [pts, setPts] = useState<{ key: string; points: PolicyPoint[] } | null>(null);
   const [ctx, setCtx] = useState<{ key: string; places: Places | null; who: Who | null } | null>(null);
   const [tab, setTab] = useState<Tab>("where");
+  const [tableView, setTableView] = useState(false);
   const [name, setName] = useState("");
   const [savedLocal, setSavedLocal] = useState<Saved[] | null>(null);
   const savedRaw = useSyncExternalStore(subscribeStorage, readSavedRaw, () => "[]");
@@ -239,7 +240,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   );
 
   const left = (
-    <FilterRail intro="Change the rules. Results update for every parcel the change applies to; nothing else is recomputed.">
+    <FilterRail heading="Levers" intro="Change the rules. Results update for every parcel the change applies to; nothing else is recomputed.">
       <div className="pol-levers">
       <label className="pol-name">
         <span className="es-field-label">Scenario name</span>
@@ -351,9 +352,20 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
             sub={fis ? <>{fis.abatement ? `per year after the abatement; ${formatRange(fis.abatementTotal, { format: "money" })}/yr forgone while it runs` : "per year, all taxing bodies"}{hiddenLikely(fis.total) ? ` · likely about ${fmtMoney(roundSig(fis.total.likely))}` : ""}</> : " "} />
         </section>
 
-        <div className="pol-mapwrap">
-          <PolicyMap points={points} loading={key !== "base" && pts?.key !== key} levers={[...new Set(points.map((p) => p[4]))]} />
+        {/* One polite announcement per result change (lever, slider or scenario), read from the headline numbers. */}
+        <p className="es-sr" role="status">{summary && h && nb ? `Results updated. More homes allowed by right: ${formatRange(h)}. Parcels newly buildable: ${formatRange(nb)}. Likely to pencil: ${formatRange(summary.homes_pencil)} homes.` : ""}</p>
+
+        <div className="pol-viewbar">
+          <Segmented<"map" | "table"> label="View" size="sm" value={tableView ? "table" : "map"}
+            onChange={(v) => { setTableView(v === "table"); if (v === "table") { setTab("where"); requestAnimationFrame(() => document.getElementById("pol-panel-where")?.focus()); } }}
+            options={[{ value: "map", label: "Map" }, { value: "table", label: "Table view" }]} />
+          <span className="pol-viewnote">The Where table lists the same parcels by neighborhood and council district, with every number as text.</span>
         </div>
+        {tableView ? null : (
+          <div className="pol-mapwrap">
+            <PolicyMap points={points} loading={key !== "base" && pts?.key !== key} levers={[...new Set(points.map((p) => p[4]))]} />
+          </div>
+        )}
 
         <div className="pol-tabs" role="tablist" aria-label="Result details">
           {TABS.map((t) => (
@@ -368,7 +380,8 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
             </button>
           ))}
         </div>
-        <div className="pol-panel" role="tabpanel" id={`pol-panel-${tab}`} aria-labelledby={`pol-tab-${tab}`}>
+        <div className="pol-panel" role="tabpanel" id={`pol-panel-${tab}`} aria-labelledby={`pol-tab-${tab}`} tabIndex={-1}>
+          <h2 className="es-sr">{TABS.find((t) => t.id === tab)?.label}</h2>
           {!summary && key !== "base" ? (["missing", "cancelled", "failed"].includes(st.status) && st !== placeholder
             ? <EmptyState title="Not computed for this demo">Pick a precomputed scenario from the Scenario menu or the list above.</EmptyState>
             : <EmptyState title="Results are still being computed" tone="pending">The first parcels appear here within a minute or two.</EmptyState>) : null}
