@@ -415,7 +415,7 @@
   "comps": {
     "_note": "How finished homes are valued. New builds use new-construction sales only; rehab uses existing-home sales matched on size and age. Older-home sales are never the value of a new build: when new-construction sales are too few, they are shown only as a labeled floor.",
     "newConstruction": {
-      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000. Same City neighborhood (or municipality) when it has at least 5 such sales, otherwise the nearest by distance; widen from ¼ mile to 3 miles until 8, keep the nearest 12; drop sales beyond 1.5× the middle-half spread of $/SF; at least 5 needed.",
+      "rule": "Valid arm's-length sales in the last 3 years of homes built no more than 10 years before the sale year, at least 600 sq ft of living area and $20,000, within ±40% of the planned home's size when enough. Same City neighborhood (or municipality) when it has at least 5 such sales, otherwise areas of the same market tier (never a richer market), nearest first; widen from ¼ mile to 3 miles until 8, keep the nearest 12; drop sales beyond 1.5× the middle-half spread of $/SF; at least 5 needed.",
       "years": 3,
       "maxAgeAtSaleYears": 10,
       "minLivingAreaSqft": 600,
@@ -438,7 +438,11 @@
         "tierBandLabel": "Assumption, edit me",
         "tierMinSales": 10,
         "tierYears": 3,
-        "tierNote": "Market-tier matching (appraisal-style, never demographic): when the subject's own area has fewer than sameAreaMinComps new-construction sales, candidate comps must come from areas whose market tier (median $/SF of existing-home sales, engine/config/area-market-tiers.json) is within ±tierBand of the subject area's tier. If that leaves fewer than minComps, the rule without tiers is used and the receipt says so.",
+        "tierYearsFallback": 5,
+        "tierNeighbors": 3,
+        "sizeBand": 0.4,
+        "sizeBandLabel": "Assumption, edit me",
+        "tierNote": "Market-tier matching (appraisal-style, never demographic): when the subject's own area has fewer than sameAreaMinComps new-construction sales, candidate comps must come from areas whose market tier (median $/SF of existing-home sales, engine/config/area-market-tiers.json; 5 years when 3 have too few sales) is within ±tierBand of the subject area's tier. An area with no tier borrows the median tier of its tierNeighbors nearest tiered areas. Too few sales in the band: any area priced no higher than the band's top (never a richer market). Still too few: no new-home value (older-home sales shown as a floor); comps are never pulled from richer markets by distance alone. Comps are kept within ±sizeBand of the planned home's finished size when that leaves enough sales.",
         "sourceLabel": "Assumption — editable"
       },
       "singleFamilyUses": [

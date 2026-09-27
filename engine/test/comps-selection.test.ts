@@ -28,7 +28,8 @@ describe("new-construction comp selection", () => {
   it("falls back to the nearest sales by distance, keeps at most 12, and drops $/SF outliers with a reason", () => {
     const few = LOCAL.slice(0, 3);
     const odd = sale(40, 0.21, 2500, "Hill A"); // a data-entry outlier
-    const c = assumptions.newConstructionComps({ ...AT, area: "Nowhere C" }, [...few, ...LUXURY, odd], opts);
+    // No tier data at all: the plain nearest rule.
+    const c = assumptions.newConstructionComps({ ...AT, area: "Nowhere C" }, [...few, ...LUXURY, odd], { ...opts, tiers: null });
     expect(c.selection!.scope).toBe("nearest");
     expect(c.count + c.selection!.dropped.length).toBeLessThanOrEqual(12);
     expect(c.selection!.dropped.some((d) => d.row.parid === "S40" && /above the outlier limit/.test(d.reason))).toBe(true);
@@ -64,11 +65,41 @@ describe("market-tier matching (appraisal-style, never demographic)", () => {
     expect(c.median_price_per_sqft!).toBeLessThan(320);
   });
 
-  it("falls back to the nearest rule, and says so, when the tier band leaves fewer than 5", () => {
+  it("never falls back to a richer market: too few in the band or lower means no value", () => {
     const c = run([...own, ...flats.slice(0, 2), ...LUXURY]);
-    expect(c.selection!.scope).toBe("nearest");
-    expect(c.selection!.tier!.fellBack).toBe(true);
-    expect(c.selection!.receipt).toMatch(/That left fewer than 5 sales, so the nearest sales by distance were used instead\./);
+    expect(c.selection!.scope).toBe("none");
+    expect(c.sufficient).toBe(false);
+    expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
+    expect(c.selection!.receipt).toMatch(/no value is estimated from richer markets nearby/);
+    expect(c.note).toMatch(/richer markets nearby are not used/);
+  });
+
+  it("widens to lower-priced areas (never richer) when the band has too few", () => {
+    const cheap = [0.3, 0.35, 0.45, 0.55].map((d, i) => sale(70 + i, d, 200, "Cheap D"));
+    const c = run([...own, ...flats.slice(0, 2), ...cheap, ...LUXURY], { ...TIERS, areas: { ...TIERS.areas, "Cheap D": { medianPerSqft: 60, sales: 20 } } });
+    expect(c.selection!.scope).toBe("tier_or_lower");
+    expect(c.sufficient).toBe(true);
+    expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
+    expect(c.selection!.receipt).toMatch(/any area priced no higher than \$257\/SF was allowed \(never a richer market\)/);
+  });
+
+  it("an area without a tier borrows the median tier of its nearest tiered areas", () => {
+    const centers = { "Hill A": [AT.lat, AT.lon], "Flats C": [AT.lat + 0.01, AT.lon], "Riverfront B": [AT.lat + 0.2, AT.lon], "Far E": [AT.lat + 0.02, AT.lon] };
+    const t: assumptions.AreaTiers = { ...TIERS, areas: { "Flats C": TIERS.areas["Flats C"]!, "Riverfront B": TIERS.areas["Riverfront B"]!, "Far E": { medianPerSqft: 200, sales: 30 } }, centers };
+    const c = run(all, t);
+    expect(c.selection!.tier!.borrowedFrom).toEqual(["Flats C", "Far E", "Riverfront B"]);
+    expect(c.selection!.tier!.medianPerSqft).toBe(200);
+    expect(c.selection!.scope).toBe("tier_match");
+    expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
+    expect(c.selection!.receipt).toMatch(/borrows the median of its nearest areas \(Flats C, Far E, Riverfront B\): \$200\/SF/);
+  });
+
+  it("keeps comps within ±40% of the planned home's size when enough remain", () => {
+    const big = [0.61, 0.62, 0.63].map((d, i) => ({ ...sale(80 + i, d, 400, "Flats C"), livingAreaSqft: 4000, price: 400 * 4000 }));
+    const c = assumptions.newConstructionComps({ ...AT, sizeSf: 1800 }, [...own, ...flats, ...big], { ...opts, tiers: TIERS });
+    expect(c.selection!.size).toMatchObject({ targetSf: 1800, band: [1080, 2520], applied: true });
+    expect(c.comps.every((x) => x.livingAreaSqft <= 2520)).toBe(true);
+    expect(c.selection!.receipt).toMatch(/Size: kept homes of 1,080–2,520 sq ft/);
   });
 
   it("says the tier is unknown when the subject area has too few existing-home sales", () => {
@@ -83,6 +114,6 @@ describe("market-tier matching (appraisal-style, never demographic)", () => {
 
   it("the shipped tier file has no demographic fields", () => {
     const keys = new Set(Object.values(assumptions.AREA_TIERS.areas).flatMap((v) => Object.keys(v)));
-    expect([...keys].sort()).toEqual(["medianPerSqft", "sales"]);
+    expect([...keys].sort()).toEqual(["medianPerSqft", "sales", "years"]);
   });
 });

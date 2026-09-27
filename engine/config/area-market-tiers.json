@@ -1,5 +1,5 @@
 {
- "_note": "Market tier per area for new-construction comp matching: median $/SF of valid arm's-length sales of existing single-family, townhouse and rowhouse homes (built more than 10 years before the sale), by City neighborhood or municipality. Areas with fewer than 10 sales are omitted (tier unknown). Source: Allegheny County Property Sale Transactions and Assessments. No demographic data. Regenerate with node scripts/area_tiers.mjs.",
+ "_note": "Market tier per area for new-construction comp matching: median $/SF of valid arm's-length sales of existing single-family, townhouse and rowhouse homes (built more than 10 years before the sale), by City neighborhood or municipality. Areas with fewer than 10 sales use the last 5 years (years field); still fewer: omitted (tier unknown). Source: Allegheny County Property Sale Transactions and Assessments. centers = mean parcel centroid [lat, lon] of every area (an area without a tier borrows the median tier of its nearest tiered areas). No demographic data. Regenerate with node scripts/area_tiers.mjs.",
  "asOf": "2026-09-27",
  "years": 3,
  "minSales": 10,
@@ -7,6 +7,11 @@
   "ALEPPO": {
    "medianPerSqft": 181.3,
    "sales": 39
+  },
+  "Allegheny West": {
+   "medianPerSqft": 218.3,
+   "sales": 13,
+   "years": 5
   },
   "Allentown": {
    "medianPerSqft": 72.1,
@@ -44,9 +49,19 @@
    "medianPerSqft": 151.2,
    "sales": 97
   },
+  "Beltzhoover": {
+   "medianPerSqft": 33.9,
+   "sales": 17,
+   "years": 5
+  },
   "BEN AVON": {
    "medianPerSqft": 190.7,
    "sales": 33
+  },
+  "BEN AVON HEIGHTS": {
+   "medianPerSqft": 253.1,
+   "sales": 10,
+   "years": 5
   },
   "BETHEL PARK": {
    "medianPerSqft": 200.1,
@@ -67,6 +82,11 @@
   "BRACKENRIDGE": {
    "medianPerSqft": 105.6,
    "sales": 55
+  },
+  "BRADDOCK": {
+   "medianPerSqft": 32.4,
+   "sales": 11,
+   "years": 5
   },
   "BRADDOCK HILLS": {
    "medianPerSqft": 158.5,
@@ -115,6 +135,11 @@
   "CHALFANT": {
    "medianPerSqft": 133,
    "sales": 13
+  },
+  "Chartiers City": {
+   "medianPerSqft": 93.1,
+   "sales": 14,
+   "years": 5
   },
   "CHESWICK": {
    "medianPerSqft": 157.1,
@@ -172,6 +197,11 @@
    "medianPerSqft": 226.4,
    "sales": 29
   },
+  "East Carnegie": {
+   "medianPerSqft": 100.1,
+   "sales": 12,
+   "years": 5
+  },
   "EAST DEER": {
    "medianPerSqft": 113.6,
    "sales": 33
@@ -223,6 +253,11 @@
   "FINDLAY": {
    "medianPerSqft": 190.7,
    "sales": 103
+  },
+  "Fineview": {
+   "medianPerSqft": 146.7,
+   "sales": 28,
+   "years": 5
   },
   "FOREST HILLS": {
    "medianPerSqft": 167.9,
@@ -292,6 +327,16 @@
    "medianPerSqft": 61.7,
    "sales": 17
   },
+  "Homewood North": {
+   "medianPerSqft": 30.8,
+   "sales": 12,
+   "years": 5
+  },
+  "Homewood South": {
+   "medianPerSqft": 42.3,
+   "sales": 12,
+   "years": 5
+  },
   "INDIANA": {
    "medianPerSqft": 205.7,
    "sales": 115
@@ -315,6 +360,11 @@
   "Knoxville": {
    "medianPerSqft": 67.1,
    "sales": 31
+  },
+  "Larimer": {
+   "medianPerSqft": 45.1,
+   "sales": 16,
+   "years": 5
   },
   "LEET": {
    "medianPerSqft": 184.4,
@@ -359,6 +409,11 @@
   "MCCANDLESS": {
    "medianPerSqft": 221.9,
    "sales": 580
+  },
+  "MCDONALD": {
+   "medianPerSqft": 123.6,
+   "sales": 10,
+   "years": 5
   },
   "MCKEES ROCKS": {
    "medianPerSqft": 70.3,
@@ -492,6 +547,11 @@
    "medianPerSqft": 108.1,
    "sales": 108
   },
+  "RANKIN": {
+   "medianPerSqft": 45.7,
+   "sales": 10,
+   "years": 5
+  },
   "Regent Square": {
    "medianPerSqft": 299.2,
    "sales": 23
@@ -572,6 +632,11 @@
    "medianPerSqft": 140.4,
    "sales": 77
   },
+  "Spring Garden": {
+   "medianPerSqft": 49.4,
+   "sales": 15,
+   "years": 5
+  },
   "Spring Hill-City View": {
    "medianPerSqft": 118.6,
    "sales": 23
@@ -612,6 +677,11 @@
    "medianPerSqft": 82.3,
    "sales": 45
   },
+  "THORNBURG": {
+   "medianPerSqft": 233.6,
+   "sales": 20,
+   "years": 5
+  },
   "Troy Hill": {
    "medianPerSqft": 160,
    "sales": 40
@@ -639,6 +709,11 @@
   "VERSAILLES": {
    "medianPerSqft": 90.9,
    "sales": 20
+  },
+  "WALL": {
+   "medianPerSqft": 62.7,
+   "sales": 11,
+   "years": 5
   },
   "WEST DEER": {
    "medianPerSqft": 204.8,
@@ -692,5 +767,871 @@
    "medianPerSqft": 127.2,
    "sales": 19
   }
+ },
+ "centers": {
+  "CHESWICK": [
+   40.5438,
+   -79.8007
+  ],
+  "EMSWORTH": [
+   40.5126,
+   -80.0967
+  ],
+  "Bon Air": [
+   40.4078,
+   -79.9999
+  ],
+  "PINE": [
+   40.6435,
+   -80.0366
+  ],
+  "Allegheny Center": [
+   40.4522,
+   -80.0057
+  ],
+  "West End": [
+   40.4385,
+   -80.0336
+  ],
+  "MCKEES ROCKS": [
+   40.4693,
+   -80.0657
+  ],
+  "Oakwood": [
+   40.4271,
+   -80.066
+  ],
+  "Summer Hill": [
+   40.4935,
+   -80.0092
+  ],
+  "FINDLAY": [
+   40.4721,
+   -80.2634
+  ],
+  "Chateau": [
+   40.4528,
+   -80.0272
+  ],
+  "ASPINWALL": [
+   40.4929,
+   -79.9029
+  ],
+  "Highland Park": [
+   40.474,
+   -79.9197
+  ],
+  "ELIZABETH": [
+   40.2774,
+   -79.8335
+  ],
+  "GREEN TREE": [
+   40.4154,
+   -80.0534
+  ],
+  "HEIDELBERG": [
+   40.3915,
+   -80.0916
+  ],
+  "THORNBURG": [
+   40.4336,
+   -80.0858
+  ],
+  "BLAWNOX": [
+   40.4935,
+   -79.8617
+  ],
+  "KENNEDY": [
+   40.4792,
+   -80.1039
+  ],
+  "Arlington": [
+   40.4154,
+   -79.9719
+  ],
+  "BRADDOCK": [
+   40.4044,
+   -79.8689
+  ],
+  "Homewood North": [
+   40.4593,
+   -79.8918
+  ],
+  "BEN AVON": [
+   40.5067,
+   -80.0809
+  ],
+  "Greenfield": [
+   40.4239,
+   -79.9372
+  ],
+  "BELL ACRES": [
+   40.5908,
+   -80.1761
+  ],
+  "BEN AVON HEIGHTS": [
+   40.5119,
+   -80.0733
+  ],
+  "PORT VUE": [
+   40.338,
+   -79.8726
+  ],
+  "MARSHALL": [
+   40.6482,
+   -80.1005
+  ],
+  "GLENFIELD": [
+   40.5201,
+   -80.1318
+  ],
+  "West Oakland": [
+   40.4399,
+   -79.9673
+  ],
+  "Crawford-Roberts": [
+   40.4422,
+   -79.9846
+  ],
+  "Spring Hill-City View": [
+   40.4657,
+   -79.9943
+  ],
+  "WALL": [
+   40.3923,
+   -79.7878
+  ],
+  "MOUNT LEBANON": [
+   40.3759,
+   -80.049
+  ],
+  "SEWICKLEY HILLS": [
+   40.5722,
+   -80.1228
+  ],
+  "Bedford Dwellings": [
+   40.4515,
+   -79.9716
+  ],
+  "South Shore": [
+   40.4351,
+   -80.009
+  ],
+  "ALEPPO": [
+   40.5362,
+   -80.1503
+  ],
+  "MCCANDLESS": [
+   40.5767,
+   -80.0325
+  ],
+  "SOUTH VERSAILLES": [
+   40.3012,
+   -79.7985
+  ],
+  "Stanton Heights": [
+   40.4818,
+   -79.9375
+  ],
+  "Manchester": [
+   40.4553,
+   -80.0253
+  ],
+  "RICHLAND": [
+   40.6411,
+   -79.9506
+  ],
+  "PLEASANT HILLS": [
+   40.331,
+   -79.9594
+  ],
+  "Esplen": [
+   40.4607,
+   -80.0513
+  ],
+  "Friendship": [
+   40.4611,
+   -79.9343
+  ],
+  "ROBINSON": [
+   40.4605,
+   -80.1301
+  ],
+  "HARRISON": [
+   40.6274,
+   -79.7226
+  ],
+  "FORWARD": [
+   40.2275,
+   -79.8942
+  ],
+  "WEST HOMESTEAD": [
+   40.3965,
+   -79.9149
+  ],
+  "Fairywood": [
+   40.4479,
+   -80.0815
+  ],
+  "North Oakland": [
+   40.4491,
+   -79.9514
+  ],
+  "East Allegheny": [
+   40.4558,
+   -79.998
+  ],
+  "PENNSBURY VILLAGE": [
+   40.4281,
+   -80.101
+  ],
+  "Duquesne Heights": [
+   40.4357,
+   -80.0236
+  ],
+  "TRAFFORD": [
+   40.3844,
+   -79.7656
+  ],
+  "MCDONALD": [
+   40.3716,
+   -80.2269
+  ],
+  "Crafton Heights": [
+   40.4444,
+   -80.0539
+  ],
+  "SEWICKLEY HEIGHTS": [
+   40.5536,
+   -80.1536
+  ],
+  "ROSSLYN FARMS": [
+   40.4223,
+   -80.0894
+  ],
+  "TARENTUM": [
+   40.6035,
+   -79.7565
+  ],
+  "Spring Garden": [
+   40.4638,
+   -79.9901
+  ],
+  "DRAVOSBURG": [
+   40.3528,
+   -79.8903
+  ],
+  "Bluff": [
+   40.4373,
+   -79.9815
+  ],
+  "Fineview": [
+   40.4626,
+   -80.0044
+  ],
+  "MILLVALE": [
+   40.4829,
+   -79.9739
+  ],
+  "Upper Lawrenceville": [
+   40.4806,
+   -79.9511
+  ],
+  "DUQUESNE": [
+   40.3702,
+   -79.8515
+  ],
+  "Garfield": [
+   40.4676,
+   -79.9382
+  ],
+  "WEST DEER": [
+   40.626,
+   -79.8754
+  ],
+  "CARNEGIE": [
+   40.4074,
+   -80.0874
+  ],
+  "CASTLE SHANNON": [
+   40.3663,
+   -80.0187
+  ],
+  "WHITEHALL": [
+   40.3605,
+   -79.9909
+  ],
+  "Perry North": [
+   40.4875,
+   -80.0174
+  ],
+  "AVALON": [
+   40.501,
+   -80.0675
+  ],
+  "FOX CHAPEL": [
+   40.5232,
+   -79.8891
+  ],
+  "Point Breeze": [
+   40.4471,
+   -79.9075
+  ],
+  "Windgap": [
+   40.4554,
+   -80.0742
+  ],
+  "Hays": [
+   40.3838,
+   -79.9337
+  ],
+  "BRACKENRIDGE": [
+   40.6083,
+   -79.7412
+  ],
+  "Carrick": [
+   40.3941,
+   -79.9857
+  ],
+  "Ridgemont": [
+   40.43,
+   -80.0363
+  ],
+  "MOUNT OLIVER": [
+   40.4118,
+   -79.986
+  ],
+  "Central Business District": [
+   40.441,
+   -80.0018
+  ],
+  "DORMONT": [
+   40.3936,
+   -80.0371
+  ],
+  "MOON": [
+   40.5142,
+   -80.2089
+  ],
+  "CRAFTON": [
+   40.4337,
+   -80.0687
+  ],
+  "FRAZER": [
+   40.6037,
+   -79.7939
+  ],
+  "O'HARA": [
+   40.507,
+   -79.8943
+  ],
+  "CLAIRTON": [
+   40.2954,
+   -79.8878
+  ],
+  "MONROEVILLE": [
+   40.4284,
+   -79.7635
+  ],
+  "Knoxville": [
+   40.4135,
+   -79.993
+  ],
+  "CORAOPOLIS": [
+   40.5151,
+   -80.1635
+  ],
+  "Morningside": [
+   40.4829,
+   -79.9276
+  ],
+  "SPRINGDALE": [
+   40.5459,
+   -79.7874
+  ],
+  "St. Clair": [
+   40.4102,
+   -79.9741
+  ],
+  "CHURCHILL": [
+   40.4387,
+   -79.8449
+  ],
+  "Shadyside": [
+   40.4536,
+   -79.932
+  ],
+  "East Liberty": [
+   40.466,
+   -79.9249
+  ],
+  "Bloomfield": [
+   40.4613,
+   -79.9477
+  ],
+  "PLUM": [
+   40.4914,
+   -79.7458
+  ],
+  "Brighton Heights": [
+   40.4829,
+   -80.0367
+  ],
+  "NORTH FAYETTE": [
+   40.4292,
+   -80.2216
+  ],
+  "OAKMONT": [
+   40.5192,
+   -79.8362
+  ],
+  "HAYSVILLE": [
+   40.5284,
+   -80.1562
+  ],
+  "VERSAILLES": [
+   40.3175,
+   -79.8318
+  ],
+  "EAST MCKEESPORT": [
+   40.3844,
+   -79.8078
+  ],
+  "Allentown": [
+   40.4219,
+   -79.9932
+  ],
+  "KILBUCK": [
+   40.5177,
+   -80.0891
+  ],
+  "Elliott": [
+   40.4439,
+   -80.039
+  ],
+  "EAST PITTSBURGH": [
+   40.3967,
+   -79.8404
+  ],
+  "BETHEL PARK": [
+   40.3232,
+   -80.0388
+  ],
+  "STOWE": [
+   40.4778,
+   -80.0744
+  ],
+  "ROSS": [
+   40.5273,
+   -80.0244
+  ],
+  "Hazelwood": [
+   40.4106,
+   -79.9414
+  ],
+  "South Oakland": [
+   40.4328,
+   -79.9576
+  ],
+  "LEET": [
+   40.5768,
+   -80.2094
+  ],
+  "Point Breeze North": [
+   40.4522,
+   -79.904
+  ],
+  "Swisshelm Park": [
+   40.4212,
+   -79.9029
+  ],
+  "Homewood West": [
+   40.4598,
+   -79.9032
+  ],
+  "East Carnegie": [
+   40.4168,
+   -80.0743
+  ],
+  "BRENTWOOD": [
+   40.3745,
+   -79.976
+  ],
+  "OHIO": [
+   40.5473,
+   -80.0969
+  ],
+  "Polish Hill": [
+   40.458,
+   -79.964
+  ],
+  "SOUTH FAYETTE": [
+   40.3513,
+   -80.1479
+  ],
+  "PENN HILLS": [
+   40.473,
+   -79.8305
+  ],
+  "EAST DEER": [
+   40.5829,
+   -79.7793
+  ],
+  "Chartiers City": [
+   40.458,
+   -80.0706
+  ],
+  "COLLIER": [
+   40.3991,
+   -80.1283
+  ],
+  "South Side Flats": [
+   40.4279,
+   -79.9789
+  ],
+  "Terrace Village": [
+   40.4452,
+   -79.9671
+  ],
+  "CHALFANT": [
+   40.4097,
+   -79.8385
+  ],
+  "Mt. Oliver": [
+   40.4117,
+   -79.9797
+  ],
+  "SHARPSBURG": [
+   40.4953,
+   -79.9274
+  ],
+  "Lincoln Place": [
+   40.3706,
+   -79.9136
+  ],
+  "Perry South": [
+   40.4674,
+   -80.0132
+  ],
+  "MCKEESPORT": [
+   40.3431,
+   -79.8462
+  ],
+  "JEFFERSON HILLS": [
+   40.2961,
+   -79.9399
+  ],
+  "PITCAIRN": [
+   40.4057,
+   -79.7765
+  ],
+  "Squirrel Hill North": [
+   40.4435,
+   -79.9269
+  ],
+  "MUNHALL": [
+   40.3917,
+   -79.9009
+  ],
+  "FAWN": [
+   40.6487,
+   -79.7637
+  ],
+  "HARMAR": [
+   40.5442,
+   -79.8357
+  ],
+  "South Side Slopes": [
+   40.4219,
+   -79.9765
+  ],
+  "TURTLE CREEK": [
+   40.4081,
+   -79.8219
+  ],
+  "FRANKLIN PARK": [
+   40.5893,
+   -80.0888
+  ],
+  "Troy Hill": [
+   40.4643,
+   -79.9829
+  ],
+  "UPPER ST. CLAIR": [
+   40.3348,
+   -80.0803
+  ],
+  "Strip District": [
+   40.4546,
+   -79.9793
+  ],
+  "ETNA": [
+   40.4998,
+   -79.9489
+  ],
+  "Central Lawrenceville": [
+   40.4711,
+   -79.959
+  ],
+  "NEVILLE": [
+   40.5121,
+   -80.1319
+  ],
+  "BRIDGEVILLE": [
+   40.3577,
+   -80.1063
+  ],
+  "GLEN OSBORNE": [
+   40.5316,
+   -80.1682
+  ],
+  "CRESCENT": [
+   40.5551,
+   -80.2307
+  ],
+  "WILKINSBURG": [
+   40.4434,
+   -79.8756
+  ],
+  "Lower Lawrenceville": [
+   40.4643,
+   -79.9629
+  ],
+  "WILMERDING": [
+   40.3941,
+   -79.8091
+  ],
+  "Arlington Heights": [
+   40.4159,
+   -79.9643
+  ],
+  "Sheraden": [
+   40.4551,
+   -80.0566
+  ],
+  "Squirrel Hill South": [
+   40.429,
+   -79.9216
+  ],
+  "VERONA": [
+   40.505,
+   -79.8401
+  ],
+  "Central Oakland": [
+   40.4381,
+   -79.955
+  ],
+  "RESERVE": [
+   40.4826,
+   -79.99
+  ],
+  "GLASSPORT": [
+   40.3265,
+   -79.8878
+  ],
+  "Beltzhoover": [
+   40.4177,
+   -80.003
+  ],
+  "SCOTT": [
+   40.388,
+   -80.0769
+  ],
+  "NORTH VERSAILLES": [
+   40.3781,
+   -79.8139
+  ],
+  "WEST ELIZABETH": [
+   40.2723,
+   -79.8968
+  ],
+  "BELLEVUE": [
+   40.4955,
+   -80.0542
+  ],
+  "East Hills": [
+   40.4536,
+   -79.8773
+  ],
+  "SWISSVALE": [
+   40.422,
+   -79.8859
+  ],
+  "WEST VIEW": [
+   40.518,
+   -80.0333
+  ],
+  "Lincoln-Lemington-Belmar": [
+   40.4686,
+   -79.8968
+  ],
+  "WHITAKER": [
+   40.3996,
+   -79.8884
+  ],
+  "Overbrook": [
+   40.3848,
+   -79.9968
+  ],
+  "WHITE OAK": [
+   40.3448,
+   -79.8108
+  ],
+  "North Shore": [
+   40.4502,
+   -79.9995
+  ],
+  "Glen Hazel": [
+   40.4047,
+   -79.9321
+  ],
+  "Westwood": [
+   40.4335,
+   -80.05
+  ],
+  "NORTH BRADDOCK": [
+   40.4053,
+   -79.8544
+  ],
+  "Regent Square": [
+   40.434,
+   -79.8969
+  ],
+  "BRADDOCK HILLS": [
+   40.4196,
+   -79.8663
+  ],
+  "Banksville": [
+   40.4075,
+   -80.0417
+  ],
+  "SHALER": [
+   40.5233,
+   -79.9639
+  ],
+  "EDGEWORTH": [
+   40.5515,
+   -80.192
+  ],
+  "Allegheny West": [
+   40.4519,
+   -80.016
+  ],
+  "Brookline": [
+   40.3951,
+   -80.0145
+  ],
+  "New Homestead": [
+   40.3897,
+   -79.9218
+  ],
+  "California-Kirkbride": [
+   40.4603,
+   -80.022
+  ],
+  "Homewood South": [
+   40.4532,
+   -79.892
+  ],
+  "HAMPTON": [
+   40.5859,
+   -79.954
+  ],
+  "Beechview": [
+   40.4099,
+   -80.025
+  ],
+  "Northview Heights": [
+   40.4775,
+   -80.0043
+  ],
+  "SEWICKLEY": [
+   40.5391,
+   -80.1802
+  ],
+  "WEST MIFFLIN": [
+   40.366,
+   -79.8975
+  ],
+  "LINCOLN": [
+   40.297,
+   -79.8557
+  ],
+  "EDGEWOOD": [
+   40.4319,
+   -79.8846
+  ],
+  "Middle Hill": [
+   40.4478,
+   -79.9729
+  ],
+  "INDIANA": [
+   40.5675,
+   -79.8762
+  ],
+  "RANKIN": [
+   40.4121,
+   -79.8791
+  ],
+  "INGRAM": [
+   40.4448,
+   -80.0681
+  ],
+  "OAKDALE": [
+   40.4001,
+   -80.1867
+  ],
+  "WILKINS": [
+   40.425,
+   -79.8259
+  ],
+  "Larimer": [
+   40.4635,
+   -79.9117
+  ],
+  "HOMESTEAD": [
+   40.4035,
+   -79.9078
+  ],
+  "Upper Hill": [
+   40.4532,
+   -79.9605
+  ],
+  "LIBERTY": [
+   40.3246,
+   -79.8564
+  ],
+  "Mount Washington": [
+   40.4272,
+   -80.0091
+  ],
+  "Marshall-Shadeland": [
+   40.4708,
+   -80.0308
+  ],
+  "LEETSDALE": [
+   40.5661,
+   -80.2101
+  ],
+  "SOUTH PARK": [
+   40.2982,
+   -79.9984
+  ],
+  "Central Northside": [
+   40.4573,
+   -80.0109
+  ],
+  "BALDWIN": [
+   40.3682,
+   -79.9767
+  ],
+  "FOREST HILLS": [
+   40.424,
+   -79.853
+  ],
+  "BRADFORD WOODS": [
+   40.6368,
+   -80.0833
+  ]
  }
 }
