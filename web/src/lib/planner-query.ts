@@ -41,6 +41,8 @@ export const STRATEGY_TEXT: Record<string, string> = {
   rehab_existing: "Rehab the existing building",
 };
 export const BADGE_NOTE = "Default weights, awaiting planning input";
+/** Privacy: the planning-priority badge is shown only for publicly owned land (owner_class = 'public'). */
+export const BADGE_PRIVATE_NOTE = "Planning badge: shown for publicly owned land only";
 export const PAGE_SIZE = 50;
 /** Block-conformity filter steps, percent of a block face's buildings that don't meet today's code. */
 export const BLOCK_NC = [50, 75];
@@ -534,7 +536,8 @@ export function csvLine(r: PlannerRow, rank: number, origin: string): string {
     r.top_blocker, r.blockers.join("; "), r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : null,
     r.by_right_units, r.units_with_relief, r.months_to_permit,
     r.transit_m != null ? Math.round(r.transit_m * FT_PER_M) : null, r.hz_floodway, r.hz_landslide, r.hz_undermined, r.steep_share,
-    r.rehab_score, r.rehab_band ? bandLabel(r.rehab_band) : null, r.planning_badge, BADGE_NOTE, r.badge_score,
+    r.rehab_score, r.rehab_band ? bandLabel(r.rehab_band) : null,
+    r.owner_class === "public" ? r.planning_badge : BADGE_PRIVATE_NOTE, BADGE_NOTE, r.owner_class === "public" ? r.badge_score : null,
     ...FACTORS.map((f) => r.factor_scores?.[f.id] ?? null),
     ...CSV_DATE_SOURCES.map(([, src]) => r.data_dates?.[src] ?? null), r.config_version, r.computed_at, r.note,
     `${origin}/parcel/${encodeURIComponent(r.parid.trim())}`,

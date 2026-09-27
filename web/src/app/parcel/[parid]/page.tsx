@@ -493,7 +493,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {selected && <Callouts selected={selected} max={20} />}
       {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
       {easeResult && selected
-        ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} />
+        ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} badgePublic={badgePublic} />
         : null}
       <section className="rounded border border-zinc-200 p-3">
         <h3 className="text-sm font-semibold">Sales comps</h3>

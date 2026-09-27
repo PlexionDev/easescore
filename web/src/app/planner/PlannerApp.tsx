@@ -9,7 +9,7 @@ import {
   DataDateFooter, EmptyState, ExportMenu, SeatButton, SeatHeader, SeatLayout, SeatSelect, Segmented, setSelection, type ExportAction,
 } from "@/components/seats";
 import {
-  CITY, DEFAULT_DIR, PAGE_SIZE, clean, describeFilters, filtersToQuery, parseDir, parseFilters, parseSort, titleCase,
+  BADGE_PRIVATE_NOTE, CITY, DEFAULT_DIR, PAGE_SIZE, clean, describeFilters, filtersToQuery, parseDir, parseFilters, parseSort, titleCase,
   type Dir, type Filters, type PlannerOptions, type PlannerPoint, type PlannerResult, type PlannerRow, type Sort,
 } from "@/lib/planner";
 import PlannerFilters from "./PlannerFilters";
@@ -80,7 +80,9 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
   const first = useRef(true);
 
   useEffect(() => { setProfile(loadProfile()); }, []);
-  const badgeFor = useCallback((r: PlannerRow) => badgeTier(r, badgeConfig, profile), [badgeConfig, profile]);
+  // Privacy: the planning-priority badge (its "vacant and tax-delinquent" criterion can reveal a private
+  // owner's tax status) is shown only for publicly owned land.
+  const badgeFor = useCallback((r: PlannerRow) => (r.owner_class === "public" ? badgeTier(r, badgeConfig, profile) : BADGE_PRIVATE_NOTE), [badgeConfig, profile]);
 
   // Table + summary: refetch on filter / sort / page change (the first render uses the server result).
   useEffect(() => {

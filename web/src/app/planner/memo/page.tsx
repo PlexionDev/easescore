@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { bandLabel, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
 import {
-  BADGE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
+  BADGE_NOTE, BADGE_PRIVATE_NOTE, CITY, CSV_DATE_SOURCES, FACTORS, FT_PER_M, STRATEGY_TEXT, describeFilters, ownerLabel, parcelLabel, parseDir,
   parseFilters, parseSort, partialBest, partialNote, plannerOptions, plannerQuery, titleCase, type PlannerRow,
 } from "@/lib/planner";
 import "./memo.css";
@@ -41,7 +41,7 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
           <div className="kv"><span>Months to a building permit (estimate)</span><b>{r.months_to_permit != null ? `about ${r.months_to_permit}` : "—"}</b></div>
           <div className="kv"><span>Frequent transit</span><b>{r.transit_m != null ? `${n(Math.round((r.transit_m * FT_PER_M) / 10) * 10)} ft` : "—"}</b></div>
           {r.owner_class === "public" ? <div className="kv"><span>Tax-delinquent</span><b>{r.tax_delinquent == null ? "unknown" : r.tax_delinquent ? "yes" : "no"}</b></div> : null}
-          <div className="kv"><span>Planning badge ({BADGE_NOTE.toLowerCase()})</span><b>{r.planning_badge ?? "none"}</b></div>
+          <div className="kv"><span>Planning badge{r.owner_class === "public" ? ` (${BADGE_NOTE.toLowerCase()})` : ""}</span><b>{r.owner_class === "public" ? r.planning_badge ?? "none" : BADGE_PRIVATE_NOTE}</b></div>
         </div>
       </div>
 

@@ -240,7 +240,7 @@ function signed(n: number) {
 }
 
 /** The "Details" drawer: four answers, full callouts, time to a permit, planning badge, unlocks, notes. */
-export function DetailsContent({ result, selected, answers, pencilsNote }: { result: Result; selected: Strategy; answers: narrative.NarrativeResult | null; pencilsNote?: string | null }) {
+export function DetailsContent({ result, selected, answers, pencilsNote, badgePublic }: { result: Result; selected: Strategy; answers: narrative.NarrativeResult | null; pencilsNote?: string | null; badgePublic: boolean }) {
   const s = selected;
   const p = s.predictedMonthsToPermit;
   const pb = s.planningBadge;
@@ -288,11 +288,20 @@ export function DetailsContent({ result, selected, answers, pencilsNote }: { res
       )}
       {s.applicable && (
         <section>
-          <h3 className="text-sm font-semibold text-slate-900">Planning badge <span className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${pb.tier ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-600"}`}>{pb.tier ?? "No priority tier"} · {pb.points} pts</span></h3>
-          <p className="text-[11px] text-slate-500">Separate from the Ease Score. {pb.status}.</p>
-          <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
-            {pb.criteria.map((c) => <li key={c.id}>{c.matched == null ? "?" : c.matched ? "✓" : "–"} <b>{c.label}</b> ({c.weight} pts): {c.note}</li>)}
-          </ul>
+          {badgePublic ? (
+            <>
+              <h3 className="text-sm font-semibold text-slate-900">Planning badge <span className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${pb.tier ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-600"}`}>{pb.tier ?? "No priority tier"} · {pb.points} pts</span></h3>
+              <p className="text-[11px] text-slate-500">Separate from the Ease Score. {pb.status}.</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
+                {pb.criteria.map((c) => <li key={c.id}>{c.matched == null ? "?" : c.matched ? "✓" : "–"} <b>{c.label}</b> ({c.weight} pts): {c.note}</li>)}
+              </ul>
+            </>
+          ) : (
+            <>
+              <h3 className="text-sm font-semibold text-slate-900">Planning badge</h3>
+              <p className="text-[11px] text-slate-500">Planning badge: shown for publicly owned land only.</p>
+            </>
+          )}
         </section>
       )}
       {s.applicable && (
