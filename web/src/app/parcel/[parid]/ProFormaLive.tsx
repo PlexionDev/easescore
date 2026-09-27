@@ -6,7 +6,7 @@
 // or the report keeps them.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { assumptions, finance, rents, type score } from "@easescore/engine";
+import { assumptions, finance, rents, score } from "@easescore/engine";
 import CompsMini from "./CompsMini";
 import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quickfit-gen";
 import type { quickfit } from "@easescore/engine";
@@ -23,9 +23,8 @@ export interface LiveInputs {
 }
 
 const usd = (n: number | null | undefined) => (typeof n === "number" && Number.isFinite(n) ? `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}` : "—");
-const VERDICT_STYLE: Record<string, string> = { yes: "bg-emerald-100 text-emerald-800", thin: "bg-red-100 text-red-800", no: "bg-red-100 text-red-800" };
-const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
-const VERDICT_TIP = "Meets the target profit margin at default assumptions";
+const VERDICT_STYLE: Record<string, string> = { yes: "bg-emerald-100 text-emerald-800", thin: "bg-amber-100 text-amber-900", no: "bg-red-100 text-red-800" };
+const VERDICT_TEXT: Record<string, string> = score.PENCIL_LABEL;
 const EVIDENCE_TEXT: Record<assumptions.Evidence, string> = { complete: "Complete estimate", partial: "Partial estimate", missing: "Missing inputs" };
 const EVIDENCE_STYLE: Record<assumptions.Evidence, string> = {
   complete: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -164,7 +163,7 @@ function RehabBudget({ finishedSf, total, onSet, onReset }: { finishedSf: number
   );
 }
 
-export default function ProFormaLive({ parid, live, initial, strategyLabel }: { parid: string; live: LiveInputs; initial: assumptions.CostOverrides; strategyLabel: string }) {
+export default function ProFormaLive({ parid, live, initial, strategyLabel, review = null }: { parid: string; live: LiveInputs; initial: assumptions.CostOverrides; strategyLabel: string; /** Lot not verified (lot size mismatch, no outline, large site): "Review required", never a verdict. */ review?: string | null }) {
   const [over, setOver] = useState<assumptions.CostOverrides>(initial);
   // Rents by bedroom from nearby listings (RentCast via /api/rents): loaded after the page, never blocking it.
   // Until they arrive (or without them) the rent is the labeled HUD / ZIP-index benchmark.
@@ -250,7 +249,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
 
   return (
     <section aria-label="Pro forma" className="rounded-xl border border-slate-200 bg-white/80 p-3">
-      <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}${r.indicative ? " (indicative)" : ""}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
+      <LiveResult text={`${review ? `${review.startsWith(score.LOT_REVIEW) ? "" : `${score.LOT_REVIEW}: `}${review}. ` : r.verdict ? `${VERDICT_TEXT[r.verdict]}${r.indicative ? " (indicative)" : ""}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
       {rehab ? (
         <RehabBudget finishedSf={p.finishedSf} total={over.lineAmounts?.hard_base ?? null} onSet={(v) => setLine("hard_base", v)} onReset={() => resetLine("hard_base")} />
       ) : (
@@ -261,8 +260,8 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}{r.indicative ? " (indicative)" : ""}<span id="pf-live-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
-            {!r.verdict && p.missing.some((t) => /^Demolition of the existing building is not priced/.test(t)) ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-800">Can&apos;t tell yet: demolition not priced</span> : null}
+            {review ? <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900" title={review}>{score.LOT_REVIEW}<span className="sr-only">{`: ${review}`}</span></span> : r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={score.PENCIL_TIP[r.verdict]} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}{r.indicative ? " (indicative)" : ""}<span id="pf-live-verdict-tip" className="sr-only">{score.PENCIL_TIP[r.verdict]}</span></span>}
+            {!review && !r.verdict && p.missing.some((t) => /^Demolition of the existing building is not priced/.test(t)) ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-800">Can&apos;t tell yet: demolition not priced</span> : null}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
             {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
           </div>
@@ -369,7 +368,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       </div>
 
       <h3 className="mt-3 text-sm font-semibold text-slate-900">How we got these numbers</h3>
-      <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
+      <p className="mt-1 text-sm text-slate-700">{review ? `${review.startsWith(score.LOT_REVIEW) ? "" : `${score.LOT_REVIEW}: `}${review}. ` : ""}{r.headline}</p>
       <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rent to the nearest $50, sale price to $5,000 a home, cost lines to $1,000, totals to $10,000 — the math uses the rounded numbers. {sale ? rg.sale.method : rg.rent.method}</p>
 
       {p.sizeWarning && <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-950">{p.sizeWarning}</p>}
