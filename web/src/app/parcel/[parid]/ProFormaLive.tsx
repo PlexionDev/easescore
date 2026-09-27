@@ -91,7 +91,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
         {tiers.map((x, k) => (
           <button key={x.id} type="button" onClick={() => onTier(x.id)} className={`leading-tight ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
             <span className="block">{x.label.replace(/ \(spec\)$/, "")}</span>
-            <span className="block tabular-nums">${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}</span>
+            <span className="hidden tabular-nums sm:block">${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}</span>
           </button>
         ))}
       </div>
