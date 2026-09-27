@@ -60,6 +60,14 @@ html:has(.es-home){scroll-behavior:smooth;scroll-padding-top:110px;-webkit-text-
 .es-home .search-field button:hover{background:var(--deep)}
 .es-home .search-field button span:last-child{font-size:1.2rem;line-height:1}
 .es-home .search-field kbd{font:11px var(--font);border:1px solid #dae2df;padding:4px;color:#64736c;border-radius:3px;white-space:nowrap}
+.es-home .search-field-wrap{position:relative}
+.es-home .search-suggest{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:30;background:#fff;border:1px solid #d5e0d9;border-radius:8px;box-shadow:0 12px 32px #10182518;padding:6px;max-height:min(60vh,380px);overflow-y:auto}
+.es-home .search-suggest-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-radius:5px;padding:10px 12px;color:var(--ink)}
+.es-home .search-suggest-item.is-active,.es-home .search-suggest-item:hover{background:var(--mint)}
+.es-home .search-suggest-addr{font-size:.9375rem;font-weight:600;letter-spacing:-.01em}
+.es-home .search-suggest-meta{font-size:.75rem;color:var(--muted)}
+.es-home .search-suggest-parid{font-size:.6875rem;color:#8a978f;letter-spacing:.02em}
+.es-home .search-suggest-note{margin:0;padding:12px;font-size:.8125rem;color:var(--muted)}
 .es-home .search-hint{color:#e9f2ed;font-size:.8125rem;margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .es-home .search-hint button{color:#fff;border:0;background:none;padding:0;font-size:.8125rem;text-decoration:underline;text-underline-offset:4px}
 .es-home .search-hint button span{margin-left:8px}
