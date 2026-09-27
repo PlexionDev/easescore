@@ -9,6 +9,7 @@ import {
   evaluateRequirements,
   finance,
   quickfit,
+  score as easeEngine,
   type ParcelFacts,
   type ProjectAnswers,
   type RequirementResult,
@@ -16,6 +17,7 @@ import {
 import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
 import { homeTapFees, newCompsFor, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
 import { loadEaseScore, type EaseScoreView } from "./score";
+import { comparePlans, type PlanComparison } from "@/lib/summary";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -271,6 +273,12 @@ export interface ReportModel {
   msiPer100k: finance.Receipt;
   generatedDate: string;
   images: FigureImages;
+  /** Every housing option the Ease Score checked, by right vs with approval, each with its pro forma; null when scoring failed. */
+  plans: PlanComparison | null;
+  /** Affordable column: the by-right (else with-approval) building rented at the 60% AMI limit. */
+  affordable: { option: string; ami: number; bedrooms: number; rent: number; year: number; pf: assumptions.ProFormaResult } | null;
+  /** Tax abatement scenario inputs (defaults from the cost config, pf_abate_* overrides). */
+  abatement: { share: number; years: number; edited: boolean };
 }
 
 /** Policy what-ifs for "What would unlock it". Each relaxes one rule; values are hypotheticals, not proposals. */
@@ -443,6 +451,52 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
   const proForma = assumptions.evaluateDevelopment(plan);
   const sensitivity = assumptions.sensitivity(plan);
 
+  // Product-type comparison and the two-sentence summary: same engine run as the parcel page.
+  let plans: PlanComparison | null = null;
+  let affordable: ReportModel["affordable"] = null;
+  try {
+    const raw = easeEngine.scoreParcel(facts as unknown as ParcelFacts, {
+      quickfitInput: qfRaw as never,
+      easeInputs: easeRaw as never,
+      zba: zba as never,
+      project: { affordableUnitsProposed: scenario.affordable },
+    });
+    const tapPerUnit = homeFees.length ? homeFees.reduce((t, x) => t + x.amount, 0) : null;
+    plans = await comparePlans({
+      parid, facts: facts as unknown as ParcelFacts & Record<string, unknown>, result: raw, zba, sfComps, sales, rent, prime,
+      tapFeesPerUnit: tapPerUnit, overrides, asOf,
+    });
+    const base = plans.byRight ?? plans.withApproval;
+    const ami = 60;
+    const bedrooms = base && (base.units ?? 1) > 1 ? 2 : 3;
+    const lim = rentLimits.find((r) => r.ami_pct === ami && r.bedrooms === bedrooms);
+    if (base && lim) {
+      const sPlan = assumptions.buildDevelopmentInputs({
+        strategy: base.strategy,
+        facts: facts as assumptions.ProFormaFacts,
+        scheme: raw.schemes?.[base.strategy] ?? null,
+        comps: sfComps,
+        newComps: null,
+        rents: rent as assumptions.RentCompsLike | null,
+        primeRate: prime?.rate ?? null,
+        primeRateDate: prime?.date ?? null,
+        permitMonths: raw.strategies.find((x) => x.strategy === base.strategy)?.predictedMonthsToPermit?.months ?? null,
+        tapFeesPerUnit: tapPerUnit,
+        overrides: { tier: overrides.tier, land: overrides.land, tenure: "rent", rentPerUnit: lim.max_rent },
+      });
+      affordable = { option: base.phrase, ami, bedrooms, rent: lim.max_rent, year: lim.year, pf: assumptions.evaluateDevelopment(sPlan) };
+    }
+  } catch {
+    plans = null;
+  }
+  const abateCfg = assumptions.COST_CONFIG.taxAbatement;
+  const ap = Number(str(sp, "pf_abate_pct")), ay = Number(str(sp, "pf_abate_years"));
+  const abatement = {
+    share: Number.isFinite(ap) && ap >= 0 && ap <= 100 && str(sp, "pf_abate_pct") ? ap / 100 : abateCfg.abatedShare.value,
+    years: Number.isFinite(ay) && ay > 0 && ay <= 30 && str(sp, "pf_abate_years") ? Math.round(ay) : abateCfg.years.value,
+    edited: !!(str(sp, "pf_abate_pct") || str(sp, "pf_abate_years")),
+  };
+
   return {
     parid,
     facts,
@@ -476,5 +530,8 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     msiPer100k,
     generatedDate: todayIso(sp),
     images: readImages(sp),
+    plans,
+    affordable,
+    abatement,
   };
 }

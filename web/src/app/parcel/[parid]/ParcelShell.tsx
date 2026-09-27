@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import MapStage, { type Footprints } from "./MapStage";
 import QuickFitPanel from "./QuickFitPanel";
+import { DrawerHost, type DrawerId } from "./Drawers";
 import { ViewSwitch, KeyNeeded, PhotorealSkeleton, VIEW_MODES, type ViewMode } from "./ViewModes";
 
 // Cesium + Google tiles load only when the photoreal view is shown (never in the initial JS).
@@ -18,8 +19,14 @@ type Sheet = "peek" | "half" | "full";
 const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
 const PEEK_PX = 104;
 
-export default function ParcelShell({ header, top, mapData, qfInput, rules, zoneCode, children }: {
-  header: ReactNode; top?: ReactNode; mapData: any; qfInput: any; rules: Record<string, unknown> | null; zoneCode: string | null; children: ReactNode;
+export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInput, rules, zoneCode }: {
+  /** The pane, top to bottom (server-rendered). */
+  pane: ReactNode;
+  /** Assumptions and project questions, shown in "Change the plan" under QuickFit. */
+  planExtras?: ReactNode;
+  /** Other drawers (pro forma, process, details). */
+  drawers: { id: DrawerId; title: string; content: ReactNode }[];
+  mapData: any; qfInput: any; rules: Record<string, unknown> | null; zoneCode: string | null;
 }) {
   const [footprints, setFootprints] = useState<Footprints>(null);
   const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
@@ -109,11 +116,13 @@ export default function ParcelShell({ header, top, mapData, qfInput, rules, zone
           className="flex w-full touch-none justify-center pb-1 pt-2 md:hidden" aria-label={sheet === "full" ? "Collapse details" : "Expand details"}>
           <span className="h-1.5 w-10 rounded-full bg-slate-300" />
         </button>
-        <div className="border-b border-slate-200/70 px-5 pb-3 pt-1 md:pt-4">{header}</div>
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
-          {top}
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-1 md:pt-5">{pane}</div>
+      </aside>
+      <DrawerHost drawers={[
+        ...drawers.filter((d) => d.id === "pencils"),
+        { id: "plan", title: "Change the plan", content: <>
           <section>
-            <h2 className="text-base font-semibold text-slate-900">QuickFit · what fits here</h2>
+            <h3 className="text-sm font-semibold text-slate-900">What fits here (QuickFit)</h3>
             <p className="mb-2 text-xs text-slate-500">Single-family, duplex, townhouse row. The selected layout is drawn in 3D on the map.</p>
             {qfInput ? (
               <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode}
@@ -121,9 +130,10 @@ export default function ParcelShell({ header, top, mapData, qfInput, rules, zone
                 onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
             ) : <p className="text-sm text-slate-600">No lot geometry available.</p>}
           </section>
-          {children}
-        </div>
-      </aside>
+          {planExtras}
+        </> },
+        ...drawers.filter((d) => d.id !== "pencils"),
+      ]} />
     </div>
   );
 }

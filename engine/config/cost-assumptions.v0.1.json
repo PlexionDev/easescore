@@ -157,6 +157,18 @@
     "assessedValueNote": "After construction, the assessed value is assumed to be the county land value plus the construction cost; the County sets the real figure."
   },
 
+  "absorption": {
+    "_note": "How fast finished homes sell or lease. Shown in the report with the count of nearby new-construction sales per year as support; not a market study.",
+    "leaseUpMonths": { "label": "Months to lease up a rental after completion", "value": 3, "sourceLabel": "Assumption — editable" }
+  },
+
+  "taxAbatement": {
+    "_note": "Illustrative tax abatement scenario in the style of Pennsylvania LERTA programs (the Local Economic Revitalization Tax Assistance Act lets taxing bodies phase in the added assessed value from new construction). Program terms were not verified against a current City or County program page, so the report labels this scenario illustrative. Report query keys pf_abate_pct (percent) and pf_abate_years override the defaults.",
+    "label": "Tax abatement on the new construction value (LERTA-style, illustrative)",
+    "abatedShare": { "label": "Share of the property tax on the added (improvement) value that is abated", "value": 1.0, "sourceLabel": "Assumption — editable" },
+    "years": { "label": "Years the abatement lasts", "value": 10, "sourceLabel": "Assumption — editable" }
+  },
+
   "pencils": {
     "thinMarginBelow": { "label": "Profit margin below which a for-sale project is called 'thin'", "value": 0.1, "sourceLabel": "Assumption — editable" },
     "thinYieldOnCostBelow": { "label": "Yield on cost below which a rental is called 'thin'", "value": null, "sourceLabel": "Awaiting local data", "sourceNote": "Needs a local market cap rate." }

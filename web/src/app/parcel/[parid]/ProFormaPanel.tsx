@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { assumptions, finance } from "@easescore/engine";
 import { PF } from "@/lib/proforma";
+import { OpenDrawer } from "./Drawers";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -84,12 +85,6 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
   const p = r.plan;
   const cfg = assumptions.COST_CONFIG;
   const sale = p.tenure === "sale";
-  const pfKeys = new Set<string>(Object.values(PF));
-  const keep = Object.entries(sp).filter(([k, v]) => typeof v === "string" && !pfKeys.has(k)) as [string, string][];
-  const reset = new URLSearchParams(keep);
-  const def = (key: string) => p.assumptions.find((a) => a.key === key);
-  const mineApplies = p.minePath != null;
-  const excluded = new Set(p.exclusions.map((e) => e.id));
   const groups = ["land", "hard", "soft", "contingency", "financing"] as const;
   const minor = r.budget.filter((b) => b.minor);
   const minorSum = minor.reduce((t, b) => t + (b.amount ?? 0), 0);
@@ -240,82 +235,9 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         <p>{cfg.construction.nationalReference.label}: {usd(cfg.construction.nationalReference.value)}/SF ({cfg.construction.nationalReference.sourceLabel}).</p>
       </details>
 
-      <details className="mt-2 rounded-lg border border-slate-200 p-2">
-        <summary className="cursor-pointer text-xs font-semibold text-slate-700">Change the assumptions</summary>
-        <form method="get" action={`/parcel/${encodeURIComponent(parid)}`} className="mt-2 grid grid-cols-2 gap-2">
-          {keep.map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-          <label className="flex flex-col text-xs text-slate-600">Sell or rent
-            <select name={PF.tenure} defaultValue={typeof sp[PF.tenure] === "string" ? (sp[PF.tenure] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
-              <option value="">Default ({sale ? "sell" : "rent"})</option>
-              <option value="sale">Sell</option>
-              <option value="rent">Rent</option>
-            </select>
-          </label>
-          <label className="flex flex-col text-xs text-slate-600">Construction quality
-            <select name={PF.tier} defaultValue={typeof sp[PF.tier] === "string" ? (sp[PF.tier] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
-              <option value="">Default: {assumptions.tierOf(cfg, undefined).label}</option>
-              {cfg.construction.tiers.map((t) => <option key={t.id} value={t.id}>{t.label} ({usd(t.costPerSf.value)}/SF)</option>)}
-            </select>
-          </label>
-          <Field name={PF.costPerSf} label="Cost per finished sq ft" prefix="$" sp={sp} placeholder={String(p.costPerSf)} />
-          <Field name={PF.land} label={p.strategy === "rehab_existing" ? "Purchase price" : "Land price"} prefix="$" sp={sp} placeholder={p.land.value != null ? String(Math.round(p.land.value)) : "enter"} />
-          {sale
-            ? <Field name={PF.salePricePerSf} label="Sale price per sq ft" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerSf != null ? String(Math.round(p.revenue.sale.pricePerSf)) : "enter"} />
-            : <Field name={PF.rentPerUnit} label="Rent per home, monthly" prefix="$" sp={sp} placeholder={p.revenue.rent.perUnit != null ? String(Math.round(p.revenue.rent.perUnit)) : "enter"} />}
-          {p.adders.some((a) => a.id === "steep_slope" || a.id === "moderate_slope") && (
-            <Field name={PF.slopeAdderPerSf} label="Hillside adder per sq ft" prefix="$" sp={sp} placeholder={String(p.adders.find((a) => a.perSf != null)?.perSf ?? "")} />
-          )}
-          <Field name={PF.aeShare} label="Architecture & engineering" suffix="%" sp={sp} placeholder={String(+(p.shares.ae * 100).toFixed(2))} />
-          <Field name={PF.permitShare} label="Permits & fees" suffix="%" sp={sp} placeholder={String(+(p.shares.permits * 100).toFixed(2))} />
-          <Field name={PF.softOtherShare} label="Survey, title, legal" suffix="%" sp={sp} placeholder={String(+(p.shares.other * 100).toFixed(2))} />
-          <Field name={PF.contingencyShare} label={`Contingency (${p.shares.contingencyKind})`} suffix="%" sp={sp} placeholder={String(+(p.shares.contingency * 100).toFixed(2))} />
-          <Field name={PF.constructionRate} label="Construction loan rate" suffix="%" sp={sp} placeholder={def("constructionRate") ? def("constructionRate")!.value.replace("%", "") : "enter"} />
-          <Field name={PF.ltc} label="Loan-to-cost" suffix="%" sp={sp} placeholder={def("ltc")?.value.replace("%", "") ?? ""} />
-          <Field name={PF.approvalMonths} label="Months to approval" sp={sp} placeholder={def("approvalMonths")?.value ?? ""} />
-          <Field name={PF.constructionMonths} label="Months to build" sp={sp} placeholder={def("constructionMonths")?.value ?? ""} />
-          <p className="col-span-2 mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your program (optional)</p>
-          <Field name={PF.units} label="Homes" sp={sp} placeholder={p.units != null ? String(p.units) : ""} />
-          <Field name={PF.storiesAboveGarage} label="Living floors (above any garage)" sp={sp} placeholder={p.program ? String(p.program.storiesAboveGarage) : ""} />
-          <label className="flex flex-col text-xs text-slate-600">Parking
-            <select name={PF.parking} defaultValue={typeof sp[PF.parking] === "string" ? (sp[PF.parking] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
-              <option value="">Site-fit default</option>
-              <option value="tuck_under">Tuck-under garage (ground floor)</option>
-              <option value="pad">Parking pad</option>
-              <option value="none">None</option>
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <Field name={PF.bedrooms} label="Bedrooms" sp={sp} placeholder="—" />
-            <Field name={PF.baths} label="Baths" sp={sp} placeholder="—" />
-          </div>
-          <Field name={PF.costPerUnit} label="Construction cost per home" prefix="$" sp={sp} placeholder="use tier × sq ft" />
-          <label className="flex flex-col text-xs text-slate-600">Per-home cost includes site work &amp; foundation?
-            <select name={PF.costIncludesSite} defaultValue={typeof sp[PF.costIncludesSite] === "string" ? (sp[PF.costIncludesSite] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
-              <option value="">No (site adders added on top)</option>
-              <option value="yes">Yes (no site adders)</option>
-            </select>
-          </label>
-          {sale && <Field name={PF.salePricePerUnit} label="Sale price per home" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerUnit != null ? String(Math.round(p.revenue.sale.pricePerUnit)) : "enter"} />}
-          {mineApplies && (
-            <label className="flex flex-col text-xs text-slate-600">Mine subsidence path
-              <select name={PF.minePath} defaultValue={typeof sp[PF.minePath] === "string" ? (sp[PF.minePath] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
-                <option value="">Default ({p.minePath})</option>
-                <option value="grouting">Grouting</option>
-                <option value="insurance">Insurance</option>
-              </select>
-            </label>
-          )}
-          {p.minePath === "grouting" && <Field name={PF.groutingCost} label="Grouting (lump sum)" prefix="$" sp={sp} placeholder={String(cfg.siteAdders.mineGrouting.value)} />}
-          {(excluded.has("demolition") || p.lines.some((l) => l.id === "demolition")) && <Field name={PF.demolition} label="Demolition (total)" prefix="$" sp={sp} placeholder="not set" />}
-          {(excluded.has("geotech") || p.lines.some((l) => l.id === "geotech")) && <Field name={PF.geotech} label="Geotechnical report" prefix="$" sp={sp} placeholder="not set" />}
-          {(excluded.has("dumpsters") || p.lines.some((l) => l.id === "dumpsters")) && <Field name={PF.dumpsters} label="Dumpsters & street permit" prefix="$" sp={sp} placeholder="not set" />}
-          <div className="col-span-2 flex items-center gap-3">
-            <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white">Recalculate</button>
-            <Link href={`/parcel/${encodeURIComponent(parid)}${reset.toString() ? `?${reset}` : ""}`} scroll={false} prefetch={false} className="text-xs text-slate-500 underline">Reset to defaults</Link>
-          </div>
-          <p className="col-span-2 text-[11px] text-slate-500">Blank fields use the default shown in grey. Percent fields take percents (8 = 8%).</p>
-        </form>
-      </details>
+      <OpenDrawer id="plan" className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-500">
+        Change the assumptions
+      </OpenDrawer>
 
       <details className="mt-2 text-[12px]">
         <summary className="cursor-pointer text-xs font-semibold text-slate-700 underline decoration-dotted underline-offset-2">Every assumption, its range and source</summary>
@@ -332,6 +254,99 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp }: {
         </table>
       </details>
       <p className="mt-2 text-[11px] text-slate-500">{finance.FINANCE_DISCLAIMER}</p>
+    </section>
+  );
+}
+
+/** The pf_* assumptions form, shown in the "Change the plan" drawer. */
+export function AssumptionsForm({ parid, result, sp }: { parid: string; result: assumptions.ProFormaResult; sp: SP }) {
+  const r = result;
+  const p = r.plan;
+  const cfg = assumptions.COST_CONFIG;
+  const sale = p.tenure === "sale";
+  const pfKeys = new Set<string>(Object.values(PF));
+  const keep = Object.entries(sp).filter(([k, v]) => typeof v === "string" && !pfKeys.has(k)) as [string, string][];
+  const reset = new URLSearchParams(keep);
+  const def = (key: string) => p.assumptions.find((a) => a.key === key);
+  const mineApplies = p.minePath != null;
+  const excluded = new Set(p.exclusions.map((e) => e.id));
+  return (
+    <section aria-label="Cost assumptions" className="rounded-xl border border-slate-200 p-3">
+      <h3 className="text-sm font-semibold text-slate-900">Cost assumptions</h3>
+      <p className="text-[11px] text-slate-500">For {p.strategy === "rehab_existing" ? "fixing up the building" : "the selected building type"}. Blank fields use the default shown in grey.</p>
+      <form method="get" action={`/parcel/${encodeURIComponent(parid)}#drawer=plan`} className="mt-2 grid grid-cols-2 gap-2">
+        {keep.map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+        <label className="flex flex-col text-xs text-slate-600">Sell or rent
+          <select name={PF.tenure} defaultValue={typeof sp[PF.tenure] === "string" ? (sp[PF.tenure] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+            <option value="">Default ({sale ? "sell" : "rent"})</option>
+            <option value="sale">Sell</option>
+            <option value="rent">Rent</option>
+          </select>
+        </label>
+        <label className="flex flex-col text-xs text-slate-600">Construction quality
+          <select name={PF.tier} defaultValue={typeof sp[PF.tier] === "string" ? (sp[PF.tier] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+            <option value="">Default: {assumptions.tierOf(cfg, undefined).label}</option>
+            {cfg.construction.tiers.map((t) => <option key={t.id} value={t.id}>{t.label} ({usd(t.costPerSf.value)}/SF)</option>)}
+          </select>
+        </label>
+        <Field name={PF.costPerSf} label="Cost per finished sq ft" prefix="$" sp={sp} placeholder={String(p.costPerSf)} />
+        <Field name={PF.land} label={p.strategy === "rehab_existing" ? "Purchase price" : "Land price"} prefix="$" sp={sp} placeholder={p.land.value != null ? String(Math.round(p.land.value)) : "enter"} />
+        {sale
+          ? <Field name={PF.salePricePerSf} label="Sale price per sq ft" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerSf != null ? String(Math.round(p.revenue.sale.pricePerSf)) : "enter"} />
+          : <Field name={PF.rentPerUnit} label="Rent per home, monthly" prefix="$" sp={sp} placeholder={p.revenue.rent.perUnit != null ? String(Math.round(p.revenue.rent.perUnit)) : "enter"} />}
+        {p.adders.some((a) => a.id === "steep_slope" || a.id === "moderate_slope") && (
+          <Field name={PF.slopeAdderPerSf} label="Hillside adder per sq ft" prefix="$" sp={sp} placeholder={String(p.adders.find((a) => a.perSf != null)?.perSf ?? "")} />
+        )}
+        <Field name={PF.aeShare} label="Architecture & engineering" suffix="%" sp={sp} placeholder={String(+(p.shares.ae * 100).toFixed(2))} />
+        <Field name={PF.permitShare} label="Permits & fees" suffix="%" sp={sp} placeholder={String(+(p.shares.permits * 100).toFixed(2))} />
+        <Field name={PF.softOtherShare} label="Survey, title, legal" suffix="%" sp={sp} placeholder={String(+(p.shares.other * 100).toFixed(2))} />
+        <Field name={PF.contingencyShare} label={`Contingency (${p.shares.contingencyKind})`} suffix="%" sp={sp} placeholder={String(+(p.shares.contingency * 100).toFixed(2))} />
+        <Field name={PF.constructionRate} label="Construction loan rate" suffix="%" sp={sp} placeholder={def("constructionRate") ? def("constructionRate")!.value.replace("%", "") : "enter"} />
+        <Field name={PF.ltc} label="Loan-to-cost" suffix="%" sp={sp} placeholder={def("ltc")?.value.replace("%", "") ?? ""} />
+        <Field name={PF.approvalMonths} label="Months to approval" sp={sp} placeholder={def("approvalMonths")?.value ?? ""} />
+        <Field name={PF.constructionMonths} label="Months to build" sp={sp} placeholder={def("constructionMonths")?.value ?? ""} />
+        <p className="col-span-2 mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your program (optional)</p>
+        <Field name={PF.units} label="Homes" sp={sp} placeholder={p.units != null ? String(p.units) : ""} />
+        <Field name={PF.storiesAboveGarage} label="Living floors (above any garage)" sp={sp} placeholder={p.program ? String(p.program.storiesAboveGarage) : ""} />
+        <label className="flex flex-col text-xs text-slate-600">Parking
+          <select name={PF.parking} defaultValue={typeof sp[PF.parking] === "string" ? (sp[PF.parking] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+            <option value="">Site-fit default</option>
+            <option value="tuck_under">Tuck-under garage (ground floor)</option>
+            <option value="pad">Parking pad</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <Field name={PF.bedrooms} label="Bedrooms" sp={sp} placeholder="—" />
+          <Field name={PF.baths} label="Baths" sp={sp} placeholder="—" />
+        </div>
+        <Field name={PF.costPerUnit} label="Construction cost per home" prefix="$" sp={sp} placeholder="use tier × sq ft" />
+        <label className="flex flex-col text-xs text-slate-600">Per-home cost includes site work &amp; foundation?
+          <select name={PF.costIncludesSite} defaultValue={typeof sp[PF.costIncludesSite] === "string" ? (sp[PF.costIncludesSite] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+            <option value="">No (site adders added on top)</option>
+            <option value="yes">Yes (no site adders)</option>
+          </select>
+        </label>
+        {sale && <Field name={PF.salePricePerUnit} label="Sale price per home" prefix="$" sp={sp} placeholder={p.revenue.sale.pricePerUnit != null ? String(Math.round(p.revenue.sale.pricePerUnit)) : "enter"} />}
+        {mineApplies && (
+          <label className="flex flex-col text-xs text-slate-600">Mine subsidence path
+            <select name={PF.minePath} defaultValue={typeof sp[PF.minePath] === "string" ? (sp[PF.minePath] as string) : ""} className="mt-0.5 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-900">
+              <option value="">Default ({p.minePath})</option>
+              <option value="grouting">Grouting</option>
+              <option value="insurance">Insurance</option>
+            </select>
+          </label>
+        )}
+        {p.minePath === "grouting" && <Field name={PF.groutingCost} label="Grouting (lump sum)" prefix="$" sp={sp} placeholder={String(cfg.siteAdders.mineGrouting.value)} />}
+        {(excluded.has("demolition") || p.lines.some((l) => l.id === "demolition")) && <Field name={PF.demolition} label="Demolition (total)" prefix="$" sp={sp} placeholder="not set" />}
+        {(excluded.has("geotech") || p.lines.some((l) => l.id === "geotech")) && <Field name={PF.geotech} label="Geotechnical report" prefix="$" sp={sp} placeholder="not set" />}
+        {(excluded.has("dumpsters") || p.lines.some((l) => l.id === "dumpsters")) && <Field name={PF.dumpsters} label="Dumpsters & street permit" prefix="$" sp={sp} placeholder="not set" />}
+        <div className="col-span-2 flex items-center gap-3">
+          <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white">Recalculate</button>
+          <Link href={`/parcel/${encodeURIComponent(parid)}${reset.toString() ? `?${reset}` : ""}#drawer=plan`} scroll={false} prefetch={false} className="text-xs text-slate-500 underline">Reset to defaults</Link>
+        </div>
+        <p className="col-span-2 text-[11px] text-slate-500">Blank fields use the default shown in grey. Percent fields take percents (8 = 8%).</p>
+      </form>
     </section>
   );
 }

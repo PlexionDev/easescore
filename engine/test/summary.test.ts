@@ -44,8 +44,8 @@ describe("precedent language", () => {
     expect(precedentPhrase({ granted: 69, decided: 100, sinceYear: null }, null)).toMatch(/mixed/);
     expect(precedentPhrase({ granted: 3, decided: 10, sinceYear: null }, null)).toMatch(/usually been denied/);
     expect(precedentPhrase({ granted: 4, decided: 4, sinceYear: 2025 }, "R2-L")).toBe("there are too few nearby cases to judge");
-    expect(precedentPhrase({ granted: 0, decided: 0, sinceYear: null }, "R2-L")).toBe("no nearby precedent on record");
-    expect(precedentPhrase(null, "R2-L")).toBe("no nearby precedent on record");
+    expect(precedentPhrase({ granted: 0, decided: 0, sinceYear: null }, "R2-L")).toBe("there is no nearby precedent on record");
+    expect(precedentPhrase(null, "R2-L")).toBe("there is no nearby precedent on record");
   });
 });
 
@@ -151,5 +151,15 @@ describe("resolveSummary", () => {
     const r = await resolveSummary(base(), async (attempt) => (attempt === 1 ? "Definitely buy it. It pencils at 50%." : good));
     expect(r.source).toBe("ai");
     expect(r.failures).toBe(1);
+  });
+});
+
+describe("missing inputs", () => {
+  it("says what pricing needs when the estimate is incomplete", () => {
+    const i = base();
+    i.byRight = { ...i.byRight!, strategyId: "rehab_existing", label: "fixing up the existing building", verdict: null, marginPct: null, costDriver: null, costDriverEffect: null, needs: "your rehab cost" };
+    const r = generateSummary(i);
+    expect(r.sentences[0]).toBe("By right, this lot allows fixing up the existing building, and pricing it needs your rehab cost.");
+    expect(validateSummary(r.text, i).ok).toBe(true);
   });
 });

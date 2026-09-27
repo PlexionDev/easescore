@@ -22,17 +22,18 @@ export function OpenDrawer({ id, className, children, label }: { id: DrawerId; c
 export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string; content: ReactNode }[] }) {
   const [open, setOpen] = useState<DrawerId | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const ids = drawers.map((d) => d.id).join(",");
   useEffect(() => {
     const onOpen = (e: Event) => setOpen((e as CustomEvent<DrawerId>).detail);
     const fromHash = () => {
       const id = /drawer=(\w+)/.exec(window.location.hash)?.[1] as DrawerId | undefined;
-      if (id && drawers.some((d) => d.id === id)) setOpen(id);
+      if (id && ids.split(",").includes(id)) setOpen(id);
     };
     fromHash();
     window.addEventListener(EVENT, onOpen);
     window.addEventListener("hashchange", fromHash);
     return () => { window.removeEventListener(EVENT, onOpen); window.removeEventListener("hashchange", fromHash); };
-  }, [drawers]);
+  }, [ids]);
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();

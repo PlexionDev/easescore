@@ -34,6 +34,8 @@ export interface SummaryOption {
   costDriver: string | null;
   /** What the driver does, e.g. "points to a stepped foundation that pushes cost toward the high end". */
   costDriverEffect: string | null;
+  /** What the estimate still needs before it can say whether it pencils, e.g. "your rehab cost". */
+  needs?: string | null;
 }
 
 export interface SummaryApprovalOption extends SummaryOption {
@@ -71,7 +73,7 @@ export const PRECEDENT_MIN_CASES = 5;
 
 /** Fixed precedent language. Thresholds: at least 70% approved = usually approved; 40–69% = mixed; under 40% = usually denied. */
 export function precedentPhrase(p: SummaryPrecedent | null, district: string | null): string {
-  if (!p || p.decided === 0) return "no nearby precedent on record";
+  if (!p || p.decided === 0) return "there is no nearby precedent on record";
   if (p.decided < PRECEDENT_MIN_CASES) return "there are too few nearby cases to judge";
   const rate = p.granted / p.decided;
   const where = district ? ` in ${district}` : "";
@@ -89,7 +91,7 @@ function pencilsClause(o: SummaryOption): string {
   const basis = o.tenure === "sale" ? "on current new-home sale comps" : "on current rents";
   if (o.verdict === "no" && o.gap != null && o.gap > 0) return `at current costs it comes up short by about ${money(o.gap)}`;
   if (o.verdict === "no") return "at current costs it does not pencil";
-  if (o.marginPct == null) return "whether it pencils can't be told from our data yet";
+  if (o.marginPct == null) return o.needs ? `pricing it needs ${o.needs}` : "whether it pencils can't be told from our data yet";
   const what = o.tenure === "sale" ? "margin" : "yield on cost";
   if (o.verdict === "thin") return `it pencils only thinly, at about a ${pct(o.marginPct)} ${what} ${basis}`;
   if (o.verdict === "yes") return `it pencils at about a ${pct(o.marginPct)} ${what} ${basis}`;

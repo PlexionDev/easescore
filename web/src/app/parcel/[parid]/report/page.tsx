@@ -8,7 +8,7 @@ import { configVersionOf } from "@/lib/report/score";
 import { titleCase } from "@/lib/report/assess";
 import {
   AppA, AppB, AppC, AppD, AppE, AppF, Contents, Cover, DISCLAIMER, REPORT_VERSION,
-  S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, type Ctx,
+  S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, type Ctx,
 } from "./sections";
 import "./report.css";
 
@@ -38,7 +38,7 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
   const x: Ctx = { m, c: buildSources(m), fig: () => ++fig, tab: () => ++tab };
 
   // Sections run as plain functions, in reading order, so footnote/figure/table numbers are stable.
-  const body = [Cover(x), Contents(), S1(x), S2(x), S3(x), S4(x), S5(x), S6(x), S7(x), S8(x), S9(x), S10(x), S11(x), S12(x), S13(x), AppA(x), AppB(x), AppC(x), AppD(x), AppE(x), AppF()];
+  const body = [Cover(x), Contents(), S1(x), S2(x), S3(x), S4(x), S5(x), S6(x), S7(x), S8(x), S9(x), S10(x), S11(x), S12(x), S13(x), S14(x), AppA(x), AppB(x), AppC(x), AppD(x), AppE(x), AppF()];
 
   const address = titleCase(m.facts.assessment?.address) || parid;
   const header = `${address} · Parcel ${parid}`;

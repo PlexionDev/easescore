@@ -82,11 +82,10 @@ export default function ParcelThumb({ data, date }: { data: FC | null; date: str
       }
       map.remove();
     };
-    // Snapshot when every tile has drawn, or after a few seconds with what is there.
+    // Snapshot once every tile has drawn; until then (or if it never settles) the live, non-interactive map stays.
     map.once("load", () => map.once("idle", snap));
-    const t = window.setTimeout(snap, 8000);
     map.on("error", () => undefined);
-    return () => { window.clearTimeout(t); if (!done) { done = true; map.remove(); } };
+    return () => { if (!done) { done = true; map.remove(); } };
   }, [data, img]);
 
   return (
@@ -94,11 +93,36 @@ export default function ParcelThumb({ data, date }: { data: FC | null; date: str
       <div className="relative h-40 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
         {img
           ? <img src={img} alt="3D map view of the lot outlined in yellow, with nearby buildings and terrain" className="h-full w-full object-cover" />
-          : <div ref={el} className="absolute inset-0" aria-hidden />}
-        {!img && !failed && <span className="absolute inset-0 animate-pulse bg-slate-200/40" aria-hidden />}
-        {failed && <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">Map view not available for this lot.</p>}
+          : <>
+              {data && <PlanSvg data={data} />}
+              {!failed && <div ref={el} className="absolute inset-0" aria-hidden />}
+            </>}
       </div>
       <figcaption className="mt-1 text-[11px] text-slate-500">Map view from EaseScore.AI data (county parcels, USGS lidar), {date}</figcaption>
     </figure>
+  );
+}
+
+/** Flat plan of the lot from the same data (parcel, neighbors, building footprints); shown until the 3D view has drawn. */
+function PlanSvg({ data }: { data: FC }) {
+  const parcel = data.features.find((f) => f.properties?.kind === "parcel");
+  if (!parcel) return null;
+  const [x0, y0, x1, y1] = bboxOf(parcel.geometry);
+  const k = Math.cos((((y0 + y1) / 2) * Math.PI) / 180);
+  const W = 400, H = 160;
+  const spanX = Math.max((x1 - x0) * k, 1e-6), spanY = Math.max(y1 - y0, 1e-6);
+  const scale = Math.min((W * 0.7) / spanX, (H * 0.7) / spanY);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const pt = ([x, y]: number[]) => `${(W / 2 + (x! - cx) * k * scale).toFixed(1)},${(H / 2 - (y! - cy) * scale).toFixed(1)}`;
+  const rings = (g: { type: string; coordinates: any }): number[][][] => (g.type === "Polygon" ? g.coordinates : g.type === "MultiPolygon" ? g.coordinates.flat() : g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : []); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const d = (g: { type: string; coordinates: unknown }) => rings(g as { type: string; coordinates: any }).map((r) => `M${r.map(pt).join("L")}`).join(" "); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const marked = markSubject(data, parcel) as FC;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" role="img" aria-label="Plan of the lot outlined in yellow, with neighboring lots and buildings">
+      <rect width={W} height={H} fill="#f1f5f9" />
+      {marked.features.filter((f) => f.properties?.kind === "neighbor").map((f, i) => <path key={`n${i}`} d={d(f.geometry)} fill="none" stroke="#94a3b8" strokeWidth={0.8} />)}
+      <path d={`${d(parcel.geometry)} Z`} fill="#facc15" fillOpacity={0.25} stroke="#ca8a04" strokeWidth={2.5} />
+      {marked.features.filter((f) => f.properties?.kind === "building").map((f, i) => <path key={`b${i}`} d={`${d(f.geometry)} Z`} fill={f.properties?.subject ? "#f59e0b" : "#cbd5e1"} stroke="#64748b" strokeWidth={0.5} />)}
+    </svg>
   );
 }

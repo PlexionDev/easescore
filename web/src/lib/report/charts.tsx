@@ -283,3 +283,43 @@ export function Tornado({ rows, base, money }: { rows: { label: string; lowLabel
     </svg>
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Capital stack: uses (left bar) against sources (right bar), same total height.
+
+export function CapitalStack({ uses, sources, money }: { uses: { label: string; amount: number }[]; sources: { label: string; amount: number; kind: "debt" | "equity" | "subsidy" }[]; money: (n: number) => string }) {
+  const W = 720;
+  const H = 300;
+  const top = 24;
+  const barH = H - top - 16;
+  const total = Math.max(1, uses.reduce((t, u) => t + u.amount, 0), sources.reduce((t, s) => t + s.amount, 0));
+  const USE_COLORS = ["#8aa1b8", "#234e70", "#5b7fa3", "#c9a227", "#b86b4b"];
+  const SRC_COLORS: Record<string, string> = { debt: "#234e70", equity: "#c9a227", subsidy: "#3f8f6b" };
+  const stack = (items: { label: string; amount: number }[], x: number, colors: (i: number) => string, labelSide: "left" | "right") => {
+    let y = top;
+    return items.map((it, i) => {
+      const h = (it.amount / total) * barH;
+      const el = (
+        <g key={`${x}-${it.label}`}>
+          <rect x={x} y={y} width={110} height={Math.max(h, 0.5)} fill={colors(i)} stroke="#fff" strokeWidth={1} />
+          {h >= 12 && (
+            <text x={labelSide === "left" ? x - 8 : x + 118} y={y + h / 2 + 3} fontSize={9} fill={INK} textAnchor={labelSide === "left" ? "end" : "start"}>
+              {it.label.replace(/\s*\(.*\)/, "")}: {money(it.amount)} ({fmt((it.amount / total) * 100)}%)
+            </text>
+          )}
+        </g>
+      );
+      y += h;
+      return el;
+    });
+  };
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Capital stack: uses of funds and sources of funds">
+      <text x={345} y={14} fontSize={10} fontWeight={600} fill={MUTED} textAnchor="end">Uses (where the money goes)</text>
+      <text x={385} y={14} fontSize={10} fontWeight={600} fill={MUTED}>Sources (where it comes from)</text>
+      {stack(uses, 230, (i) => USE_COLORS[i % USE_COLORS.length]!, "left")}
+      {stack(sources, 380, (i) => SRC_COLORS[sources[i]!.kind]!, "right")}
+      <line x1={220} x2={500} y1={top + barH} y2={top + barH} stroke={GRID} />
+    </svg>
+  );
+}

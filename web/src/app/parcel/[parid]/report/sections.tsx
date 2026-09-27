@@ -7,7 +7,9 @@ import { assumptions, finance, PHASE_ORDER, quickfit, type RequirementResult } f
 import type { CiteRegistry } from "@/lib/report/cite";
 import type { ReportModel } from "@/lib/report/load";
 import { STRATEGY_LABEL } from "@/lib/report/load";
-import { CompsScatter, LotPlan, PhaseSequence, SlopeBar, Tornado, TornadoPending } from "@/lib/report/charts";
+import { CapitalStack, CompsScatter, LotPlan, PhaseSequence, SlopeBar, Tornado, TornadoPending } from "@/lib/report/charts";
+import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras";
+import { narrative } from "@easescore/engine";
 import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
 
@@ -235,6 +237,7 @@ export const TOC_ENTRIES: { id: string; no: string; title: string; app?: boolean
   { id: "s11", no: "11", title: "Sensitivity and scenarios" },
   { id: "s12", no: "12", title: "Risks and mitigations" },
   { id: "s13", no: "13", title: "Conclusion and next steps" },
+  { id: "s14", no: "14", title: "Limiting conditions" },
   { id: "appA", no: "A", title: "Sources and data dates", app: true },
   { id: "appB", no: "B", title: "Methods and formulas", app: true },
   { id: "appC", no: "C", title: "Assumptions used", app: true },
@@ -333,6 +336,15 @@ export function S1(x: Ctx) {
           </>
         )}
       </p>
+
+      {m.plans && (
+        <div className="callout">
+          <div className="callout-title">In two sentences</div>
+          <p>{m.plans.summary.text}{fn(x, "ease_score", "cost_config", "zba")}</p>
+          <p className="small muted">{narrative.SUMMARY_FINE_PRINT}</p>
+        </div>
+      )}
+      {ProductTable(x)}
 
       {flags.length > 0 && (
         <Callout tone="red" title={`Red flag${flags.length > 1 ? "s" : ""}: blocked unless resolved`}>
@@ -1118,8 +1130,7 @@ export function S6(x: Ctx) {
       ) : (
         <p className="muted">Market activity is not available.</p>
       )}
-      <h2>Absorption and lease-up</h2>
-      <p className="assume">No absorption data is loaded. How fast units would sell or lease is an input you must supply; this study does not assume one.</p>
+      {AbsorptionBlock(x)}
     </Sec>
   );
 }
@@ -1345,6 +1356,7 @@ export function S9(x: Ctx) {
         Every measure below is computed by the finance engine{fn(x, "finance_engine")} from the budget in Section 7 and the assumptions in Appendix C. Rows that
         still need an input (a market cap rate, a hold period, a discount rate) say what they need. The formula column is the math in plain words.
       </p>
+      {SourcesUsesBlock(x)}
       <h2>If built to sell</h2>
       {m.proForma.plan.units != null && m.proForma.plan.finishedSf != null && (
         <p>
@@ -1498,6 +1510,8 @@ export function S10(x: Ctx) {
           permanent loan and equity. It needs the lender’s minimum debt coverage, the permanent loan rate and term, and the equity you commit; none of these has a default.
         </p>
       </Callout>
+      {AbatementBlock(x)}
+      {PublicCostBenefit(x)}
       <h2>Possible sources to close a gap</h2>
       <ul>
         <li><b>Low-Income Housing Tax Credits (LIHTC)</b>: federal credits sold to investors for equity; awarded by PHFA through a competitive round.</li>
@@ -2030,6 +2044,265 @@ export function AppF() {
           </div>
         ))}
       </dl>
+    </Sec>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Report additions: product-type comparison, absorption, sources and uses, tax abatement,
+// public cost vs public benefit, and the limiting conditions (Section 14).
+
+const VERDICT_WORD: Record<string, string> = { yes: "Pencils", thin: "Thin", no: "Does not pencil" };
+
+function pfCells(pf: assumptions.ProFormaResult | null) {
+  if (!pf) return { cost: "—", value: "—", result: "—", ratio: "—", verdict: "Not computed" };
+  const sale = pf.plan.tenure === "sale";
+  if (pf.plan.missing.length) return { cost: money(pf.tdc), value: "—", result: "—", ratio: "—", verdict: `Can’t tell yet: ${pf.plan.missing[0]!.split(". ")[0]}` };
+  return {
+    cost: money(pf.tdc),
+    value: sale ? `${money(pf.sale.grossSales)} in sales` : `${money(pf.rent.noi)} a year after running costs`,
+    result: sale ? (pf.sale.profit != null ? (pf.sale.profit >= 0 ? `${money(pf.sale.profit)} profit` : `${money(-pf.sale.profit)} gap`) : "—") : pf.rent.yieldOnCost != null ? `${pct(pf.rent.yieldOnCost, 1)} yield on cost` : "—",
+    ratio: sale ? (pf.sale.margin != null ? `${pct(pf.sale.margin, 1)} margin` : "—") : pf.rent.yieldOnCost != null ? `${pct(pf.rent.yieldOnCost, 1)} a year` : "—",
+    verdict: pf.verdict ? VERDICT_WORD[pf.verdict]! : pf.plan.tenure === "rent" ? "Depends on the loan and a local cap rate" : "—",
+  };
+}
+
+function precedentText(p: narrative.SummaryPrecedent | null, district: string | null): string {
+  if (!p) return "No Zoning Board hearing (staff decision)";
+  if (p.decided === 0) return "No nearby precedent on record";
+  const phrase = narrative.precedentPhrase(p, district);
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
+export function ProductTable(x: Ctx) {
+  const { m } = x;
+  const p = m.plans;
+  if (!p || (!p.byRight && !p.withApproval && !m.affordable)) return null;
+  const t = x.tab();
+  const district = p.summaryInput.district;
+  const cols: { head: string; build: string; homes: string; path: string; precedent: string; cells: ReturnType<typeof pfCells> }[] = [];
+  if (p.byRight) cols.push({ head: "Best by right", build: p.byRight.label, homes: num(p.byRight.units), path: "Allowed by right", precedent: "Not needed", cells: pfCells(p.byRight.pf) });
+  else cols.push({ head: "Best by right", build: "Nothing fits by right", homes: "—", path: "—", precedent: "—", cells: pfCells(null) });
+  if (p.withApproval) cols.push({ head: "Best with approval", build: p.withApproval.label, homes: num(p.withApproval.units), path: `Needs ${p.withApproval.approval}`, precedent: precedentText(p.withApproval.precedent, district), cells: pfCells(p.withApproval.pf) });
+  else cols.push({ head: "Best with approval", build: "No larger option found", homes: "—", path: "—", precedent: "—", cells: pfCells(null) });
+  const af = m.affordable;
+  if (af) cols.push({ head: `Affordable (${af.ami}% AMI rental)`, build: `${af.option.charAt(0).toUpperCase()}${af.option.slice(1)}, rented at ${money(af.rent)} a month (${af.bedrooms} BR limit, ${af.year})`, homes: num(af.pf.plan.units), path: p.byRight ? "Allowed by right" : `Needs ${p.withApproval?.approval ?? "an approval"}`, precedent: "—", cells: pfCells(af.pf) });
+  const rows: [string, (c: (typeof cols)[number]) => string][] = [
+    ["Building", (c) => c.build],
+    ["Homes", (c) => c.homes],
+    ["Zoning path", (c) => c.path],
+    ["Past decisions", (c) => c.precedent],
+    ["Total development cost", (c) => c.cells.cost],
+    ["Value or income", (c) => c.cells.value],
+    ["Profit or gap", (c) => c.cells.result],
+    ["Margin or yield", (c) => c.cells.ratio],
+    ["Pencils?", (c) => c.cells.verdict],
+  ];
+  return (
+    <>
+      <h2>Product types compared</h2>
+      <p className="small">
+        Each column runs the same cost builder and finance engine with the default assumptions{fn(x, "cost_config", "finance_engine")}. By right means no hearing; “with approval”
+        is the option that fits the most homes with zoning relief{fn(x, "quickfit", "zba")}. The affordable column rents the by-right building at the tax-credit rent limit{fn(x, "phfa")};
+        its funding gap needs loan terms (Section 10). These layouts come from the Ease Score’s site-fit check, so their size can differ from the scheme studied in
+        Sections 7 to 9.
+      </p>
+      <div className="tcap">Table {t}. By-right best vs. with-approval best vs. affordable</div>
+      <table>
+        <thead><tr><th style={{ width: "20%" }}></th>{cols.map((c) => <th key={c.head}>{c.head}</th>)}</tr></thead>
+        <tbody>
+          {rows.map(([label, f]) => (
+            <tr key={label}><td><b>{label}</b></td>{cols.map((c) => <td key={c.head} className="small">{f(c)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+export function AbsorptionBlock(x: Ctx) {
+  const a = absorption(x.m);
+  const rent = x.m.scenario.tenure === "rent";
+  return (
+    <>
+      <h2>Absorption and lease-up</h2>
+      <p>
+        {a.ncCount != null && a.ncPerYear != null ? (
+          <>Support from comps: {num(a.ncCount)} new-construction home sale{a.ncCount === 1 ? "" : "s"} within {a.ncRadiusMi != null ? +a.ncRadiusMi.toFixed(2) : "—"} mi over the last {num(a.ncYears)} years, about {num(a.ncPerYear, 1)} a year{fn(x, "nc_sales")}. </>
+        ) : null}
+        {a.salesCount != null && a.salesPerYear != null ? (
+          <>Nearby valid sales of the comparable use: {num(a.salesCount)} within {a.salesRadiusMi != null ? +a.salesRadiusMi.toFixed(2) : "—"} mi over about {num(a.salesYears, 1)} years, about {num(a.salesPerYear, 1)} a year{fn(x, "sales")}. </>
+        ) : null}
+        {a.ncCount == null && a.salesCount == null ? "No sales counts are available near this lot. " : ""}
+      </p>
+      <p className="assume">
+        Assumption, editable: finished homes sell within {num(a.salesMonths)} months after completion, and a rental leases up within {num(a.leaseUpMonths)} months{fn(x, "cost_config")}.
+        {rent ? " The rental case uses the lease-up assumption." : " The for-sale case uses the months-to-sell assumption."} This is not a market study; a local broker should confirm the pace.
+        {a.ncPerYear != null && x.m.proForma.plan.units != null && a.ncPerYear < x.m.proForma.plan.units
+          ? ` Fewer new homes sell nearby in a year (about ${num(a.ncPerYear, 1)}) than this plan would add (${x.m.proForma.plan.units}), so the selling time may be longer than assumed.`
+          : ""}
+      </p>
+    </>
+  );
+}
+
+export function SourcesUsesBlock(x: Ctx) {
+  const su = sourcesUses(x.m.proForma);
+  if (!su) {
+    return (
+      <>
+        <h2>Sources and uses</h2>
+        <Callout tone="pending" title="Sources and uses: needs a total cost"><p>{x.m.proForma.plan.missing[0] ?? "The total development cost could not be computed."}</p></Callout>
+      </>
+    );
+  }
+  const t = x.tab();
+  const f = x.fig();
+  const ltc = x.m.proForma.plan.forSale.constructionLoanLtc;
+  return (
+    <>
+      <h2>Sources and uses</h2>
+      <p>
+        Every dollar in and out during construction. Uses are the budget in Section 7. Sources assume a construction loan at {typeof ltc === "number" ? pct(ltc) : "the default share"} of cost
+        {fn(x, "cost_config")}; the rest is the developer’s cash (equity). No grants are assumed unless entered.
+      </p>
+      <div className="tcap">Table {t}. Sources and uses of funds</div>
+      <table>
+        <thead><tr><th>Uses</th><th className="num">Amount</th><th className="num">Share</th><th>Sources</th><th className="num">Amount</th><th className="num">Share</th></tr></thead>
+        <tbody>
+          {Array.from({ length: Math.max(su.uses.length, su.sources.length) }).map((_, i) => {
+            const u = su.uses[i];
+            const s = su.sources[i];
+            return (
+              <tr key={i}>
+                <td>{u?.label ?? ""}</td><td className="num">{u ? money(u.amount) : ""}</td><td className="num">{u ? pct(u.amount / su.total) : ""}</td>
+                <td>{s?.label ?? ""}</td><td className="num">{s ? money(s.amount) : ""}</td><td className="num">{s ? pct(s.amount / su.total) : ""}</td>
+              </tr>
+            );
+          })}
+          <tr><td><b>Total uses</b></td><td className="num"><b>{money(su.total)}</b></td><td className="num">100%</td><td><b>Total sources</b></td><td className="num"><b>{money(su.sources.reduce((t2, s) => t2 + s.amount, 0))}</b></td><td className="num">100%</td></tr>
+        </tbody>
+      </table>
+      {su.gap != null && (
+        <p className="small">
+          At the assumed sale value the sales do not repay these sources: {money(su.gap)} short{fn(x, "nc_sales")}. That is the amount a subsidy, a land write-down or a lower cost would have to cover (Section 10).
+        </p>
+      )}
+      <figure className="avoid-break">
+        <CapitalStack uses={su.uses} sources={su.sources} money={(n) => money(n)} />
+        <figcaption>Figure {f}. Capital stack: uses of funds (left) and sources of funds (right), same total.</figcaption>
+      </figure>
+    </>
+  );
+}
+
+export function AbatementBlock(x: Ctx) {
+  const a = abatementScenario(x.m);
+  const cfg = assumptions.COST_CONFIG.taxAbatement;
+  if (!a) {
+    return (
+      <>
+        <h2>Tax abatement scenario (illustrative)</h2>
+        <p className="muted">Not computed: the tax rate or the county land value is not loaded for this lot.</p>
+      </>
+    );
+  }
+  const t = x.tab();
+  return (
+    <>
+      <h2>Tax abatement scenario (illustrative)</h2>
+      <p>
+        Pennsylvania lets local taxing bodies phase in the added value from new construction (LERTA-style abatements). Program terms differ by taxing body and
+        were not checked for this lot, so this is an illustration, not a program quote. Assumption, editable: {pct(a.share)} of the tax on the added value is abated for {a.years} years
+        {a.edited ? " (your values)" : ""}{fn(x, "cost_config")}. The added value is the pro forma’s assumption (construction cost), taxed at {num(a.mills, 2)} mills{fn(x, "millage")}.
+      </p>
+      <div className="tcap">Table {t}. Effect of the abatement</div>
+      <table>
+        <tbody>
+          <tr><td>Added assessed value (assumed)</td><td className="num">{money(a.addedValue)}</td></tr>
+          <tr><td>Yearly tax on the added value</td><td className="num">{money(a.taxOnAdded)}</td></tr>
+          <tr><td>Tax abated each year</td><td className="num"><b>{money(a.abatedPerYear)}</b>{a.perHomePerYear != null && a.units && a.units > 1 ? ` (${money(a.perHomePerYear)} per home)` : ""}</td></tr>
+          <tr><td>Tax abated over {a.years} years (not discounted)</td><td className="num">{money(a.abatedTotal)}</td></tr>
+          {a.rent && (
+            <>
+              <tr><td>Rental: income after running costs (NOI), without → with</td><td className="num">{money(a.rent.noi)} → {money(a.rent.noiWith)}</td></tr>
+              <tr><td>Rental: yield on cost, without → with</td><td className="num">{pct(a.rent.yoc, 1)} → {pct(a.rent.yocWith, 1)}</td></tr>
+            </>
+          )}
+        </tbody>
+      </table>
+      <p className="small">
+        {x.m.proForma.plan.tenure === "sale"
+          ? "Built to sell, the abatement goes to the buyer as lower taxes; it does not change the builder’s cost or profit in this study, and any effect on the sale price is not assumed."
+          : "Built to rent, the abatement raises the owner’s yearly income during the abatement years; after that, full taxes apply."}{" "}
+        Change the share and years with the report settings pf_abate_pct and pf_abate_years. {cfg.label}.
+      </p>
+    </>
+  );
+}
+
+export function PublicCostBenefit(x: Ctx) {
+  const { m } = x;
+  const su = sourcesUses(m.proForma);
+  const subsidy = su?.gap ?? null;
+  if (!m.scenario.affordable && subsidy == null) return null;
+  const a = abatementScenario(m);
+  const units = m.proForma.plan.units;
+  const fullTax = a ? a.taxOnAdded : null;
+  return (
+    <>
+      <h2>Public cost and public benefit</h2>
+      <p>
+        <b>Public cost:</b>{" "}
+        {subsidy != null ? <>a subsidy or land write-down of about {money(subsidy)} to break even at today’s sale prices{units ? ` (${money(subsidy / units)} per home)` : ""}{fn(x, "cost_config", "nc_sales")}</> : "the funding gap, which needs loan terms (see above)"}
+        {a ? <>, plus {money(a.abatedTotal)} of property tax forgone if the illustrative abatement above is used</> : null}.
+        {" "}<b>Public benefit:</b> {units ? `${units} new home${units === 1 ? "" : "s"}` : "new homes"}
+        {m.scenario.affordable ? " at rents or prices limited by income (affordable mode)" : ""}
+        {fullTax != null ? <>, and about {money(fullTax)} a year in new property tax once any abatement ends{fn(x, "millage")}</> : null}.
+        {" "}This is a brief screen, not a fiscal impact study: it leaves out services the homes use, school costs, and wider effects on the neighborhood.
+      </p>
+    </>
+  );
+}
+
+export function S14(x: Ctx) {
+  const { m } = x;
+  const cited = x.c.list();
+  const t = x.tab();
+  return (
+    <Sec id="s14" no="14" title="Limiting conditions">
+      <p>This study rests on the assumptions and limits below. Read the results with them in mind.</p>
+      <h2>What the analysis assumes</h2>
+      <ul>
+        <li>Public records are correct as published: lot lines, lot size, assessed values, zoning districts and overlays, and past Zoning Board decisions.</li>
+        <li>The building shape is a placeholder layout from our site-fit solver, not an architect’s design (Appendix C).</li>
+        <li>Costs, loan terms, selling costs, months to sell or lease, and the tax abatement are editable defaults, each with a source label (Appendix C).</li>
+        <li>Values come from recent recorded sales and rent indexes on the dates shown; markets change.</li>
+        <li>Zoning rules are read from a hand-transcribed table of the City code{m.facts.zoning?.code ? ` for ${m.facts.zoning.code}` : ""}; the Zoning Administrator’s reading governs.</li>
+      </ul>
+      <h2>What was not inspected</h2>
+      <ul>
+        <li>No site visit, survey, title search, soil or geotechnical test, environmental assessment, or building inspection.</li>
+        <li>No check of utilities at the curb, easements, deed restrictions, or liens.</li>
+        <li>No appraisal and no contractor bid. No review of the seller’s price or terms.</li>
+        <li>No conversation with the City, the Zoning Board, neighbors or community groups.</li>
+      </ul>
+      <h2>Out of scope</h2>
+      <p>
+        The developer’s capacity and financial strength (experience, balance sheet, credit, ability to raise equity or carry the project) are out of scope. So are
+        tax, legal and lender underwriting, and the award of any subsidy or tax credit.
+      </p>
+      <h2>Data vintages</h2>
+      <div className="tcap">Table {t}. Data sources cited in Sections 1–13 and their dates</div>
+      <table>
+        <thead><tr><th style={{ width: "6%" }}>#</th><th>Source</th><th>Publisher</th><th>Data date</th></tr></thead>
+        <tbody>
+          {cited.map((c) => (
+            <tr key={c.key}><td>{c.n}</td><td className="small">{c.title}</td><td className="small">{c.publisher ?? "—"}</td><td className="small">{c.date ?? NOT_RECORDED}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted">Study generated {longDate(m.generatedDate)}. Results can change when any source is updated.</p>
     </Sec>
   );
 }

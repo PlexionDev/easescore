@@ -72,7 +72,9 @@ export function classify(s: Strategy, zba: Record<string, ZbaRow> | null | undef
     return { path: "approval", approval: "an administrator exception for a lot of record", reliefType: "administrator_exception", precedent: null };
   const variance = fit === "variance";
   const rules = (i.varianceRules ?? []).map((r) => r.replace(/_/g, " "));
-  const varianceText = rules.length ? `a variance for the ${rules.join(" and ")}` : "a dimensional variance";
+  const names = rules.map((r) => r.replace(/^min /, "minimum ").replace(/^max /, "maximum "));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+  const varianceText = names.length ? `a variance for the ${list}` : "a dimensional variance";
   if (code === "P" || (s.strategy === "rehab_existing" && i.nonconforming)) {
     if (!variance) return { path: "by_right", approval: null, reliefType: null, precedent: null };
     return { path: "approval", approval: varianceText, reliefType: "dimensional_variance", precedent: precedentOf(zba, "dimensional_variance") };
@@ -121,6 +123,7 @@ function toSummaryOption(o: PlanOption): narrative.SummaryOption {
     marginPct: margin != null ? Math.round(margin * 1000) / 10 : null,
     gap: gap != null ? Math.round(gap) : null,
     ...costDriver(pf),
+    needs: pf && pf.plan.missing.length ? (pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab cost/i.test(t)) ? "your rehab cost" : "an input our data does not have") : null,
   };
 }
 
@@ -154,7 +157,7 @@ export async function comparePlans(a: {
           const rehab = s.strategy === "rehab_existing";
           const [newComps, matched] = await Promise.all([
             newCompsFor(s.strategy, a.parid, f.centroid, a.asOf),
-            rehab ? rehabComps(a.sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: f.assessment?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
+            rehab ? rehabComps(a.sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
           ]);
           const plan = assumptions.buildDevelopmentInputs({
             strategy: s.strategy,

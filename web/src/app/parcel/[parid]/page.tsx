@@ -3,9 +3,15 @@ import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
 import { easeInputs, parcelFacts, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newCompsFor, primeRate, readCostOverrides, rehabComps, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
-import EaseScorePanel from "./EaseScorePanel";
-import ProFormaPanel from "./ProFormaPanel";
+import { comparePlans, type PlanComparison } from "@/lib/summary";
+import { titleCase } from "@/lib/report/assess";
+import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
+import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
+import ParcelThumb from "./ParcelThumb";
+import SummaryText from "./SummaryText";
+import DownloadReport from "./report/DownloadReport";
+import { OpenDrawer } from "./Drawers";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -157,139 +163,220 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       answers = null;
     }
   }
-  const a = f.assessment;
+  // Best by-right and best with-approval options (each through the same pro forma) for the summary.
+  let plans: PlanComparison | null = null;
+  if (easeResult) {
+    try {
+      plans = await comparePlans({
+        parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
+        sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides: readCostOverrides(sp), asOf,
+        known: selected ? { strategy: selected.strategy, pf } : null,
+      });
+    } catch {
+      plans = null;
+    }
+  }
+
+  const a = f.assessment as (Record<string, any> & { address?: string; municipality?: string; year_built?: number | null; living_area_sqft?: number | null; lot_area_sqft?: number | null }) | undefined;
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   const counts = results.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
   const s = sales as any, r = rent as any;
 
-  return (
-    <ParcelShell
-      top={<>
-      {/* Key facts */}
-      <section className="flex flex-wrap gap-1.5 text-xs">
-        {[
-          f.slope_1m ? `Slope avg ${Math.round(Number((f as any).slope_1m.mean_pct))}% · ${Math.round(Number((f as any).slope_1m.share_over_25) * 100)}% of lot over 25%` : null,
-          (f as any).flood_1pct_share > 0 ? `${Math.round((f as any).flood_1pct_share * 100)}% in 100-yr flood` : "Outside FEMA flood zones",
-          (f as any).mines?.in_mined_out ? "Over mapped mine (DEP)" : (f as any).mines?.in_city_undermined ? "City undermined overlay" : "No mapped mine within 500 ft",
-          f.overlays?.some((o: any) => o.layer === "landslide_prone_pgh") ? "Landslide-prone overlay" : null,
-          f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not loaded here",
-          (f as any).transit?.nearest_frequent_stop_m != null ? `Frequent transit ${Math.round((f as any).transit.nearest_frequent_stop_m)} m` : null,
-        ].filter(Boolean).map((t) => <span key={String(t)} className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">{t}</span>)}
-      </section>
-      {easeResult && selected
-        ? <EaseScorePanel parid={parid} result={easeResult} selected={selected} answers={answers} sp={sp} pencilsNote={pencilsNote}
-            proForma={pf ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} /> : null} />
-        : <section className="rounded-xl border border-dashed border-slate-300 p-3">
-            <h2 className="text-base font-semibold text-slate-900">Ease Score</h2>
-            <p className="text-sm text-zinc-600">We could not score this parcel right now. The facts, checklist and comps below still apply.</p>
-          </section>}
-      </>}
-      mapData={mapData} qfInput={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null}
-      header={
-        <div>
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">v0.5 test build</span>
-          </div>
-          <h1 className="mt-2 text-xl font-bold tracking-tight text-slate-900">{a?.address || parid}</h1>
-          <p className="text-sm text-slate-600">{a?.municipality} · {f.zoning?.code ? `Zoned ${f.zoning.code}` : "Zoning not available"} · {a?.use}</p>
-          <p className="text-xs text-slate-400">Parcel {parid}</p>
-        </div>
-      }>
-      {/* Project answers */}
-      <section>
-        <h2 className="text-lg font-semibold">Your project</h2>
-        <form className="mt-2 grid grid-cols-2 gap-2 text-sm">
-          {typeof sp.strategy === "string" && <input type="hidden" name="strategy" value={sp.strategy} />}
-          <label className="flex flex-col">Project type
-            <select name="type" defaultValue={String(sp.type ?? "")} className="rounded border px-2 py-1">
-              <option value="">— not set —</option><option value="new_build">New build</option><option value="addition">Addition</option>
-              <option value="rehab">Rehab</option><option value="demolition">Demolition</option><option value="conversion">Conversion</option>
-            </select></label>
-          <label className="flex flex-col">Units<input name="units" type="number" min={1} defaultValue={String(sp.units ?? "")} className="rounded border px-2 py-1" /></label>
-          <label className="flex flex-col">Stories<input name="stories" type="number" min={1} defaultValue={String(sp.stories ?? "")} className="rounded border px-2 py-1" /></label>
-          <label className="flex flex-col">Smaller work
-            <select name="minor_work" defaultValue={String(sp.minor_work ?? "")} className="rounded border px-2 py-1">
-              <option value="">—</option><option value="deck">Deck</option><option value="porch">Porch</option><option value="parking_pad">Parking pad</option>
-              <option value="stoop">Stoop</option><option value="balcony">Balcony</option><option value="retaining_wall">Retaining wall</option>
-            </select></label>
-          {([["financed", "Financed?"], ["party_wall", "Rowhouse / party wall?"], ["touches_street", "Work blocks street/sidewalk?"],
-             ["new_driveway", "New driveway?"], ["lot_split", "Combine or split lots?"], ["cut_fill", "Cut/fill slopes over 25%?"]] as const).map(([k, label]) => (
-            <label key={k} className="flex flex-col">{label}
-              <select name={k} defaultValue={String(sp[k] ?? "")} className="rounded border px-2 py-1">
-                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
-              </select></label>
-          ))}
-          <button className="col-span-2 rounded-lg bg-slate-900 px-3 py-2 text-white">Update checklist</button>
-        </form>
-      </section>
+  // Query for the full report: same keys, with the report's names for the building type and tenure.
+  const REPORT_STRATEGY: Record<string, string> = { new_sf: "single_family", duplex: "duplex", townhouse_row: "townhouse_row" };
+  const rq = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && v !== "" && k !== "strategy") rq.set(k, v);
+  const rs = selected ? REPORT_STRATEGY[selected.strategy] : undefined;
+  if (rs) rq.set("strategy", rs);
+  if (typeof sp.pf_tenure === "string" && (sp.pf_tenure === "sale" || sp.pf_tenure === "rent")) rq.set("tenure", sp.pf_tenure);
+  const reportQuery = rq.toString();
+  const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}download=0`;
+  const reportHtml = `/parcel/${encodeURIComponent(parid)}/report${reportQuery ? `?${reportQuery}` : ""}`;
 
-      {/* 3. Requirements checklist */}
-      <section>
-        <h2 className="text-lg font-semibold">Process checklist</h2>
-        <p className="text-sm text-zinc-600">
-          {Object.entries(counts).map(([k, v]) => `${v} ${k.replace("_", " ").toLowerCase()}`).join(" · ")}
-        </p>
-        {byPhase.map(([ph, items]) => items.length > 0 && (
-          <div key={ph} className="mt-4">
-            <h3 className="font-semibold text-zinc-700">{PHASE_LABEL[ph]}</h3>
-            <ul className="mt-1 divide-y divide-zinc-100 rounded border border-zinc-200">
-              {items.map((it: RequirementResult) => (
-                <li key={it.id} className="px-3 py-2">
-                  <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[it.status]}`}>{it.status.replace("_", " ")}</span>
-                    <div className="min-w-0">
-                      <p className="font-medium">{it.item} <span className="text-xs font-normal text-zinc-500">· {it.issuer}</span></p>
-                      {it.reasons.slice(0, 3).map((t, i) => (
-                        <p key={i} className="text-sm text-zinc-700">{i > 0 && <span className="text-zinc-400">also: </span>}{t.reason}{t.source && <span className="text-zinc-400"> [{t.source}]</span>}</p>
-                      ))}
-                      {it.advisories.map((adv, i) => (
-                        <p key={`a${i}`} className="mt-1 rounded bg-sky-50 px-2 py-1 text-sm text-sky-900">ⓘ {adv}</p>
-                      ))}
-                      {it.citation && <p className="mt-0.5 text-xs text-zinc-500">Citation: {it.citation}</p>}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+  // 2. One line: address, neighborhood, zoning district.
+  const place = (f.context?.neighborhood as string | undefined) ?? titleCase(f.context?.municipality ?? a?.municipality) ?? null;
+  const line = [titleCase(a?.address) || `Parcel ${parid}`, place, f.zoning?.code ?? "zoning not in our data"].filter(Boolean).join(", ");
+
+  // 3. Fact tiles.
+  const NR = "Not on record";
+  const lotSf = (f.lot_area_sqft_gis as number | undefined) ?? a?.lot_area_sqft ?? null;
+  const slope = (f.slope_1m ?? f.slope) as { mean_pct?: number; share_over_25?: number; steep_share?: number } | undefined;
+  const over25 = slope?.share_over_25 ?? slope?.steep_share;
+  const tiles: [string, string, string | null][] = [
+    ["Year built", a?.year_built ? String(a.year_built) : NR, null],
+    ["House sq ft", a?.living_area_sqft ? Math.round(a.living_area_sqft).toLocaleString("en-US") : NR, null],
+    ["Lot sq ft", lotSf ? Math.round(lotSf).toLocaleString("en-US") : NR, null],
+    ["Average slope", slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? `${Math.round(Number(over25) * 100)}% over 25%` : null],
+  ];
+
+  // 8. "Pencils?" chip for the selected option.
+  let chip = "Pencils? Not computed for this option";
+  let chipTone = "border-slate-300 bg-white text-slate-700";
+  if (pf) {
+    const pctTxt = (x: number) => `${Math.round(x * 100)}%`;
+    const usdK = (x: number) => narrative.money(x);
+    if (pf.plan.missing.length) chip = pf.plan.strategy === "rehab_existing" && pf.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "Enter your rehab cost to price this" : "Pencils? Can't tell yet: an input is missing";
+    else if (pf.plan.tenure === "sale" && pf.sale.profit != null) {
+      if (pf.verdict === "no") { chip = `Gap of about ${usdK(-pf.sale.profit)} at market rate${selected ? ` (${selected.strategyLabel.toLowerCase()})` : ""}`; chipTone = "border-red-200 bg-red-50 text-red-900"; }
+      else { chip = `Pencils at market rate${selected ? ` (${selected.strategyLabel.toLowerCase()})` : ""}: ${pf.verdict === "thin" ? "barely" : "yes"}, about ${pctTxt(pf.sale.margin ?? 0)} margin`; chipTone = pf.verdict === "thin" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"; }
+    } else if (pf.plan.tenure === "rent" && pf.rent.noi != null) {
+      chip = pf.verdict === "no" ? "Does not pencil as a rental: rent does not cover running costs" : `As a rental: about ${pctTxt(pf.rent.yieldOnCost ?? 0)} a year on cost`;
+    }
+  }
+
+  const pane = (
+    <>
+      <div className="flex items-center justify-between">
+        <Link href="/check" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Test build</span>
+      </div>
+      {/* 1. Property image */}
+      <ParcelThumb data={mapData} date={asOf} />
+      {/* 2. Address, neighborhood, zoning district */}
+      <h1 className="text-lg font-bold leading-snug tracking-tight text-slate-900">{line}</h1>
+      {/* 3. Fact row */}
+      <section aria-label="Key facts" className="grid grid-cols-4 gap-1.5">
+        {tiles.map(([k, v, sub]) => (
+          <div key={k} className="rounded-lg border border-slate-200 bg-white/70 px-1.5 py-1.5 text-center">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500">{k}</p>
+            <p className={`tabular-nums ${v === NR ? "text-[11px] text-slate-400" : "text-sm font-semibold text-slate-900"}`}>{v}</p>
+            {sub && <p className="text-[10px] text-slate-500">{sub}</p>}
           </div>
         ))}
       </section>
+      {/* 4-6. Score, factor bars, callouts */}
+      {easeResult && selected ? (
+        <>
+          <ScoreBlock parid={parid} result={easeResult} selected={selected} sp={sp} />
+          <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} />
+          <Callouts selected={selected} />
+        </>
+      ) : (
+        <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now. The report and the process checklist still apply.</p>
+      )}
+      {/* 7. Two-sentence summary + fine print */}
+      {plans && <SummaryText input={plans.summaryInput} template={plans.summary} />}
+      {/* 8. Pencils? */}
+      <OpenDrawer id="pencils" className={`w-full rounded-full border px-3 py-1.5 text-left text-sm font-semibold ${chipTone}`} label="Open the pro forma">
+        {chip} <span aria-hidden className="float-right opacity-60">›</span>
+      </OpenDrawer>
+      {/* 9. Buttons */}
+      <div className="grid grid-cols-2 gap-2">
+        <a href={pdfHref} target="_blank" rel="noopener" className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open the full report</a>
+        <OpenDrawer id="plan" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-500">Change the plan</OpenDrawer>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+        <OpenDrawer id="process" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Process checklist</OpenDrawer>
+        <OpenDrawer id="details" className="underline decoration-dotted underline-offset-2 hover:text-slate-800">Details</OpenDrawer>
+        <DownloadReport parid={parid} query={reportQuery} label="Download the PDF" hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
+      </div>
+    </>
+  );
 
-      {/* 4. Financial evidence — separate from site ease */}
-      <section className="grid gap-4">
-        <div className="rounded border border-zinc-200 p-4">
-          <h2 className="text-lg font-semibold">Sales comps</h2>
-          <p className="text-sm">
-            <span className={s?.status === "ok" ? "text-green-700" : "text-red-700"}>{s?.status ?? "unavailable"}</span>
-            {s && ` · ${s.count} ${s.comparable_use} sales · within ${s.radius_mi} mi · ${s.date_range?.from ?? "?"} → ${s.date_range?.to ?? "?"}`}
-          </p>
-          {s?.fallback_note && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">{s.fallback_note}</p>}
-          {s?.note && <p className="mt-1 text-sm text-zinc-600">{s.note}</p>}
-          {s?.status === "ok" && <p className="mt-1 text-sm">Median {money(s.median_price)} · {money(s.median_price_per_sqft)}/sq ft</p>}
-          <ul className="mt-2 max-h-56 overflow-auto text-xs text-zinc-600">
-            {(s?.comps ?? []).map((c: any) => (
-              <li key={`${c.parid}${c.sale_date}`}>{c.sale_date} · {money(c.price)} · {c.address} · {c.distance_mi} mi</li>
+  const projectForm = (
+    <section className="rounded-xl border border-slate-200 p-3">
+      <h3 className="text-sm font-semibold text-slate-900">Project questions</h3>
+      <p className="text-[11px] text-slate-500">These set the process checklist.</p>
+      <form action={`/parcel/${encodeURIComponent(parid)}#drawer=process`} className="mt-2 grid grid-cols-2 gap-2 text-sm">
+        {Object.entries(sp).filter(([k, v]) => typeof v === "string" && (k === "strategy" || k.startsWith("pf_"))).map(([k, v]) => <input key={k} type="hidden" name={k} value={v as string} />)}
+        <label className="flex flex-col">Project type
+          <select name="type" defaultValue={String(sp.type ?? "")} className="rounded border px-2 py-1">
+            <option value="">— not set —</option><option value="new_build">New build</option><option value="addition">Addition</option>
+            <option value="rehab">Rehab</option><option value="demolition">Demolition</option><option value="conversion">Conversion</option>
+          </select></label>
+        <label className="flex flex-col">Units<input name="units" type="number" min={1} defaultValue={String(sp.units ?? "")} className="rounded border px-2 py-1" /></label>
+        <label className="flex flex-col">Stories<input name="stories" type="number" min={1} defaultValue={String(sp.stories ?? "")} className="rounded border px-2 py-1" /></label>
+        <label className="flex flex-col">Smaller work
+          <select name="minor_work" defaultValue={String(sp.minor_work ?? "")} className="rounded border px-2 py-1">
+            <option value="">—</option><option value="deck">Deck</option><option value="porch">Porch</option><option value="parking_pad">Parking pad</option>
+            <option value="stoop">Stoop</option><option value="balcony">Balcony</option><option value="retaining_wall">Retaining wall</option>
+          </select></label>
+        {([["financed", "Financed?"], ["party_wall", "Rowhouse / party wall?"], ["touches_street", "Work blocks street/sidewalk?"],
+           ["new_driveway", "New driveway?"], ["lot_split", "Combine or split lots?"], ["cut_fill", "Cut/fill slopes over 25%?"]] as const).map(([k, label]) => (
+          <label key={k} className="flex flex-col">{label}
+            <select name={k} defaultValue={String(sp[k] ?? "")} className="rounded border px-2 py-1">
+              <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+            </select></label>
+        ))}
+        <button className="col-span-2 rounded-lg bg-slate-900 px-3 py-2 text-white">Update the checklist</button>
+      </form>
+    </section>
+  );
+
+  const process = (
+    <section>
+      <p className="text-sm text-zinc-600">
+        {Object.entries(counts).map(([k, v]) => `${v} ${k.replace("_", " ").toLowerCase()}`).join(", ")}
+      </p>
+      {byPhase.map(([ph, items]) => items.length > 0 && (
+        <div key={ph} className="mt-4">
+          <h3 className="font-semibold text-zinc-700">{PHASE_LABEL[ph]}</h3>
+          <ul className="mt-1 divide-y divide-zinc-100 rounded border border-zinc-200">
+            {items.map((it: RequirementResult) => (
+              <li key={it.id} className="px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[it.status]}`}>{it.status.replace("_", " ")}</span>
+                  <div className="min-w-0">
+                    <p className="font-medium">{it.item} <span className="text-xs font-normal text-zinc-500">({it.issuer})</span></p>
+                    {it.reasons.slice(0, 3).map((t, i) => (
+                      <p key={i} className="text-sm text-zinc-700">{i > 0 && <span className="text-zinc-400">also: </span>}{t.reason}</p>
+                    ))}
+                    {it.advisories.map((adv, i) => <p key={`a${i}`} className="mt-1 rounded bg-sky-50 px-2 py-1 text-sm text-sky-900">ⓘ {adv}</p>)}
+                    {(it.citation || it.reasons.some((t) => t.source)) && (
+                      <p className="mt-0.5 text-xs text-zinc-500">Sources: {[...new Set([it.citation, ...it.reasons.map((t) => t.source)].filter(Boolean))].join("; ")}</p>
+                    )}
+                  </div>
+                </div>
+              </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-zinc-400">{s?.rules}</p>
         </div>
-        <div className="rounded border border-zinc-200 p-4">
-          <h2 className="text-lg font-semibold">Rent evidence</h2>
-          {r?.note && <p className="text-sm text-zinc-600">{r.note}</p>}
-          {r?.zori && <p className="mt-1 text-sm">Zillow rent index (ZIP {r.zori.zip}): {money(r.zori.latest_rent)}/mo ({r.zori.latest_month}); a year earlier {money(r.zori.rent_12m_ago)}</p>}
-          {r?.hud_fmr && <p className="mt-1 text-sm">HUD Fair Market Rent {r.hud_fmr.year} ({r.hud_fmr.level}): 1BR {money(r.hud_fmr.br1)} · 2BR {money(r.hud_fmr.br2)} · 3BR {money(r.hud_fmr.br3)}</p>}
-          <p className="mt-1 text-sm text-zinc-500">RentEase: {r?.rentease?.status ?? "not available"}</p>
-        </div>
-      </section>
+      ))}
+      <p className="mt-3 text-xs text-zinc-500">The project questions that set this list are under “Change the plan”.</p>
+    </section>
+  );
 
-      {/* Raw facts for checking the data */}
+  const details = (
+    <>
+      {easeResult && selected
+        ? <DetailsContent result={easeResult} selected={selected} answers={answers} pencilsNote={pencilsNote} />
+        : null}
+      <section className="rounded border border-zinc-200 p-3">
+        <h3 className="text-sm font-semibold">Sales comps</h3>
+        <p className="text-sm">
+          <span className={s?.status === "ok" ? "text-green-700" : "text-red-700"}>{s?.status ?? "unavailable"}</span>
+          {s && `: ${s.count} ${s.comparable_use} sales within ${s.radius_mi} mi, ${s.date_range?.from ?? "?"} to ${s.date_range?.to ?? "?"}`}
+        </p>
+        {s?.fallback_note && <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">{s.fallback_note}</p>}
+        {s?.status === "ok" && <p className="mt-1 text-sm">Median {money(s.median_price)}, {money(s.median_price_per_sqft)}/sq ft</p>}
+        <ul className="mt-2 max-h-48 overflow-auto text-xs text-zinc-600">
+          {(s?.comps ?? []).map((c: any) => <li key={`${c.parid}${c.sale_date}`}>{c.sale_date}, {money(c.price)}, {c.distance_mi} mi</li>)}
+        </ul>
+        <p className="mt-2 text-xs text-zinc-400">{s?.rules}</p>
+      </section>
+      <section className="rounded border border-zinc-200 p-3">
+        <h3 className="text-sm font-semibold">Rent evidence</h3>
+        {r?.note && <p className="text-sm text-zinc-600">{r.note}</p>}
+        {r?.zori && <p className="mt-1 text-sm">Zillow rent index (ZIP {r.zori.zip}): {money(r.zori.latest_rent)}/mo ({r.zori.latest_month}); a year earlier {money(r.zori.rent_12m_ago)}</p>}
+        {r?.hud_fmr && <p className="mt-1 text-sm">HUD Fair Market Rent {r.hud_fmr.year} ({r.hud_fmr.level}): 1BR {money(r.hud_fmr.br1)}, 2BR {money(r.hud_fmr.br2)}, 3BR {money(r.hud_fmr.br3)}</p>}
+      </section>
       <details className="rounded-xl border border-slate-200 p-3">
-        <summary className="cursor-pointer font-semibold">All parcel facts (raw data, for checking)</summary>
+        <summary className="cursor-pointer text-sm font-semibold">All parcel facts (raw data, for checking)</summary>
         <pre className="mt-2 max-h-[32rem] overflow-auto text-xs">{JSON.stringify(facts, null, 2)}</pre>
       </details>
+      <p className="text-xs text-zinc-500">Parcel {parid}. Decision support only. Verify with your lender, accountant, and the permitting office.</p>
+    </>
+  );
 
-      <p className="mt-8 text-xs text-zinc-500">Decision support only. Verify with your lender, accountant, and the permitting office.</p>
-    </ParcelShell>
+  return (
+    <ParcelShell
+      pane={pane}
+      planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
+      drawers={[
+        { id: "pencils", title: "Does it pencil?", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "process", title: "Process checklist", content: process },
+        { id: "details", title: "Details", content: details },
+      ]}
+      mapData={mapData} qfInput={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} />
   );
 }
