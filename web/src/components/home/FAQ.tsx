@@ -2,9 +2,9 @@
 // English text for the keyed lookups below.
 const TEXT: Record<string, string> = {
   "faq.q1": "How is the score calculated?",
-  "faq.a1": "Seven factors are scored from 0 to 100 and weighted: zoning, terrain, hazards, access, approvals, the lot itself and nearby market activity. Money is kept separate, in the “does it pencil” result. The weights are published on the data and methods page; the example card above uses illustrative values.",
+  "faq.a1": "Seven factors are scored from 0 to 100 and weighted: zoning, terrain, hazards, access, approvals, the lot itself and nearby market activity. Bands: few, some, significant or major barriers. The score measures barriers to building, not whether it’s a good investment; money is kept separate, in the “does it pencil” result and a market-strength signal. The weights are published on the data and methods page; the example card above uses illustrative values.",
   "faq.q2": "Does it cover the whole county?",
-  "faq.a2": "Parcels, terrain, hazards and sales cover all of Allegheny County. Detailed zoning rules are loaded for the City of Pittsburgh first. Elsewhere, confirm zoning with the municipality.",
+  "faq.a2": "Parcels, terrain, hazards and sales cover all of Allegheny County. Detailed zoning rules are loaded for the City of Pittsburgh first. Elsewhere there is no numeric score: a partial screen shows the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality.",
   "faq.q3": "What does AI do here?",
   "faq.a3": "It helps find a parcel from a plain question and writes the short summary from the calculated results. It never calculates a score, a cost or a return.",
   "faq.q4": "Is this legal, zoning or financial advice?",

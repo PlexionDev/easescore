@@ -154,7 +154,7 @@ export default function LimitationsPage() {
               lender, and site conditions with a licensed engineer.
             </div>
             <p>
-              The score measures how hard a site is to develop. It does not say whether anyone should buy, sell, or build. It is not affiliated with
+              The score measures barriers to building, not whether it&apos;s a good investment. It does not say whether anyone should buy, sell, or build. Where a municipality&apos;s zoning is not loaded (everywhere outside the City of Pittsburgh) there is no numeric score, only a partial screen of the known facts. It is not affiliated with
               Allegheny County or the City of Pittsburgh.
             </p>
           </section>

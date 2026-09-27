@@ -66,7 +66,7 @@ Helpers in `format.ts`: `roundRange`, `roundSig`, `orderRange`, `formatRange(r, 
 `{ label, value, sub?, receipt?, variant?: "card"|"band", children? }`. Use `band` for the Policy headline row, which is flat with a green sub-line.
 
 ### `BandPill`
-`{ band: "Easy"|"Moderate"|"Hard"|"Very hard"|null, score? }`. Any other value shows "No score".
+`{ band: "Easy"|"Moderate"|"Hard"|"Very hard"|"Partial"|null, score? }` (stored codes; shown as Few / Some / Significant / Major barriers via `bandLabel`). "Partial" (zoning not loaded) shows grey; any other value shows "No score".
 
 ## Receipts, dates, empty states, export
 

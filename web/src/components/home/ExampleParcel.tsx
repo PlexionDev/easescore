@@ -4,7 +4,7 @@ import { ExampleReportLink, ReceiptButton, type ReceiptKey } from "./Receipt";
 // English text for the keyed lookups below.
 const TEXT: Record<string, string> = {
   "ex.eyebrow": "A clearer view of the lot",
-  "ex.e1a": "The score shows how hard,",
+  "ex.e1a": "The score shows the barriers,",
   "ex.e1b": "not whether to buy.",
   "ex.e1": "Seven factors, each with a bar. Tap the receipt beside any bar to see the records and rules behind it, with dates.",
   "ex.e2a": "Problems are named,",
@@ -88,7 +88,7 @@ export default async function ExampleParcel() {
                     <h3>Example hillside lot</h3>
                     <p>Illustrative parcel, residential zoning</p>
                   </div>
-                  <div className="score"><strong>54</strong><span>Hard to build</span></div>
+                  <div className="score" title="Measures barriers to building, not whether it's a good investment."><strong>54</strong><span>Significant barriers</span></div>
                 </div>
                 <div className="parcel-facts">
                   {FACTS.map((f) => (

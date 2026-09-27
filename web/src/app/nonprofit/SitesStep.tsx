@@ -48,7 +48,7 @@ export default function SitesStep({ hood, result, loading, filters, onFilters, s
         </div>
         <p className="np-sub" aria-live="polite">
           {loading ? "Loading lots…" : result ? `${result.total.toLocaleString("en-US")} lot${result.total === 1 ? "" : "s"} in ${hood} match${result.total === 1 ? "es" : ""}${result.total > rows.length ? `; showing the ${rows.length} highest-scoring` : ""}.` : ""}
-          {" "}Scores are the Ease Score (how hard a lot is to build on), not a measure of need.
+          {" "}Scores are the Ease Score (barriers to building on a lot, not whether it’s a good investment), not a measure of need.
         </p>
         {!loading && result && !rows.length ? (
           <EmptyState tone="empty" title="No lots match these filters">Try allowing lots with 1 home by right, or turn off “No red flags”.</EmptyState>

@@ -4,6 +4,7 @@ import ease from "@easescore/engine/config/ease-score.v0.2.json";
 import costs from "@easescore/engine/config/cost-assumptions.v0.2.json";
 import capital from "@easescore/engine/config/capital-sources.v0.1.json";
 import { assumptions } from "@easescore/engine";
+import { bandLabel } from "@easescore/engine/src/score/bands";
 import Shell from "../_docs/Shell";
 import d from "../_docs/docs.module.css";
 
@@ -96,12 +97,23 @@ export default function MethodsPage() {
             <ol className={d.steps}>
               <li>We gather the facts for the lot: zoning, lidar slope, hazard maps, street frontage, water service, transit, permits, Zoning Board decisions, nearby sales.</li>
               <li>For each housing option (single-family, duplex, 3–4 units, townhouse row, ADU, rehab of the existing building) we test whether a building fits the lot and which approvals it needs.</li>
-              <li>Seven factors are scored 0 to 100 and combined with fixed weights into the Development Ease Score. Higher means easier.</li>
+              <li>Seven factors are scored 0 to 100 and combined with fixed weights into the Development Ease Score. Higher means fewer barriers.</li>
               <li>Deal-breakers are shown as red flags above the score. Serious but workable issues become &ldquo;Review required&rdquo; callouts.</li>
               <li>Money is kept separate: the pro forma answers &ldquo;does it pencil?&rdquo; from costs and nearby sales.</li>
               <li>Plain-English sentences are written from those computed results. Nothing in them is new information.</li>
             </ol>
-            <p className={d.muted}>The score measures how hard a site is to develop, not whether to buy it.</p>
+            <p className={d.muted}>The score measures barriers to building, not whether it&apos;s a good investment.</p>
+            <p>
+              <strong>No numeric score where zoning is not loaded.</strong> Zoning rules are transcribed for the City of Pittsburgh only. Elsewhere (and for the
+              few City parcels with no zoning district) there is no Ease Score: the parcel reads &ldquo;Partial screen: zoning not available for [municipality]&rdquo;
+              with the known facts only (lot, slope, hazards, existing building, market). In the Planner and Developer tables these parcels read
+              &ldquo;Partial&rdquo;, are never counted in a band and sort after every scored parcel.
+            </p>
+            <p>
+              <strong>Market strength</strong> is a separate signal beside the score, never part of it: Strong, Moderate or Weak from the count and median $/sq ft of
+              recent new-construction sales nearby (the same comparable set the pro forma prices from), against the default construction cost per sq ft.
+              The receipt beside it states the rule and the numbers. When the pro forma does not pencil, the headline says so (&ldquo;[band], but doesn&apos;t pencil at today&apos;s prices&rdquo;).
+            </p>
           </section>
 
           <section id="factors" aria-labelledby="factors-h">
@@ -136,7 +148,7 @@ export default function MethodsPage() {
                   {ease.bands.map((b, i) => {
                     const upper = i === 0 ? 100 : ease.bands[i - 1]!.min - 1;
                     return (
-                      <tr key={b.band}><th scope="row">{b.band}</th><td className={d.num}>{b.min}–{upper}</td></tr>
+                      <tr key={b.band}><th scope="row">{bandLabel(b.band)}</th><td className={d.num}>{b.min}–{upper}</td></tr>
                     );
                   })}
                 </tbody>

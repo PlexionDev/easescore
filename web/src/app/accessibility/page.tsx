@@ -59,7 +59,7 @@ export default function AccessibilityPage() {
               <li>The <strong>Planner</strong> has a Table view. The ranked table lists the same parcels as the map, in score order.</li>
               <li>The <strong>Policy</strong> page has a Table view. It hides the map and opens the neighborhood and council-district tables.</li>
               <li>The <strong>Nonprofit</strong> need map has a Table view. It lists the census tracts or block groups in the map&apos;s area, with every value.</li>
-              <li>Score bands use words (Easy, Moderate, Hard), not color alone.</li>
+              <li>Score bands use words (Few barriers, Some barriers, Significant barriers, Major barriers), not color alone.</li>
             </ul>
             <h3>Keyboard</h3>
             <ul>
