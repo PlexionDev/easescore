@@ -133,6 +133,11 @@
         "nearestMin": 8,
         "nearestMax": 12,
         "outlierIqrMultiplier": 1.5,
+        "tierBand": 0.35,
+        "tierBandLabel": "Assumption, edit me",
+        "tierMinSales": 10,
+        "tierYears": 3,
+        "tierNote": "Market-tier matching (appraisal-style, never demographic): when the subject's own area has fewer than sameAreaMinComps new-construction sales, candidate comps must come from areas whose market tier (median $/SF of existing-home sales, engine/config/area-market-tiers.json) is within ±tierBand of the subject area's tier. If that leaves fewer than minComps, the rule without tiers is used and the receipt says so.",
         "sourceLabel": "Assumption — editable"
       },
       "singleFamilyUses": ["SINGLE FAMILY"],

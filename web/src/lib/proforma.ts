@@ -150,15 +150,15 @@ export async function newConstructionSalesNear(parid: string, asOf: string): Pro
 }
 
 /** New-construction comps for a strategy from already-loaded nearby sales. */
-export function newCompsFrom(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, records: assumptions.SaleRecord[] | null, asOf: string): assumptions.CompSet | null {
+export function newCompsFrom(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, records: assumptions.SaleRecord[] | null, asOf: string, area: string | null = null): assumptions.CompSet | null {
   if (strategy === "rehab_existing" || centroid?.lat == null || centroid?.lon == null || !records) return null;
-  return assumptions.newConstructionCompsFor(strategy, { lat: centroid.lat, lon: centroid.lon, parid }, records, asOf);
+  return assumptions.newConstructionCompsFor(strategy, { lat: centroid.lat, lon: centroid.lon, parid, area }, records, asOf);
 }
 
 /** New-construction comps around a parcel for a strategy; null when the sales could not be loaded. */
-export async function newCompsFor(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, asOf: string): Promise<assumptions.CompSet | null> {
+export async function newCompsFor(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, asOf: string, area: string | null = null): Promise<assumptions.CompSet | null> {
   if (strategy === "rehab_existing" || centroid?.lat == null || centroid?.lon == null) return null;
-  return newCompsFrom(strategy, parid, centroid, await newConstructionSalesNear(parid, asOf), asOf);
+  return newCompsFrom(strategy, parid, centroid, await newConstructionSalesNear(parid, asOf), asOf, area);
 }
 
 type RpcComp = { parid: string; address?: string | null; sale_date: string; price: number; living_area_sqft?: number | null; distance_mi: number };

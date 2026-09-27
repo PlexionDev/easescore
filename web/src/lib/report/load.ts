@@ -16,6 +16,7 @@ import {
 } from "@easescore/engine";
 import { parcelFacts, quickfitInput, rentComps, salesComps } from "@/lib/data";
 import { homeTapFees, newCompsFor, primeRate, readCostOverrides, singleFamilyComps } from "@/lib/proforma";
+import { compArea } from "@/lib/pane-core";
 import { loadEaseScore, type EaseScoreView } from "./score";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
 import { buildSitePlanSheet, type SitePlanSheet } from "./sitesheet";
@@ -435,7 +436,7 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
   const [sfComps, prime, newComps] = await Promise.all([
     retry(() => singleFamilyComps(parid, sales as assumptions.SalesCompsLike | null)),
     primeRate(),
-    newCompsFor(pfStrategy, parid, facts.centroid as { lat?: number; lon?: number } | null, asOf),
+    newCompsFor(pfStrategy, parid, facts.centroid as { lat?: number; lon?: number } | null, asOf, compArea(facts)),
   ]);
   const homeFees = homeTapFees(tapFees);
   const overrides = readCostOverrides(sp);

@@ -45,3 +45,44 @@ describe("new-construction comp selection", () => {
     expect(assumptions.COST_CONFIG.comps.newConstruction.selection).toMatchObject({ sameAreaMinComps: 5, nearestMin: 8, nearestMax: 12, outlierIqrMultiplier: 1.5 });
   });
 });
+
+describe("market-tier matching (appraisal-style, never demographic)", () => {
+  // Subject's own area has too few new sales; a modest area and a closer luxury area both have many.
+  const TIERS: assumptions.AreaTiers = { asOf: "2026-09-27", years: 3, areas: { "Hill A": { medianPerSqft: 190, sales: 18 }, "Flats C": { medianPerSqft: 180, sales: 140 }, "Riverfront B": { medianPerSqft: 420, sales: 60 } } };
+  const own = [sale(1, 0.4, 300, "Hill A"), sale(2, 0.5, 310, "Hill A")];
+  const flats = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9].map((d, i) => sale(50 + i, d, 290 + i * 4, "Flats C"));
+  const all = [...own, ...flats, ...LUXURY];
+  const run = (recs: assumptions.SaleRecord[], tiers: assumptions.AreaTiers | null = TIERS) =>
+    assumptions.newConstructionComps(AT, recs, { ...opts, tiers });
+
+  it("keeps only areas within ±35% of the subject area's tier, excluding the closer high-tier cluster", () => {
+    const c = run(all);
+    expect(c.selection!.scope).toBe("tier_match");
+    expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
+    expect(c.selection!.tier).toMatchObject({ area: "Hill A", medianPerSqft: 190, qualified: ["Flats C", "Hill A"], fellBack: false });
+    expect(c.selection!.receipt).toMatch(/Market tier: Hill A existing homes sell for a median \$190\/SF; comps were limited to areas within ±35% \(\$124–\$257\/SF; Assumption, edit me\): Flats C, Hill A\./);
+    expect(c.median_price_per_sqft!).toBeLessThan(320);
+  });
+
+  it("falls back to the nearest rule, and says so, when the tier band leaves fewer than 5", () => {
+    const c = run([...own, ...flats.slice(0, 2), ...LUXURY]);
+    expect(c.selection!.scope).toBe("nearest");
+    expect(c.selection!.tier!.fellBack).toBe(true);
+    expect(c.selection!.receipt).toMatch(/That left fewer than 5 sales, so the nearest sales by distance were used instead\./);
+  });
+
+  it("says the tier is unknown when the subject area has too few existing-home sales", () => {
+    const c = run(all, { ...TIERS, areas: { "Flats C": TIERS.areas["Flats C"]!, "Riverfront B": TIERS.areas["Riverfront B"]! } });
+    expect(c.selection!.scope).toBe("nearest");
+    expect(c.selection!.receipt).toMatch(/Market tier of Hill A is unknown/);
+  });
+
+  it("is deterministic regardless of record order", () => {
+    expect(JSON.stringify(run([...all].reverse()))).toBe(JSON.stringify(run(all)));
+  });
+
+  it("the shipped tier file has no demographic fields", () => {
+    const keys = new Set(Object.values(assumptions.AREA_TIERS.areas).flatMap((v) => Object.keys(v)));
+    expect([...keys].sort()).toEqual(["medianPerSqft", "sales"]);
+  });
+});

@@ -1,0 +1,696 @@
+{
+ "_note": "Market tier per area for new-construction comp matching: median $/SF of valid arm's-length sales of existing single-family, townhouse and rowhouse homes (built more than 10 years before the sale), by City neighborhood or municipality. Areas with fewer than 10 sales are omitted (tier unknown). Source: Allegheny County Property Sale Transactions and Assessments. No demographic data. Regenerate with node scripts/area_tiers.mjs.",
+ "asOf": "2026-09-27",
+ "years": 3,
+ "minSales": 10,
+ "areas": {
+  "ALEPPO": {
+   "medianPerSqft": 181.3,
+   "sales": 39
+  },
+  "Allentown": {
+   "medianPerSqft": 72.1,
+   "sales": 18
+  },
+  "Arlington": {
+   "medianPerSqft": 74,
+   "sales": 17
+  },
+  "ASPINWALL": {
+   "medianPerSqft": 251,
+   "sales": 58
+  },
+  "AVALON": {
+   "medianPerSqft": 150,
+   "sales": 88
+  },
+  "BALDWIN": {
+   "medianPerSqft": 188.3,
+   "sales": 555
+  },
+  "Banksville": {
+   "medianPerSqft": 191.5,
+   "sales": 82
+  },
+  "Beechview": {
+   "medianPerSqft": 137.4,
+   "sales": 172
+  },
+  "BELL ACRES": {
+   "medianPerSqft": 232.4,
+   "sales": 30
+  },
+  "BELLEVUE": {
+   "medianPerSqft": 151.2,
+   "sales": 97
+  },
+  "BEN AVON": {
+   "medianPerSqft": 190.7,
+   "sales": 33
+  },
+  "BETHEL PARK": {
+   "medianPerSqft": 200.1,
+   "sales": 725
+  },
+  "BLAWNOX": {
+   "medianPerSqft": 177.5,
+   "sales": 27
+  },
+  "Bloomfield": {
+   "medianPerSqft": 185.2,
+   "sales": 94
+  },
+  "Bon Air": {
+   "medianPerSqft": 155.4,
+   "sales": 31
+  },
+  "BRACKENRIDGE": {
+   "medianPerSqft": 105.6,
+   "sales": 55
+  },
+  "BRADDOCK HILLS": {
+   "medianPerSqft": 158.5,
+   "sales": 28
+  },
+  "BRADFORD WOODS": {
+   "medianPerSqft": 222,
+   "sales": 24
+  },
+  "BRENTWOOD": {
+   "medianPerSqft": 145.5,
+   "sales": 249
+  },
+  "BRIDGEVILLE": {
+   "medianPerSqft": 184.5,
+   "sales": 104
+  },
+  "Brighton Heights": {
+   "medianPerSqft": 141,
+   "sales": 122
+  },
+  "Brookline": {
+   "medianPerSqft": 167.9,
+   "sales": 344
+  },
+  "CARNEGIE": {
+   "medianPerSqft": 159.7,
+   "sales": 165
+  },
+  "Carrick": {
+   "medianPerSqft": 101.6,
+   "sales": 178
+  },
+  "CASTLE SHANNON": {
+   "medianPerSqft": 182.6,
+   "sales": 157
+  },
+  "Central Lawrenceville": {
+   "medianPerSqft": 272.5,
+   "sales": 114
+  },
+  "Central Northside": {
+   "medianPerSqft": 243.5,
+   "sales": 57
+  },
+  "CHALFANT": {
+   "medianPerSqft": 133,
+   "sales": 13
+  },
+  "CHESWICK": {
+   "medianPerSqft": 157.1,
+   "sales": 49
+  },
+  "CHURCHILL": {
+   "medianPerSqft": 160.9,
+   "sales": 112
+  },
+  "CLAIRTON": {
+   "medianPerSqft": 70.3,
+   "sales": 104
+  },
+  "COLLIER": {
+   "medianPerSqft": 209.9,
+   "sales": 140
+  },
+  "CORAOPOLIS": {
+   "medianPerSqft": 128.6,
+   "sales": 99
+  },
+  "CRAFTON": {
+   "medianPerSqft": 142.5,
+   "sales": 89
+  },
+  "Crafton Heights": {
+   "medianPerSqft": 143.6,
+   "sales": 60
+  },
+  "Crawford-Roberts": {
+   "medianPerSqft": 191.3,
+   "sales": 18
+  },
+  "CRESCENT": {
+   "medianPerSqft": 170.2,
+   "sales": 57
+  },
+  "DORMONT": {
+   "medianPerSqft": 185.1,
+   "sales": 194
+  },
+  "DRAVOSBURG": {
+   "medianPerSqft": 114,
+   "sales": 19
+  },
+  "DUQUESNE": {
+   "medianPerSqft": 57.8,
+   "sales": 41
+  },
+  "Duquesne Heights": {
+   "medianPerSqft": 185.4,
+   "sales": 47
+  },
+  "East Allegheny": {
+   "medianPerSqft": 226.4,
+   "sales": 29
+  },
+  "EAST DEER": {
+   "medianPerSqft": 113.6,
+   "sales": 33
+  },
+  "East Hills": {
+   "medianPerSqft": 70.5,
+   "sales": 14
+  },
+  "East Liberty": {
+   "medianPerSqft": 228.2,
+   "sales": 37
+  },
+  "EAST MCKEESPORT": {
+   "medianPerSqft": 96.3,
+   "sales": 36
+  },
+  "EAST PITTSBURGH": {
+   "medianPerSqft": 52.3,
+   "sales": 15
+  },
+  "EDGEWOOD": {
+   "medianPerSqft": 206.8,
+   "sales": 98
+  },
+  "EDGEWORTH": {
+   "medianPerSqft": 374,
+   "sales": 58
+  },
+  "ELIZABETH": {
+   "medianPerSqft": 150.1,
+   "sales": 235
+  },
+  "Elliott": {
+   "medianPerSqft": 82.9,
+   "sales": 29
+  },
+  "EMSWORTH": {
+   "medianPerSqft": 176.8,
+   "sales": 43
+  },
+  "ETNA": {
+   "medianPerSqft": 150,
+   "sales": 54
+  },
+  "FAWN": {
+   "medianPerSqft": 139.5,
+   "sales": 26
+  },
+  "FINDLAY": {
+   "medianPerSqft": 190.7,
+   "sales": 103
+  },
+  "FOREST HILLS": {
+   "medianPerSqft": 167.9,
+   "sales": 186
+  },
+  "FORWARD": {
+   "medianPerSqft": 163,
+   "sales": 38
+  },
+  "FOX CHAPEL": {
+   "medianPerSqft": 301.2,
+   "sales": 125
+  },
+  "FRANKLIN PARK": {
+   "medianPerSqft": 224.1,
+   "sales": 316
+  },
+  "FRAZER": {
+   "medianPerSqft": 171.7,
+   "sales": 11
+  },
+  "Garfield": {
+   "medianPerSqft": 175.6,
+   "sales": 52
+  },
+  "GLASSPORT": {
+   "medianPerSqft": 86.4,
+   "sales": 68
+  },
+  "GLEN OSBORNE": {
+   "medianPerSqft": 281.1,
+   "sales": 14
+  },
+  "GREEN TREE": {
+   "medianPerSqft": 207.6,
+   "sales": 139
+  },
+  "Greenfield": {
+   "medianPerSqft": 190.2,
+   "sales": 180
+  },
+  "HAMPTON": {
+   "medianPerSqft": 210.2,
+   "sales": 403
+  },
+  "HARMAR": {
+   "medianPerSqft": 192.7,
+   "sales": 53
+  },
+  "HARRISON": {
+   "medianPerSqft": 138.7,
+   "sales": 188
+  },
+  "Hazelwood": {
+   "medianPerSqft": 124.8,
+   "sales": 43
+  },
+  "HEIDELBERG": {
+   "medianPerSqft": 158.3,
+   "sales": 28
+  },
+  "Highland Park": {
+   "medianPerSqft": 243.8,
+   "sales": 109
+  },
+  "HOMESTEAD": {
+   "medianPerSqft": 61.7,
+   "sales": 17
+  },
+  "INDIANA": {
+   "medianPerSqft": 205.7,
+   "sales": 115
+  },
+  "INGRAM": {
+   "medianPerSqft": 146.8,
+   "sales": 56
+  },
+  "JEFFERSON HILLS": {
+   "medianPerSqft": 187.5,
+   "sales": 206
+  },
+  "KENNEDY": {
+   "medianPerSqft": 193.6,
+   "sales": 155
+  },
+  "KILBUCK": {
+   "medianPerSqft": 249.7,
+   "sales": 20
+  },
+  "Knoxville": {
+   "medianPerSqft": 67.1,
+   "sales": 31
+  },
+  "LEET": {
+   "medianPerSqft": 184.4,
+   "sales": 50
+  },
+  "LEETSDALE": {
+   "medianPerSqft": 142.7,
+   "sales": 19
+  },
+  "LIBERTY": {
+   "medianPerSqft": 123.8,
+   "sales": 51
+  },
+  "LINCOLN": {
+   "medianPerSqft": 128.6,
+   "sales": 11
+  },
+  "Lincoln Place": {
+   "medianPerSqft": 146.8,
+   "sales": 80
+  },
+  "Lincoln-Lemington-Belmar": {
+   "medianPerSqft": 52.2,
+   "sales": 24
+  },
+  "Lower Lawrenceville": {
+   "medianPerSqft": 275.1,
+   "sales": 52
+  },
+  "Manchester": {
+   "medianPerSqft": 197,
+   "sales": 18
+  },
+  "MARSHALL": {
+   "medianPerSqft": 231.6,
+   "sales": 174
+  },
+  "Marshall-Shadeland": {
+   "medianPerSqft": 77,
+   "sales": 52
+  },
+  "MCCANDLESS": {
+   "medianPerSqft": 221.9,
+   "sales": 580
+  },
+  "MCKEES ROCKS": {
+   "medianPerSqft": 70.3,
+   "sales": 73
+  },
+  "MCKEESPORT": {
+   "medianPerSqft": 75.5,
+   "sales": 203
+  },
+  "MILLVALE": {
+   "medianPerSqft": 123.1,
+   "sales": 45
+  },
+  "MONROEVILLE": {
+   "medianPerSqft": 167.5,
+   "sales": 586
+  },
+  "MOON": {
+   "medianPerSqft": 197.1,
+   "sales": 498
+  },
+  "Morningside": {
+   "medianPerSqft": 223,
+   "sales": 76
+  },
+  "MOUNT LEBANON": {
+   "medianPerSqft": 247,
+   "sales": 789
+  },
+  "MOUNT OLIVER": {
+   "medianPerSqft": 74.1,
+   "sales": 38
+  },
+  "Mount Washington": {
+   "medianPerSqft": 151,
+   "sales": 141
+  },
+  "MUNHALL": {
+   "medianPerSqft": 131,
+   "sales": 229
+  },
+  "NEVILLE": {
+   "medianPerSqft": 143.5,
+   "sales": 24
+  },
+  "New Homestead": {
+   "medianPerSqft": 168.1,
+   "sales": 16
+  },
+  "NORTH BRADDOCK": {
+   "medianPerSqft": 66.9,
+   "sales": 30
+  },
+  "NORTH FAYETTE": {
+   "medianPerSqft": 188.6,
+   "sales": 261
+  },
+  "North Oakland": {
+   "medianPerSqft": 292.3,
+   "sales": 10
+  },
+  "NORTH VERSAILLES": {
+   "medianPerSqft": 127,
+   "sales": 205
+  },
+  "O'HARA": {
+   "medianPerSqft": 244.8,
+   "sales": 207
+  },
+  "OAKDALE": {
+   "medianPerSqft": 167.3,
+   "sales": 34
+  },
+  "OAKMONT": {
+   "medianPerSqft": 215.4,
+   "sales": 159
+  },
+  "Oakwood": {
+   "medianPerSqft": 163.4,
+   "sales": 21
+  },
+  "OHIO": {
+   "medianPerSqft": 232.8,
+   "sales": 99
+  },
+  "Overbrook": {
+   "medianPerSqft": 141.6,
+   "sales": 89
+  },
+  "PENN HILLS": {
+   "medianPerSqft": 139.5,
+   "sales": 991
+  },
+  "Perry North": {
+   "medianPerSqft": 117.7,
+   "sales": 61
+  },
+  "Perry South": {
+   "medianPerSqft": 93.3,
+   "sales": 33
+  },
+  "PINE": {
+   "medianPerSqft": 229.9,
+   "sales": 252
+  },
+  "PITCAIRN": {
+   "medianPerSqft": 72.4,
+   "sales": 29
+  },
+  "PLEASANT HILLS": {
+   "medianPerSqft": 181.7,
+   "sales": 216
+  },
+  "PLUM": {
+   "medianPerSqft": 174.8,
+   "sales": 535
+  },
+  "Point Breeze": {
+   "medianPerSqft": 315.1,
+   "sales": 123
+  },
+  "Point Breeze North": {
+   "medianPerSqft": 199,
+   "sales": 17
+  },
+  "Polish Hill": {
+   "medianPerSqft": 134.3,
+   "sales": 11
+  },
+  "PORT VUE": {
+   "medianPerSqft": 108.1,
+   "sales": 108
+  },
+  "Regent Square": {
+   "medianPerSqft": 299.2,
+   "sales": 23
+  },
+  "RESERVE": {
+   "medianPerSqft": 201,
+   "sales": 81
+  },
+  "RICHLAND": {
+   "medianPerSqft": 208.8,
+   "sales": 247
+  },
+  "Ridgemont": {
+   "medianPerSqft": 191.7,
+   "sales": 14
+  },
+  "ROBINSON": {
+   "medianPerSqft": 202.1,
+   "sales": 216
+  },
+  "ROSS": {
+   "medianPerSqft": 209.5,
+   "sales": 709
+  },
+  "ROSSLYN FARMS": {
+   "medianPerSqft": 229.5,
+   "sales": 11
+  },
+  "SCOTT": {
+   "medianPerSqft": 203.2,
+   "sales": 355
+  },
+  "SEWICKLEY": {
+   "medianPerSqft": 273.7,
+   "sales": 98
+  },
+  "SEWICKLEY HEIGHTS": {
+   "medianPerSqft": 358.9,
+   "sales": 15
+  },
+  "SEWICKLEY HILLS": {
+   "medianPerSqft": 244.9,
+   "sales": 21
+  },
+  "Shadyside": {
+   "medianPerSqft": 335.2,
+   "sales": 130
+  },
+  "SHALER": {
+   "medianPerSqft": 210.8,
+   "sales": 717
+  },
+  "SHARPSBURG": {
+   "medianPerSqft": 92.2,
+   "sales": 24
+  },
+  "Sheraden": {
+   "medianPerSqft": 77.4,
+   "sales": 53
+  },
+  "SOUTH FAYETTE": {
+   "medianPerSqft": 195.4,
+   "sales": 394
+  },
+  "South Oakland": {
+   "medianPerSqft": 167.4,
+   "sales": 18
+  },
+  "SOUTH PARK": {
+   "medianPerSqft": 190.7,
+   "sales": 289
+  },
+  "South Side Flats": {
+   "medianPerSqft": 181.7,
+   "sales": 147
+  },
+  "South Side Slopes": {
+   "medianPerSqft": 140.4,
+   "sales": 77
+  },
+  "Spring Hill-City View": {
+   "medianPerSqft": 118.6,
+   "sales": 23
+  },
+  "SPRINGDALE": {
+   "medianPerSqft": 139.7,
+   "sales": 88
+  },
+  "Squirrel Hill North": {
+   "medianPerSqft": 314.6,
+   "sales": 135
+  },
+  "Squirrel Hill South": {
+   "medianPerSqft": 266.5,
+   "sales": 233
+  },
+  "Stanton Heights": {
+   "medianPerSqft": 206.2,
+   "sales": 116
+  },
+  "STOWE": {
+   "medianPerSqft": 107,
+   "sales": 98
+  },
+  "Summer Hill": {
+   "medianPerSqft": 158.8,
+   "sales": 24
+  },
+  "Swisshelm Park": {
+   "medianPerSqft": 245.4,
+   "sales": 29
+  },
+  "SWISSVALE": {
+   "medianPerSqft": 137.2,
+   "sales": 170
+  },
+  "TARENTUM": {
+   "medianPerSqft": 82.3,
+   "sales": 45
+  },
+  "Troy Hill": {
+   "medianPerSqft": 160,
+   "sales": 40
+  },
+  "TURTLE CREEK": {
+   "medianPerSqft": 81.5,
+   "sales": 40
+  },
+  "Upper Hill": {
+   "medianPerSqft": 84.9,
+   "sales": 17
+  },
+  "Upper Lawrenceville": {
+   "medianPerSqft": 243.5,
+   "sales": 64
+  },
+  "UPPER ST. CLAIR": {
+   "medianPerSqft": 214.2,
+   "sales": 537
+  },
+  "VERONA": {
+   "medianPerSqft": 131.2,
+   "sales": 28
+  },
+  "VERSAILLES": {
+   "medianPerSqft": 90.9,
+   "sales": 20
+  },
+  "WEST DEER": {
+   "medianPerSqft": 204.8,
+   "sales": 208
+  },
+  "WEST HOMESTEAD": {
+   "medianPerSqft": 183.5,
+   "sales": 31
+  },
+  "WEST MIFFLIN": {
+   "medianPerSqft": 146.3,
+   "sales": 426
+  },
+  "West Oakland": {
+   "medianPerSqft": 154.9,
+   "sales": 12
+  },
+  "WEST VIEW": {
+   "medianPerSqft": 175.2,
+   "sales": 132
+  },
+  "Westwood": {
+   "medianPerSqft": 184,
+   "sales": 79
+  },
+  "WHITAKER": {
+   "medianPerSqft": 135.9,
+   "sales": 21
+  },
+  "WHITE OAK": {
+   "medianPerSqft": 130.1,
+   "sales": 160
+  },
+  "WHITEHALL": {
+   "medianPerSqft": 189.5,
+   "sales": 354
+  },
+  "WILKINS": {
+   "medianPerSqft": 151.4,
+   "sales": 167
+  },
+  "WILKINSBURG": {
+   "medianPerSqft": 136.5,
+   "sales": 144
+  },
+  "WILMERDING": {
+   "medianPerSqft": 50.9,
+   "sales": 18
+  },
+  "Windgap": {
+   "medianPerSqft": 127.2,
+   "sales": 19
+  }
+ }
+}

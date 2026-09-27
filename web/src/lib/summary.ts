@@ -7,6 +7,7 @@ import "server-only";
 
 import { assumptions, narrative, score, type ParcelFacts } from "@easescore/engine";
 import { newCompsFor, rehabComps } from "@/lib/proforma";
+import { compArea } from "@/lib/pane-core";
 
 type Strategy = score.StrategyResult;
 type ZbaRow = { granted: number; denied: number; from?: string | null; to?: string | null };
@@ -133,7 +134,7 @@ export async function comparePlans(a: {
           const [newComps, matched] = pre
             ? [pre.newComps[s.strategy] ?? null, rehab ? pre.rehabComps : null]
             : await Promise.all([
-                newCompsFor(s.strategy, a.parid, f.centroid, a.asOf),
+                newCompsFor(s.strategy, a.parid, f.centroid, a.asOf, compArea(f)),
                 rehab ? rehabComps(a.sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
               ]);
           const plan = assumptions.buildDevelopmentInputs({

@@ -285,7 +285,12 @@ export default function MethodsPage() {
               We need at least {nc.minComps}, widening the search from ¼ mile to {nc.radiiMi[nc.radiiMi.length - 1]} miles and saying how far it went.
               Sales in the same City neighborhood (or municipality) are used alone when there are at least {nc.selection.sameAreaMinComps}; otherwise the
               nearest by distance. We widen until {nc.selection.nearestMin} sales, keep the nearest {nc.selection.nearestMax}, and drop sales whose price per
-              square foot is beyond {nc.selection.outlierIqrMultiplier}× the middle-half spread; dropped sales are listed with the reason.
+              square foot is beyond {nc.selection.outlierIqrMultiplier}× the middle-half spread; dropped sales are listed with the reason. When the
+              lot&apos;s own area has too few new sales, comps come only from areas in the same market tier: the median price per square foot of
+              existing-home sales there is within &plusmn;{Math.round(nc.selection.tierBand * 100)}% of the lot&apos;s area (an assumption you can edit;
+              at least {nc.selection.tierMinSales} sales in {nc.selection.tierYears} years, else the tier is unknown). This is the way appraisers pick
+              comparable neighborhoods; no income, race or other demographic data is used. If too few sales qualify, the nearest sales are used and the
+              receipt says so.
             </p>
             <p>
               When there are too few, the value is left blank. Older-home prices are then shown only as a labeled floor, never as the value of a new build.

@@ -6,6 +6,15 @@
 // Rehab is valued from existing-home sales of the same use, matched on living area and year built.
 
 import { COST_CONFIG, type CostConfig } from "./config";
+import tierData from "../../config/area-market-tiers.json";
+
+/** Market tier per area: median $/SF of existing-home sales (engine/config/area-market-tiers.json). */
+export interface AreaTiers {
+  asOf: string;
+  years: number;
+  areas: Record<string, { medianPerSqft: number; sales: number }>;
+}
+export const AREA_TIERS: AreaTiers = tierData as AreaTiers;
 
 /** One valid arm's-length sale with the sold building's facts and location. */
 export interface SaleRecord {
@@ -56,7 +65,9 @@ export interface CompSet {
   comps: CompRow[];
   /** New construction: how the set was chosen, plain words (rule + resulting set). */
   selection?: {
-    scope: "same_area" | "nearest";
+    scope: "same_area" | "tier_match" | "nearest";
+    /** Subject area's market tier and the band used (tier matching). */
+    tier?: { area: string; medianPerSqft: number | null; band: [number, number] | null; qualified: string[]; fellBack: boolean } | null;
     areas: string[];
     dropped: { row: CompRow; reason: string }[];
     p25PerSqft: number | null;
@@ -103,7 +114,7 @@ function summarize(rows: CompRow[], base: Omit<CompSet, "count" | "median_price"
 export function newConstructionComps(
   subject: { lat: number; lon: number; parid?: string | null; area?: string | null },
   records: SaleRecord[],
-  opts: { asOf: string; uses: string[]; useLabel: string; config?: CostConfig },
+  opts: { asOf: string; uses: string[]; useLabel: string; config?: CostConfig; tiers?: AreaTiers | null },
 ): CompSet {
   const r = (opts.config ?? COST_CONFIG).comps.newConstruction;
   const sel = r.selection;
@@ -124,44 +135,70 @@ export function newConstructionComps(
   }
   pool.sort(byNearest);
 
-  // 1) Same neighborhood / municipality when it has enough sales; else nearest by distance.
-  const area = subject.area?.trim() || null;
-  const same = area ? pool.filter((p) => (p.area ?? "").toUpperCase() === area.toUpperCase()) : [];
-  const scope: "same_area" | "nearest" = area && same.length >= sel.sameAreaMinComps ? "same_area" : "nearest";
-  const cands = scope === "same_area" ? same : pool;
-
-  // 2) Widen by radius until nearestMin sales, then keep the nearest nearestMax.
-  const steps: string[] = [];
-  let reach = radii[0]!;
-  let inside: CompRow[] = [];
-  for (const rr of radii) {
-    inside = cands.filter((p) => p.distanceMi <= rr);
-    steps.push(`${inside.length} within ${rr} mi`);
-    reach = rr;
-    if (inside.length >= sel.nearestMin) break;
-  }
-  let chosen = inside.slice(0, sel.nearestMax);
-
-  // 3) Drop $/SF outliers beyond k × IQR from the quartiles.
-  const dropped: { row: CompRow; reason: string }[] = [];
   const q = (xs: number[], f: number) => {
     const v = [...xs].sort((x, y) => x - y);
     const pos = (v.length - 1) * f;
     const i = Math.floor(pos);
     return v[i]! + (v[Math.min(i + 1, v.length - 1)]! - v[i]!) * (pos - i);
   };
-  if (chosen.length >= 4) {
-    const ps = chosen.map((c) => c.pricePerSqft);
-    const q1 = q(ps, 0.25), q3 = q(ps, 0.75), k = sel.outlierIqrMultiplier * (q3 - q1);
-    const lo = q1 - k, hi = q3 + k;
-    const keep: CompRow[] = [];
-    for (const c of chosen) {
-      if (c.pricePerSqft < lo || c.pricePerSqft > hi)
-        dropped.push({ row: c, reason: `$${Math.round(c.pricePerSqft)}/SF is ${c.pricePerSqft > hi ? "above" : "below"} the outlier limit ($${Math.round(Math.max(0, lo))}–$${Math.round(hi)}/SF, ${sel.outlierIqrMultiplier}× the middle-half spread)` });
-      else keep.push(c);
+  /** Widen by radius until nearestMin, keep the nearest nearestMax, drop $/SF outliers beyond k × IQR. */
+  const pick = (cands: CompRow[]) => {
+    const steps: string[] = [];
+    let reach = radii[0]!;
+    let inside: CompRow[] = [];
+    for (const rr of radii) {
+      inside = cands.filter((p) => p.distanceMi <= rr);
+      steps.push(`${inside.length} within ${rr} mi`);
+      reach = rr;
+      if (inside.length >= sel.nearestMin) break;
     }
-    chosen = keep;
+    let chosen = inside.slice(0, sel.nearestMax);
+    const dropped: { row: CompRow; reason: string }[] = [];
+    if (chosen.length >= 4) {
+      const ps = chosen.map((c) => c.pricePerSqft);
+      const q1 = q(ps, 0.25), q3 = q(ps, 0.75), k = sel.outlierIqrMultiplier * (q3 - q1);
+      const lo = q1 - k, hi = q3 + k;
+      const keep: CompRow[] = [];
+      for (const c of chosen) {
+        if (c.pricePerSqft < lo || c.pricePerSqft > hi)
+          dropped.push({ row: c, reason: `$${Math.round(c.pricePerSqft)}/SF is ${c.pricePerSqft > hi ? "above" : "below"} the outlier limit ($${Math.round(Math.max(0, lo))}–$${Math.round(hi)}/SF, ${sel.outlierIqrMultiplier}× the middle-half spread)` });
+        else keep.push(c);
+      }
+      chosen = keep;
+    }
+    return { chosen, dropped, steps, reach };
+  };
+
+  // 1) Same neighborhood / municipality when it has enough sales.
+  const area = subject.area?.trim() || null;
+  const norm = (x: string | null | undefined) => (x ?? "").trim().toUpperCase();
+  const same = area ? pool.filter((p) => norm(p.area) === norm(area)) : [];
+  let scope: "same_area" | "tier_match" | "nearest";
+  let res: ReturnType<typeof pick>;
+  let tier: NonNullable<CompSet["selection"]>["tier"] = null;
+  if (area && same.length >= sel.sameAreaMinComps) {
+    scope = "same_area";
+    res = pick(same);
+  } else {
+    // 2) Market-tier matching: only areas whose existing-home $/SF is within ±band of the subject area's.
+    const tiers = opts.tiers === undefined ? AREA_TIERS : opts.tiers;
+    const byArea = new Map(Object.entries(tiers?.areas ?? {}).map(([k, v]) => [norm(k), v.medianPerSqft]));
+    const subj = area ? byArea.get(norm(area)) ?? null : null;
+    if (area && subj != null) {
+      const band: [number, number] = [subj * (1 - sel.tierBand), subj * (1 + sel.tierBand)];
+      const ok = (a: string | null | undefined) => { const t = byArea.get(norm(a)); return t != null && t >= band[0] && t <= band[1]; };
+      const cands = pool.filter((p) => norm(p.area) === norm(area) || ok(p.area));
+      const tried = pick(cands);
+      const qualified = [...new Set(cands.map((c) => c.area).filter((x): x is string => !!x))].sort();
+      if (tried.chosen.length >= r.minComps) { scope = "tier_match"; res = tried; tier = { area, medianPerSqft: subj, band, qualified, fellBack: false }; }
+      else { scope = "nearest"; res = pick(pool); tier = { area, medianPerSqft: subj, band, qualified, fellBack: true }; }
+    } else {
+      scope = "nearest";
+      res = pick(pool);
+      if (area) tier = { area, medianPerSqft: null, band: null, qualified: [], fellBack: true };
+    }
   }
+  const { chosen, dropped, steps, reach } = res;
   const farthest = chosen.length ? Math.max(...chosen.map((c) => c.distanceMi)) : reach;
   const used = chosen.length ? radii.find((rr) => farthest <= rr) ?? maxR : reach;
   const shownSteps = steps.slice(0, Math.max(1, radii.indexOf(used) + 1));
@@ -170,10 +207,16 @@ export function newConstructionComps(
   const ps = chosen.map((c) => c.pricePerSqft);
   const p25 = ps.length ? Math.round(q(ps, 0.25)) : null, p75 = ps.length ? Math.round(q(ps, 0.75)) : null;
   const med = median(ps);
-  const scopeText = scope === "same_area" ? `same ${area} area (${same.length} sales there)` : area ? `nearest sales by distance (${same.length ? `only ${same.length}` : "none"} in ${area})` : "nearest sales by distance";
-  const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+, otherwise the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF. Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median $${Math.round(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
+  const $ = (x: number) => `$${Math.round(x)}`;
+  const tierText = !tier ? ""
+    : tier.medianPerSqft == null ? ` Market tier of ${tier.area} is unknown (fewer than ${sel.tierMinSales} existing-home sales), so no tier matching.`
+      : ` Market tier: ${tier.area} existing homes sell for a median ${$(tier.medianPerSqft)}/SF; comps were limited to areas within ±${Math.round(sel.tierBand * 100)}% (${$(tier.band![0])}–${$(tier.band![1])}/SF; ${sel.tierBandLabel})${tier.qualified.length ? `: ${tier.qualified.join(", ")}` : ""}.${tier.fellBack ? ` That left fewer than ${r.minComps} sales, so the nearest sales by distance were used instead.` : ""}`;
+  const scopeText = scope === "same_area" ? `same ${area} area (${same.length} sales there)`
+    : scope === "tier_match" ? "areas in the same market tier, nearest first"
+      : area ? `nearest sales by distance (${same.length ? `only ${same.length}` : "none"} in ${area})` : "nearest sales by distance";
+  const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+; otherwise sales from areas in the same market tier, else the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF.${tierText} Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median ${$(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
   const note = ok
-    ? used > radii[0]! && scope === "nearest" ? `Search widened to ${used} mi (${shownSteps.join("; ")}).` : null
+    ? used > radii[0]! && scope !== "same_area" ? `Search widened to ${used} mi (${shownSteps.join("; ")}).` : null
     : `Insufficient new-construction comps: only ${chosen.length} sale(s) of homes built within ${r.maxAgeAtSaleYears} years of the sale, within ${reach} mi in the last ${r.years} years (${steps.join("; ")}). No new-home value is estimated.`;
   const set = summarize(chosen, {
     kind: "new_construction",
@@ -186,7 +229,7 @@ export function newConstructionComps(
     rule: r.rule,
     sourceLabel: r.sourceLabel,
   });
-  return { ...set, selection: { scope, areas, dropped, p25PerSqft: p25, p75PerSqft: p75, receipt } };
+  return { ...set, selection: { scope, tier, areas, dropped, p25PerSqft: p25, p75PerSqft: p75, receipt } };
 }
 
 /** Existing-home comps from the same-use search, kept when size and age are close to the building's. */
