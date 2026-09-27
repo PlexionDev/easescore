@@ -49,6 +49,16 @@ describe("affordable for-sale price (PITI)", () => {
     expect(h.incomeBasis).toMatch(/derived/);
     expect(affordable.homeownerPrice(IL, 120, 2, INP).income).toBe(119280);
   });
+  it("your inputs replace the assumptions: more down drops PMI; higher insurance lowers the price", () => {
+    const base = affordable.homeownerPrice(IL, 80, 2, INP).price.likely;
+    const twenty = affordable.homeownerPrice(IL, 80, 2, { ...INP, downPaymentShare: 0.2 });
+    expect(twenty.monthly.pmi).toBe(0);
+    expect(twenty.price.likely).toBeGreaterThan(base);
+    expect(affordable.homeownerPrice(IL, 80, 2, { ...INP, insurancePerYear: 2400 }).price.likely).toBeLessThan(base);
+    expect(affordable.homeownerPrice(IL, 80, 2, { ...INP, pmiAnnualShare: 0 }).price.likely).toBeGreaterThan(base);
+    const a = affordable.homeownerAssumptions({ ...INP, downPaymentShare: 0.1 });
+    expect(a.list.find((x) => x.id === "down")!.source).toBe("Your input");
+  });
   it("labels every assumption and falls back when the rate or millage is not loaded", () => {
     const a = affordable.homeownerAssumptions({ rate: null, mills: null, mineSubsidence: false });
     expect(a.rate).toBe(affordable.CAPITAL_CONFIG.forSale.rateFallback.value);

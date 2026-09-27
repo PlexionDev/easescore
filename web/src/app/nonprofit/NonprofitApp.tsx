@@ -215,7 +215,7 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
           <SitesStep hood={s.hood} result={sites} loading={sitesLoading} filters={s.filters} onFilters={(filters) => update({ filters })} selected={s.lots} onToggle={toggleLot}
             perLot={s.perLot} onNext={() => goStep("project")} tracts={mapData} layer={s.layer} outline={need?.area?.outline ?? null} bbox={need?.area?.bbox ?? null} />
         ) : (
-          <ProjectStep need={need} lotCount={s.lots.length} cost={cost} costLoading={costLoading} costError={costError} tenure={s.tenure} onTenure={setTenure} perLot={s.perLot} onPerLot={(perLot) => update({ perLot })}
+          <ProjectStep need={need} lotCount={s.lots.length} cost={cost} costLoading={costLoading} costError={costError} tenure={s.tenure} onTenure={setTenure} own={s.own} onOwn={(own) => update({ own })} perLot={s.perLot} onPerLot={(perLot) => update({ perLot })}
             bedrooms={s.bedrooms} onBedrooms={(bedrooms) => update({ bedrooms })} mix={s.mix} onMix={(mix) => update({ mix })} sources={s.sources} onSources={(sources) => update({ sources })} onExport={exportBrief} />
         )}
       </div>

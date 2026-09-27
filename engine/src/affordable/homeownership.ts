@@ -26,6 +26,8 @@ export interface HomeownerInputs {
   /** Overrides (edit me). */
   downPaymentShare?: number;
   insurancePerYear?: number;
+  /** Mortgage insurance, share of the loan a year while under 20% down. */
+  pmiAnnualShare?: number;
 }
 
 export interface MonthlyLines {
@@ -73,7 +75,8 @@ export function homeownerAssumptions(inp: HomeownerInputs, cfg: CapitalConfig = 
   const mills = inp.mills ?? f.millsFallback.value;
   const down = inp.downPaymentShare ?? f.downPaymentShare.value;
   const ins = inp.insurancePerYear ?? f.insurancePerYear.value;
-  const pmi = down < f.pmiAnnualShare.belowDownShare ? f.pmiAnnualShare.value : 0;
+  const pmiRate = inp.pmiAnnualShare ?? f.pmiAnnualShare.value;
+  const pmi = down < f.pmiAnnualShare.belowDownShare ? pmiRate : 0;
   const pct = (x: number, d = 2) => `${+(x * 100).toFixed(d)}%`;
   const list: Assumption[] = [
     { id: "share", label: "Share of income for housing", value: pct(f.housingShare.value, 0), source: f.housingShare.sourceLabel, assumption: false },
@@ -82,7 +85,7 @@ export function homeownerAssumptions(inp: HomeownerInputs, cfg: CapitalConfig = 
     { id: "down", label: "Down payment", value: pct(down, 1), source: inp.downPaymentShare != null ? "Your input" : f.downPaymentShare.sourceLabel, assumption: true },
     { id: "tax", label: "Property tax", value: `${+mills.toFixed(2)} mills on ${pct(f.assessedShareOfPrice.value, 0)} of the price`, source: inp.mills != null ? `${inp.millsSource ?? "Allegheny County millage"}; ${f.assessedShareOfPrice.sourceLabel}` : f.millsFallback.sourceLabel, assumption: inp.mills == null },
     { id: "ins", label: "Homeowner's insurance", value: `$${ins.toLocaleString("en-US")} a year`, source: inp.insurancePerYear != null ? "Your input" : f.insurancePerYear.sourceLabel, assumption: true },
-    { id: "pmi", label: "Mortgage insurance (PMI)", value: pmi ? `${pct(pmi, 2)} of the loan a year` : "none (20% or more down)", source: f.pmiAnnualShare.sourceLabel, assumption: true },
+    { id: "pmi", label: "Mortgage insurance (PMI)", value: pmi ? `${pct(pmi, 2)} of the loan a year` : "none (20% or more down)", source: inp.pmiAnnualShare != null ? "Your input" : f.pmiAnnualShare.sourceLabel, assumption: true },
     { id: "msi", label: "Mine subsidence insurance", value: inp.mineSubsidence ? `$${MSI_CHART.baseFee} + $${MSI_CHART.perThousand} per $1,000 of coverage a year (coverage = price)` : "not needed (no lot over undermined ground)", source: MSI_CHART.source, assumption: false },
     { id: "size", label: "Household size", value: "bedrooms + 1", source: f.householdSize.sourceLabel, assumption: true },
   ];

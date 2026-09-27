@@ -289,6 +289,8 @@ export interface ProjectState {
   tenure: Tenure;
   /** Need map level: census tracts or block groups. */
   geo: GeoLevel;
+  /** For-sale assumptions you changed (null = the labeled default): down payment share, insurance $/yr, PMI share of loan/yr. */
+  own: { down: number | null; ins: number | null; pmi: number | null };
   lots: string[];
   /** Homes per lot. */
   perLot: number;
@@ -310,6 +312,13 @@ export const defaultSources = (t: Tenure) => (t === "sale" ? DEFAULT_SALE_SOURCE
 
 const PARID = /^[0-9A-Z]{16}$/;
 
+/** A number from the URL inside [lo, hi], else null (use the default). */
+const numIn = (v: string | null, lo: number, hi: number): number | null => {
+  if (v == null || v === "") return null;
+  const x = Number(v);
+  return Number.isFinite(x) && x >= lo && x <= hi ? x : null;
+};
+
 export function parseState(q: URLSearchParams): ProjectState {
   const step = q.get("step");
   const tenure: Tenure = q.get("ten") === "sale" ? "sale" : "rent";
@@ -328,6 +337,7 @@ export function parseState(q: URLSearchParams): ProjectState {
     step: step === "sites" || step === "project" ? step : "need",
     tenure,
     geo: q.get("geo") === "bg" ? "bg" : "tract",
+    own: { down: numIn(q.get("dp"), 0, 0.5), ins: numIn(q.get("hi"), 0, 10000), pmi: numIn(q.get("pmi"), 0, 0.02) },
     lots: (q.get("lots") ?? "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => PARID.test(s)).slice(0, MAX_LOTS),
     perLot: clampInt(q.get("per"), 1, 4, 2),
     bedrooms: clampInt(q.get("br"), 0, 4, 2),
@@ -350,6 +360,9 @@ export function stateToQuery(s: ProjectState): URLSearchParams {
   if (s.step !== "need") q.set("step", s.step);
   if (s.tenure !== "rent") q.set("ten", s.tenure);
   if (s.geo !== "tract") q.set("geo", s.geo);
+  if (s.own.down != null) q.set("dp", String(s.own.down));
+  if (s.own.ins != null) q.set("hi", String(s.own.ins));
+  if (s.own.pmi != null) q.set("pmi", String(s.own.pmi));
   if (s.lots.length) q.set("lots", s.lots.join(","));
   if (s.perLot !== 2) q.set("per", String(s.perLot));
   if (s.bedrooms !== 2) q.set("br", String(s.bedrooms));
@@ -391,7 +404,7 @@ export function suggestLots(rows: Site[], perLot: number): string[] {
  * priced for sale, plus the homebuyer's mortgage rate (FRED), the lots' millage and mine subsidence.
  * Shared by the page and the advocacy brief so both compute the same numbers.
  */
-export function projectInput(cost: ProjectCost, tenure: Tenure, units: { count: number; bedrooms: number; amiPct: number }[]) {
+export function projectInput(cost: ProjectCost, tenure: Tenure, units: { count: number; bedrooms: number; amiPct: number }[], own?: ProjectState["own"]) {
   const tdc = tenure === "sale" ? cost.sale?.tdc ?? null : cost.tdc;
   if (!tdc || !units.length) return null;
   return {
@@ -399,7 +412,7 @@ export function projectInput(cost: ProjectCost, tenure: Tenure, units: { count: 
     land: tenure === "sale" ? cost.sale?.land ?? null : cost.land,
     context: { ...cost.context, tenure },
     sale: tenure === "sale"
-      ? { rate: cost.mortgage?.rate ?? null, rateSource: cost.mortgage?.source ?? null, mills: cost.context.millsTotal, millsSource: cost.context.millsSource, mineSubsidence: !!cost.context.mineSubsidence }
+      ? { rate: cost.mortgage?.rate ?? null, rateSource: cost.mortgage?.source ?? null, mills: cost.context.millsTotal, millsSource: cost.context.millsSource, mineSubsidence: !!cost.context.mineSubsidence, downPaymentShare: own?.down ?? undefined, insurancePerYear: own?.ins ?? undefined, pmiAnnualShare: own?.pmi ?? undefined }
       : undefined,
   };
 }

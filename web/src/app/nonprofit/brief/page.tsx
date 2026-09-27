@@ -52,7 +52,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
   const chas = n?.chas ?? null;
   const total = (cost?.lots.length ?? 0) * s.perLot;
   const groups = unitGroups(s.mix, total, s.bedrooms);
-  const input = cost && il ? projectInput(cost, s.tenure, groups) : null;
+  const input = cost && il ? projectInput(cost, s.tenure, groups, s.own) : null;
   const r = input && il ? affordable.evaluateProject(input, il, s.sources) : null;
   const sale = s.tenure === "sale";
   const lihtc = area?.lihtc ?? [];
@@ -198,7 +198,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               ))}
             </tbody>
           </table>
-          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.label.toLowerCase()}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}; {r.benchmark.note.toLowerCase()})</p>
+          <p>{sale ? "The subsidy gap (cost − affordable price)" : "Money needed beyond the mortgage"} is about <b>{usdK(r.subsidyPerUnit.low)}–{usdK(r.subsidyPerUnit.high)} per home</b>. For comparison, {r.benchmark.label.charAt(0).toLowerCase() + r.benchmark.label.slice(1)}: {usdK(r.benchmark.low)}–{usdK(r.benchmark.high)} ({r.benchmark.source}; {r.benchmark.note.toLowerCase()})</p>
         </section>
       ) : null}
 

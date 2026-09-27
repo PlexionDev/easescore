@@ -5,27 +5,55 @@
 // funding gap, and a capital stack of typical sources you switch on and off (instant: all math runs here
 // from engine/src/affordable; switching tenure needs no round trip, both are priced in one request).
 
-import { useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import * as affordable from "@easescore/engine/src/affordable";
 import { EmptyState, RangeValue, ReceiptButton, Segmented, Switch, type Receipt } from "@/components/seats";
 import { ilReceipt } from "@/lib/nonprofit/receipts";
-import { AMI_BY_TENURE, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type Tenure } from "@/lib/nonprofit/types";
+import { AMI_BY_TENURE, projectInput, usd, unitGroups, type NeedData, type ProjectCost, type ProjectState, type Tenure } from "@/lib/nonprofit/types";
 
 const STACK_COLOR: Record<string, string> = {
   debt: "#6b7c75", lihtc4: "#2f7d63", lihtc9: "#1f6a52", home: "#5ea98a", cdbg: "#7fbfa4", phare: "#3e8c70", hof: "#4f9c80",
   ahp: "#8ccab0", lerta: "#a9d7c3", land: "#9fcdb6", philanthropy: "#b9dccd", hba: "#3e8c70", clt: "#2f7d63",
 };
 
-export function computeProject(cost: ProjectCost | null, il: affordable.IncomeLimits | null, mix: Record<number, number>, perLot: number, bedrooms: number, sources: string[], tenure: Tenure) {
+export function computeProject(cost: ProjectCost | null, il: affordable.IncomeLimits | null, mix: Record<number, number>, perLot: number, bedrooms: number, sources: string[], tenure: Tenure, own?: ProjectState["own"]) {
   if (!cost || !il) return null;
-  const input = projectInput(cost, tenure, unitGroups(mix, cost.lots.length * perLot, bedrooms));
+  const input = projectInput(cost, tenure, unitGroups(mix, cost.lots.length * perLot, bedrooms), own);
   return input ? affordable.evaluateProject(input, il, sources) : null;
+}
+
+/** One editable for-sale assumption: typed as a display number (percent or dollars), stored in the URL state. */
+function OwnField({ label, value, fallback, scale, min, max, step, unit, onChange }: {
+  label: string; value: number | null; fallback: number; scale: number; min: number; max: number; step: number; unit: string; onChange: (v: number | null) => void;
+}) {
+  const id = useId();
+  const shown = (x: number) => String(+(x * scale).toFixed(3));
+  const [text, setText] = useState(value != null ? shown(value) : "");
+  const mine = value != null;
+  return (
+    <div className="np-own-field">
+      <label htmlFor={id}>{label}</label>
+      <span className="np-own-input">
+        {unit === "$" ? <span aria-hidden="true">$</span> : null}
+        <input id={id} type="number" inputMode="decimal" min={min} max={max} step={step} value={text} placeholder={shown(fallback)}
+          aria-describedby={`${id}-b`}
+          onChange={(e) => {
+            setText(e.target.value);
+            const x = Number(e.target.value);
+            if (e.target.value === "") onChange(null);
+            else if (Number.isFinite(x) && x >= min && x <= max) onChange(x / scale);
+          }} />
+        {unit !== "$" ? <span aria-hidden="true">{unit}</span> : null}
+      </span>
+      <small id={`${id}-b`} className={mine ? "np-mine" : "np-assume"}>{mine ? "Your input" : `Assumption, edit me (default ${unit === "$" ? usd(fallback) : `${shown(fallback)}%`})`}</small>
+    </div>
+  );
 }
 
 /** Sources that count the same money: switching one on switches the other off. */
 const EXCLUSIVE: Record<string, string[]> = { clt: ["land"], land: ["clt"] };
 
-export default function ProjectStep({ need, lotCount, cost, costLoading, costError, tenure, onTenure, perLot, onPerLot, bedrooms, onBedrooms, mix, onMix, sources, onSources, onExport }: {
+export default function ProjectStep({ need, lotCount, cost, costLoading, costError, tenure, onTenure, own, onOwn, perLot, onPerLot, bedrooms, onBedrooms, mix, onMix, sources, onSources, onExport }: {
   need: NeedData | null;
   /** Lots chosen in step 2 (known before the cost arrives). */
   lotCount: number;
@@ -34,6 +62,8 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
   costError: string | null;
   tenure: Tenure;
   onTenure: (t: Tenure) => void;
+  own: ProjectState["own"];
+  onOwn: (o: ProjectState["own"]) => void;
   perLot: number;
   onPerLot: (n: number) => void;
   bedrooms: number;
@@ -48,7 +78,11 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
   const lots = lotCount;
   const total = lots * perLot;
   const groups = useMemo(() => unitGroups(mix, total, bedrooms), [mix, total, bedrooms]);
-  const r = useMemo(() => computeProject(cost, il, mix, perLot, bedrooms, sources, tenure), [cost, il, mix, perLot, bedrooms, sources, tenure]);
+  const r = useMemo(() => computeProject(cost, il, mix, perLot, bedrooms, sources, tenure, own), [cost, il, mix, perLot, bedrooms, sources, tenure, own]);
+  const fs = affordable.CAPITAL_CONFIG.forSale;
+  // Bumped on reset so the fields drop what was typed.
+  const [ownKey, setOwnKey] = useState(0);
+  const rate = cost?.mortgage?.rate ?? fs.rateFallback.value;
   const hood = need?.area?.hood ?? "the area";
   const sale = tenure === "sale";
   const AMIS = AMI_BY_TENURE[tenure];
@@ -107,6 +141,22 @@ export default function ProjectStep({ need, lotCount, cost, costLoading, costErr
                   </li>
                 ))}
               </ul>
+              <div className="np-own" role="group" aria-labelledby="own-h">
+                <div className="np-own-head">
+                  <span id="own-h" className="es-field-label">Buyer&apos;s loan: change any assumption</span>
+                  {own.down != null || own.ins != null || own.pmi != null ? <button type="button" className="es-btn np-own-reset" onClick={() => { onOwn({ down: null, ins: null, pmi: null }); setOwnKey((k) => k + 1); }}>Reset to defaults</button> : null}
+                </div>
+                <p className="np-muted np-own-rate">
+                  Mortgage rate <b>{(rate * 100).toFixed(2)}%</b> ± {(fs.rateSpread.value * 100).toFixed(1)} pt, 30-year fixed{" "}
+                  {cost?.mortgage ? <span className="np-muted">(FRED, week of {cost.mortgage.date})</span> : <span className="np-assume">(Assumption, edit me: FRED rate not loaded)</span>}
+                </p>
+                <div className="np-own-grid" key={ownKey}>
+                  <OwnField label="Down payment" value={own.down} fallback={fs.downPaymentShare.value} scale={100} min={0} max={50} step={0.5} unit="%" onChange={(down) => onOwn({ ...own, down })} />
+                  <OwnField label="Insurance a year" value={own.ins} fallback={fs.insurancePerYear.value} scale={1} min={0} max={10000} step={100} unit="$" onChange={(ins) => onOwn({ ...own, ins })} />
+                  <OwnField label="Mortgage insurance (% of loan a year)" value={own.pmi} fallback={fs.pmiAnnualShare.value} scale={100} min={0} max={2} step={0.05} unit="%" onChange={(pmi) => onOwn({ ...own, pmi })} />
+                </div>
+                {(own.down ?? fs.downPaymentShare.value) >= fs.pmiAnnualShare.belowDownShare ? <p className="np-muted">No mortgage insurance at 20% or more down.</p> : null}
+              </div>
               <details className="np-assumptions">
                 <summary>How the price is figured (every assumption labeled)</summary>
                 <ul>

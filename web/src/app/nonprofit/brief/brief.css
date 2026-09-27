@@ -45,4 +45,9 @@
 .br-sources ul{margin:0 0 8px 18px;padding:0;font-size:9pt}
 .br-break{break-before:page}
 .br-sec{break-inside:auto}
-.br table,.br-facts,.br-gap{break-inside:avoid}
+.br-facts,.br-gap,.br-stack,.br-ladder{break-inside:avoid}
+/* Long tables flow across pages: rows stay whole and the header repeats on each page. */
+.br table{break-inside:auto}
+.br thead{display:table-header-group}
+.br tr{break-inside:avoid}
+.br h2{break-after:avoid}

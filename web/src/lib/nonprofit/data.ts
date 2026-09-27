@@ -61,14 +61,6 @@ export function sites(hood: string, f: SiteFilters, limit = 60) {
     rpc<SitesResult>("nonprofit_sites", { p_hood: hood, p_public: f.public, p_vacant: f.vacant, p_clean: f.clean, p_min_units: f.minUnits, p_limit: limit }));
 }
 
-/** County + City + school district millage (City of Pittsburgh only for now). */
-export const pittsburghMills = () =>
-  cached("mills", 3_600_000, async () => {
-    const rows = await select<{ code: string; name: string; mills: string; year: number }>("millage?select=code,name,mills,year&rate_type=eq.general&code=in.(42003,CITY_PGH,sd:pittsburgh)");
-    if (!rows || rows.length !== 3) return null;
-    return { total: rows.reduce((t, r) => t + Number(r.mills), 0), year: rows[0]!.year, text: rows.map((r) => `${r.name} ${Number(r.mills)}`).join(" + ") };
-  });
-
 /** Same normalization as public.school_key() (migration 105), so parcel_geo school names match millage_rates. */
 export function schoolKey(n: string): string {
   return n.toUpperCase().replace(/[^A-Z]/g, "").replace(/(CITY|BORO|TWP|TOWNSHIP|AREA)$/, "").replace("WESTJEFFERSONHILLS", "WESTJEFFERSON");
