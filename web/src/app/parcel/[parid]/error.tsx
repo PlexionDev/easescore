@@ -11,7 +11,7 @@ export default function ParcelError({ error, retry }: { error: Error & { digest?
   }, [error]);
   return (
     <main className="mx-auto max-w-xl p-6">
-      <Link href="/check" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+      <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
       <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         Some data for this parcel is temporarily unavailable. Please try again in a moment.
       </p>

@@ -15,8 +15,15 @@ type FC = { type: "FeatureCollection"; bbox: [number, number, number, number]; c
 
 let protocolAdded = false;
 
-export default function ParcelThumb({ data, date }: { data: FC | null; date: string }) {
+export default function ParcelThumb({ stage, date }: { stage: Promise<{ mapData: FC | null }>; date: string }) {
   const el = useRef<HTMLDivElement>(null);
+  // The map data streams in after the pane; until then the frame stays empty (the pane never waits for it).
+  const [data, setData] = useState<FC | null>(null);
+  useEffect(() => {
+    let live = true;
+    stage.then((x) => { if (live) setData(x.mapData ?? null); }, () => undefined);
+    return () => { live = false; };
+  }, [stage]);
   const [img, setImg] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 

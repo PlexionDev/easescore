@@ -141,6 +141,8 @@ export async function comparePlans(a: {
   asOf: string;
   /** Already-computed pro forma for one strategy (the page's selected option), reused as is. */
   known?: { strategy: score.StrategyId; pf: assumptions.ProFormaResult | null } | null;
+  /** Precomputed comps (the parcel pane row): new-construction comps per strategy and the rehab's matched comps. */
+  precomputed?: { newComps: Partial<Record<score.StrategyId, assumptions.CompSet | null>>; rehabComps: assumptions.CompSet | null } | null;
 }): Promise<PlanComparison> {
   const f = a.facts as ParcelFacts & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   const zba = a.zba?.by_relief ?? null;
@@ -155,10 +157,13 @@ export async function comparePlans(a: {
       else {
         try {
           const rehab = s.strategy === "rehab_existing";
-          const [newComps, matched] = await Promise.all([
-            newCompsFor(s.strategy, a.parid, f.centroid, a.asOf),
-            rehab ? rehabComps(a.sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
-          ]);
+          const pre = a.precomputed;
+          const [newComps, matched] = pre
+            ? [pre.newComps[s.strategy] ?? null, rehab ? pre.rehabComps : null]
+            : await Promise.all([
+                newCompsFor(s.strategy, a.parid, f.centroid, a.asOf),
+                rehab ? rehabComps(a.sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
+              ]);
           const plan = assumptions.buildDevelopmentInputs({
             strategy: s.strategy,
             facts: f as assumptions.ProFormaFacts,

@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { assumptions, evaluateRequirements, narrative, PHASE_ORDER, score, type ParcelFacts, type ProjectAnswers, type RequirementResult } from "@easescore/engine";
-import { easeInputs, parcelExists, parcelFactsChecked, parcelMap, permitTimes, quickfitInput, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
-import { newCompsFor, primeRate, readCostOverrides, rehabComps, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
+import { parcelExists, parcelMap, quickfitInput } from "@/lib/data";
+import { readCostOverrides } from "@/lib/proforma";
+import { loadPane } from "@/lib/pane";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
 import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
 import ParcelThumb from "./ParcelThumb";
+import CopyParcelId from "./CopyParcelId";
 import SummaryText from "./SummaryText";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
@@ -88,7 +90,7 @@ function money(v: unknown) {
 function DataUnavailable({ parid }: { parid: string }) {
   return (
     <main className="mx-auto max-w-xl p-6">
-      <Link href="/check" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+      <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
       <h1 className="mt-4 text-xl font-bold text-slate-900">Parcel {parid}</h1>
       <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         Some data for this parcel is temporarily unavailable. Our database is busy right now; please refresh in a moment.
@@ -103,34 +105,26 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const sp = await searchParams;
   const asOf = new Date().toISOString().slice(0, 10);
   const T = new Timing("parcel", parid);
-  const factsR = T.time("rpc_parcel_facts", parcelFactsChecked(parid));
-  const factsP = factsR.then((x) => x.facts);
-  const salesP = T.time("rpc_sales_comps", salesComps(parid));
-  const [facts, sales, rent, mapData, qfInput, ease, zba, permits, sfComps, prime, tapFees] = await T.time("data_all", Promise.all([
-    factsP, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_parcel_map", parcelMap(parid)), T.time("rpc_quickfit_input", quickfitInput(parid)), T.time("rpc_ease_inputs", easeInputs(parid)),
-    factsP.then((x) => T.time("rpc_zba", zbaGrantRates((x as ParcelFacts | null)?.zoning?.code))).catch(() => null), T.time("rpc_permit_times", permitTimes()),
-    salesP.then((x) => T.time("rpc_sf_comps", singleFamilyComps(parid, x as assumptions.SalesCompsLike | null))).catch(() => null),
-    T.time("rest_prime_rate", primeRate()),
-    factsP.then((x) => T.time("rest_tap_fees", tapFeesPerHome((x as { assessment?: { is_pittsburgh?: boolean } } | null)?.assessment?.is_pittsburgh === true))).catch(() => null),
-  ]));
-  if (!facts) {
+  // Map data and lot geometry stream to the browser after the pane (never awaited here).
+  const quickfitP = quickfitInput(parid);
+  const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid)), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
+  stage.catch(() => undefined);
+  // Pane data: one precomputed row (parcel_pane), or computed live when the parcel has no row yet.
+  const loaded = await loadPane(parid, asOf, quickfitP, T);
+  if (!loaded.ok) {
     // 404 only when the parcel ID truly does not exist; a data error (e.g. a database timeout) gets a retry page.
     const exists = await T.time("rest_parcel_exists", parcelExists(parid));
     if (exists === false) notFound();
     return <DataUnavailable parid={parid} />;
   }
+  const P = loaded.payload;
+  const { facts, sales, rent, sfComps, prime, tapFees, zba } = P;
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
   const results = evaluateRequirements(f, project);
 
-  // Ease Score v0.1, computed on the server. A failure hides the score block, never the page.
-  let easeResult: score.EaseScoreResult | null = null;
-  try {
-    // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
-    easeResult = T.timeSync("score", () => score.scoreParcel(f, { quickfitInput: qfInput ?? null, easeInputs: ease, zba, permitTimes: score.isCityParcel(f) ? permits : undefined, unlocks: true }));
-  } catch {
-    easeResult = null;
-  }
+  // Ease Score for every strategy, precomputed (or computed live above). null hides the score block, never the page.
+  const easeResult: score.EaseScoreResult | null = P.score;
   const wanted = typeof sp.strategy === "string" ? sp.strategy : null;
   const selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === wanted) ?? easeResult.strategies.find((x) => x.strategy === easeResult!.best) ?? easeResult.strategies[0] ?? null
@@ -141,10 +135,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   if (selected?.applicable) {
     try {
       const rehab = selected.strategy === "rehab_existing";
-      const [newComps, matched] = await Promise.all([
-        T.time("new_construction_comps", newCompsFor(selected.strategy, parid, f.centroid, asOf)),
-        rehab ? rehabComps(sales as Parameters<typeof rehabComps>[0], { livingAreaSqft: (f.assessment as { living_area_sqft?: number | null } | undefined)?.living_area_sqft ?? null, yearBuilt: f.assessment?.year_built ?? null }) : Promise.resolve(null),
-      ]);
+      const newComps = P.newComps[selected.strategy] ?? null;
+      const matched = rehab ? P.rehabComps : null;
       const plan = assumptions.buildDevelopmentInputs({
         strategy: selected.strategy,
         facts: f as assumptions.ProFormaFacts,
@@ -193,13 +185,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         parid, facts: f, result: easeResult, zba: zba as { by_relief?: Record<string, score.ZbaReliefCounts> } | null,
         sfComps, sales, rent, prime, tapFeesPerUnit: tapFees, overrides: readCostOverrides(sp), asOf,
         known: selected ? { strategy: selected.strategy, pf } : null,
+        precomputed: { newComps: P.newComps, rehabComps: P.rehabComps },
       }));
     } catch {
       plans = null;
     }
   }
 
-  T.add("server_total", T.total());
+  T.add("server_total", T.total(), `pane ${loaded.source}`);
   const a = f.assessment as (Record<string, any> & { address?: string; municipality?: string; year_built?: number | null; living_area_sqft?: number | null; lot_area_sqft?: number | null }) | undefined;
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
   const counts = results.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
@@ -216,9 +209,10 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}download=0`;
   const reportHtml = `/parcel/${encodeURIComponent(parid)}/report${reportQuery ? `?${reportQuery}` : ""}`;
 
-  // 2. One line: address, neighborhood, zoning district.
+  // Header: address, then the parcel ID, then neighborhood and zoning.
   const place = (f.context?.neighborhood as string | undefined) ?? titleCase(f.context?.municipality ?? a?.municipality) ?? null;
-  const line = [titleCase(a?.address) || `Parcel ${parid}`, place, f.zoning?.code ?? "zoning not in our data"].filter(Boolean).join(", ");
+  const address = titleCase(a?.address) || `Parcel ${parid}`; // parcel_facts' address already has the house number
+  const subline = [place, f.zoning?.code ? `Zoning ${f.zoning.code}` : "Zoning not in our data"].filter(Boolean).join(" · ");
 
   // 3. Fact tiles.
   const NR = "Not on record";
@@ -249,14 +243,18 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   const pane = (
     <>
+      {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
+      <header>
+        <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
+        <div className="mt-1"><CopyParcelId parid={parid} /></div>
+        <p className="mt-0.5 text-xs text-slate-500">{subline}</p>
+      </header>
       <div className="flex items-center justify-between">
-        <Link href="/check" className="text-xs font-medium text-slate-500 hover:text-slate-800">← Search</Link>
+        <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
         <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Test build</span>
       </div>
-      {/* 1. Property image */}
-      <ParcelThumb data={mapData} date={asOf} />
-      {/* 2. Address, neighborhood, zoning district */}
-      <h1 className="text-lg font-bold leading-snug tracking-tight text-slate-900">{line}</h1>
+      {/* 2. Property image (streams in after the pane) */}
+      <ParcelThumb stage={stage} date={asOf} />
       {/* 3. Fact row */}
       <section aria-label="Key facts" className="grid grid-cols-4 gap-1.5">
         {tiles.map(([k, v, sub]) => (
@@ -400,6 +398,6 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Details", content: details },
       ]}
-      mapData={mapData} qfInput={qfInput} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} />
+      stage={stage} outline={P.outline} rules={(f.zoning as any)?.rules ?? null} zoneCode={f.zoning?.code ?? null} />
   );
 }

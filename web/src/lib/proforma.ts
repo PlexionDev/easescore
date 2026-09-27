@@ -121,91 +121,34 @@ export async function singleFamilyComps(parid: string, own: assumptions.SalesCom
 }
 
 // ---------------------------------------------------------------------------------------------
-// New-construction sales, county-wide, through the Data API (no new database function needed).
-// Every paged query has an explicit order (stable pages). One pass joins valid sales in the comps window with assessments of recently built homes and their
-// parcel centroids; the engine then picks the comps around each parcel. Held in memory for 12 hours
-// per "as of" date because the set is the same for every parcel.
+// New-construction sales around a parcel, from the database function new_construction_comps
+// (migration 095). It returns the candidate sale records within the widest search radius; the engine
+// applies the comp rules (dates, size, age at sale, radius steps) exactly as before.
 
-async function selectPage<T>(pathAndQuery: string, from: number, size = 1000, attempts = 3): Promise<T[] | null> {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const r = await fetch(`${URL}/rest/v1/${pathAndQuery}`, { headers: { apikey: KEY, Range: `${from}-${from + size - 1}` }, cache: "no-store" });
-      if (r.ok) return (await r.json()) as T[];
-    } catch {
-      // retry
-    }
-  }
-  return null;
-}
-
-/** All rows of a query, one page after another (the Data API returns at most 1,000 rows a page). */
-async function selectAll<T>(pathAndQuery: string, parallel = 1): Promise<T[] | null> {
-  const out: T[] = [];
-  for (let start = 0; ; start += 1000 * parallel) {
-    const pages = await Promise.all(Array.from({ length: parallel }, (_, k) => selectPage<T>(pathAndQuery, start + k * 1000)));
-    if (pages.some((p) => p === null)) return null;
-    for (const p of pages) out.push(...p!);
-    if (pages.some((p) => p!.length < 1000)) return out;
-  }
-}
-
-type NewSalesCache = { asOf: string; at: number; p: Promise<assumptions.SaleRecord[] | null> };
-let newSalesCache: NewSalesCache | null = null;
-const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-
-async function loadNewConstructionSales(asOf: string): Promise<assumptions.SaleRecord[] | null> {
+/** Arguments for new_construction_comps from the versioned cost config. */
+export function newConstructionArgs(parid: string, asOf: string) {
   const r = assumptions.COST_CONFIG.comps.newConstruction;
-  const year = Number(asOf.slice(0, 4));
-  const since = `${year - r.years}${asOf.slice(4, 10)}`;
-  const uses = [...r.singleFamilyUses, ...r.attachedUses].map((u) => `"${u}"`).join(",");
-  const [homes, sales] = await Promise.all([
-    selectAll<{ parid: string; house_num: string | null; address: string | null; year_built: number | null; living_area_sqft: number | null; use_desc: string }>(
-      `assessments?select=parid,house_num,address,year_built,living_area_sqft,use_desc&use_desc=in.(${encodeURIComponent(uses)})&year_built=gte.${year - r.years - r.maxAgeAtSaleYears}&living_area_sqft=gte.${r.minLivingAreaSqft}&order=parid`,
-    ),
-    selectAll<{ parid: string; sale_date: string; price: number }>(`sales_valid?select=parid,sale_date,price&sale_date=gte.${since}&sale_date=lte.${asOf}&price=gte.${r.minPrice}&order=sale_id`, 3),
-  ]);
-  if (!homes || !sales) return null;
-  const byParid = new Map(homes.map((h) => [h.parid, h]));
-  const hits = sales.filter((x) => byParid.has(x.parid));
-  const ids = [...new Set(hits.map((h) => h.parid))].sort();
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += 150) chunks.push(ids.slice(i, i + 150));
-  const where = new Map<string, [number, number]>();
-  for (let i = 0; i < chunks.length; i += 6) {
-    const got = await Promise.all(chunks.slice(i, i + 6).map((c) => selectPage<{ parid: string; centroid: { coordinates: [number, number] } | null }>(`parcels?select=parid,centroid&parid=in.(${c.join(",")})`, 0)));
-    if (got.some((g) => g === null)) return null;
-    for (const g of got) for (const row of g!) if (row.centroid?.coordinates) where.set(row.parid, row.centroid.coordinates);
-  }
-  const out: assumptions.SaleRecord[] = [];
-  for (const x of hits) {
-    const h = byParid.get(x.parid)!;
-    const c = where.get(x.parid);
-    if (!c || h.year_built == null || h.living_area_sqft == null) continue;
-    out.push({
-      parid: x.parid, address: [h.house_num && h.house_num !== "0" ? h.house_num : null, h.address].filter(Boolean).join(" ") || null,
-      saleDate: x.sale_date, price: x.price, livingAreaSqft: h.living_area_sqft, yearBuilt: h.year_built, use: h.use_desc, lat: c[1], lon: c[0],
-    });
-  }
-  return out;
+  return {
+    p_parid: parid, p_as_of: asOf, p_years: r.years, p_max_age: r.maxAgeAtSaleYears, p_min_sqft: r.minLivingAreaSqft,
+    p_min_price: r.minPrice, p_max_mi: r.radiiMi[r.radiiMi.length - 1], p_uses: [...r.singleFamilyUses, ...r.attachedUses],
+  };
 }
 
-/** County-wide recent new-construction sales (cached). null when the data could not be loaded. */
-export function newConstructionSales(asOf: string): Promise<assumptions.SaleRecord[] | null> {
-  const now = Date.now();
-  if (newSalesCache && newSalesCache.asOf === asOf && now - newSalesCache.at < TWELVE_HOURS) return newSalesCache.p;
-  const p = loadNewConstructionSales(asOf).catch(() => null);
-  newSalesCache = { asOf, at: now, p };
-  p.then((v) => {
-    if (v === null && newSalesCache?.p === p) newSalesCache = null;
-  });
-  return p;
+/** Recent new-construction sales near a parcel; null when they could not be loaded. */
+export function newConstructionSalesNear(parid: string, asOf: string): Promise<assumptions.SaleRecord[] | null> {
+  return rpc<assumptions.SaleRecord[]>("new_construction_comps", newConstructionArgs(parid, asOf));
+}
+
+/** New-construction comps for a strategy from already-loaded nearby sales. */
+export function newCompsFrom(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, records: assumptions.SaleRecord[] | null, asOf: string): assumptions.CompSet | null {
+  if (strategy === "rehab_existing" || centroid?.lat == null || centroid?.lon == null || !records) return null;
+  return assumptions.newConstructionCompsFor(strategy, { lat: centroid.lat, lon: centroid.lon, parid }, records, asOf);
 }
 
 /** New-construction comps around a parcel for a strategy; null when the sales could not be loaded. */
 export async function newCompsFor(strategy: string, parid: string, centroid: { lat?: number; lon?: number } | null | undefined, asOf: string): Promise<assumptions.CompSet | null> {
   if (strategy === "rehab_existing" || centroid?.lat == null || centroid?.lon == null) return null;
-  const records = await newConstructionSales(asOf);
-  return records ? assumptions.newConstructionCompsFor(strategy, { lat: centroid.lat, lon: centroid.lon, parid }, records, asOf) : null;
+  return newCompsFrom(strategy, parid, centroid, await newConstructionSalesNear(parid, asOf), asOf);
 }
 
 type RpcComp = { parid: string; address?: string | null; sale_date: string; price: number; living_area_sqft?: number | null; distance_mi: number };

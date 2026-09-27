@@ -22,15 +22,27 @@ type Sheet = "peek" | "half" | "full";
 const SHEET_FRAC: Record<Sheet, number> = { peek: 0, half: 0.45, full: 0.8 };
 const PEEK_PX = 104;
 
-export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInput, rules, zoneCode }: {
+export default function ParcelShell({ pane, planExtras, drawers, stage, outline, rules, zoneCode }: {
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
   /** Assumptions and project questions, shown in "Change the plan" under QuickFit. */
   planExtras?: ReactNode;
   /** Other drawers (pro forma, process, details). */
   drawers: { id: DrawerId; title: string; content: ReactNode }[];
-  mapData: any; qfInput: any; rules: Record<string, unknown> | null; zoneCode: string | null;
+  /** Map data and lot geometry, streamed after the pane: the pane never waits for them. */
+  stage: Promise<{ mapData: any; qfInput: any }>;
+  /** Lot outline in local feet, drawn as a still placeholder until the map data arrives. */
+  outline: [number, number][] | null;
+  rules: Record<string, unknown> | null; zoneCode: string | null;
 }) {
+  const [loaded, setLoaded] = useState<{ mapData: any; qfInput: any } | null>(null);
+  useEffect(() => {
+    let live = true;
+    stage.then((x) => { if (live) setLoaded(x); }, () => { if (live) setLoaded({ mapData: null, qfInput: null }); });
+    return () => { live = false; };
+  }, [stage]);
+  const mapData = loaded?.mapData ?? null;
+  const qfInput = loaded?.qfInput ?? null;
   if (HAS_KEY) preconnect("https://tile.googleapis.com");
   const [footprints, setFootprints] = useState<Footprints>(null);
   const [envelope, setEnvelope] = useState<[number, number][][] | null>(null);
@@ -103,6 +115,7 @@ export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInpu
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-100">
+      {!loaded && <StagePlaceholder outline={outline} />}
       {mapData && stageMounted && (
         <div className={`absolute inset-0 ${mode === "photoreal" ? "invisible" : ""}`} aria-hidden={mode === "photoreal"}>
           <MapStage data={mapData} footprints={footprints} />
@@ -135,12 +148,33 @@ export default function ParcelShell({ pane, planExtras, drawers, mapData, qfInpu
               <QuickFitPanel input={qfInput} rules={rules} zoneCode={zoneCode}
                 onScheme={(s) => setFootprints(s ? { rings: s.footprints.map((r) => r.map(toLonLat)), heightFt: s.heightFt } : null)}
                 onEnvelope={(polys) => setEnvelope(polys ? polys.map((p) => (p[0] ?? []).map(toLonLat)).filter((r) => r.length >= 3) : null)} />
-            ) : <p className="text-sm text-slate-600">No lot geometry available.</p>}
+            ) : <p className="text-sm text-slate-600">{loaded ? "No lot geometry available." : "Loading the lot geometry…"}</p>}
           </section>
           {planExtras}
         </> },
         ...drawers.filter((d) => d.id !== "pencils"),
       ]} />
+    </div>
+  );
+}
+
+/** Still stand-in for the map while its data loads: the lot outline on a plain ground. */
+function StagePlaceholder({ outline }: { outline: [number, number][] | null }) {
+  const W = 600, H = 400;
+  let d = "";
+  if (outline && outline.length >= 3) {
+    const xs = outline.map((p) => p[0]), ys = outline.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const k = Math.min((W * 0.5) / Math.max(x1 - x0, 1), (H * 0.5) / Math.max(y1 - y0, 1));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    d = `M${outline.map(([x, y]) => `${(W / 2 + (x - cx) * k).toFixed(1)},${(H / 2 - (y - cy) * k).toFixed(1)}`).join("L")}Z`;
+  }
+  return (
+    <div className="absolute inset-0 bg-slate-200" aria-hidden>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="absolute inset-y-0 right-0 h-full w-full md:w-[calc(100%-456px)]">
+        {d && <path d={d} fill="#facc15" fillOpacity={0.25} stroke="#ca8a04" strokeWidth={2.5} />}
+      </svg>
+      <p className="absolute bottom-4 right-4 rounded-full bg-white/80 px-3 py-1 text-xs text-slate-600 shadow">Loading the map…</p>
     </div>
   );
 }
