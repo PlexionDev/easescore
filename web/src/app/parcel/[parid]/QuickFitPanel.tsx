@@ -211,7 +211,7 @@ export default function QuickFitPanel({ input, rules, zoneCode, priced, pricedOp
                 {priced.grossSf != null ? `${Math.round(priced.grossSf).toLocaleString()} sq ft gross · ` : ""}
                 {priced.finishedSf != null ? `${Math.round(priced.finishedSf).toLocaleString()} sq ft finished · ` : ""}
                 {priced.lotCoveragePct != null ? `${priced.lotCoveragePct}% coverage · ` : ""}
-                {priced.parking?.spaces != null ? `parking ${priced.parking.spaces}${priced.parking.required != null ? ` of ${priced.parking.required} required` : ""} · ` : ""}
+                {priced.parking?.spaces != null ? `parking ${priced.parking.spaces}${priced.parking.required ? ` of ${priced.parking.required} required` : priced.parking.required === 0 ? " (none required)" : ""} · ` : ""}
                 {PATH_TEXT[priced.path ?? ""] ?? "zoning path unknown"}{priced.variancesNeeded.length ? ` (${priced.variancesNeeded.map((v) => v.replace(/_/g, " ")).join(", ")})` : ""}
               </p>
               {priced.binding && <p className="text-zinc-700">{priced.binding}.</p>}
