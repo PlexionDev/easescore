@@ -3,7 +3,7 @@
 import Form from "next/form";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { EXAMPLE_QUERY } from "./constants";
+import { EXAMPLE_QUERY, SEARCH_ID } from "./constants";
 import type { SearchHit } from "@/lib/data";
 
 const EMPTY = "Enter an address or parcel ID.";
@@ -14,7 +14,8 @@ function hitLabel(h: SearchHit): string {
   return [h.house_num && h.house_num !== "0" ? h.house_num : null, h.address].filter(Boolean).join(" ");
 }
 
-/** Parcel search. Submits to /check?q=… with client-side navigation (a plain GET without JavaScript). */
+/** Parcel search on the homepage. One match opens the parcel; several open the list; no separate results page.
+ *  Without JavaScript the form GETs /check, which redirects (one match → parcel, else back to /?q=). */
 export default function SearchBox({
   id,
   icon = false,
@@ -85,6 +86,38 @@ export default function SearchBox({
     }, DEBOUNCE_MS);
   }
 
+  // Arriving with ?q= (e.g. the no-JS fallback): prefill this box and show the matches.
+  useEffect(() => {
+    if (defaultValue) return;
+    const q = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (!q || document.getElementById(id) !== input.current || id !== SEARCH_ID) return;
+    setValue(q);
+    setOpen(true);
+    scheduleSearch(q);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function submitSearch(q: string) {
+    abortRef.current?.abort();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setOpen(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal });
+      const data = (await res.json()) as { hits: SearchHit[] };
+      if (data.hits.length === 1) { goToHit(data.hits[0]); return; }
+      setHits(data.hits);
+      setActive(data.hits.length ? 0 : -1);
+      setAnnounce(`${data.hits.length} result${data.hits.length === 1 ? "" : "s"}`);
+      input.current?.focus();
+    } catch (err) {
+      if ((err as { name?: string }).name !== "AbortError") setHits([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
@@ -115,7 +148,9 @@ export default function SearchBox({
           el.reportValidity();
           return;
         }
-        setOpen(false);
+        // Stay on this page: one match opens the parcel, several show the list.
+        e.preventDefault();
+        if (el) void submitSearch(el.value.trim());
       }}
     >
       <label className="sr-only" htmlFor={id}>Address or parcel ID</label>

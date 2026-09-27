@@ -16,7 +16,7 @@ export default function Footer({ home = false }: { home?: boolean }) {
           <div className="footer-links">
             <div>
               <h2>Platform</h2>
-              <Link href="/check">Check a lot</Link>
+              <Link href="/#parcel-search">Check a lot</Link>
               <Link href="/planner">Compare sites</Link>
               <Link href="/policy">Policy simulator</Link>
             </div>

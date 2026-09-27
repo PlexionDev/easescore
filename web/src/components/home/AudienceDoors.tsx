@@ -25,7 +25,7 @@ const SEATS: Seat[] = [
     title: "Small & Mid-Size Developer",
     question: "“What can I build on this lot, and does it pencil?”",
     gets: ["Ease Score with a receipt for every factor", "What fits by right and with approval", "Pro forma and full feasibility study"],
-    href: "/check", go: "Check a lot",
+    href: "/#parcel-search", go: "Check a lot",
     src: "/home/images/seat-developer.webp",
     alt: "AI-generated vacant hillside infill lot between brick rowhouses, with survey stakes and a small excavator.",
   },

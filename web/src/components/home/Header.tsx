@@ -84,7 +84,7 @@ export default function Header({ home = false }: { home?: boolean }) {
         <a href={`${base}#who-its-for`}>Who it’s for</a>
         <a href={`${base}#how-it-works`}>How it works</a>
         <a href={`${base}#data`}>Data &amp; methods</a>
-        <a className="nav-cta" href={home ? `#${SEARCH_ID}` : "/check"} onClick={onCta}>
+        <a className="nav-cta" href={home ? `#${SEARCH_ID}` : `/#${SEARCH_ID}`} onClick={onCta}>
           Check a lot <span aria-hidden="true">↗</span>
         </a>
       </nav>
