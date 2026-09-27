@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 const DEV_TOOLS: [string, string, string][] = [
   ["Claude Code (Anthropic)", "Claude Opus 5.5 and Claude Sonnet 5", "Pair programming, planning, code generation, review passes, and research notes."],
   ["oh-my-claudecode", "Claude Code plugin", "Coordinates several Claude Code agents working on separate tasks."],
-  ["ChatGPT (OpenAI)", "\u2014", "Early design of the homepage layout."],
-  ["An AI image generator", "\u2014", "Homepage images. They are AI-generated regional imagery: not photos of any lot or parcel, and not copyrighted photography."],
+  ["ChatGPT (OpenAI)", "\u2014", "Homepage design and layout (HTML/CSS), later ported into the app."],
+  ["ChatGPT image generation (OpenAI)", "\u2014", "Homepage images. They are AI-generated regional imagery: not photos of any lot or parcel, and not copyrighted photography."],
 ];
 
 const TOC: [string, string][] = [
@@ -50,8 +50,8 @@ export default function AiUsePage() {
           <section id="summary" aria-labelledby="summary-h">
             <h2 id="summary-h">In short</h2>
             <ul>
-              <li><strong>To build it:</strong> Claude Code, Anthropic&apos;s coding assistant. ChatGPT helped with the homepage design.</li>
-              <li><strong>Images:</strong> homepage images come from an AI image generator. They show the region in general, not any real lot, and are not photographs.</li>
+              <li><strong>To build it:</strong> Claude Code, Anthropic&apos;s coding assistant. ChatGPT designed the homepage layout.</li>
+              <li><strong>Images:</strong> homepage images were made with ChatGPT&apos;s image generation. They show the region in general, not any real lot, and are not photographs.</li>
               <li><strong>In the product:</strong> the Claude API (model <code>claude-sonnet-5</code>) rewords plain-English sentences that the engine has already written from computed results.</li>
               <li><strong>Guardrail:</strong> a validator rejects any AI sentence containing a number that is not in the computed data. The page then shows the engine&apos;s own sentence.</li>
             </ul>

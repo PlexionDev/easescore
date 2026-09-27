@@ -84,8 +84,8 @@ Personal data is removed at ingest: no owner mailing addresses, deed references,
 |---|---|---|
 | Claude Code (Anthropic; Claude Opus 5.5 and Claude Sonnet 5) | Building the project | Pair programming, planning, code generation, review passes, research notes. |
 | oh-my-claudecode | Building the project | Multi-agent orchestration plugin for Claude Code. |
-| ChatGPT (OpenAI) | Building the project | Early design of the homepage layout. |
-| An AI image generator | Homepage | Homepage images: AI-generated regional imagery, not photos of any lot and not copyrighted photography. |
+| ChatGPT (OpenAI) | Building the project | Homepage design and layout (HTML/CSS), later ported into the Next.js app. |
+| ChatGPT image generation (OpenAI) | Homepage | Homepage images: AI-generated regional imagery, not photos of any lot and not copyrighted photography. |
 | Claude API, model `claude-sonnet-5` | In the product | Rewords the plain-English answers and the two-sentence summary so they read naturally. |
 
 How the in-product AI is fenced in:
