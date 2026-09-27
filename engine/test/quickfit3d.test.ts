@@ -1,4 +1,4 @@
-// QuickFit 3D generator (web/src/lib/quickfit-gen.ts + quickfit-worker.ts): deterministic worker runs,
+// QuickFit 3D generator (web/src/lib/quickfit-gen.ts; v1, no longer drawn in the UI): deterministic runs,
 // hillside stepping that follows the lidar grade, metrics that equal the engine pro forma for the same
 // scheme, and massing that stays inside the lot. Synthetic lots and terrain only (no real parcels).
 
@@ -59,19 +59,10 @@ const FIN: FinanceInputs = {
 };
 
 describe("QuickFit 3D generator", () => {
-  it("is deterministic: the worker gives identical results for identical messages", async () => {
-    const posted: unknown[] = [];
-    (globalThis as unknown as { self: unknown }).self = { postMessage: (m: unknown) => posted.push(m) };
-    await import("../../web/src/lib/quickfit-worker");
-    const self = (globalThis as unknown as { self: { onmessage: (e: { data: unknown }) => void } }).self;
-    self.onmessage({ data: { type: "init", input: input(grid(30)), fin: FIN, fixed: {}, defaults: {} } });
-    for (const id of [1, 2]) self.onmessage({ data: { type: "run", id, controls: C({ typology: "duplex", stories: 3 }) } });
-    const strip = (m: unknown) => { const { ms: _ms, id: _id, ...rest } = m as Record<string, unknown>; return JSON.stringify(rest); };
-    expect(posted).toHaveLength(2);
-    expect((posted[0] as { error?: string }).error).toBeUndefined();
-    expect(strip(posted[0])).toBe(strip(posted[1]));
-    // Same as the pure function on the main thread (and the server page).
-    expect(JSON.stringify((posted[0] as { result: unknown }).result)).toBe(JSON.stringify(generate(input(grid(30)), C({ typology: "duplex", stories: 3 }))));
+  it("is deterministic: identical controls give identical results", () => {
+    // The browser worker for this generator is retired (QuickFit v2 runs in web/src/lib/qf2/worker.ts); the pure function stays.
+    const c = C({ typology: "duplex", stories: 3 });
+    expect(JSON.stringify(generate(input(grid(30)), c))).toBe(JSON.stringify(generate(input(grid(30)), c)));
   });
 
   it("steps floor plates down the grade in whole increments, each within half an increment of the lidar ground", () => {

@@ -26,6 +26,7 @@ import { loadRents } from "@/lib/rents";
 import { Timing } from "@/lib/timing";
 import { memo as memoCore, reportQueryKey, type Entry } from "./cache-core";
 import { pageQueryFromReport, pageStrategyFromReport, parcelPlan, type ParcelPlan } from "@/lib/parcel-plan";
+import { DEFAULT_CONTROLS, QF2_TYPES, qf2Data, solveFor } from "@/lib/qf2/core";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -492,6 +493,17 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
   // The parcel page's plan for this URL (same pane, same scheme, same stepping and budget lines): the report
   // studies that building whenever the page priced one; otherwise it falls back to its own pick.
   let pagePlan: ReportModel["pagePlan"] = null;
+  // Best scheme per building type from QuickFit v2 (the same solver and controls as the page).
+  let v2PerType: quickfit.Scheme[] | null = null;
+  try {
+    const qd = qf2Data({ parid, qf: qfRaw, facts, terrain: P.terrain, zba: P.zba });
+    if (qd) {
+      const defaults = P.qf2Defaults ?? {};
+      v2PerType = QF2_TYPES.filter((t) => t.id !== "adu").map((t) => solveFor(qd, { ...DEFAULT_CONTROLS(t.id), ...(defaults[t.strategy] ?? {}) })?.v1 ?? null).filter((x): x is quickfit.Scheme => !!x);
+    }
+  } catch {
+    v2PerType = null;
+  }
   try {
     const pageStrategy = pageStrategyFromReport(sp) ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
     if (pageStrategy) {
@@ -509,8 +521,8 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     !scheme && qf?.all.length
       ? [...qf.all].sort((a, b) => a.approvals.length - b.approvals.length || b.units - a.units || a.id.localeCompare(b.id))[0] ?? null
       : null;
-  const perType: quickfit.Scheme[] = [];
-  for (const s of qf?.ranked ?? []) {
+  const perType: quickfit.Scheme[] = v2PerType ?? [];
+  if (!v2PerType) for (const s of qf?.ranked ?? []) {
     if (!perType.some((t) => t.typology === s.typology)) perType.push(s);
   }
   const unlocks: UnlockRow[] = (unlockRes?.variance?.perToggle ?? []).map((d) => ({

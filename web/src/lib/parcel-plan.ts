@@ -1,15 +1,17 @@
 // The priced plan for one parcel and option, shared by the parcel page and the Feasibility Study
 // (lib/report/load.ts), so the same URL gives the same scheme, stepping, budget lines and metrics in
-// both: the score's fit scheme, or the QuickFit 3D generator's scheme when the map controls (qf_*) are
-// in the URL, priced through lib/quickfit-gen.ts financeFor (selectScheme -> buildDevelopmentInputs ->
-// evaluateDevelopment) with the pane's comps, rents, rates and lidar grid. Pure: no I/O.
+// both: the score's QuickFit v2 scheme, or the QuickFit v2 scheme for the map controls (qf_*) in the
+// URL (lib/qf2/core.ts, the same solve the browser worker runs), priced through lib/quickfit-gen.ts
+// financeFor (selectScheme -> buildDevelopmentInputs -> evaluateDevelopment) with the pane's comps,
+// rents, rates and lidar grid. Pure: no I/O.
 
 import { assumptions, quickfit, score, type ParcelFacts } from "@easescore/engine";
 import { compArea, type PanePayload } from "./pane-core";
+import { financeFor, proFormaFacts, type FinanceInputs, type SteppingResult } from "./quickfit-gen";
 import {
-  GEN_TYPOLOGIES, controlsFromQuery, controlsFromScheme, financeFor, generate, plates, proFormaFacts, sameControls, typologyForStrategy,
-  type FinanceInputs, type GenControls, type GenInput, type GenParcel, type GenTypology, type SteppingResult,
-} from "./quickfit-gen";
+  DEFAULT_CONTROLS, QF2_TYPES, controlsFromQuery, qf2Data, solveFor, typologyForStrategy,
+  type AppControls, type Qf2Data, type Ring, type Scheme, type Typology,
+} from "./qf2/core";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -17,24 +19,27 @@ export interface ParcelPlan {
   fin: FinanceInputs;
   isCity: boolean;
   rulesRow: quickfit.QuickFitRules | null;
-  genTyp: GenTypology | null;
+  genTyp: Typology | null;
   /** The map controls from the URL for this option's building type (null = its priced layout). */
-  urlControls: GenControls | null;
-  /** Per building type: the controls that reproduce its priced scheme. */
-  genDefaults: Record<GenTypology, GenControls>;
+  urlControls: AppControls | null;
+  /** Per building type: the controls that reproduce its priced scheme (QuickFit v2). */
+  genDefaults: Record<Typology, AppControls>;
+  /** The solver's data for this parcel (the browser worker gets the same), null without a lot outline. */
+  qf2: Qf2Data | null;
+  /** The QuickFit v2 scheme behind the priced plan (null for rehab or when nothing fits). */
+  v2: Scheme | null;
   scheme: quickfit.Scheme | null;
   stepping: SteppingResult | null;
   selected: score.SelectedScheme | null;
   pf: assumptions.ProFormaResult | null;
 }
 
-/** True when pricing this option needs the lot geometry (the URL carries map controls for it). */
-export function planNeedsLot(sp: SP, strategy: score.StrategyId | null | undefined): boolean {
-  const t = typologyForStrategy(strategy);
-  return !!t && controlsFromQuery(sp, t) != null;
+/** True when pricing this option needs the lot geometry: every new build (its scheme and hillside stepping come from QuickFit v2). */
+export function planNeedsLot(_sp: SP, strategy: score.StrategyId | null | undefined): boolean {
+  return !!typologyForStrategy(strategy);
 }
 
-export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.CostOverrides; strategy: score.StrategyId | null; qf: GenParcel | null }): ParcelPlan {
+export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.CostOverrides; strategy: score.StrategyId | null; qf: unknown; existing?: Ring[] }): ParcelPlan {
   const { P, sp } = a;
   const f = P.facts as unknown as ParcelFacts & Record<string, unknown>;
   const ease = P.score;
@@ -47,25 +52,23 @@ export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.C
     overrides: a.overrides,
     results: Object.fromEntries((ease?.strategies ?? []).map((x) => [x.strategy, { schemeId: x.schemeId ?? null, f1: (x.factors.find((q) => q.id === "F1")?.inputs ?? null) as Record<string, unknown> | null }])),
   };
-  const genDefaults = Object.fromEntries(GEN_TYPOLOGIES.map((t) => {
-    const sch = ease?.schemes?.[t.strategy] ?? null;
-    const sr = ease?.strategies.find((x) => x.strategy === t.strategy);
-    const f1 = sr?.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string | null; varianceRules?: string[] } | undefined;
-    return [t.id, controlsFromScheme(t.id, sch, f1?.fitStatus ?? null, f1?.varianceRules ?? [])];
-  })) as Record<GenTypology, GenControls>;
+  const genDefaults = Object.fromEntries(QF2_TYPES.map((t) => [t.id, { ...DEFAULT_CONTROLS(t.id), ...(P.qf2Defaults?.[t.strategy] ?? {}) }])) as Record<Typology, AppControls>;
   const genTyp = typologyForStrategy(a.strategy);
   const urlControls = genTyp ? controlsFromQuery(sp, genTyp) : null;
   const sr = a.strategy ? ease?.strategies.find((x) => x.strategy === a.strategy) ?? null : null;
+  const qf2 = qf2Data({ parid: P.parid, qf: a.qf, facts: f, terrain: P.terrain, zba: P.zba, existing: a.existing });
   let scheme: quickfit.Scheme | null = a.strategy ? ease?.schemes?.[a.strategy] ?? null : null;
   let stepping: SteppingResult | null = null;
-  if (sr?.applicable && urlControls && a.qf) {
-    const gi: GenInput = { qf: a.qf, zoneCode: (f.zoning as { code?: string } | undefined)?.code ?? null, rulesRow, terrain: P.terrain };
-    const d = genDefaults[urlControls.typology];
-    const own = sameControls({ ...urlControls, stories: d.stories, unitWidthFt: d.unitWidthFt, parking: d.parking }, d) ? scheme : null;
-    const g = generate(gi, urlControls, own);
-    scheme = g.scheme;
-    stepping = g.stepping;
-  } else if (scheme) stepping = plates(scheme.footprints, P.terrain).stepping;
+  let v2: Scheme | null = null;
+  if (genTyp && qf2) {
+    // The URL's controls, else the ones behind the score's scheme: the same solve the browser runs.
+    const r = solveFor(qf2, urlControls ?? genDefaults[genTyp]);
+    if (r) {
+      v2 = r.scheme;
+      stepping = r.stepping;
+      if (urlControls || !scheme || (r.v1 && r.v1.id === scheme.id)) scheme = r.v1;
+    }
+  }
   let selected: score.SelectedScheme | null = null;
   let pf: assumptions.ProFormaResult | null = null;
   if (sr?.applicable && a.strategy) {
@@ -78,7 +81,7 @@ export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.C
       pf = null;
     }
   }
-  return { fin, isCity, rulesRow, genTyp, urlControls, genDefaults, scheme, stepping, selected, pf };
+  return { fin, isCity, rulesRow, genTyp, urlControls, genDefaults, qf2, v2, scheme, stepping, selected, pf };
 }
 
 // ------------------------------------------------------------------------------ page -> report

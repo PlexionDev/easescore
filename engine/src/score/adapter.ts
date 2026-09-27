@@ -10,7 +10,7 @@ import type { QuickFitRules } from "../quickfit/types";
 import { SRC } from "./factors";
 import { contextualInputFt, type StreetPrecedent } from "./precedent";
 import { computeEaseScore, type ScoreContext } from "./score";
-import { NEW_BUILD, existingUseColumn, runStrategyFits, solverRules, type QuickFitParcelInput } from "./strategies";
+import { NEW_BUILD, existingUseColumn, runStrategyFits, solverRules, type FitRunOptions, type QuickFitParcelInput } from "./strategies";
 import type {
   EaseScoreConfig, EaseScoreInput, EaseScoreResult, PermitTimeStats, StrategyFit, StrategyId, StrategyUnlock, UnlockId,
   UnlockResult, ZbaReliefCounts,
@@ -51,6 +51,11 @@ export interface ScoreExtras {
   fits?: Partial<Record<StrategyId, StrategyFit>>;
   /** Compute policy unlocks (reruns QuickFit per policy). Default true. */
   unlocks?: boolean;
+  /**
+   * Site-fit runner. When given, it replaces the built-in QuickFit (v1) fit for the base scenario and
+   * every policy rerun; the app passes QuickFit v2 here (engine/src/quickfit2/app.ts scoreFits).
+   */
+  fitRunner?: (rules: QuickFitRules, opts: FitRunOptions) => ReturnType<typeof runStrategyFits>;
 }
 
 type AnyFacts = ParcelFacts & Record<string, any>;
@@ -174,11 +179,8 @@ function unitsFromUse(use: string | null | undefined): number | undefined {
 function fitsFor(inp: EaseScoreInput, rules: QuickFitRules | null, extras: ScoreExtras, cfg: EaseScoreConfig): ReturnType<typeof runStrategyFits> {
   if (!rules || !extras.quickfitInput) return { fits: {}, schemes: {}, notes: extras.quickfitInput ? [] : ["Lot outline not supplied; the fit test did not run."] };
   const c = contextualFor(extras, cfg);
-  return runStrategyFits(extras.quickfitInput, rules, {
-    contextualFrontFt: c.ft,
-    contextualBasis: c.basis,
-    probeSetbacksFt: cfg.f1.varianceProbeSetbacksFt,
-  });
+  const opts: FitRunOptions = { contextualFrontFt: c.ft, contextualBasis: c.basis, probeSetbacksFt: cfg.f1.varianceProbeSetbacksFt };
+  return extras.fitRunner ? extras.fitRunner(rules, opts) : runStrategyFits(extras.quickfitInput, rules, opts);
 }
 
 /** Contextual front setback for the fit test: explicit extra, else measured precedent, else the config assumption. */

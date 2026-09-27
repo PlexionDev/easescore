@@ -2,10 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 
-export type ViewMode = "photoreal" | "terrain" | "analysis";
-export const VIEW_MODES: ViewMode[] = ["photoreal", "terrain", "analysis"];
+export type ViewMode = "build" | "photoreal" | "terrain" | "analysis";
+export const VIEW_MODES: ViewMode[] = ["build", "photoreal", "terrain", "analysis"];
 const LABELS: Record<ViewMode, [string, string]> = {
-  photoreal: ["3D Photoreal", "Photoreal"],
+  build: ["Build it in 3D", "Build"],
+  photoreal: ["Context (photoreal)", "Context"],
   terrain: ["3D Terrain", "Terrain"],
   analysis: ["2D Analysis", "2D"],
 };
@@ -27,7 +28,7 @@ export function ViewSwitch({ mode, hasKey, onChange, extra }: { mode: ViewMode; 
       </div>
       {extra}
       </div>
-      {hint && mode !== "photoreal" && (
+      {hint && mode !== "photoreal" && mode !== "build" && (
         <div className="flex items-center gap-2 rounded-full bg-slate-900/75 px-3 py-1 text-xs text-slate-200 shadow-lg backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           Photoreal 3D needs a Google Map Tiles key · showing lidar terrain

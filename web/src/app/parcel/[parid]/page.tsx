@@ -21,8 +21,9 @@ import RentReceipt from "./RentReceipt";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
-import { GEN_TYPOLOGIES, metricsOf, type GenInput } from "@/lib/quickfit-gen";
-import { parcelPlan, planNeedsLot, reportQueryFor } from "@/lib/parcel-plan";
+import { metricsOf } from "@/lib/quickfit-gen";
+import { QF2_TYPES } from "@/lib/qf2/core";
+import { parcelPlan, reportQueryFor } from "@/lib/parcel-plan";
 import { getT } from "@/lib/i18n/server";
 import { OPTION_NAME_ES } from "@/lib/i18n/engine-es";
 import LanguageMenu from "@/components/i18n/LanguageMenu";
@@ -203,7 +204,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // One SelectedScheme for the selected option and its pro forma (lib/parcel-plan.ts, shared with the
   // Feasibility Study): the score's fit scheme, or the QuickFit 3D generator's scheme when the visitor changed
   // the map controls (qf_* keys), plus the program edits (pf_*) and hillside stepping on the lidar grid.
-  const qfIn = planNeedsLot(sp, selected?.strategy) ? await quickfitP.catch(() => null) : null;
+  // QuickFit v2 prices every new build on the lot geometry (already loading since the top of the render).
+  const qfIn = await quickfitP.catch(() => null);
   const plan = T.timeSync("proforma", () => parcelPlan({ P, sp, overrides, strategy: selected?.strategy ?? null, qf: qfIn }));
   const { fin, isCity, genDefaults, urlControls, genTyp } = plan;
   const chosenScheme = plan.selected;
@@ -501,13 +503,12 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         strategy: selected?.strategy ?? null,
         controls: genTyp ? urlControls ?? genDefaults[genTyp] : null,
         defaults: genDefaults, fixed: easeResult?.schemes ?? {}, fin,
-        zoneCode: f.zoning?.code ?? null, rulesRow: isCity ? ((f.zoning as { rules?: GenInput["rulesRow"] } | undefined)?.rules ?? null) : null,
-        terrain: P.terrain, serverMetrics: chosenScheme ? metricsOf(chosenScheme, pf) : null,
+        qf2: plan.qf2, rulesRow: plan.rulesRow, serverMetrics: chosenScheme ? metricsOf(chosenScheme, pf) : null,
         code: (() => {
-          const zr = (f.zoning as { rules?: { min_front_setback_ft?: number | null; min_side_setback_ft?: number | null; min_rear_setback_ft?: number | null } } | undefined)?.rules;
-          return { front: zr?.min_front_setback_ft ?? null, side: zr?.min_side_setback_ft ?? null, rear: zr?.min_rear_setback_ft ?? null };
+          const zr = (f.zoning as { rules?: { min_front_setback_ft?: number | null; min_side_setback_ft?: number | null; min_rear_setback_ft?: number | null; exterior_side_setback_ft?: number | null } } | undefined)?.rules;
+          return { front: zr?.min_front_setback_ft ?? null, side: zr?.min_side_setback_ft ?? null, rear: zr?.min_rear_setback_ft ?? null, streetSide: zr?.exterior_side_setback_ft ?? zr?.min_front_setback_ft ?? null };
         })(),
-        notApplicable: Object.fromEntries(GEN_TYPOLOGIES.map((t) => [t.id, easeResult?.strategies.find((x) => x.strategy === t.strategy && !x.applicable)?.notApplicableReason ?? undefined]).filter(([, v]) => v)),
+        notApplicable: Object.fromEntries(QF2_TYPES.map((t) => [t.id, easeResult?.strategies.find((x) => x.strategy === t.strategy && !x.applicable)?.notApplicableReason ?? undefined]).filter(([, v]) => v)),
       }} />
   );
 }

@@ -5,6 +5,8 @@
 
 import { assumptions, score, type ParcelFacts } from "@easescore/engine";
 import type { TerrainGrid } from "./terrain-grid";
+import { fitRunnerFor, qf2Data, type AppControls } from "./qf2/core";
+import { SOLVER_VERSION as QF2_VERSION } from "@easescore/engine/src/quickfit2/app";
 
 /** FNV-1a hash of a JSON value (so any edit to a config, not only its version label, changes the key). */
 function hash(v: unknown): string {
@@ -15,7 +17,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.11|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.12|${QF2_VERSION}|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -73,6 +75,8 @@ export interface PanePayload {
   precedent: score.StreetPrecedent | null;
   /** Nearby decided Zoning Board cases (from the same call), also when the lot has no block face. */
   zbaNearby: score.NearbyZbaCase[] | null;
+  /** QuickFit v2 controls that reproduce each new-build option's priced scheme (the score's fit). */
+  qf2Defaults?: Partial<Record<score.StrategyId, AppControls>>;
 }
 
 /**
@@ -135,9 +139,13 @@ export function buildPane(i: PaneInputs): PanePayload {
   } catch {
     precedent = null;
   }
+  // The site fit is QuickFit v2 (engine/src/quickfit2), run on the same data the browser worker gets.
+  const qd = qf2Data({ parid: i.parid, qf: i.quickfitInput, facts: f, terrain: i.terrain ?? null, zba: i.zba, zbaCitywide: i.zbaCitywide ?? null });
+  const runner = qd ? fitRunnerFor(qd) : null;
   try {
     // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
     result = score.scoreParcel(f, {
+      ...(runner ? { fitRunner: runner.run } : {}),
       quickfitInput: i.quickfitInput ?? null, easeInputs: i.easeInputs, zba: i.zba, zbaCitywide: i.zbaCitywide ?? null,
       permitTimes: score.isCityParcel(f) ? i.permitTimes : undefined, unlocks: true,
       // Measured neighbors replace the 5 ft contextual-setback assumption when the lot has a block face.
@@ -184,6 +192,7 @@ export function buildPane(i: PaneInputs): PanePayload {
     owner: i.owner ? { owner_class: i.owner.owner_class ?? null, agency_name: i.owner.agency_name ?? null } : null,
     precedent,
     zbaNearby: i.precedent?.zba ?? null,
+    qf2Defaults: runner?.defaults() ?? {},
   };
 }
 

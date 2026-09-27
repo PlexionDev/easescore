@@ -6,12 +6,13 @@
 
 import { useState } from "react";
 import { assumptions } from "@easescore/engine";
-import { typologyDef, type GenControls, type GenMetrics, type Money3 } from "@/lib/quickfit-gen";
+import type { GenMetrics, Money3 } from "@/lib/quickfit-gen";
+import { typeOf, type AppControls } from "@/lib/qf2/core";
 
 export interface Pinned {
   key: string;
   label: string;
-  controls: GenControls;
+  controls: AppControls;
   metrics: GenMetrics;
   binding: string | null;
 }
@@ -27,9 +28,9 @@ const p1 = (x: number) => `${x < 0 ? "−" : ""}${Math.abs(x)}%`;
 const pct = (r: Money3 | null) => (r ? (r.low === r.high ? p1(r.likely) : r.low < 0 ? `${p1(r.low)} to ${p1(r.high)}` : `${r.low}–${r.high}%`) : "—");
 const n = (x: number | null | undefined, unit = "") => (x == null ? "—" : `${Math.round(x).toLocaleString("en-US")}${unit}`);
 
-export function controlsLabel(c: GenControls): string {
-  const sb = [c.front != null ? `front ${c.front}` : "", c.side != null ? `side ${c.side}` : "", c.rear != null ? `rear ${c.rear}` : ""].filter(Boolean).join(", ");
-  return `${typologyDef(c.typology).label}, ${c.stories} st, ${c.unitWidthFt != null ? `${c.unitWidthFt} ft` : "widest"}, ${c.parking === "tuck" ? "tuck-under" : c.parking === "pad" ? "pad" : "no"} parking${sb ? `, setbacks ${sb} ft` : ""}`;
+export function controlsLabel(c: AppControls): string {
+  const sb = (Object.entries(c.setbacks ?? {}) as [string, number][]).map(([k, v]) => `${k === "streetSide" ? "street side" : k} ${v}`).join(", ");
+  return `${typeOf(c.typology).label}, ${c.stories != null ? `${c.stories} st` : "auto stories"}, ${c.unitWidthFt != null ? `${c.unitWidthFt} ft wide` : "auto width"}${c.depthFt != null ? `, ${c.depthFt} ft deep` : ""}, ${c.parking === "tuck" ? "tuck-under" : c.parking === "pad" ? "pad" : c.parking === "none" ? "no" : "auto"} parking${sb ? `, setbacks ${sb} ft` : ""}`;
 }
 
 function cells(m: GenMetrics | null) {
@@ -51,7 +52,7 @@ export default function MetricsBar({ metrics, binding, reason, controls, pins, o
   metrics: GenMetrics | null;
   binding: string | null;
   reason: string | null;
-  controls: GenControls | null;
+  controls: AppControls | null;
   pins: Pinned[];
   onPin: () => void;
   onUnpin: (key: string) => void;

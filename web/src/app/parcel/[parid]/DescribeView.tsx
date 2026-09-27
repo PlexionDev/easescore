@@ -26,6 +26,7 @@ const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
 const pct = (s: number) => `${Math.round(s * 100)}%`;
 
 const MODE_TEXT: Record<ViewMode, string> = {
+  build: "Build it in 3D view: a clay model of the studied building (QuickFit) on the lidar ground with 2 ft contours and the neighboring houses, or its plan drawing",
   photoreal: "3D Photoreal view: Google's photoreal 3D city with the lot outlined in yellow and the studied building as blocks",
   terrain: "3D Terrain view: the ground from 1 m lidar with 5 ft contour lines, the lot outlined in yellow and the studied building as blocks",
   analysis: "2D Analysis view: a flat plan of the lot with the map layers you turn on (slope classes, hazards, zoning)",
