@@ -15,7 +15,7 @@
 --   3. Public plaza: Market Square, the City-owned parcels addressed "Market Sq" downtown.
 --
 -- Private land is not touched (the "Other public land" card counts this table). Distances are in feet
--- (EPSG:2272, PA South state plane). At the time of writing: 1 alley by name, 25 thin "Way" strips,
+-- (EPSG:2272, PA South state plane). At the time of writing: 1 alley by name, 23 thin "Way" strips,
 -- 4 Market Square parcels.
 --
 -- Additive only: rows inserted into planner_other_public_land with new reason labels ("Alley",
