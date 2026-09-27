@@ -601,10 +601,15 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
           polygonHierarchy: new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(open(b.ring).flat())),
           height: toM(b.z0), extrudedHeight: toM(b.z1), vertexFormat: C.PerInstanceColorAppearance.VERTEX_FORMAT,
         }),
-        attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color)) },
+        attributes: {
+          color: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color)),
+          // Where tree canopy or neighbors hide the building (common on wooded hillsides), it shows through as a ghost.
+          depthFailColor: C.ColorGeometryInstanceAttribute.fromColor(C.Color.fromCssColorString(b.color).withAlpha(0.42)),
+        },
       }));
       mine = new C.Primitive({
         geometryInstances: instances, appearance: new C.PerInstanceColorAppearance({ translucent: false, closed: true }),
+        depthFailAppearance: new C.PerInstanceColorAppearance({ translucent: true, flat: true, closed: true }),
         asynchronous: false, shadows: C.ShadowMode.ENABLED, show: fade.current > 0.02,
       });
       viewer.scene.primitives.add(mine);
@@ -817,7 +822,7 @@ export default function Photoreal3D({ parcelKey, data, early, massing, envelope,
           </div>
 
           {/* Camera controls, above the credit line */}
-          <div className="absolute z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-white/40 bg-white/85 p-1 text-sm shadow-xl backdrop-blur-md"
+          <div className="absolute z-10 flex -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full border border-white/40 bg-white/85 p-1 text-sm shadow-xl backdrop-blur-md"
                style={{ bottom: insets.bottom + creditsH + 42, left: `calc(${insets.left}px + (100% - ${insets.left}px) / 2)` }}>
             <Btn title="Rotate left 45°" onClick={() => spin(-45)}>⟲</Btn>
             <Btn title={orbit ? "Stop orbit" : "Slow orbit"} active={orbit} onClick={() => setOrbit(!orbit)}>{orbit ? "❚❚" : "▶"}<span className="hidden xl:inline"> Orbit</span></Btn>
