@@ -13,10 +13,15 @@
 --      is under 12 ft across), too narrow for any house. Wider "Way" lots (for example 18-20 ft lots on
 --      Durango Way or Ladora Way) are real lots and stay in the rankings.
 --   3. Public plaza: Market Square, the City-owned parcels addressed "Market Sq" downtown.
+--   4. Right-of-way by name (FINAL-HOUR P0 1): the address is "R OF W" (the County's right-of-way
+--      label) or starts with "COR " (a corner remnant, e.g. "COR X ST & Y AVE"), no house number.
+--   5. Boulevard / parkway strips: the address is on a "BLVD", "PARKWAY" or "PKWY", no house number, and
+--      the lot is nowhere 12 ft wide (same thin-strip test as rule 2). Boulevard lots of ordinary width
+--      (for example the 24-50 ft URA lots on East Liberty Blvd) are real lots and stay in the rankings.
 --
 -- Private land is not touched (the "Other public land" card counts this table). Distances are in feet
 -- (EPSG:2272, PA South state plane). At the time of writing: 1 alley by name, 23 thin "Way" strips,
--- 4 Market Square parcels.
+-- 4 Market Square parcels; rules 4-5 added 2 "R OF W" parcels and 3 thin boulevard strips.
 --
 -- Additive only: rows inserted into planner_other_public_land with new reason labels ("Alley",
 -- "Public plaza"); no function is created or replaced here (migration 147/150's SECURITY DEFINER
@@ -54,6 +59,29 @@ from public.parcel_scores s
 join public.assessments a on a.parid = s.parid
 where s.owner_class = 'public'
   and a.address ~ '^([0-9]+ )?MARKET SQ$'
+on conflict (parid) do nothing;
+
+-- 4. Right-of-way by name: "R OF W" or a corner remnant ("COR ..."), no house number.
+insert into public.planner_other_public_land (parid, reason)
+select s.parid, 'Street or right-of-way (by name)'
+from public.parcel_scores s
+join public.assessments a on a.parid = s.parid
+where s.owner_class = 'public'
+  and (a.address ~ '(^| )R OF W$' or a.address ~ '^COR ')
+  and coalesce(nullif(trim(a.house_num), ''), '0') = '0'
+on conflict (parid) do nothing;
+
+-- 5. Boulevard / parkway strips: no house number and nowhere 12 ft wide.
+insert into public.planner_other_public_land (parid, reason)
+select s.parid, 'Street or right-of-way (by name)'
+from public.parcel_scores s
+join public.assessments a on a.parid = s.parid
+join public.parcels p on p.parid = s.parid
+where s.owner_class = 'public'
+  and a.address ~ ' (BLVD|PARKWAY|PKWY)$'
+  and coalesce(nullif(trim(a.house_num), ''), '0') = '0'
+  and not exists (select 1 from public.planner_other_public_land x where x.parid = s.parid)
+  and 2 * (st_maximuminscribedcircle(st_transform(p.geom, 2272))).radius < 12
 on conflict (parid) do nothing;
 
 -- Cached broad-view summaries and map points recomputed without the newly excluded parcels, as 148 did.
