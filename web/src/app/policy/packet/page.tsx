@@ -86,7 +86,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
           At full build-out of homes that pencil, the taxing bodies would collect <b>likely {fis ? likelyOf(fis.total, true) : "—"}</b> more per year (range {fis ? fr1(fis.total, true) : "—"}).
         </p>
         <p className="fine">
-          Why the ranges are wide: the high end of homes counts every home the fit test finds, {adu ? "one ADU on every eligible lot, even where the footprint check fails" : "including townhouse rows that need a lot split (subdivision) first"}; the low end counts {adu ? "only lots that pass the footprint check" : "only homes that need no split"}; likely adds split homes only where the scheme pencils at high prices.
+          Why the ranges are wide: the high end of homes counts every home the fit test finds, {adu ? "one ADU on every eligible lot, even where the footprint check fails" : "including townhouse rows that need a lot split (subdivision) first"}; the low end counts {adu ? "only lots that pass the footprint check" : "only homes that need no split"}; likely adds {adu ? "the other lots" : "split homes"} only where the scheme pencils at high prices.
           Pencils and revenue run from low-quartile prices with high costs (low) to high-quartile prices with low costs (high).
         </p>
         {s.homes === 0 && sc.levers.attached.on && activeLevers(sc.levers).length === 1 ? <p><b>This lever alone adds no homes at 35 ft.</b> {ATTACHED_ALONE_NOTE}</p> : null}
