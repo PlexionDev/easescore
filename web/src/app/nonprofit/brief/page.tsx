@@ -8,7 +8,7 @@ import { need as loadNeed, lotsDetail } from "@/lib/nonprofit/data";
 import { projectCost } from "@/lib/nonprofit/project";
 import { acquisitionPath, statusNote, TYPICAL_NOTE } from "@/lib/nonprofit/acquisition";
 import { EQUITY_NOTE, acsVintage } from "@/lib/nonprofit/receipts";
-import { formatRange } from "@/components/seats/format";
+import { fmtMoney, formatRange, roundRange } from "@/components/seats/format";
 import { inTen, needSummary, parseState, projectInput, shortParid, unitGroups, usd, usdK } from "@/lib/nonprofit/types";
 import "./brief.css";
 
@@ -19,6 +19,9 @@ const title = (a: string | null, parid: string) => (a && a.trim() ? a.trim().toL
 const about = (n: number) => (Math.round(n / 10) * 10).toLocaleString("en-US");
 // Same rounding as the seat page (two significant figures on the whole range), so brief and screen match.
 const rng = (r: { low: number; high: number }) => formatRange({ low: r.low, likely: r.low, high: r.high }, { format: "money" });
+/** The likely value rounded with its range, as the seat page's RangeValue shows it. */
+const likelyOf = (r: { low: number; likely: number; high: number }) => fmtMoney(roundRange(r).likely);
+const perHome = (r: { low: number; likely: number; high: number }, n: number) => ({ low: r.low / n, likely: r.likely / n, high: r.high / n });
 
 function Outline({ geom, pts }: { geom: GeoJSON.Geometry | null; pts: { lon: number; lat: number; n: number }[] }) {
   if (!geom || (geom.type !== "Polygon" && geom.type !== "MultiPolygon")) return null;
@@ -152,7 +155,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
               ))}
             </ul>
             <p className="br-small"><b>How the price is figured:</b> {r.saleAssumptions.map((a) => `${a.label} ${a.value}${a.assumption ? " (assumption)" : ""}`).join("; ")}.</p>
-            <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {usdK(r.tdc.likely)} ({usdK(r.tdc.likely / r.units)} per home).</p>
+            <p>Development cost from the EaseScore.AI pro forma, priced for sale: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
             <ul className="br-small">
               {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}{l.mine ? " (over undermined ground)" : ""}</li>)}
             </ul>
@@ -165,7 +168,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
                 <li key={x.amiPct}><b>{x.count} home{x.count > 1 ? "s" : ""} at {x.amiPct}% of area median.</b> {affordable.householdSentence(il, x.amiPct, Math.max(1, Math.round(x.persons))).text} Maximum rent {usd(x.grossRent)} a month including utilities; tenant pays about {usd(x.netRent)} after a {usd(x.utilityAllowance)} utility allowance (assumption, edit me).</li>
               ))}
             </ul>
-            <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {usdK(r.tdc.likely)} ({usdK(r.tdc.likely / r.units)} per home).</p>
+            <p>Development cost from the EaseScore.AI pro forma: <b>{rng(r.tdc)}</b>, likely {likelyOf(r.tdc)} ({rng(perHome(r.tdc, r.units))} per home, likely {likelyOf(perHome(r.tdc, r.units))}).</p>
             <ul className="br-small">
               {cost!.lots.map((l) => <li key={l.parid}>{title(l.address, l.parid)}: {l.strategyLabel ?? "—"}, {l.headline ?? "not priced"}{l.notes.length ? ` (${l.notes.join(" ")})` : ""}</li>)}
             </ul>
