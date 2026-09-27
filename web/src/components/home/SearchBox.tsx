@@ -23,8 +23,11 @@ export default function SearchBox({
   tryExample = false,
   defaultValue,
   autoFocus = false,
+  landmarkLabel = "Parcel search",
 }: {
   id: string;
+  /** Name of the search landmark; give each search on a page its own (axe landmark-unique). */
+  landmarkLabel?: string;
   icon?: boolean;
   shortcut?: boolean;
   tryExample?: boolean;
@@ -140,6 +143,7 @@ export default function SearchBox({
       className="search-form"
       action="/check"
       role="search"
+      aria-label={landmarkLabel}
       onSubmit={(e) => {
         const el = input.current;
         if (el && !el.value.trim()) {

@@ -471,6 +471,10 @@
 .rpt a.ext {
   color: var(--accent);
   word-break: break-all;
+  /* Links in running text are told apart by more than color (WCAG 1.4.1). */
+  text-decoration: underline;
+  text-decoration-thickness: 0.5px;
+  text-underline-offset: 1.5px;
 }
 .rpt dl.gloss dt {
   font-family: var(--font-sans), Arial, sans-serif;

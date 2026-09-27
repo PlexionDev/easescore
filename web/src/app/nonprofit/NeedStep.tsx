@@ -92,6 +92,7 @@ export default function NeedStep({ need, loading, hoodName, tracts, geo, onGeo, 
   return (
     <div className="np-grid">
       <div className="np-col">
+        <h2 className="es-sr">Map and income ladder for {hood}</h2>
         <div className="np-mapbox">
           <AreaMap tracts={tracts} layer={layer} outline={area.outline} bbox={area.bbox} ariaLabel={`Map of census ${geo === "bg" ? "block groups" : "tracts"} around ${hood}, shaded by ${steps.title.toLowerCase()}`} legend={legend} tools={tools} />
         </div>

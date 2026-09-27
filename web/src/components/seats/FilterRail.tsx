@@ -211,9 +211,14 @@ export function RangeSlider(props: SliderCommon & ({ value: number; onChange: (v
 }
 
 /** Rail container: stacks FilterSections with dividers and an optional sticky footer (e.g. "Clear all"). */
-export default function FilterRail({ children, footer, intro }: { children: ReactNode; footer?: ReactNode; intro?: ReactNode }) {
+export default function FilterRail({ children, footer, intro, heading = "Filters" }: {
+  children: ReactNode; footer?: ReactNode; intro?: ReactNode;
+  /** Level-2 heading for the rail (visually hidden) so the sections' h3s have a parent heading. */
+  heading?: string;
+}) {
   return (
     <div className="es-frail">
+      <h2 className="es-sr">{heading}</h2>
       {intro ? <p className="es-frail-intro">{intro}</p> : null}
       {children}
       {footer ? <div className="es-frail-foot">{footer}</div> : null}

@@ -56,11 +56,11 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
   const token = printToken();
   const print = !!token && (await headers()).get(PRINT_HEADER) === token;
   return (
-    <div className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`}>
+    <main className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`}>
       <Suspense fallback={<FirstLook head={head} />}>
         <FullStudy parid={parid} model={model} print={print} />
       </Suspense>
-    </div>
+    </main>
   );
 }
 

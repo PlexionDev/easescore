@@ -9,7 +9,7 @@ export default function ClosingSearch() {
           <h2 id="closing-title">Start with one lot.</h2>
         </div>
         <div className="closing-search">
-          <SearchBox id="closing-q" />
+          <SearchBox id="closing-q" landmarkLabel="Parcel search (bottom of page)" />
           <p>No account needed. A clearer starting point.</p>
         </div>
       </div>

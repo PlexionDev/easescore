@@ -42,6 +42,11 @@ export function LotPlan({
   const Y = (y: number) => oy + (maxY - y) * scale;
   const path = (r: Ring) => r.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ") + " Z";
   const n = parcel.length;
+  const area = (r: Ring) => Math.abs(r.reduce((t, p, i) => { const q = r[(i + 1) % r.length]!; return t + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+  const lotSf = area(parcel);
+  const envSf = envelope.reduce((t, poly) => t + (poly[0] ? area(poly[0]) : 0) - poly.slice(1).reduce((h, r) => h + area(r), 0), 0);
+  const fpSf = footprints.reduce((t, r) => t + area(r), 0);
+  const planAlt = `Plan of the lot (about ${fmt(lotSf)} sq ft, ${fmt(maxX - minX)} by ${fmt(maxY - minY)} ft across), its buildable area inside the setbacks (about ${fmt(envSf)} sq ft)${footprints.length ? ` and the studied footprint (about ${fmt(fpSf)} sq ft)` : ", no building footprint shown"}${masks.length ? `; overlays: ${masks.map((mm) => mm.label).join(", ")}` : ""}.`;
 
   // Scale bar: a round number of feet near 1/4 of the drawing width.
   const target = (maxX - minX) / 3;
@@ -59,7 +64,7 @@ export function LotPlan({
   ];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Plan of the lot, its buildable area and the studied footprint" style={{ fontFamily: "inherit" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={planAlt} style={{ fontFamily: "inherit" }}>
       <rect x="0" y="0" width={W} height={H} fill="#fff" />
       {masks.map((mm, i) =>
         mm.polygon.map((r, j) => (
@@ -117,7 +122,7 @@ export function SlopeBar({ over15, over25, over40 }: { over15: number; over25: n
   let x = 20;
   const lineX = 20 + (1 - over25) * barW;
   return (
-    <svg viewBox={`0 0 ${W} 110`} width="100%" role="img" aria-label="Share of the lot in each slope class">
+    <svg viewBox={`0 0 ${W} 110`} width="100%" role="img" aria-label={`Share of the lot in each slope class: ${parts.map((p) => `${p.label} ${Math.round(p.share * 100)}%`).join(", ")}.`}>
       {parts.map((p) => {
         const w = p.share * barW;
         const el = (
@@ -171,7 +176,7 @@ export function CompsScatter({ comps, median }: { comps: { date: string; ppsf: n
   const y1 = new Date(t1).getUTCFullYear();
   const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i).filter((y) => t(`${y}-01-01`) >= t0 && t(`${y}-01-01`) <= t1);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Sale price per square foot of comparable sales over time">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Sale price per square foot of ${pts.length} comparable sales, ${y0} to ${y1}: from $${fmt(Math.min(...pts.map((p) => p.ppsf)))} to $${fmt(Math.max(...pts.map((p) => p.ppsf)))} per sq ft${median != null ? `, median $${fmt(median)}` : ""}.`}>
       {ticks.map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={Y(v)} y2={Y(v)} stroke={GRID} />
@@ -205,7 +210,7 @@ export function PhaseSequence({ phases }: { phases: { label: string; required: n
   const gap = 8;
   const bw = (W - gap * (phases.length - 1)) / phases.length;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Project phases in order with counts of required items">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Project phases in order: ${phases.map((p) => `${p.label} (${p.required} required, ${p.likely} likely, ${p.other} other)`).join("; ")}.`}>
       {phases.map((p, i) => {
         const x = i * (bw + gap);
         return (
@@ -262,7 +267,7 @@ export function Tornado({ rows, base, money }: { rows: { label: string; lowLabel
   const span = hi - lo || 1;
   const X = (v: number) => x0 + ((v - lo) / span) * (x1 - x0);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Which assumption matters most">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Which assumption matters most, from a base of ${money(base)}: ${rows.map((r) => `${r.label}: ${r.lowLabel} gives ${r.valueAtLow != null ? money(r.valueAtLow) : "not computed"}, ${r.highLabel} gives ${r.valueAtHigh != null ? money(r.valueAtHigh) : "not computed"}`).join("; ")}.`}>
       <line x1={X(base)} x2={X(base)} y1="14" y2={H - 20} stroke={INK} />
       <text x={X(base)} y="10" fontSize="10" textAnchor="middle" fill={MUTED}>base {money(base)}</text>
       {rows.map((r, i) => {
@@ -314,7 +319,7 @@ export function CapitalStack({ uses, sources, money }: { uses: { label: string; 
     });
   };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Capital stack: uses of funds and sources of funds">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Capital stack. Uses: ${uses.map((u) => `${u.label} ${money(u.amount)}`).join(", ")}. Sources: ${sources.map((u) => `${u.label} ${money(u.amount)}`).join(", ")}.`}>
       <text x={345} y={14} fontSize={10} fontWeight={600} fill={MUTED} textAnchor="end">Uses (where the money goes)</text>
       <text x={385} y={14} fontSize={10} fontWeight={600} fill={MUTED}>Sources (where it comes from)</text>
       {stack(uses, 230, (i) => USE_COLORS[i % USE_COLORS.length]!, "left")}

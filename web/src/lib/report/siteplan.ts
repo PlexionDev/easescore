@@ -7,6 +7,7 @@
 
 import { quickfit } from "@easescore/engine";
 import sitePlanConfig from "@easescore/engine/config/site-plan.v0.1.json";
+import { describeSitePlan } from "./describe";
 import { chaikin, gaussian, isolines, padGrid, simplify, slopeGrid, type Grid, type XY } from "./contour";
 
 type Ring = XY[];
@@ -594,8 +595,10 @@ export function renderSitePlan(input: SitePlanInput, L: SitePlanLayout, dem: Gri
   // Emit SVG
 
   a(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SW} ${SH}" width="${(SW / 72).toFixed(3)}in" height="${(SH / 72).toFixed(3)}in" class="ea101" role="img" aria-label="Site plan, sheet EA-101, parcel ${esc(input.parid)}, scale 1 inch = ${L.scaleFt} feet">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SW} ${SH}" width="${(SW / 72).toFixed(3)}in" height="${(SH / 72).toFixed(3)}in" class="ea101" role="img" aria-labelledby="ea101-title ea101-desc">`,
   );
+  // Alt text (tagged PDF and screen readers): generated from the same inputs as the drawing.
+  a(`<title id="ea101-title">Site plan, sheet EA-101, parcel ${esc(input.parid)}</title><desc id="ea101-desc">${esc(describeSitePlan({ ...input, scaleFt: L.scaleFt, scheme: input.scheme && { ...input.scheme, footprints: input.scheme.footprints } }))}</desc>`);
   a(`<defs>
 <pattern id="ea-env" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".38" fill="#000"/></pattern>
 ${steepPath ? `<clipPath id="ea-steep-clip"><path d="${steepPath}" clip-rule="evenodd"/></clipPath>` : ""}

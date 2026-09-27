@@ -19,7 +19,7 @@ import "server-only";
 
 import { existsSync } from "node:fs";
 import type { Browser, Page } from "puppeteer-core";
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef, PDFString } from "pdf-lib";
 import { samePageMap } from "./cache-core";
 import { PRINT_HEADER, printToken } from "./pdf-cache";
 
@@ -68,6 +68,8 @@ export interface RenderOptions {
   generatedDate: string;
   /** Key for the remembered page map (the parcel ID). */
   mapKey?: string;
+  /** BCP 47 language of the document text (PDF /Lang); default en-US. */
+  lang?: string;
 }
 
 function decodeDataUrl(d: string): { type: string; body: Buffer } | null {
@@ -173,6 +175,12 @@ export async function renderReportPdf(opts: RenderOptions): Promise<Uint8Array> 
     doc.setProducer("EaseScore.AI");
     doc.setCreationDate(when);
     doc.setModificationDate(when);
+    // Accessibility: document language for screen readers (the tags and outline come from Chromium's
+    // tagged print), and viewers show the title rather than the file name.
+    doc.catalog.set(PDFName.of("Lang"), PDFString.of(opts.lang ?? "en-US"));
+    const prefs = doc.catalog.lookup(PDFName.of("ViewerPreferences"));
+    if (prefs instanceof PDFDict) prefs.set(PDFName.of("DisplayDocTitle"), doc.context.obj(true));
+    else doc.catalog.set(PDFName.of("ViewerPreferences"), doc.context.obj({ DisplayDocTitle: true }));
     const bytes = await doc.save();
     lap("save");
     return bytes;
