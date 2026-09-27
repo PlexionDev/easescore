@@ -54,7 +54,8 @@ export const incomeLimits = () =>
   cached("il", 3_600_000, async () => (await select<IncomeLimitsRowLite>("hud_income_limits?select=*&order=year.desc&limit=1"))?.[0] ?? null);
 
 export function sites(hood: string, f: SiteFilters, limit = 60) {
-  return rpc<SitesResult>("nonprofit_sites", { p_hood: hood, p_public: f.public, p_vacant: f.vacant, p_clean: f.clean, p_min_units: f.minUnits, p_limit: limit });
+  return cached(`sites:${hood.toLowerCase()}:${JSON.stringify(f)}:${limit}`, 120_000, () =>
+    rpc<SitesResult>("nonprofit_sites", { p_hood: hood, p_public: f.public, p_vacant: f.vacant, p_clean: f.clean, p_min_units: f.minUnits, p_limit: limit }));
 }
 
 /** County + City + school district millage (City of Pittsburgh only for now). */

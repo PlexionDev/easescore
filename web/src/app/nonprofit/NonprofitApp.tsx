@@ -18,6 +18,23 @@ const STEPS: { id: ProjectState["step"]; n: number; label: string }[] = [
   { id: "project", n: 3, label: "What's the gap?" },
 ];
 
+// One request per cost key, shared across re-renders and effect re-runs (strict mode, fast refresh),
+// so a re-run never cancels a request that is about to answer.
+const costRequests = new Map<string, Promise<{ data: ProjectCost | null; error: string | null }>>();
+function costRequest(key: string, lots: string[], perLot: number, bedrooms: number) {
+  let p = costRequests.get(key);
+  if (!p) {
+    const q = new URLSearchParams({ lots: lots.join(","), per: String(perLot), br: String(bedrooms) });
+    p = fetch(`/api/nonprofit/project?${q}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: ProjectCost) => ({ data: d, error: null }))
+      .catch(() => { costRequests.delete(key); return { data: null, error: "The database may be busy. Try again in a moment." }; });
+    costRequests.set(key, p);
+    if (costRequests.size > 50) costRequests.delete(costRequests.keys().next().value!);
+  }
+  return p;
+}
+
 export default function NonprofitApp({ initial, hoods, initialNeed, initialSites, hoodFromUrl }: {
   initial: ProjectState;
   hoods: string[];
@@ -87,15 +104,9 @@ export default function NonprofitApp({ initial, hoods, initialNeed, initialSites
   const costKey = `${s.lots.join(",")}|${s.perLot}|${s.bedrooms}`;
   useEffect(() => {
     if (!s.lots.length) return;
-    const ctrl = new AbortController();
-    const q = new URLSearchParams({ lots: s.lots.join(","), per: String(s.perLot), br: String(s.bedrooms) });
-    const t = setTimeout(() => {
-      fetch(`/api/nonprofit/project?${q}`, { signal: ctrl.signal })
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((d: ProjectCost) => setCostRes({ key: costKey, data: d, error: null }))
-        .catch((e) => { if ((e as Error).name !== "AbortError") setCostRes({ key: costKey, data: null, error: "The database may be busy. Try again in a moment." }); });
-    }, 200);
-    return () => { clearTimeout(t); ctrl.abort(); };
+    let live = true;
+    costRequest(costKey, s.lots, s.perLot, s.bedrooms).then((r) => { if (live) setCostRes({ key: costKey, ...r }); });
+    return () => { live = false; };
   }, [costKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const current = s.lots.length > 0 && costRes?.key === costKey ? costRes : null;
   const cost = current?.data ?? null;
