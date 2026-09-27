@@ -44,6 +44,8 @@ export interface CompRow {
   distanceMi: number;
   condition?: string | null;
   area?: string | null;
+  /** County use of the sold home (SINGLE FAMILY, TOWNHOUSE, ROWHOUSE…), when known. */
+  use?: string | null;
 }
 
 export interface CompSet {
@@ -135,7 +137,7 @@ export function newConstructionComps(
     if (!(s.yearBuilt >= Number(s.saleDate.slice(0, 4)) - r.maxAgeAtSaleYears)) continue;
     const d = distanceMi(subject.lat, subject.lon, s.lat, s.lon);
     if (d > maxR) continue;
-    pool.push({ parid: s.parid, address: s.address ?? null, saleDate: s.saleDate, price: s.price, livingAreaSqft: s.livingAreaSqft, pricePerSqft: s.price / s.livingAreaSqft, yearBuilt: s.yearBuilt, distanceMi: Math.round(d * 1000) / 1000, area: s.area ?? null });
+    pool.push({ parid: s.parid, address: s.address ?? null, saleDate: s.saleDate, price: s.price, livingAreaSqft: s.livingAreaSqft, pricePerSqft: s.price / s.livingAreaSqft, yearBuilt: s.yearBuilt, distanceMi: Math.round(d * 1000) / 1000, area: s.area ?? null, use: s.use ?? null });
   }
   pool.sort(byNearest);
   // Size band: keep comps within ±sizeBand of the planned home when that leaves enough sales.

@@ -12,6 +12,7 @@ import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras"
 import { narrative } from "@easescore/engine";
 import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
+import { CompsGrid, ConfidenceGrades } from "./evidence";
 
 export interface Ctx {
   m: ReportModel;
@@ -459,6 +460,8 @@ export function S1(x: Ctx) {
           </div>
         </div>
       </div>
+
+      {ConfidenceGrades(x)}
 
       <h2>Assumptions that matter most</h2>
       <ul>
@@ -1505,7 +1508,7 @@ export function S9(x: Ctx) {
         </p>
       )}
       {m.proForma.plan.sizeWarning && <Callout tone="amber" title="Small layout for new construction nearby"><p>{m.proForma.plan.sizeWarning}</p></Callout>}
-      {CompTable({ x })}
+      {CompsGrid(x)}
       {m.proForma.plan.priceCheck && <p><b>Check:</b> {m.proForma.plan.priceCheck}{fn(x, "nc_sales")}</p>}
       <p>
         {m.proForma.sale.grossSales != null ? (
@@ -1572,38 +1575,6 @@ export function S9(x: Ctx) {
       </table>
       <p className="small muted">Lenders commonly look for income of at least about 1.2 times the loan payments (DSCR). That is a rule of thumb, not a quote.</p>
     </Sec>
-  );
-}
-
-function CompTable({ x }: { x: Ctx }) {
-  const c = x.m.proForma.plan.valueComps as assumptions.CompSet | null;
-  const floor = x.m.proForma.plan.floor;
-  if (!c || !("median_living_area_sqft" in c)) return <p className="muted">New-construction comps could not be loaded for this lot.{floor ? ` ${floor.text}` : ""}</p>;
-  const t = x.tab();
-  return (
-    <>
-      <p>
-        <b>New-construction comps:</b> {c.status === "ok" ? "" : "insufficient — "}{c.count} sale{c.count === 1 ? "" : "s"} within {c.radius_mi} mi
-        {c.median_price != null ? `, median ${money(c.median_price)}` : ""}{c.median_price_per_sqft != null ? `, ${money(c.median_price_per_sqft)} per sq ft` : ""}
-        {c.median_living_area_sqft != null ? `, median size ${sqft(Math.round(c.median_living_area_sqft))}` : ""}{c.year_built_range ? `, built ${c.year_built_range.from}–${c.year_built_range.to}` : ""}
-        {c.date_range?.from ? `, sold ${c.date_range.from} to ${c.date_range.to}` : ""}{fn(x, "nc_sales")}. Search: {c.search_steps.join(" → ")}.
-        {c.note ? ` ${c.note}` : ""}
-      </p>
-      {floor && <p className="small">{floor.text}{fn(x, "sales")}</p>}
-      {c.comps.length > 0 && (
-        <>
-          <div className="tcap">Table {t}. New-construction sales used (nearest first)</div>
-          <table>
-            <thead><tr><th>Sold</th><th className="num">Price</th><th className="num">Sq ft</th><th className="num">$/sq ft</th><th className="num">Built</th><th className="num">Miles</th></tr></thead>
-            <tbody>
-              {c.comps.slice(0, 12).map((r) => (
-                <tr key={`${r.parid}${r.saleDate}`}><td>{r.saleDate}</td><td className="num">{money(r.price)}</td><td className="num">{num(r.livingAreaSqft)}</td><td className="num">{money(r.pricePerSqft)}</td><td className="num">{r.yearBuilt ?? "—"}</td><td className="num">{num(r.distanceMi, 2)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-    </>
   );
 }
 
