@@ -22,7 +22,7 @@ const sm = assumptions.shortMoney;
 // Ranges that cross or sit below zero read "−$970K to −$360K" rather than a dash between two minus signs.
 const money = (r: Money3 | null) => (r ? (r.low === r.high ? sm(r.likely) : `${sm(r.low)}${r.low < 0 ? " to " : "–"}${sm(r.high)}`) : "—");
 /** Phones: the likely value only ("~$1.7M"); the range is in the pinned compare and the pro forma. */
-const m1 = (r: Money3 | null) => (r ? `${r.low === r.high ? "" : "~"}${sm(r.likely)}` : "—");
+const m1 = (r: Money3 | null) => (r ? `${r.low === r.high ? "" : "≈ "}${sm(r.likely)}` : "—");
 const likely = (r: Money3 | null) => (r && r.low !== r.high ? `likely ${sm(r.likely)}` : null);
 const p1 = (x: number) => `${x < 0 ? "−" : ""}${Math.abs(x)}%`;
 const pct = (r: Money3 | null) => (r ? (r.low === r.high ? p1(r.likely) : r.low < 0 ? `${p1(r.low)} to ${p1(r.high)}` : `${r.low}–${r.high}%`) : "—");
