@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckboxField, FilterRail, FilterSection, SeatButton } from "@/components/seats";
-import { BANDS, BLOCK_NC, ONLY_BLOCKED_BY, OWNER_TYPES, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
+import { BANDS, BLOCK_NC, DELINQUENT_PUBLIC_NOTE, ONLY_BLOCKED_BY, OWNER_TYPES, publicOnlyIfDelinquent, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
 
 const TRANSIT_FT = [500, 1000, 1500, 2640];
 
@@ -84,14 +84,15 @@ export default function PlannerFilters({ f, options, set, reset, counts }: {
         <CheckboxField label="Vacant" checked={f.land === "vacant"} onChange={(c) => set({ land: c ? "vacant" : undefined })} />
         <CheckboxField label="Has a structure" checked={f.land === "structure"} onChange={(c) => set({ land: c ? "structure" : undefined })} />
         <CheckboxField label="Publicly owned (City, URA, Land Bank, HACP, County)"
-          checked={f.owner === "public"} onChange={(c) => set({ owner: c ? "public" : undefined })} />
-        <CheckboxField label="Privately owned" checked={f.owner === "private"} onChange={(c) => set({ owner: c ? "private" : undefined })} />
-        <CheckboxField label="Tax-delinquent" hint="Open county tax lien" checked={!!f.delinquent} onChange={(c) => set({ delinquent: c || undefined })} />
+          checked={f.owner === "public"} onChange={(c) => set(c ? { owner: "public" } : { owner: undefined, delinquent: undefined })} />
+        <CheckboxField label="Privately owned" checked={f.owner === "private"} onChange={(c) => set(c ? { owner: "private", delinquent: undefined } : { owner: undefined })} />
+        <CheckboxField label="Tax-delinquent (publicly owned only)" hint={f.delinquent ? DELINQUENT_PUBLIC_NOTE : "Open county tax lien, on publicly owned land"} checked={!!f.delinquent}
+          onChange={(c) => set(c ? publicOnlyIfDelinquent({ ...f, delinquent: true }) : { delinquent: undefined })} />
         <details style={{ marginTop: 4 }}>
           <summary className="es-field-label" style={{ cursor: "pointer", display: "list-item" }}>Owner type{f.ownerTypes?.length ? ` (${f.ownerTypes.length})` : ""}</summary>
           {OWNER_TYPES.map((o) => (
             <CheckboxField key={o.id} label={o.label} checked={!!f.ownerTypes?.includes(o.id)}
-              onChange={(c) => set({ ownerTypes: c ? [...(f.ownerTypes ?? []), o.id] : (f.ownerTypes ?? []).filter((x) => x !== o.id) })} />
+              onChange={(c) => set({ ownerTypes: c ? [...(f.ownerTypes ?? []), o.id] : (f.ownerTypes ?? []).filter((x) => x !== o.id), ...(c && !o.isPublic ? { delinquent: undefined } : {}) })} />
           ))}
           <p className="es-fsec-hint" style={{ marginTop: 4 }}>Public agencies by name only; private owners are never named. The Land Bank shares URA&apos;s address, so it is counted with URA.</p>
         </details>

@@ -97,7 +97,7 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
 const HARMS: { risk: string; today: string }[] = [
   {
     risk: "Speculators use it to find owners who are behind on taxes",
-    today: "No owner names are stored or shown. The Nonprofit seat lists publicly owned lots by default. The Planner has a tax-delinquent filter. It is off by default, but it is not limited to public land, and it shows only whether a county tax lien is open. There is no “motivated seller” score or feature.",
+    today: "No owner names are stored or shown. The Nonprofit seat lists publicly owned lots by default. Distress filters are limited to publicly owned land: the Planner’s tax-delinquent filter is off by default, applies only to publicly owned parcels (City, URA / Land Bank, HACP, County, other public), and shows only whether a county tax lien is open. Its tables and exports never show a private owner’s tax status. There is no “motivated seller” score or feature.",
   },
   {
     risk: "Easier building speeds up displacement where rents are rising",

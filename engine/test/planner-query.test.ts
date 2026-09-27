@@ -114,9 +114,36 @@ describe("filters combine (matchRow mirrors planner_rows)", () => {
     expect(matchRow(row({ owner_class: "public", owner_type: "hacp" }), { ownerTypes: ["city", "ura"] })).toBe(false);
   });
   it("tax-delinquent and parcel lists", () => {
-    expect(matchRow(row({ tax_delinquent: null }), { delinquent: true })).toBe(false);
-    expect(matchRow(row({ tax_delinquent: true }), { delinquent: true })).toBe(true);
+    expect(matchRow(row({ owner_class: "public", tax_delinquent: null }), { delinquent: true })).toBe(false);
+    expect(matchRow(row({ owner_class: "public", tax_delinquent: true }), { delinquent: true })).toBe(true);
     expect(matchRow(row({ parid: "0000A00001000000" }), { ids: ["0000A00002000000"] })).toBe(false);
+  });
+});
+
+describe("tax-delinquent filter: publicly owned land only", () => {
+  it("forces ownership to public in the URL parser and the query builder", () => {
+    expect(parseFilters(new URLSearchParams("delinquent=1&owner=private&ownerTypes=private,nonprofit,ura"))).toEqual({ delinquent: true, owner: "public", ownerTypes: ["ura"] });
+    expect(parseFilters(new URLSearchParams("delinquent=1&ownerTypes=private"))).toEqual({ delinquent: true, owner: "public" });
+    expect(filtersToDb({ delinquent: true })).toEqual({ owner: "public", tax_delinquent: true });
+    expect(filtersToDb({ delinquent: true, owner: "private", ownerTypes: ["private", "city"] })).toEqual({ owner: "public", owner_types: ["city"], tax_delinquent: true });
+    expect(filtersToDb({ owner: "private" })).toEqual({ owner: "private" });
+  });
+  it("never matches a private or nonprofit parcel, delinquent or not", () => {
+    for (const owner_class of ["private", "nonprofit"]) {
+      expect(matchRow(row({ owner_class, owner_type: owner_class, tax_delinquent: true }), { delinquent: true })).toBe(false);
+      expect(matchRow(row({ owner_class, owner_type: owner_class, tax_delinquent: true }), { delinquent: true, owner: "private" })).toBe(false);
+    }
+    expect(matchRow(row({ owner_class: "public", owner_type: "ura", tax_delinquent: true }), { delinquent: true })).toBe(true);
+  });
+  it("exports tax_delinquent for publicly owned parcels only", () => {
+    const col = CSV_COLUMNS.indexOf("tax_delinquent");
+    const cellOf = (r: PlannerRow) => csvLine(r, 1, "http://x").split(",")[col];
+    expect(cellOf(row({ owner_class: "private", owner_type: "private", tax_delinquent: true }))).toBe("");
+    expect(cellOf(row({ owner_class: "nonprofit", owner_type: "nonprofit", tax_delinquent: true }))).toBe("");
+    expect(cellOf(row({ owner_class: "public", owner_type: "city", owner_agency: "City of Pittsburgh", tax_delinquent: true }))).toBe("true");
+  });
+  it("says so in the filter description", () => {
+    expect(describeFilters({ delinquent: true, owner: "public" })).toEqual(["All scored parcels", "Publicly owned", "Tax-delinquent (publicly owned only)"]);
   });
 });
 

@@ -214,12 +214,24 @@ const list = (v: string | null, max = 40) => {
 };
 const flag = (v: string | null) => (v === "1" ? true : undefined);
 
+/** The tax-delinquent filter applies to publicly owned land only (never private owners in distress). */
+export const DELINQUENT_PUBLIC_NOTE = "Tax-delinquent filter applies to publicly owned land only — to avoid targeting private owners in distress.";
+/** With the tax-delinquent filter on, ownership is forced to public and non-public owner types are dropped. */
+export function publicOnlyIfDelinquent(f: Filters): Filters {
+  if (!f.delinquent) return f;
+  const ownerTypes = f.ownerTypes?.filter((t) => OWNER_TYPES.find((o) => o.id === t)?.isPublic);
+  return { ...f, owner: "public", ownerTypes: ownerTypes?.length ? ownerTypes : undefined };
+}
+/** A row's tax-delinquency as it may be shown or exported: publicly owned parcels only (null otherwise). */
+export const shownDelinquent = (r: Pick<PlannerRow, "owner_class" | "tax_delinquent">): boolean | null =>
+  (r.owner_class === "public" ? r.tax_delinquent : null);
+
 export function parseFilters(q: URLSearchParams): Filters {
   const land = q.get("land");
   const owner = q.get("owner");
   const bands = list(q.get("bands"))?.filter((b): b is Band => BANDS.includes(b as Band));
   const ids = list(q.get("ids"), 25)?.filter((x) => PARID.test(x)).map((x) => x.toUpperCase());
-  return clean({
+  return clean(publicOnlyIfDelinquent({
     muni: str(q.get("muni")),
     district: str(q.get("district")),
     hoods: list(q.get("hoods")),
@@ -242,7 +254,7 @@ export function parseFilters(q: URLSearchParams): Filters {
     only: list(q.get("only")),
     ids,
     blockNc: BLOCK_NC.includes(num(q.get("blockNc")) as number) ? num(q.get("blockNc")) : undefined,
-  });
+  }));
 }
 
 /** Drop empty keys so equal filters serialize equally. */
@@ -266,7 +278,8 @@ export function filtersToQuery(f: Filters): URLSearchParams {
 }
 
 /** Filters in the shape planner_rows() reads. */
-export function filtersToDb(f: Filters): Record<string, unknown> {
+export function filtersToDb(input: Filters): Record<string, unknown> {
+  const f = publicOnlyIfDelinquent(input);
   const o: Record<string, unknown> = {};
   if (f.muni) o.municipality = f.muni;
   if (f.district) o.council_district = f.district;
@@ -316,7 +329,7 @@ export function matchRow(r: PlannerRow, f: Filters): boolean {
   if (d.vacant != null && r.vacant !== d.vacant) return false;
   if (d.owner != null && r.owner_class !== d.owner) return false;
   if (!inList(r.owner_type, d.owner_types)) return false;
-  if (d.tax_delinquent && r.tax_delinquent !== true) return false;
+  if (d.tax_delinquent && !(r.tax_delinquent === true && r.owner_class === "public")) return false;
   if (d.no_red_flags && r.red_flag_count !== 0) return false;
   if (d.exclude_floodway && r.hz_floodway) return false;
   if (d.exclude_landslide && r.hz_landslide) return false;
@@ -346,7 +359,7 @@ export function describeFilters(f: Filters): string[] {
   if (f.land) out.push(f.land === "vacant" ? "Vacant land" : "Has a structure");
   if (f.owner) out.push(f.owner === "public" ? "Publicly owned" : f.owner === "nonprofit" ? "Nonprofit-owned (approximate)" : "Privately owned");
   if (f.ownerTypes?.length) out.push(`Owner: ${f.ownerTypes.map((t) => OWNER_TYPES.find((o) => o.id === t)?.label ?? t).join(" or ")}`);
-  if (f.delinquent) out.push("Tax-delinquent");
+  if (f.delinquent) out.push("Tax-delinquent (publicly owned only)");
   if (f.lotMin != null || f.lotMax != null)
     out.push(`Lot size ${f.lotMin != null ? `${f.lotMin.toLocaleString("en-US")} sq ft` : "any"} to ${f.lotMax != null ? `${f.lotMax.toLocaleString("en-US")} sq ft` : "any"}`);
   if (f.bands?.length) out.push(`Score band: ${f.bands.join(", ")}`);
@@ -417,7 +430,7 @@ function cell(v: unknown): string {
 export function csvLine(r: PlannerRow, rank: number, origin: string): string {
   const vals: unknown[] = [
     rank, r.parid.trim(), r.address, r.municipality, r.neighborhood, r.council_district, r.zoning, r.lot_sqft, r.vacant, ownerLabel(r),
-    r.tax_delinquent, r.score, r.band, r.range_lo, r.range_hi, r.preliminary, r.cap_label, r.red_flag_count, r.red_flags.map((f) => f.title).join("; "),
+    shownDelinquent(r), r.score, r.band, r.range_lo, r.range_hi, r.preliminary, r.cap_label, r.red_flag_count, r.red_flags.map((f) => f.title).join("; "),
     r.top_blocker, r.blockers.join("; "), r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : null,
     r.by_right_units, r.units_with_relief, r.months_to_permit,
     r.transit_m != null ? Math.round(r.transit_m * FT_PER_M) : null, r.hz_floodway, r.hz_landslide, r.hz_undermined, r.steep_share,

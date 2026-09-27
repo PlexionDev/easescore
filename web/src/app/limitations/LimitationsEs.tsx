@@ -93,7 +93,7 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
 const HARMS: { risk: string; today: string }[] = [
   {
     risk: "Especuladores la usan para encontrar propietarios atrasados en sus impuestos",
-    today: "No se guardan ni se muestran nombres de propietarios. El puesto de organizaciones sin fines de lucro muestra por defecto los lotes de propiedad pública. El Planner (planificador) tiene un filtro de morosidad de impuestos. Está apagado por defecto, pero no se limita a terrenos públicos, y solo muestra si hay un gravamen fiscal del condado abierto. No hay un puntaje ni una función de “vendedor motivado”.",
+    today: "No se guardan ni se muestran nombres de propietarios. El puesto de organizaciones sin fines de lucro muestra por defecto los lotes de propiedad pública. Los filtros de dificultad financiera se limitan a terrenos de propiedad pública: el filtro de morosidad de impuestos del Planner (planificador) está apagado por defecto, se aplica solo a parcelas de propiedad pública (Ciudad, URA / Land Bank, HACP, Condado, otras entidades públicas) y solo muestra si hay un gravamen fiscal del condado abierto. Sus tablas y exportaciones nunca muestran la situación fiscal de un propietario privado. No hay un puntaje ni una función de “vendedor motivado”.",
   },
   {
     risk: "Facilitar la construcción acelera el desplazamiento donde los alquileres suben",
