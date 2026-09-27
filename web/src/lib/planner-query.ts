@@ -96,7 +96,7 @@ export interface PlannerRow {
   /** "Partial": zoning not loaded for the municipality (no numeric score; migration 145). */
   band: Band | "Partial" | null;
   /** Why a Partial row has no score: zoning not loaded, or a built-on parcel the score treated as empty (migration 146). */
-  partial_reason?: "zoning" | "use" | "footprint" | "not_lot" | null;
+  partial_reason?: "zoning" | "use" | "footprint" | "not_lot" | "no_outline" | "lot_mismatch" | "large_site" | "not_housing" | null;
   /** The County land use behind partial_reason "use" / "not_lot". */
   partial_use?: string | null;
   range_lo: number | null;
@@ -445,7 +445,8 @@ export const partialNote = (r: Pick<PlannerRow, "municipality"> & { partial_reas
   partialText(r.partial_reason ?? "zoning", { municipality: r.municipality, use: r.partial_use });
 /** "Best option" for a Partial row. */
 export const partialBest = (r: { partial_reason?: string | null }) =>
-  r.partial_reason && r.partial_reason !== "zoning" ? "Can't determine; the score did not see what is on this lot" : "Can't determine; zoning not loaded";
+  r.partial_reason === "no_outline" || r.partial_reason === "lot_mismatch" || r.partial_reason === "large_site" ? `Can't determine; ${partialText(r.partial_reason).replace(/^./, (m) => m.toLowerCase())}`
+  : r.partial_reason && r.partial_reason !== "zoning" ? "Can't determine; the score did not see what is on this lot" : "Can't determine; zoning not loaded";
 
 export function bestOptionHeadline(r: Pick<PlannerRow, "best_strategy" | "by_right_units" | "blockers"> & { band?: PlannerRow["band"]; partial_reason?: string | null }): string {
   if (r.band === "Partial") return `Best option: ${partialBest(r).replace(/^C/, "c")}`;

@@ -150,12 +150,14 @@ export function MarketLine({ market }: { market: assumptions.MarketSignal }) {
 }
 
 /** No numeric Ease Score where the municipality's zoning is not loaded: the known facts only. */
-export function PartialBlock({ headline, zoning, market }: { headline: string; /** Zoning not loaded (else: a built-on lot the score treated as empty). */ zoning: boolean; market: assumptions.MarketSignal | null }) {
+export function PartialBlock({ headline, zoning, lot = false, market }: { headline: string; /** Zoning not loaded (else: a built-on lot the score treated as empty). */ zoning: boolean; /** A lot we can't verify or not a housing lot. */ lot?: boolean; market: assumptions.MarketSignal | null }) {
   return (
     <section aria-label="Partial screen">
       <p className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2">
         <span className="block text-base font-semibold leading-snug text-slate-900">{headline}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-slate-700">{zoning
+        <span className="mt-0.5 block text-[12px] leading-snug text-slate-700">{lot
+          ? "No Ease Score and no pencils verdict: we can't verify this as a housing lot. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm the lot before planning."
+          : zoning
           ? "No Ease Score: zoning is a quarter of the score, and we have zoning rules for the City of Pittsburgh only. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality."
           : "No Ease Score: a new-build score here would ignore what already stands on the lot. Shown below: the known facts (lot, slope, hazards, existing building, market). Confirm what is on the lot before planning."}</span>
       </p>
@@ -165,7 +167,7 @@ export function PartialBlock({ headline, zoning, market }: { headline: string; /
 }
 
 /** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. */
-export function ScoreBlock({ selected, sentence, market, pencilsNo }: { selected: Strategy; sentence?: string | null; market?: assumptions.MarketSignal | null; /** The selected option's pro forma does not pencil. */ pencilsNo?: boolean }) {
+export function ScoreBlock({ selected, sentence, market, pencilsNo, pencilsThin }: { selected: Strategy; sentence?: string | null; market?: assumptions.MarketSignal | null; /** The selected option's pro forma does not pencil (loses money). */ pencilsNo?: boolean; /** Profitable but below the 15% target. */ pencilsThin?: boolean }) {
   const s = selected;
   const preliminary = s.labels.includes(score.PRELIMINARY);
   return (
@@ -178,7 +180,7 @@ export function ScoreBlock({ selected, sentence, market, pencilsNo }: { selected
               {s.band && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BAND_STYLE[s.band]}`}>{score.bandLabel(s.band)}</span>}
               <span className="text-[11px] text-slate-600">{`Ease Score · ${score.OPTION_NAME[s.strategy]}`}{preliminary ? " · Preliminary (thin evidence)" : s.range && s.range[0] !== s.range[1] ? ` · could be ${s.range[0]}–${s.range[1]}` : ""}</span>
             </p>
-            {pencilsNo && s.band && <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900" title="Doesn't meet the target profit margin at default assumptions">{`${score.bandLabel(s.band)}, but doesn't pencil at today's prices.`}</p>}
+            {(pencilsNo || pencilsThin) && s.band && <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900" title={score.PENCIL_TIP[pencilsNo ? "no" : "thin"]}>{`${score.bandLabel(s.band)}, ${pencilsNo ? "but doesn't pencil" : "thin margin"} at today's prices.`}</p>}
             {sentence && <p className="mt-1 text-[13px] leading-snug text-slate-800">{sentence}</p>}
           </div>
         </div>

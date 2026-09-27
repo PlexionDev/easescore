@@ -41,7 +41,8 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
               <b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />
               {r.range_lo != null ? <span className="pl-hint">{r.preliminary ? "Preliminary: " : "Range with missing data: "}{r.range_lo} to {r.range_hi}</span> : null}
             </div>
-            {r.band === "Partial" ? <p className="pl-callout amber">{partialNote(r)}. No Ease Score{r.partial_reason && r.partial_reason !== "zoning" ? "; open the parcel and confirm what stands on it" : `: we have zoning rules for the City of Pittsburgh only. Confirm zoning with ${titleCase(r.municipality) || "the municipality"}`}. The known facts (lot, hazards) still apply.</p> : null}
+            {r.band === "Partial" ? <p className="pl-callout amber">{partialNote(r)}. No Ease Score{r.partial_reason === "no_outline" || r.partial_reason === "lot_mismatch" || r.partial_reason === "large_site" ? ""
+              : r.partial_reason && r.partial_reason !== "zoning" ? "; open the parcel and confirm what stands on it" : `: we have zoning rules for the City of Pittsburgh only. Confirm zoning with ${titleCase(r.municipality) || "the municipality"}`}. The known facts (lot, hazards) still apply.</p> : null}
             {r.score != null ? <p className="pl-hint">{SCORE_CAPTION}</p> : null}
             <p className="pl-hint" style={{ marginTop: -10 }}>
               {bestOptionHeadline(r)}.

@@ -99,7 +99,7 @@ export function pencilsSentence(f: NarrativeFacts): string {
     if (verdict === "no" || shown <= 0) {
       return `No: it costs about ${cost} to build but would be worth only about ${money(p.value)}, a loss of ${money(shown)}${gap}.`;
     }
-    const word = verdict === "thin" ? "Barely" : "Yes";
+    const word = verdict === "thin" ? "Thin margin" : "Yes";
     const thin = verdict === "thin" ? "thin " : "";
     return `${word}: it costs about ${cost} to build and would be worth about ${money(p.value)}, a ${thin}${money(shown)} ${term("margin", "profit")}${pctText}${gap}.`;
   }
@@ -111,7 +111,7 @@ export function pencilsSentence(f: NarrativeFacts): string {
   const verdict = p.verdict ?? (d.noi <= 0 ? "no" : null);
   if (verdict === "no") return `No: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
   if (verdict === "yes") return `Yes: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
-  if (verdict === "thin") return `Barely: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
+  if (verdict === "thin") return `Thin margin: it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
   return `Unlevered (before any loan payments): it costs about ${cost} to build and would bring in ${income}${yieldText}${gap}.`;
 }
 

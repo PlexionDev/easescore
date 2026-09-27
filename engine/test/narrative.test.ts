@@ -161,7 +161,7 @@ describe("templates", () => {
     const r = generateNarrative(RENTAL);
     expect(r.pencilsMath?.text).toBe("Rent $2,400 × 12 = $28,800 a year; minus $9,100 in costs = $19,700 left to pay the loan.");
     expect(stripTerms(r.pencils.text)).toBe(
-      "Barely: it costs about $412,000 to build and would bring in about $19,700 a year after running costs (net income), a 5% yearly return on cost.",
+      "Thin margin: it costs about $412,000 to build and would bring in about $19,700 a year after running costs (net income), a 5% yearly return on cost.",
     );
     expect(validateResult(r, RENTAL).ok).toBe(true);
   });

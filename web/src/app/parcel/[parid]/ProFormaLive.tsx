@@ -55,7 +55,7 @@ function CompBlock({ comps, floor, newBuild, plan }: { comps: Comps; floor: stri
         {c.date_range?.from ? ` · sold ${c.date_range.from} to ${c.date_range.to}` : ""}
       </p>
       {c.search_steps?.length ? <p className="text-[11px] text-slate-500">Search: {c.search_steps.join(" → ")}.</p> : null}
-      {c.note && <p className="text-[11px] text-slate-500">{c.note}</p>}
+      {c.note && <p className="text-[11px] text-slate-500">{plan.indicative ? c.note.replace(/No new-home value is estimated\.?$/, "Too few for a reliable value, so the value from them is indicative only (low confidence).") : c.note}</p>}
       {c.selection && <p className="text-[11px] text-slate-600">{c.selection.receipt}</p>}
       {c.selection && c.selection.dropped.length > 0 && (
         <ul className="text-[11px] text-slate-500">
@@ -250,7 +250,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
 
   return (
     <section aria-label="Pro forma" className="rounded-xl border border-slate-200 bg-white/80 p-3">
-      <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
+      <LiveResult text={`${r.verdict ? `${VERDICT_TEXT[r.verdict]}${r.indicative ? " (indicative)" : ""}. ` : ""}${rg.headline ? `${rg.headline}. ` : ""}${r.headline}`} />
       {rehab ? (
         <RehabBudget finishedSf={p.finishedSf} total={over.lineAmounts?.hard_base ?? null} onSet={(v) => setLine("hard_base", v)} onReset={() => resetLine("hard_base")} />
       ) : (
@@ -261,7 +261,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-live-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
+            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-live-verdict-tip">{VERDICT_TEXT[r.verdict]}{r.indicative ? " (indicative)" : ""}<span id="pf-live-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
             {!r.verdict && p.missing.some((t) => /^Demolition of the existing building is not priced/.test(t)) ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-800">Can&apos;t tell yet: demolition not priced</span> : null}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
             {p.land.flag && <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200">{p.land.flag}</span>}
@@ -291,7 +291,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       {p.units != null && p.finishedSf != null && (
         <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
           <b>Layout:</b> {live.scheme?.id ? "the QuickFit layout, " : ""}{p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
-          {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.</span>
+          {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.{!rehab && assumptions.nearbyNewHomeSizeText(p.valueComps as assumptions.CompSet | null) ? ` ${assumptions.nearbyNewHomeSizeText(p.valueComps as assumptions.CompSet | null)}.` : ""}</span>
         </p>
       )}
       <div className="mt-3">
@@ -316,7 +316,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
                 <details>
                   <summary className="flex cursor-pointer justify-between text-slate-800">
                     <span>Closing, selling &amp; carrying costs</span>
-                    <span className="tabular-nums">{minorRange ? <RangeValue r={minorRange} /> : usd(minor.reduce((t, b) => t + (b.amount ?? 0), 0))}</span>
+                    <span className="tabular-nums">{minorRange ? <RangeValue r={minorRange} /> : (minor.some((b) => b.amount != null) ? usd(minor.reduce((t, b) => t + (b.amount ?? 0), 0)) : "—")}</span>
                   </summary>
                   <table className="mt-1 w-full">
                     <tbody>

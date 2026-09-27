@@ -31,7 +31,7 @@ export default function PlannerSummary({ s, f, set, loading }: {
 }) {
   if (!s) return <EmptyState tone="error" title="Results could not load">Try again in a moment. The filters still work.</EmptyState>;
   if (!s.total) return <EmptyState tone="empty" title="No parcels match these filters">Remove a filter on the left to widen the search.</EmptyState>;
-  const bands = [...BANDS, "Partial", "No score"].map((b) => ({ b, label: b === "Partial" ? "partial (zoning not loaded)" : bandLabel(b).toLowerCase(), n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
+  const bands = [...BANDS, "Partial", "No score"].map((b) => ({ b, label: b === "Partial" ? "partial (no score)" : bandLabel(b).toLowerCase(), n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
   // Blockers a rule change can relax (slope and hazards are not rules), most common first; levers that
   // relax blockers on at least 10% of the matching parcels are combined into one Policy scenario.
   const ruleBlockers = s.blockers.filter((b) => BLOCKER_LEVER[b.blocker]);

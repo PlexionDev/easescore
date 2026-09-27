@@ -112,6 +112,29 @@ function DataUnavailable({ parid }: { parid: string }) {
   );
 }
 
+/** In the County assessment roll but with no mapped lot outline: a Partial pane from the assessment facts (no score, no pro forma). */
+function NoOutlinePane({ parid, a }: { parid: string; a: { address: string | null; muni_desc: string | null; use_desc: string | null; lot_area_sqft: number | null } }) {
+  const rows: [string, string][] = [
+    ["Municipality", titleCase(a.muni_desc) || "Not on record"],
+    ["County land use", a.use_desc ? titleCase(a.use_desc) : "Not on record"],
+    ["Recorded lot size", a.lot_area_sqft ? `${Math.round(a.lot_area_sqft).toLocaleString("en-US")} sq ft (County assessment)` : "Not on record"],
+  ];
+  return (
+    <main className="mx-auto max-w-xl p-6">
+      <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
+      <h1 className="mt-4 text-xl font-bold text-slate-900">{a.address ? titleCase(a.address) : `Parcel ${parid}`}</h1>
+      <div className="mt-0.5"><CopyParcelId parid={parid} /></div>
+      <section aria-label="Partial screen" className="mt-3 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2">
+        <p className="text-base font-semibold leading-snug text-slate-900">Partial · {score.partialText("no_outline")}.</p>
+        <p className="mt-0.5 text-[12px] leading-snug text-slate-700">No Ease Score and no pencils verdict: the County lists this parcel, but there is no mapped lot outline to check fit, slope or hazards against. Confirm the boundary with a survey.</p>
+      </section>
+      <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-sm">
+        {rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-slate-600">{k}</dt><dd className="text-slate-900">{v}</dd></div>)}
+      </dl>
+    </main>
+  );
+}
+
 /** Lot centroid [lon, lat] from the parcel facts, for aiming the 3D view before the map data arrives. */
 function centerOf(f: object): [number, number] | null {
   const c = (f as { centroid?: { lon?: unknown; lat?: unknown } | null }).centroid;
@@ -159,6 +182,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const unscoredP = fetch(`${SB_URL}/rest/v1/planner_building_unscored?select=reason,use_desc&parid=eq.${encodeURIComponent(parid)}`, {
     headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
   }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string; use_desc: string | null }[]) => x[0] ?? null).catch(() => null);
+  // Not a housing lot (streets and rights-of-way, parks, parking, utility, transit, plazas, common areas): the
+  // Planner's "Other public land" list (planner_other_public_land); null when not listed or on any error.
+  const otherLandP = fetch(`${SB_URL}/rest/v1/planner_other_public_land?select=reason&parid=eq.${encodeURIComponent(parid)}`, {
+    headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
+  }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string }[]) => x[0]?.reason ?? null).catch(() => null);
   // Privacy: the planning-priority badge is shown only for publicly owned land (owner_class = 'public');
   // an error or timeout is treated the same as "not public" so a badge never shows without knowing.
   const ownerClassP = fetch(`${SB_URL}/rest/v1/parcel_scores?select=owner_class&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
@@ -174,7 +202,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   if (!loaded.ok) {
     // 404 only when the parcel ID truly does not exist; a data error (e.g. a database timeout) gets a retry page.
     const exists = await T.time("rest_parcel_exists", within(parcelExists(parid), 4000));
-    if (exists === false) notFound();
+    if (exists === false) {
+      // In the assessment roll but not on the parcel map: a Partial pane, not a 404.
+      const asmt = await fetch(`${SB_URL}/rest/v1/assessments?select=address,muni_desc,use_desc,lot_area_sqft&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
+        headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(4000),
+      }).then((r) => (r.ok ? r.json() : [])).then((x: { address: string | null; muni_desc: string | null; use_desc: string | null; lot_area_sqft: number | null }[]) => x[0] ?? null).catch(() => null);
+      if (asmt) return <NoOutlinePane parid={parid} a={asmt} />;
+      notFound();
+    }
     return <DataUnavailable parid={parid} />;
   }
   const P = loaded.payload;
@@ -207,6 +242,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     const rehab = id === "rehab_existing";
     // Renovation is priced only from the visitor's own rehab budget: no chip until they enter one.
     if (!x) return rehab ? "none" : "unknown";
+    // A lot we can't verify never shows a verdict (the Pro forma says "Review required").
+    if (score.lotUnverifiable(f) || score.notHousingUse(f)) return "unknown";
     if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab budget/i.test(t)) ? "none" : "unknown";
     return x.verdict ?? "unknown";
   };
@@ -345,19 +382,24 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const ownerClass = await ownerClassP;
   const badgePublic = ownerClass === "public";
   const useBuilt = score.buildingUnscored(f);
-  const partialReason: score.PartialReason | null = !score.zoningLoaded(f) ? "zoning" : (unscored?.reason as score.PartialReason | undefined) ?? (useBuilt ? "use" : null);
+  // A lot we can't verify (no outline, recorded vs mapped size more than 2× apart, over 2 acres): Partial, never "Pencils".
+  const lotReason = score.lotUnverifiable(f);
+  const otherLand = (await otherLandP) ?? score.notHousingUse(f);
+  const lotReview = otherLand ? score.partialText("not_housing", { use: otherLand }) : lotReason ? score.partialText(lotReason) : null;
+  if (answers && lotReview) answers = { ...answers, pencils: { ...answers.pencils, text: `${lotReview.startsWith(score.LOT_REVIEW) ? "" : `${score.LOT_REVIEW}: `}${lotReview}. ${answers.pencils.text}` } };
+  const partialReason: score.PartialReason | null = otherLand ? "not_housing" : !score.zoningLoaded(f) ? "zoning" : (unscored?.reason as score.PartialReason | undefined) ?? (useBuilt ? "use" : null) ?? lotReason;
   const partial = partialReason != null;
   const muniName = (f.context?.municipality ?? a?.municipality ?? null) as string | null;
-  const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
+  const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: partialReason === "not_housing" ? otherLand : unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
   const best = partial ? null : optionRows.find((r) => r.evaluable) ?? null;
   const PENCIL_WORDS: Record<score.PencilState, string> = {
-    yes: "pencils at market rate", thin: "doesn't pencil at market rate", no: "doesn't pencil at market rate", pricing: "", unknown: "", none: "",
+    yes: "pencils at market rate", thin: "thin margin at market rate", no: "doesn't pencil at market rate", pricing: "", unknown: "", none: "",
   };
   // The best option with its own home count ("Duplex · 2 homes"), from its priced plan, else the score's fit.
   const bestUnits = best ? (best.strategy === selected?.strategy ? pf?.plan.units : null) ?? plans?.options.find((q) => q.strategy === best.strategy)?.units ?? easeResult?.strategies.find((x) => x.strategy === best.strategy)?.units ?? null : null;
   // A missing sale value shows in the Pro forma ("No sale value yet"), never here.
   const bestLine = !best
-    ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partial ? "Can't determine; the score did not see what is on this lot" : "No option is allowed and fits this lot") : null)
+    ? (optionRows.some((r) => r.applicable) ? (partialReason === "zoning" ? "Can't determine; zoning not loaded" : partialReason === "no_outline" || partialReason === "lot_mismatch" || partialReason === "large_site" || partialReason === "not_housing" ? `Can't determine; ${partialLine!.replace(/^./, (m) => m.toLowerCase())}` : partial ? "Can't determine; the score did not see what is on this lot" : "No option is allowed and fits this lot") : null)
     : [`${best.name}${bestUnits ? ` · ${bestUnits} home${bestUnits === 1 ? "" : "s"}` : ""} (${best.zoning.kind === "allowed" && best.zoning.text === "Allowed" ? "allowed by right" : best.zoning.text.replace(/^./, (m) => m.toLowerCase()).replace(/:.*$/, "")})`,
         best.leadLabel === score.LEAD_SUBSIDY ? "needs subsidy or lower costs" : pencilDetail[best.strategy]?.toLowerCase() ?? PENCIL_WORDS[best.pencils]].filter(Boolean).join(", ");
   // Market strength beside the score: the new-construction comp set the pro forma prices from.
@@ -392,9 +434,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {selected && selected.redFlags.length > 0 && <Callouts selected={selected} kinds="red" max={1} compact />}
       {/* 4. Ease Score, band and one sentence */}
       {partial ? (
-        <PartialBlock headline={partialLine!} zoning={partialReason === "zoning"} market={market} />
+        <PartialBlock headline={partialLine!} zoning={partialReason === "zoning"} lot={partialReason === "no_outline" || partialReason === "lot_mismatch" || partialReason === "large_site" || partialReason === "not_housing"} market={market} />
       ) : easeResult && selected ? (
-        <ScoreBlock selected={selected} sentence={scoreSentence(selected)} market={market} pencilsNo={pf?.verdict === "no"} />
+        <ScoreBlock selected={selected} sentence={scoreSentence(selected)} market={market} pencilsNo={pf?.verdict === "no"} pencilsThin={pf?.verdict === "thin"} />
       ) : (
         <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">We could not score this parcel right now (not enough evidence loaded). The report and the process checklist still apply.</p>
       )}
@@ -542,11 +584,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pane={pane}
       planExtras={<>{(ubPlan?.pf ?? pf) ? <AssumptionsForm parid={parid} result={(ubPlan?.pf ?? pf)!} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Pro forma", content: ubPlan ? <NoZoningProForma parid={parid} sp={sp} plan={ubPlan} municipality={muniName} overrides={overrides} /> : pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "pencils", title: "Pro forma", content: ubPlan ? <NoZoningProForma parid={parid} sp={sp} plan={ubPlan} municipality={muniName} overrides={overrides} /> : pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} review={lotReview} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Score details", content: details },
         { id: "options", title: "Best options and street precedent", content: <>
-          {optionRows.length > 0 ? <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} note={isHighDensityZone(f.zoning?.code) ? HIGH_DENSITY_NOTE : null} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
+          {optionRows.length > 0 ? <BestOptions parid={parid} rows={lotReview ? optionRows.map((r) => (r.pencils === "yes" || r.pencils === "thin" || r.pencils === "no" ? { ...r, pencils: "unknown" as const } : r)) : optionRows} detail={lotReview ? {} : pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} note={isHighDensityZone(f.zoning?.code) ? HIGH_DENSITY_NOTE : null} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
           <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
         </> },
       ]}

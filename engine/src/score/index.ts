@@ -8,7 +8,7 @@ export {
   frontEdgesFor, solverRules, useColumnsFor, type QuickFitParcelInput, type FitRunOptions,
 } from "./strategies";
 export { piecewise, bandFor } from "./curves";
-export { BAND_LABEL, BAND_CODES, PARTIAL, SCORE_CAPTION, bandLabel, relabelBands, zoningLoaded, partialHeadline, buildingUnscored, buildingHeadline, partialText, BUILDING_USE_RE, BUILDING_USE_EXCLUDE_RE, type PartialReason } from "./bands";
+export { BAND_LABEL, BAND_CODES, PARTIAL, SCORE_CAPTION, bandLabel, relabelBands, zoningLoaded, partialHeadline, buildingUnscored, buildingHeadline, partialText, lotUnverifiable, notHousingUse, LARGE_SITE_SQFT, PENCIL_LABEL, PENCIL_TIP, LOT_REVIEW, BUILDING_USE_RE, BUILDING_USE_EXCLUDE_RE, type PartialReason } from "./bands";
 export type * from "./types";
 export { selectScheme, type SelectedScheme, type SelectSchemeArgs, type ProgramOverrides, type UnitProgram, type SchemeLike } from "./selected";
 export {

@@ -36,9 +36,9 @@ const blockText = (address: string | null | undefined) => {
 };
 
 export const REPORT_VERSION = "report v0.1";
-const PENCILS_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
-/** The "Pencils" chip rule, stated wherever the verdict appears. */
-export const PENCILS_TIP = "Meets the target profit margin at default assumptions";
+const PENCILS_TEXT: Record<string, string> = ease.PENCIL_LABEL;
+/** The "Pencils" chip rule, stated wherever the verdict appears (one meaning everywhere). */
+export const PENCILS_TIP = `${ease.PENCIL_TIP.yes}; ${ease.PENCIL_TIP.thin}; ${ease.PENCIL_TIP.no}`;
 export const DISCLAIMER = "Decision support — not legal, financial, or engineering advice.";
 
 // Small helpers -----------------------------------------------------------------------------------
@@ -449,7 +449,7 @@ export function S1(x: Ctx) {
           <div className="kicker" title={PENCILS_TIP}>Pencils?</div>
           {m.proForma.verdict ? (
             <div className="v">
-              {PENCILS_TEXT[m.proForma.verdict]}
+              {ease.lotUnverifiable(m.facts) ? ease.LOT_REVIEW : PENCILS_TEXT[m.proForma.verdict]}
               {m.scenario.tenure === "sale" && m.proForma.sale.margin != null ? ` · ${m.proForma.sale.margin < 0 ? "−" : ""}${pct(Math.abs(m.proForma.sale.margin), 1)}` : ""}
               {fn(x, "cost_config")}
             </div>
@@ -458,7 +458,7 @@ export function S1(x: Ctx) {
           )}
           <div className="small muted">
             {m.proForma.plan.evidence === "partial" ? `Partial: ${m.proForma.plan.exclusions.length} cost item${m.proForma.plan.exclusions.length === 1 ? "" : "s"} not included. ` : ""}
-            {m.scenario.tenure === "sale" ? `Profit ÷ total cost. Pencils = ${PENCILS_TIP.toLowerCase()} (${pct(assumptions.DEFAULT_CRITERIA.targetMargin, 0)} of cost).` : "Income after running costs ÷ total cost."} Shown separately from the Ease Score.
+            {ease.lotUnverifiable(m.facts) ? `${ease.partialText(ease.lotUnverifiable(m.facts))}. ` : ""}{m.scenario.tenure === "sale" ? `Profit ÷ total cost. ${PENCILS_TIP}.` : "Income after running costs ÷ total cost."} Shown separately from the Ease Score.
           </div>
         </div>
         <div className="stat">
@@ -810,7 +810,7 @@ export function S3(x: Ctx) {
 // ---------------------------------------------------------------------------------------------
 // 4. Zoning
 
-const PENCIL_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil", pricing: "—", unknown: "Can't tell yet", none: "—" };
+const PENCIL_TEXT: Record<string, string> = { ...ease.PENCIL_LABEL, pricing: "—", unknown: "Can't tell yet", none: "—" };
 
 /** "Best options for this lot" (the parcel page's ranking) and the street precedent, moved here from the pane. */
 function OptionsAndPrecedent({ x }: { x: Ctx }) {
@@ -2235,7 +2235,7 @@ export function AppF() {
 // Report additions: product-type comparison, absorption, sources and uses, tax abatement,
 // public cost vs public benefit, and the limiting conditions (Section 14).
 
-const VERDICT_WORD: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
+const VERDICT_WORD: Record<string, string> = ease.PENCIL_LABEL;
 
 function pfCells(pf: assumptions.ProFormaResult | null) {
   if (!pf) return { cost: "—", value: "—", result: "—", ratio: "—", verdict: "Not computed" };

@@ -3,7 +3,7 @@
 // every recalculation runs on the server with the same code as the PDF report.
 
 import Link from "next/link";
-import { assumptions, finance } from "@easescore/engine";
+import { assumptions, finance, score } from "@easescore/engine";
 import CompsMini from "./CompsMini";
 import { PF } from "@/lib/proforma";
 import { OpenDrawer } from "./Drawers";
@@ -16,11 +16,10 @@ const usd = (n: number | null | undefined) => (typeof n === "number" && Number.i
 
 const VERDICT_STYLE: Record<string, string> = {
   yes: "bg-emerald-100 text-emerald-800",
-  thin: "bg-red-100 text-red-800",
+  thin: "bg-amber-100 text-amber-900",
   no: "bg-red-100 text-red-800",
 };
-const VERDICT_TEXT: Record<string, string> = { yes: "Pencils", thin: "Doesn't pencil", no: "Doesn't pencil" };
-const VERDICT_TIP = "Meets the target profit margin at default assumptions";
+const VERDICT_TEXT: Record<string, string> = score.PENCIL_LABEL;
 const EVIDENCE_TEXT: Record<assumptions.Evidence, string> = { complete: "Complete estimate", partial: "Partial estimate", missing: "Missing inputs" };
 const EVIDENCE_STYLE: Record<assumptions.Evidence, string> = {
   complete: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -85,7 +84,7 @@ function CompBlock({ comps, floor, newBuild, plan }: { comps: Comps; floor: stri
   );
 }
 
-export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, overrides }: {
+export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, overrides, review = null }: {
   parid: string;
   result: assumptions.ProFormaResult;
   strategyLabel: string;
@@ -93,8 +92,10 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
   /** When given, the panel runs in the browser: build-quality slider and editable budget lines recompute instantly. */
   live?: LiveInputs | null;
   overrides?: assumptions.CostOverrides;
+  /** Lot not verified: "Review required" in place of the verdict. */
+  review?: string | null;
 }) {
-  if (live) return <ProFormaLive parid={parid} live={live} initial={overrides ?? {}} strategyLabel={strategyLabel} />;
+  if (live) return <ProFormaLive parid={parid} live={live} initial={overrides ?? {}} strategyLabel={strategyLabel} review={review} />;
   const r = result;
   const p = r.plan;
   const cfg = assumptions.COST_CONFIG;
@@ -116,14 +117,14 @@ export default function ProFormaPanel({ parid, result, strategyLabel, sp, live, 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Does it pencil? · {strategyLabel} · {sale ? "to sell" : "to rent"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={VERDICT_TIP} aria-describedby="pf-panel-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-panel-verdict-tip" className="sr-only">{`Pencils = ${VERDICT_TIP.toLowerCase()}`}</span></span>}
+            {review ? <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-900" title={review}>{score.LOT_REVIEW}<span className="sr-only">{`: ${review}`}</span></span> : r.verdict && <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${VERDICT_STYLE[r.verdict]}`} title={score.PENCIL_TIP[r.verdict]} aria-describedby="pf-panel-verdict-tip">{VERDICT_TEXT[r.verdict]}<span id="pf-panel-verdict-tip" className="sr-only">{score.PENCIL_TIP[r.verdict]}</span></span>}
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${EVIDENCE_STYLE[p.evidence]}`}>{EVIDENCE_TEXT[p.evidence]}</span>
           </div>
         </div>
         <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{p.configVersion}</span>
       </div>
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
-      <p className="mt-1 text-sm text-slate-700">{r.headline}</p>
+      <p className="mt-1 text-sm text-slate-700">{review ? `${review.startsWith(score.LOT_REVIEW) ? "" : `${score.LOT_REVIEW}: `}${review}. ` : ""}{r.headline}</p>
       <p className="mt-0.5 text-[11px] text-slate-500">Ranges come from each input&apos;s documented range; the &ldquo;likely&rdquo; figure uses the defaults. Rounded to $1,000 per line and $10,000 for totals. {sale ? rg.sale.method : rg.rent.method}</p>
 
       {p.units != null && p.finishedSf != null && (

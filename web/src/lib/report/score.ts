@@ -110,6 +110,10 @@ export function loadEaseScore(input: EaseScoreInput): EaseScoreView {
   if (built) {
     return { status: "pending", partial: true, reason: `${ease.partialText("use", { use: built })}. No Ease Score: a new-build score here would ignore what already stands on the lot. This study reports the known facts. ${ease.SCORE_CAPTION}` };
   }
+  const lot = ease.lotUnverifiable(input.facts);
+  if (lot) {
+    return { status: "pending", partial: true, reason: `${ease.partialText(lot)}. No Ease Score: a lot we can't verify is not scored. This study reports the known facts. ${ease.SCORE_CAPTION}` };
+  }
   let res: ReturnType<typeof ease.scoreParcel>;
   try {
     res = input.result ?? ease.scoreParcel(input.facts, {

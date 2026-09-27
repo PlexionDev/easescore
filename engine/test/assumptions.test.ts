@@ -405,7 +405,7 @@ describe("Pencils verdict and sales commission", () => {
       const r = evaluateDevelopment(plan(FLAT, { overrides: { salePricePerUnit: price } }));
       const box = assumptions.decisionBox(r);
       if (box.profitOnCost == null) continue;
-      expect(r.verdict).toBe(box.profitOnCost >= assumptions.DEFAULT_CRITERIA.targetMargin - 1e-9 ? "yes" : "no");
+      expect(r.verdict).toBe(box.profitOnCost >= assumptions.DEFAULT_CRITERIA.targetMargin - 1e-9 ? "yes" : box.profitOnCost >= 0 ? "thin" : "no");
     }
   });
   it("sales commission defaults to $0 and a number you enter comes out of selling costs", () => {

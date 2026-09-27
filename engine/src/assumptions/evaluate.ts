@@ -126,9 +126,10 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
 
   const thinYoc = config.pencils.thinYieldOnCostBelow.value as number | null;
   let verdict: ProFormaResult["verdict"] = null;
-  // For sale: "Pencils" only when the likely profit meets the decision box's target margin on cost (same default
-  // and same profit ÷ TDC as decisionBox); otherwise "Doesn't pencil". No in-between for sale plans.
-  if (plan.tenure === "sale" && profitR != null && tdc) verdict = profitR / tdc + 1e-9 >= DEFAULT_CRITERIA.targetMargin ? "yes" : "no";
+  // For sale, one meaning everywhere: "Pencils" when the likely profit meets the decision box's target margin on
+  // cost (same default and same profit ÷ TDC as decisionBox); "Thin margin" when profitable but below it;
+  // "Doesn't pencil" below zero.
+  if (plan.tenure === "sale" && profitR != null && tdc) verdict = profitR / tdc + 1e-9 >= DEFAULT_CRITERIA.targetMargin ? "yes" : profitR >= 0 ? "thin" : "no";
   if (plan.tenure === "rent" && rent.noi != null) verdict = rent.noi <= 0 ? "no" : thinYoc != null && rent.yieldOnCost != null ? (rent.yieldOnCost < thinYoc ? "thin" : "yes") : null;
   // No verdict while an input is missing (e.g. demolition not priced): never "Pencils" on a partial answer.
   if (plan.missing.length) verdict = null;
@@ -184,11 +185,11 @@ export function evaluateDevelopment(plan: DevelopmentPlan, config: CostConfig = 
   if (plan.missing.length) headline = `Can't tell yet${tdc != null ? `: it costs about ${about(tdc)}, but` : "."} ${tdc != null ? lcFirst(plan.missing[0]!) : plan.missing[0]}`;
   else if (plan.tenure === "sale" && sale.profit != null && tdc != null && sale.netSales != null)
     headline =
-      verdict === "no" && sale.profit > 0
-        ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}), below the ${pct1(DEFAULT_CRITERIA.targetMargin)} target profit margin${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
+      verdict === "thin"
+        ? `Thin margin: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)}), below the ${pct1(DEFAULT_CRITERIA.targetMargin)} target profit margin${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
         : verdict === "no"
         ? `No: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, ${usd(-sale.profit)} short${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale` : ""}.`
-        : `${verdict === "thin" ? "Barely" : "Yes"}: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)})${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale (${usd(sale.profit - sellOutCarryR)} after it)` : ""}.`;
+        : `Yes: it costs about ${about(tdc)} and would net about ${about(sale.netSales)} after selling costs, a ${usd(sale.profit)} profit (${pct1(sale.margin!)})${sellOutCarryR ? ` before about ${usd(sellOutCarryR)} of loan interest between completion and the last sale (${usd(sale.profit - sellOutCarryR)} after it)` : ""}.`;
   else if (plan.tenure === "rent" && rent.noi != null && tdc != null)
     headline =
       verdict === "no"

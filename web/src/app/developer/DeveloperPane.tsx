@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
-import { relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
+import { partialText, relabelBands, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import { ownerLabel, partialBest, partialNote, titleCase, type PlannerResult, type PlannerRow } from "@/lib/planner";
 import { addressLine, briefs, type Brief } from "@/lib/parcel-brief";
 import { MOST_BY_RIGHT, bestWithHomes } from "@/lib/best-option";
@@ -69,6 +69,16 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
     void briefs([parid]).then(([b]) => { if (live && b) setBrief(b); });
     return () => { live = false; };
   }, [parid, row]);
+  // Not in the scores because it is not a housing lot (the Planner's "Other public land" list).
+  const [otherLand, setOtherLand] = useState<{ id: string; reason: string | null } | null>(null);
+  useEffect(() => {
+    if (!parid || state !== "none") return;
+    let live = true;
+    fetch(`${SUPA}/rest/v1/planner_other_public_land?select=reason&parid=eq.${encodeURIComponent(parid)}`, { headers: { apikey: KEY } })
+      .then((r) => (r.ok ? r.json() : [])).then((x: { reason: string }[]) => { if (live) setOtherLand({ id: parid, reason: x[0]?.reason ?? null }); })
+      .catch(() => { if (live) setOtherLand({ id: parid, reason: null }); });
+    return () => { live = false; };
+  }, [parid, state]);
   const stage = useMemo(() => (parid ? mapStage(parid) : null), [parid]);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -111,7 +121,7 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
       {state === "loading" ? <p className="dv-hint" role="status">Loading this parcel…</p> : null}
       {state === "error" ? <p className="pl-callout amber">Scores could not load right now. The quick view below computes this parcel live.</p> : null}
       {state === "none" ? (
-        <p className="pl-callout amber">This parcel is not in our precomputed scores (scores cover the City of Pittsburgh). Open the quick view to score it live.</p>
+        <p className="pl-callout amber">{otherLand?.id === parid && otherLand.reason ? `${partialText("not_housing", { use: otherLand.reason })}. No Ease Score and no pro forma.` : "This parcel is not in our precomputed scores (scores cover the City of Pittsburgh). Open the quick view to score it live."}</p>
       ) : null}
       {r ? (
         <>

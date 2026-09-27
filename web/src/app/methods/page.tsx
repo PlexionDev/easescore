@@ -300,8 +300,8 @@ export default function MethodsPage() {
             </p>
             <h3>The verdict</h3>
             <p>
-              For a home built to sell: profit = sales − total cost − selling costs. If profit is zero or less, the answer is <strong>No</strong>.
-              If the margin on cost is under {pct(costs.pencils.thinMarginBelow.value)}, it is <strong>Barely</strong>. Otherwise <strong>Yes</strong>.
+              For a home built to sell: profit = sales − total cost − selling costs. Below zero, it <strong>doesn&rsquo;t pencil</strong>.
+              From zero up to the {pct(assumptions.DEFAULT_CRITERIA.targetMargin)} target margin on cost, it is a <strong>thin margin</strong>. At or above the target it <strong>pencils</strong>.
               For a rental the page stops at yield on cost, because there is no local market cap rate to judge it against yet.
               The math is written out as sentences, for example &ldquo;sales − total cost − selling costs = profit.&rdquo;
             </p>

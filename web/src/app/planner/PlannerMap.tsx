@@ -189,7 +189,7 @@ export default function PlannerMap({ points, total, blockers, hover, selected, p
   const legend = colorBy === "blocks"
     ? BLOCK_STEPS.map((b) => ({ color: b.color, label: b.label }))
     : colorBy === "band"
-    ? [...BANDS.map((b) => ({ color: BAND_COLOR[b]!, label: bandLabel(b) })), { color: PARTIAL_COLOR, label: "Partial (zoning not loaded)" }]
+    ? [...BANDS.map((b) => ({ color: BAND_COLOR[b]!, label: bandLabel(b) })), { color: PARTIAL_COLOR, label: "Partial (no score)" }]
     : [...topBlockers.map((b, i) => ({ color: BLOCKER_PALETTE[i]!, label: b })), { color: "#9aa6a1", label: "Other or none" }];
   const p = card ? byId.get(card.parid) : undefined;
   return (

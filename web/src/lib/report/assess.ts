@@ -1,7 +1,7 @@
 // Plain-language findings shared by several report sections: red flags, review items, approvals,
 // data gaps, and the next steps. Pure functions of the report model.
 
-import { narrative, PHASE_ORDER, type RequirementResult } from "@easescore/engine";
+import { narrative, PHASE_ORDER, score as ease, type RequirementResult } from "@easescore/engine";
 import type { ReportModel } from "./load";
 
 export interface Finding {
@@ -152,7 +152,7 @@ export function reviewItems(m: ReportModel, alreadyShown: string[] = []): Findin
   const lotCounty = Number(f.assessment?.lot_area_sqft) || 0, lotMapped = Number(f.lot_area_sqft_gis) || 0;
   if (lotCounty > 0 && lotMapped > 0 && Math.abs(lotCounty - lotMapped) / Math.max(lotCounty, lotMapped) > 0.25)
     out.push({
-      title: "Lot size records disagree",
+      title: Math.max(lotCounty, lotMapped) > 2 * Math.min(lotCounty, lotMapped) ? "Review required: lot size mismatch; survey first" : "Lot size records disagree",
       reason: `County ${Math.round(lotCounty).toLocaleString("en-US")} sq ft vs mapped ${Math.round(lotMapped).toLocaleString("en-US")} sq ft. Confirm with a survey before relying on the layout or the land price.`,
       mitigation: "Order a boundary survey and a title search; the recorded deed controls.",
       sources: ["assessment"],
@@ -226,7 +226,8 @@ export function dataGaps(m: ReportModel): Gap[] {
   for (const e of m.proForma.plan.exclusions)
     g.push({ what: `${e.label} cost`, effect: `${e.reason}, but no cost is set, so it is left out of the total development cost.`, mitigation: "Get a local quote and enter it in the pro forma." });
   if (m.score.status === "pending") g.push(m.score.partial
-    ? { what: "Ease Score", effect: "No numeric score or band: this municipality's zoning is not loaded (a partial screen of the known facts only).", mitigation: `Confirm zoning with ${titleCase(f.assessment?.municipality) || "the municipality"}.` }
+    ? (ease.zoningLoaded(f) ? { what: "Ease Score", effect: `No numeric score or band: ${m.score.reason.split(". No Ease Score")[0]!.replace(/^Partial screen: /, "")}.`, mitigation: ease.lotUnverifiable(f) === "large_site" ? "Model a larger building with an architect; EaseScore models 1–4 home buildings." : ease.lotUnverifiable(f) ? "Order a boundary survey and a title search; the recorded deed controls." : "Confirm what stands on the lot before relying on a new-build estimate." }
+      : { what: "Ease Score", effect: "No numeric score or band: this municipality's zoning is not loaded (a partial screen of the known facts only).", mitigation: `Confirm zoning with ${titleCase(f.assessment?.municipality) || "the municipality"}.` })
     : { what: "Ease Score", effect: "The score, its band and predicted months to permit are not shown.", mitigation: "Pending the scoring engine; every input it uses appears in this report." });
   g.push({ what: "City review times", effect: "The timeline shows the order of steps but not their length.", mitigation: "Ask the City's zoning and permit offices for current review times." });
   if (!f.zoning?.code) g.push({ what: "Zoning outside the City of Pittsburgh", effect: "Allowed uses and dimensional rules are unknown here.", mitigation: `Confirm zoning with ${titleCase(f.assessment?.municipality) || "the municipality"}.` });

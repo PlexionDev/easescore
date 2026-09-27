@@ -99,7 +99,7 @@ function pencilsClause(o: SummaryOption): string {
   if (o.verdict === "no") return "at current costs it does not pencil";
   if (o.marginPct == null) return o.needs ? `pricing it needs ${o.needs}` : "whether it pencils can't be told from our data yet";
   const what = o.tenure === "sale" ? "margin" : "yield on cost";
-  if (o.verdict === "thin") return `it pencils only thinly, at about a ${pct(o.marginPct)} ${what} ${basis}`;
+  if (o.verdict === "thin") return o.tenure === "sale" ? `it has a thin margin: about a ${pct(o.marginPct)} ${what} ${basis}, profitable but below the target profit margin` : `it pencils only thinly, at about a ${pct(o.marginPct)} ${what} ${basis}`;
   if (o.verdict === "yes") return `it pencils at about a ${pct(o.marginPct)} ${what} ${basis}`;
   return `it earns about a ${pct(o.marginPct)} ${what} ${basis}`;
 }

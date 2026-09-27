@@ -147,7 +147,7 @@ export default function DeveloperMap({ points, total, selected, pinned, onSelect
       bounds={PGH_BOUNDS}
       basemap="light"
       minHeight={260}
-      legend={<MapLegend items={[...BANDS.map((x) => ({ color: BAND_COLOR[x]!, label: bandLabel(x) })), { color: PARTIAL_COLOR, label: "Partial (zoning not loaded)" }]} title="Ease Score band" />}
+      legend={<MapLegend items={[...BANDS.map((x) => ({ color: BAND_COLOR[x]!, label: bandLabel(x) })), { color: PARTIAL_COLOR, label: "Partial (no score)" }]} title="Ease Score band" />}
     >
       <Layers points={points} selected={selected} pinned={pinned} onSelect={onSelect} onHover={setHover} fitKey={fitKey} />
       <p className="pl-mapnote dv-mapnote">
@@ -159,7 +159,7 @@ export default function DeveloperMap({ points, total, selected, pinned, onSelect
           <strong>{b?.address ?? "Parcel"}</strong>
           <span className="dv-mono">Parcel {hover.parid.trim()}</span>
           <span className="pl-muted" style={{ display: "block" }}>
-            {[b ? (b.zoning ? `Zoning ${b.zoning}` : "Zoning not in our data") : "…", b?.owner ?? null, hover.score != null ? `Score ${hover.score} · ${bandLabel(hover.band)}` : hover.band === "Partial" ? "Partial screen: zoning not loaded" : null].filter(Boolean).join(" · ")}
+            {[b ? (b.zoning ? `Zoning ${b.zoning}` : "Zoning not in our data") : "…", b?.owner ?? null, hover.score != null ? `Score ${hover.score} · ${bandLabel(hover.band)}` : hover.band === "Partial" ? "Partial screen: no score" : null].filter(Boolean).join(" · ")}
           </span>
         </div>
       ) : null}

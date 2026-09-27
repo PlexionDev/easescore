@@ -18,14 +18,12 @@ const BAND_STYLE: Record<string, string> = {
 
 const PENCIL: Record<score.PencilState, { text: string; style: string }> = {
   yes: { text: "Pencils", style: "border-emerald-200 bg-emerald-50 text-emerald-900" },
-  thin: { text: "Doesn't pencil", style: "border-red-200 bg-red-50 text-red-900" },
+  thin: { text: "Thin margin", style: "border-amber-200 bg-amber-50 text-amber-900" },
   no: { text: "Doesn't pencil", style: "border-red-200 bg-red-50 text-red-900" },
   pricing: { text: "Pricing…", style: "border-slate-200 bg-slate-50 text-slate-600" },
   unknown: { text: "Can't tell yet", style: "border-slate-200 bg-white text-slate-600" },
   none: { text: "—", style: "border-transparent text-slate-500" },
 };
-
-const PENCIL_TIP = "Meets the target profit margin at default assumptions";
 
 const ZONING_STYLE: Partial<Record<score.ZoningPathKind, string>> = {
   allowed: "text-emerald-800",
@@ -62,7 +60,7 @@ export default function BestOptions({ parid, rows, detail, selected, sp, partial
                   <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900" title={"Ease Score out of 100"}>{scoreText}</span>
                 )}
                 {r.band && !partial && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${BAND_STYLE[r.band]}`}>{score.bandLabel(r.band)}</span>}
-                {r.applicable && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.style}`} title={r.pencils === "yes" || r.pencils === "no" || r.pencils === "thin" ? PENCIL_TIP : "Does it pencil? (from the Pro forma)"}>{detail?.[r.strategy] ?? p.text}{(r.pencils === "yes" || r.pencils === "no" || r.pencils === "thin") && <span className="sr-only">{` (Pencils = ${PENCIL_TIP.toLowerCase()})`}</span>}</span>}
+                {r.applicable && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.style}`} title={r.pencils === "yes" || r.pencils === "no" || r.pencils === "thin" ? score.PENCIL_TIP[r.pencils] : "Does it pencil? (from the Pro forma)"}>{detail?.[r.strategy] ?? p.text}{(r.pencils === "yes" || r.pencils === "no" || r.pencils === "thin") && <span className="sr-only">{` (${score.PENCIL_TIP[r.pencils]})`}</span>}</span>}
               </div>
               <p className={`ml-6 mt-0.5 text-[11px] leading-snug ${ZONING_STYLE[r.zoning.kind] ?? "text-slate-600"}`}>
                 {r.zoning.text}
