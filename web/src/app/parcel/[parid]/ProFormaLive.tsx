@@ -11,6 +11,7 @@ import { financeFor, type FinanceInputs, type SteppingResult } from "@/lib/quick
 import type { quickfit } from "@easescore/engine";
 import { PctRangeValue, RangeValue, SourceBadge, TriangulationStrip } from "./RangeBits";
 import { CommunityMedian, ScenarioShare, useCommunity } from "@/components/scenarios/ScenarioShare";
+import DecisionLive from "./DecisionLive";
 
 export interface LiveInputs {
   fin: FinanceInputs;
@@ -240,6 +241,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       </div>
 
       {rg.headline && <p className="mt-2 text-base font-semibold text-slate-900">{rg.headline}</p>}
+      <DecisionLive result={r} />
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-slate-200 p-1.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-500">Total cost</p>

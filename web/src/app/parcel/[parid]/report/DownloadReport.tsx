@@ -34,7 +34,12 @@ export default function DownloadReport({
     setBusy(true);
     setError(null);
     try {
-      const q = query.replace(/^\?/, "");
+      // Decision-box criteria edited in the Pencil calculator live in the page URL (dc_*): carry them.
+      const qp = new URLSearchParams(query.replace(/^\?/, ""));
+      try {
+        for (const [k, v] of new URL(window.location.href).searchParams) if (k.startsWith("dc_")) qp.set(k, v);
+      } catch { /* no window URL */ }
+      const q = qp.toString();
       const url = `/api/report/${encodeURIComponent(parid)}${q ? `?${q}` : ""}`;
       const images = getImages ? await getImages() : undefined;
       const res = images

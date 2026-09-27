@@ -12,6 +12,7 @@ import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras"
 import { narrative } from "@easescore/engine";
 import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
+import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
 import { CompsGrid, ConfidenceGrades } from "./evidence";
 
 export interface Ctx {
@@ -281,6 +282,8 @@ export function Contents() {
 
 export function S1(x: Ctx) {
   const { m } = x;
+  // The decision box comes first on the page, so its tables and footnotes are numbered first.
+  const decision = DecisionBlock(x);
   const s = m.scheme;
   const flags = redFlags(m);
   const reviews = reviewItems(m);
@@ -324,6 +327,7 @@ export function S1(x: Ctx) {
 
   return (
     <Sec id="s1" no="1" title="Summary in plain English">
+      {decision}
       <p className="lead">
         {s ? (
           <>
@@ -438,7 +442,7 @@ export function S1(x: Ctx) {
               {fn(x, "cost_config")}
             </div>
           ) : (
-            <div className="v pending">{m.proForma.plan.missing.length ? "Can’t tell yet" : "Depends on the loan"}</div>
+            <div className="v pending">{m.proForma.plan.missing.length || m.proForma.rent.yieldOnCost == null ? "Can’t tell yet" : `Unlevered · ${pct(m.proForma.rent.yieldOnCost, 1)} on cost`}</div>
           )}
           <div className="small muted">
             {m.proForma.plan.evidence === "partial" ? `Partial: ${m.proForma.plan.exclusions.length} cost item${m.proForma.plan.exclusions.length === 1 ? "" : "s"} not included. ` : ""}
@@ -1211,6 +1215,7 @@ export function S6(x: Ctx) {
         <p className="muted">Market activity is not available.</p>
       )}
       {AbsorptionBlock(x)}
+      {UnitSelloutBlock(x)}
     </Sec>
   );
 }
@@ -1422,6 +1427,7 @@ export function S8(x: Ctx) {
   const a = f.assessment;
   const currentTax = pt?.general_mills != null && a?.fmv_total ? (a.fmv_total * pt.general_mills) / 1000 : null;
   const tTax = pt ? x.tab() : 0;
+  const taxesAfter = TaxesAfterBlock(x);
   const tOps = x.tab();
   const mine = !!(overlay(m, "undermined_pgh") || f.mines?.msi_risk === "confirmed" || f.mines?.in_mined_out);
   return (
@@ -1438,7 +1444,7 @@ export function S8(x: Ctx) {
             {currentTax != null && (
               <>
                 On today’s assessment of {money(a?.fmv_total)}{fn(x, "assessment")}, that is {money(a?.fmv_total)} ÷ 1,000 × {num(pt.general_mills, 2)} = <b>{money(currentTax)}</b> a year. A new
-                building will be reassessed higher; the new assessed value is not estimated.
+                building is reassessed higher; the estimate after completion is below.
               </>
             )}
           </p>
@@ -1456,6 +1462,7 @@ export function S8(x: Ctx) {
       ) : (
         <p className="muted">Millage is not loaded for this municipality.</p>
       )}
+      {taxesAfter}
       <h2>Rent roll and operating costs</h2>
       <div className="tcap">Table {tOps}. Operating statement, from the finance engine{fn(x, "finance_engine")}</div>
       <table>
@@ -1475,7 +1482,7 @@ export function S8(x: Ctx) {
       </table>
       <p className="small">
         Rent used: {m.proForma.plan.revenue.rent.perUnit != null ? <>{money(m.proForma.plan.revenue.rent.perUnit)} a month per home ({m.proForma.plan.revenue.rent.basis}){fn(x, m.proForma.plan.revenue.rent.sourceLabel.startsWith("HUD") ? "hud_fmr" : "zori")}</> : "none available"}. Vacancy,
-        maintenance, management, insurance and reserves are editable assumptions (Appendix C){fn(x, "cost_config")}; the tax uses the actual millage on an assumed new assessed value (county land value + construction cost){fn(x, "millage")}.
+        maintenance, management, insurance and reserves are editable assumptions (Appendix C){fn(x, "cost_config")}; the tax uses the actual millage on the assessed value after completion, estimated from completed projects (table above){fn(x, "millage")}.
         {mine ? <> Mine subsidence insurance: {money(m.msiPer100k.value, 2)} a year per $100,000 of coverage{fn(x, "msi_rates")}.</> : null}
         {(f.flood_evidence?.sfha_share ?? 0) > 0 && f.flood_evidence?.tract_nfip_median_premium != null ? (
           <> Flood insurance reference: median premium in this tract {money(f.flood_evidence.tract_nfip_median_premium)} a year{fn(x, "nfip")}.</>
@@ -2205,7 +2212,7 @@ function pfCells(pf: assumptions.ProFormaResult | null) {
     value: sale ? `${money(pf.sale.grossSales)} in sales` : `${money(pf.rent.noi)} a year after running costs`,
     result: sale ? (pf.sale.profit != null ? (pf.sale.profit >= 0 ? `${money(pf.sale.profit)} profit` : `${money(-pf.sale.profit)} gap`) : "—") : pf.rent.yieldOnCost != null ? `${pct(pf.rent.yieldOnCost, 1)} yield on cost` : "—",
     ratio: sale ? (pf.sale.margin != null ? `${pct(pf.sale.margin, 1)} margin` : "—") : pf.rent.yieldOnCost != null ? `${pct(pf.rent.yieldOnCost, 1)} a year` : "—",
-    verdict: pf.verdict ? VERDICT_WORD[pf.verdict]! : pf.plan.tenure === "rent" ? "Depends on the loan and a local cap rate" : "—",
+    verdict: pf.verdict ? VERDICT_WORD[pf.verdict]! : pf.plan.tenure === "rent" ? "Unlevered yield shown; a local cap rate is needed to value it" : "—",
   };
 }
 

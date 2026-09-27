@@ -290,6 +290,8 @@ export interface ReportModel {
   affordable: { option: string; ami: number; bedrooms: number; rent: number; year: number; pf: assumptions.ProFormaResult } | null;
   /** Tax abatement scenario inputs (defaults from the cost config, pf_abate_* overrides). */
   abatement: { share: number; years: number; edited: boolean };
+  /** Investment criteria for the decision box (dc_* keys; defaults from engine/config/decision-criteria). */
+  criteria: assumptions.InvestmentCriteria;
   /** Site plan sheet EA-101 (true-scale SVG); null when the lot outline is not available. */
   sitePlan: SitePlanSheet | null;
   /** The parcel page's plan for the same URL (lib/parcel-plan.ts): when set, `scheme` and `proForma` are the page's. */
@@ -705,6 +707,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     plans,
     affordable,
     abatement,
+    criteria: assumptions.criteriaFromQuery(sp),
     sitePlan,
     pagePlan,
     rentsByBedroom,
