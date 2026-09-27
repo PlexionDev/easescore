@@ -331,7 +331,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     ["Lot size", lotSf ? `${Math.round(lotSf).toLocaleString("en-US")} sq ft` : NR, lotSf ? `${(lotSf / 43560).toFixed(2)} acre` : null],
     ["Average slope", slope?.mean_pct != null ? `${Math.round(Number(slope.mean_pct))}%` : NR, over25 != null ? `${`${Math.round(Number(over25) * 100)}%`} over 25%` : null],
     ["Hazards", hz == null ? "No data" : hz.length ? HAZARD_TILE[hz[0]!] ?? hz[0]! : "None mapped", hz && hz.length > 1 ? `+${hz.length - 1} more` : hz ? "in our data" : null],
-    ["Zoning", f.zoning?.code ?? "No data", f.zoning?.code ? (isCity ? "Pittsburgh" : titleCase(f.context?.municipality ?? a?.municipality) || null) : titleCase(f.context?.municipality ?? a?.municipality) || null],
+    // Downtown / high-density district: the tile's place line becomes the modeling cap (same height; full note in the drawer and report).
+    ["Zoning", f.zoning?.code ?? "No data", f.zoning?.code ? (isCity ? (isHighDensityZone(f.zoning.code) ? "1–4 homes modeled" : "Pittsburgh") : titleCase(f.context?.municipality ?? a?.municipality) || null) : titleCase(f.context?.municipality ?? a?.municipality) || null],
   ];
   // The best option in one line: its name, zoning path and money signal (never blended into one number).
   // Zoning not loaded (outside the City, or no district): a partial screen, no numeric score.
