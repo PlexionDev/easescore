@@ -335,11 +335,11 @@ export default function MethodsPage() {
               Sales in the same City neighborhood (or municipality) are used alone when there are at least {nc.selection.sameAreaMinComps}; otherwise
               market-tier areas (below). We widen until {nc.selection.nearestMin} sales, keep the nearest {nc.selection.nearestMax}, and drop sales whose price per
               square foot is beyond {nc.selection.outlierIqrMultiplier}× the middle-half spread; dropped sales are listed with the reason. When the
-              lot&apos;s own area has too few new sales, comps come only from areas in the same market tier: the median price per square foot of
-              existing-home sales there is within &plusmn;{Math.round(nc.selection.tierBand * 100)}% of the lot&apos;s area (an assumption you can edit;
+              lot&apos;s own area has too few new sales, comps come only from areas in the same market tier or lower, never a richer one: the median price per square foot of
+              existing-home sales there is no higher than the lot&apos;s area and at most {Math.round(nc.selection.tierBand * 100)}% below it (an assumption you can edit;
               at least {nc.selection.tierMinSales} sales in {nc.selection.tierYears} years, else {nc.selection.tierYearsFallback} years; an area still
               without a tier borrows the median tier of its {nc.selection.tierNeighbors} nearest areas). This is the way appraisers pick
-              comparable neighborhoods; no income, race or other demographic data is used. If too few sales qualify, areas priced no higher are
+              comparable neighborhoods; no income, race or other demographic data is used. If too few sales qualify, any lower-priced area is
               allowed; if there are still too few, no value is estimated — sales from richer markets nearby are never used just because they are close.
               Comps are kept within &plusmn;{Math.round(nc.selection.sizeBand * 100)}% of the planned home&apos;s size when enough remain.
             </p>

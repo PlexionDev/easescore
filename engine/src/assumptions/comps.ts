@@ -219,7 +219,9 @@ export function newConstructionComps(
       if (near.length) { subj = median(near.map((x) => x.t)); borrowedFrom = near.map((x) => x.n); }
     }
     if (area && subj != null && tiers) {
-      const band: [number, number] = [subj * (1 - sel.tierBand), subj * (1 + sel.tierBand)];
+      // Same tier or lower, never richer: from tierBand below the subject area's tier up to the tier itself.
+      // (A symmetric ±band let areas up to 35% richer in, e.g. Central Northside for Crawford-Roberts.)
+      const band: [number, number] = [subj * (1 - sel.tierBand), subj];
       const tierOf = (a: string | null | undefined) => byArea.get(norm(a));
       const inBand = (a: string | null | undefined) => { const t = tierOf(a); return t != null && t >= band[0] && t <= band[1]; };
       const cands = pool.filter((p) => norm(p.area) === norm(area) || inBand(p.area));
@@ -227,7 +229,7 @@ export function newConstructionComps(
       const qualified = [...new Set(cands.map((c) => c.area).filter((x): x is string => !!x))].sort();
       if (tried.chosen.length >= r.minComps) { scope = "tier_match"; res = tried; tier = { area, medianPerSqft: subj, band, qualified, fellBack: false, borrowedFrom }; }
       else {
-        // Too few in the band: any area priced no higher than the band's top — never a richer market.
+        // Too few in the band: any area priced no higher than the subject's tier — never a richer market.
         const lower = pool.filter((p) => norm(p.area) === norm(area) || ((tierOf(p.area) ?? Infinity) <= band[1]));
         const t2 = pickSized(lower);
         const q2 = [...new Set(lower.map((c) => c.area).filter((x): x is string => !!x))].sort();
@@ -252,14 +254,14 @@ export function newConstructionComps(
   const $ = (x: number) => `$${Math.round(x)}`;
   const tierText = !tier ? ""
     : tier.medianPerSqft == null ? ` Market tier of ${tier.area} is unknown (fewer than ${sel.tierMinSales} existing-home sales), so no tier matching.`
-      : ` Market tier: ${tier.borrowedFrom ? `${tier.area} has too few existing-home sales for a tier, so it borrows the median of its nearest areas (${tier.borrowedFrom.join(", ")}): ${$(tier.medianPerSqft)}/SF` : `${tier.area} existing homes sell for a median ${$(tier.medianPerSqft)}/SF`}; comps were limited to areas within ±${Math.round(sel.tierBand * 100)}% (${$(tier.band![0])}–${$(tier.band![1])}/SF; ${sel.tierBandLabel})${!tier.fellBack && tier.qualified.length ? `: ${tier.qualified.join(", ")}` : ""}.${tier.fellBack ? scope === "tier_or_lower" ? ` That left fewer than ${r.minComps} sales, so any area priced no higher than ${$(tier.band![1])}/SF was allowed (never a richer market).` : ` Even areas priced no higher than ${$(tier.band![1])}/SF have fewer than ${r.minComps} new-home sales, so no value is estimated from richer markets nearby.` : ""}`;
+      : ` Market tier: ${tier.borrowedFrom ? `${tier.area} has too few existing-home sales for a tier, so it borrows the median of its nearest areas (${tier.borrowedFrom.join(", ")}): ${$(tier.medianPerSqft)}/SF` : `${tier.area} existing homes sell for a median ${$(tier.medianPerSqft)}/SF`}; comps were limited to areas priced the same or up to ${Math.round(sel.tierBand * 100)}% lower (${$(tier.band![0])}–${$(tier.band![1])}/SF existing-home median; ${sel.tierBandLabel}; never a richer market)${!tier.fellBack && tier.qualified.length ? `: ${tier.qualified.join(", ")}` : ""}.${med != null && med > tier.band![1] ? ` New homes sell above existing-home medians, so the comps' own ${$(med)}/SF is above this band; the band compares neighborhoods, not the comps' prices.` : ""}${tier.fellBack ? scope === "tier_or_lower" ? ` That left fewer than ${r.minComps} sales, so any area priced no higher than ${$(tier.band![1])}/SF was allowed (never a richer market).` : ` Even areas priced no higher than ${$(tier.band![1])}/SF have fewer than ${r.minComps} new-home sales, so no value is estimated from richer markets nearby.` : ""}`;
   const sizeText = !size ? "" : size.applied ? ` Size: kept homes of ${size.band[0].toLocaleString("en-US")}–${size.band[1].toLocaleString("en-US")} sq ft (±${Math.round((sb ?? 0) * 100)}% of the planned ${size.targetSf.toLocaleString("en-US")} sq ft; Assumption, edit me).` : ` Size: too few sales within ±${Math.round((sb ?? 0) * 100)}% of the planned ${size.targetSf.toLocaleString("en-US")} sq ft, so all sizes were used.`;
   const scopeText = scope === "same_area" ? `same ${area} area (${same.length} sales there)`
-    : scope === "tier_match" ? "areas in the same market tier, nearest first"
+    : scope === "tier_match" ? "areas in the same market tier or lower, nearest first"
       : scope === "tier_or_lower" ? "areas in the same market tier or lower, nearest first"
         : scope === "none" ? "areas in the same market tier or lower"
           : area ? `nearest sales by distance (${same.length ? `only ${same.length}` : "none"} in ${area})` : "nearest sales by distance";
-  const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+; otherwise sales from areas in the same market tier, else the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF.${tierText}${sizeText} Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median ${$(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
+  const receipt = `Rule: sales in the same neighborhood (or municipality) when it has ${sel.sameAreaMinComps}+; otherwise sales from areas in the same market tier or lower (never a richer market), else the nearest by distance; widen until ${sel.nearestMin}, keep the nearest ${sel.nearestMax}; drop sales beyond ${sel.outlierIqrMultiplier}× the middle-half spread of $/SF.${tierText}${sizeText} Result: ${chosen.length} sale${chosen.length === 1 ? "" : "s"} from the ${scopeText}${areas.length ? `, in ${areas.join(", ")}` : ""}${med != null ? `; median ${$(med)}/SF, middle half $${p25}–$${p75}/SF` : ""}${dropped.length ? `; ${dropped.length} dropped as outliers` : ""}.`;
   const note = ok
     ? used > radii[0]! && scope !== "same_area" ? `Search widened to ${used} mi (${shownSteps.join("; ")}).` : null
     : scope === "none" ? `Insufficient new-construction comps in this market tier or lower: ${chosen.length} sale(s) (${steps.join("; ")}); richer markets nearby are not used. No new-home value is estimated.`

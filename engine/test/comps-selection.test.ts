@@ -56,12 +56,12 @@ describe("market-tier matching (appraisal-style, never demographic)", () => {
   const run = (recs: assumptions.SaleRecord[], tiers: assumptions.AreaTiers | null = TIERS) =>
     assumptions.newConstructionComps(AT, recs, { ...opts, tiers });
 
-  it("keeps only areas within ±35% of the subject area's tier, excluding the closer high-tier cluster", () => {
+  it("keeps only areas priced the same or up to 35% lower than the subject area's tier, excluding the closer high-tier cluster", () => {
     const c = run(all);
     expect(c.selection!.scope).toBe("tier_match");
     expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
     expect(c.selection!.tier).toMatchObject({ area: "Hill A", medianPerSqft: 190, qualified: ["Flats C", "Hill A"], fellBack: false });
-    expect(c.selection!.receipt).toMatch(/Market tier: Hill A existing homes sell for a median \$190\/SF; comps were limited to areas within ±35% \(\$124–\$257\/SF; Assumption, edit me\): Flats C, Hill A\./);
+    expect(c.selection!.receipt).toMatch(/Market tier: Hill A existing homes sell for a median \$190\/SF; comps were limited to areas priced the same or up to 35% lower \(\$124–\$190\/SF existing-home median; Assumption, edit me; never a richer market\): Flats C, Hill A\./);
     expect(c.median_price_per_sqft!).toBeLessThan(320);
   });
 
@@ -80,7 +80,7 @@ describe("market-tier matching (appraisal-style, never demographic)", () => {
     expect(c.selection!.scope).toBe("tier_or_lower");
     expect(c.sufficient).toBe(true);
     expect(c.comps.some((x) => x.area === "Riverfront B")).toBe(false);
-    expect(c.selection!.receipt).toMatch(/any area priced no higher than \$257\/SF was allowed \(never a richer market\)/);
+    expect(c.selection!.receipt).toMatch(/any area priced no higher than \$190\/SF was allowed \(never a richer market\)/);
   });
 
   it("an area without a tier borrows the median tier of its nearest tiered areas", () => {
