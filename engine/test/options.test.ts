@@ -89,12 +89,25 @@ describe("ordering", () => {
     expect(rows[0]!.leadLabel).toBe(score.LEAD_SUBSIDY);
   });
 
-  it("an easiest option that cannot be priced yet is first but not called a subsidy case", () => {
+  it("an option that cannot be priced yet is never the best: it ranks after the priced options", () => {
     const r = fake([{ id: "rehab_existing", score: 85 }, { id: "new_sf", score: 60 }]);
     const rows = score.rankOptions(r, { rehab_existing: "pricing", new_sf: "no" });
-    expect(rows[0]!.strategy).toBe("rehab_existing");
-    expect(rows[0]!.pencils).toBe("pricing");
-    expect(rows[0]!.leadLabel).toBeNull();
+    expect(rows[0]!.strategy).toBe("new_sf");
+    expect(rows[0]!.evaluable).toBe(true);
+    expect(rows[0]!.leadLabel).toBe(score.LEAD_SUBSIDY);
+    expect(rows[1]!.strategy).toBe("rehab_existing");
+    expect(rows[1]!.evaluable).toBe(false);
+  });
+
+  it("zoning not in our data (e.g. the ADU row): not evaluable, no lead label, even when it scores highest", () => {
+    const r = fake([{ id: "adu", score: 95, code: "" }, { id: "new_sf", score: 60 }]);
+    r.strategies[0]!.factors[0]!.subscore = null;
+    const rows = score.rankOptions(r, { adu: "unknown", new_sf: "yes" });
+    expect(rows.map((x) => x.strategy)).toEqual(["new_sf", "adu"]);
+    expect(rows[1]!.evaluable).toBe(false);
+    const none = score.rankOptions(fake([{ id: "adu", score: 95, code: "" }]), {});
+    expect(none.some((x) => x.evaluable)).toBe(false);
+    expect(none[0]!.leadLabel).toBeNull();
   });
 
   it("not-allowed and no-fit options rank below allowed ones even when they pencil; not-applicable last", () => {

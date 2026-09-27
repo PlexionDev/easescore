@@ -3,11 +3,13 @@
 // uses the pencil verdict to split the list, then orders by ease inside each group.
 //
 //   1. Options that are allowed in some form and pencil (yes or barely), easiest first.
-//   2. Options that are allowed in some form and do not pencil (or cannot be priced yet), easiest first.
-//   3. Options the zoning does not allow, or that do not fit the lot, easiest first.
-//   4. Options that do not apply here (e.g. renovation on a vacant lot).
+//   2. Options that are allowed in some form and do not pencil, easiest first.
+//   3. Options that cannot be evaluated yet (zoning not in our data, or cannot be sized or priced), easiest first.
+//   4. Options the zoning does not allow, or that do not fit the lot, easiest first.
+//   5. Options that do not apply here (e.g. renovation on a vacant lot).
 //
-// When nothing pencils, the first row is the easiest option, labeled "Needs subsidy or lower costs".
+// Only an option that can be sized and priced (groups 1-2) can be the best option ("evaluable"). When
+// nothing pencils, the first row is the easiest evaluable option, labeled "Needs subsidy or lower costs".
 // Pure and deterministic.
 
 import type { StrategyId, StrategyResult, EaseScoreResult, Band } from "./types";
@@ -33,6 +35,8 @@ export interface OptionRow {
   rank: number;
   /** Label on the first row: "Easiest option that pencils", "Needs subsidy or lower costs", or null. */
   leadLabel: string | null;
+  /** Can be sized (zoning known, fits) and priced (the pro forma gave a verdict): only these can be the best option. */
+  evaluable: boolean;
 }
 
 export const OPTION_NAME: Record<StrategyId, string> = {
@@ -89,9 +93,15 @@ const BLOCKED_KINDS: ZoningPathKind[] = ["not_allowed", "no_fit"];
 /** Ease used for ordering: the score, else the middle of its range, else last. */
 const easeOf = (s: StrategyResult) => (s.score != null ? s.score : s.range ? (s.range[0] + s.range[1]) / 2 : -1);
 
+/** Sized (zoning known and not blocked) and priced (a pencil verdict). */
+export function isEvaluable(s: StrategyResult, z: ZoningPathKind, p: PencilState): boolean {
+  return s.applicable && z !== "unknown" && z !== "not_applicable" && !BLOCKED_KINDS.includes(z) && (p === "yes" || p === "thin" || p === "no");
+}
+
 function group(s: StrategyResult, z: ZoningPathKind, p: PencilState): number {
-  if (!s.applicable) return 3;
-  if (BLOCKED_KINDS.includes(z)) return 2;
+  if (!s.applicable) return 4;
+  if (BLOCKED_KINDS.includes(z)) return 3;
+  if (!isEvaluable(s, z, p)) return 2;
   return p === "yes" || p === "thin" ? 0 : 1;
 }
 
@@ -118,5 +128,6 @@ export function rankOptions(result: Pick<EaseScoreResult, "strategies">, pencils
     pencils: p,
     rank: i + 1,
     leadLabel: i > 0 ? null : g === 0 ? LEAD_PENCILS : g === 1 && p === "no" ? LEAD_SUBSIDY : null,
+    evaluable: g <= 1,
   }));
 }

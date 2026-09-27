@@ -8,9 +8,10 @@ export {
   frontEdgesFor, solverRules, useColumnsFor, type QuickFitParcelInput, type FitRunOptions,
 } from "./strategies";
 export { piecewise, bandFor } from "./curves";
+export { BAND_LABEL, BAND_CODES, PARTIAL, SCORE_CAPTION, bandLabel, relabelBands, zoningLoaded, partialHeadline } from "./bands";
 export type * from "./types";
 export { selectScheme, type SelectedScheme, type SelectSchemeArgs, type ProgramOverrides, type UnitProgram, type SchemeLike } from "./selected";
-export { rankOptions, optionZoningPath, OPTION_NAME, LEAD_PENCILS, LEAD_SUBSIDY, type OptionRow, type PencilState, type ZoningPathKind } from "./options";
+export { rankOptions, optionZoningPath, isEvaluable, OPTION_NAME, LEAD_PENCILS, LEAD_SUBSIDY, type OptionRow, type PencilState, type ZoningPathKind } from "./options";
 export {
   streetPrecedent, contextualFront, contextualInputFt, matchesBlockPattern, buildToLine, quantile, median, spread,
   CONTEXTUAL_CITATION, MIN_BUILDINGS, TOLERANCE_FT,
