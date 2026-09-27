@@ -23,7 +23,8 @@ import { Timing } from "@/lib/timing";
 import { OpenDrawer, OpenView } from "./Drawers";
 import { metricsOf } from "@/lib/quickfit-gen";
 import { QF2_TYPES, typologyForStrategy } from "@/lib/qf2/core";
-import { parcelPlan, reportQueryFor } from "@/lib/parcel-plan";
+import { parcelPlan, reportQueryFor, userBuildingPlan } from "@/lib/parcel-plan";
+import NoZoningProForma from "./NoZoningProForma";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -238,6 +239,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       if (topOf(rankWith(plans0)) === alt.strategy) { selected = alt; plan = altPlan; }
     }
   }
+  // Zoning not loaded: the Pro forma prices the building the user entered instead (null where zoning is loaded).
+  const ubPlan = userBuildingPlan({ P, sp, overrides });
   const { fin, isCity, genDefaults, urlControls, genTyp } = plan;
   const chosenScheme = plan.selected;
   const pf = plan.pf;
@@ -522,9 +525,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   return (
     <ParcelShell
       pane={pane}
-      planExtras={<>{pf ? <AssumptionsForm parid={parid} result={pf} sp={sp} /> : null}{projectForm}</>}
+      planExtras={<>{(ubPlan?.pf ?? pf) ? <AssumptionsForm parid={parid} result={(ubPlan?.pf ?? pf)!} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Pro forma", content: pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "pencils", title: "Pro forma", content: ubPlan ? <NoZoningProForma parid={parid} sp={sp} plan={ubPlan} municipality={muniName} overrides={overrides} /> : pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
         { id: "process", title: "Process checklist", content: process },
         { id: "details", title: "Score details", content: details },
         { id: "options", title: "Best options and street precedent", content: <>

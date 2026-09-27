@@ -84,6 +84,46 @@ export function parcelPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.C
   return { fin, isCity, rulesRow, genTyp, urlControls, genDefaults, qf2, v2, scheme, stepping, selected, pf };
 }
 
+/** The pro forma on the building the user entered (only where zoning is not loaded). */
+export interface UserBuildingPlan {
+  building: score.UserBuilding;
+  strategy: score.StrategyId;
+  fin: FinanceInputs;
+  /** Size-only scheme (score.userBuildingScheme): no site-fit layout, footprint or stepping. */
+  scheme: quickfit.Scheme;
+  selected: score.SelectedScheme | null;
+  pf: assumptions.ProFormaResult | null;
+}
+
+/**
+ * Where zoning is not loaded (score.zoningLoaded false: outside the City, or no district rules): the same
+ * pro forma (financeFor: selectScheme -> buildDevelopmentInputs -> evaluateDevelopment, same comps, rents,
+ * taxes and transfer tax) on the building the user entered (ub_* keys; default one 1,800 sq ft house).
+ * No zoning path, no stepping; QuickFit stays off. Returns null where zoning is loaded.
+ */
+export function userBuildingPlan(a: { P: PanePayload; sp: SP; overrides: assumptions.CostOverrides }): UserBuildingPlan | null {
+  const f = a.P.facts as unknown as ParcelFacts & Record<string, unknown>;
+  if (score.zoningLoaded(f)) return null;
+  const ease = a.P.score;
+  const building = score.readUserBuilding(a.sp);
+  const strategy = score.userBuildingStrategy(building);
+  const fin: FinanceInputs = {
+    facts: { ...proFormaFacts(f), owner_class: a.P.owner?.owner_class ?? null, area: compArea(f) }, sfComps: a.P.sfComps, newComps: a.P.newComps, rehabComps: a.P.rehabComps,
+    rents: a.P.rent as FinanceInputs["rents"], prime: a.P.prime, tapFees: a.P.tapFees,
+    permitMonths: Object.fromEntries((ease?.strategies ?? []).map((x) => [x.strategy, x.predictedMonthsToPermit?.months ?? null])),
+    overrides: a.overrides,
+    // No score fit describes the building you entered: no zoning path goes into its pro forma.
+    results: {},
+  };
+  const scheme = score.userBuildingScheme(building) as unknown as quickfit.Scheme;
+  try {
+    const out = financeFor(fin, strategy, scheme, null);
+    return { building, strategy, fin, scheme, selected: out.selected, pf: out.pf };
+  } catch {
+    return { building, strategy, fin, scheme, selected: null, pf: null };
+  }
+}
+
 // ------------------------------------------------------------------------------ page -> report
 
 const REPORT_STRATEGY: Partial<Record<score.StrategyId, string>> = { new_sf: "single_family", duplex: "duplex", townhouse_row: "townhouse_row" };

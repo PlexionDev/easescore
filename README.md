@@ -170,7 +170,7 @@ Zoning covers the City of Pittsburgh only, sewer service is unknown everywhere, 
 - **Planner priority settings.** Let planning staff set the planning-badge weights and upload target areas as a named, dated profile.
 - **Nonprofit: for-sale tenure and finer geography.** Model for-sale (not just rental) projects, and let a user draw a custom area or work at the block-group level instead of only the 90 City neighborhoods.
 - **Rental verdicts.** A local market cap rate and hold period, so rentals get a yes/no answer and a stabilized value the way for-sale layouts do.
-- **County-wide zoning.** Transcribe zoning for the other Allegheny County municipalities, starting with the largest, so the Planner, Nonprofit and Policy seats work outside the City.
+- **County-wide zoning.** Zoning rules are loaded for the City of Pittsburgh; other municipalities show partial results. Not built: transcribing zoning for the other Allegheny County municipalities, starting with the largest (e.g., Penn Hills, Mt. Lebanon, Bethel Park, Ross, Monroeville), so the score, QuickFit and the Planner, Nonprofit and Policy seats work outside the City. Today the Pro forma there prices a building you choose, labeled "Zoning not checked."
 - **RentEase.** A resident-facing rental search on the same parcel data.
 
 ## License

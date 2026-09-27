@@ -48,7 +48,7 @@ export function canBuildSentence(f: NarrativeFacts): string {
   const use = z.useLabel;
   const s = f.score;
   const where = z.district ? `the ${z.district} district` : "this zoning district";
-  const tail = s.predictedMonthsToPermit != null ? ` (${months(s.predictedMonthsToPermit)} to a permit)` : "";
+  const tail = s.predictedMonthsToPermit != null ? ` (${months(s.predictedMonthsToPermit)} to a building permit, review time only)` : "";
 
   if (s.redFlags.length > 0) {
     const labels = list(s.redFlags.map((r) => lc(trimDot(r.label))));

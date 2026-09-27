@@ -468,6 +468,7 @@ export function S1(x: Ctx) {
             <div className="v pending">Pending</div>
           )}
           <div className="small muted">
+            {m.score.status === "ready" && m.score.permit ? "Building-permit review only; zoning, site-plan, geotech, PWSA and DOMI steps not included. " : null}
             {m.score.status === "ready" && m.score.permit ? (m.score.permit.method === "heuristic" ? "Estimate from typical approval steps, not permit records" : m.score.permit.dateRangeLabel ?? "From City permit records") : "Comes from the Ease Score engine"}
           </div>
         </div>
@@ -1051,7 +1052,7 @@ export function S5(x: Ctx) {
             {m.score.permit.method === "heuristic"
               ? "This is an estimate built from the approval steps this project needs, not from permit records for similar projects."
               : `Building-permit time comes from City permit records${m.score.permit.dateRangeLabel ? ` (${m.score.permit.dateRangeLabel})` : ""}.`}
-            {fn(x, "ease_score")} How it adds up:
+            {fn(x, "ease_score")} It counts building-permit review (plus any zoning hearing this option needs); zoning review, City Planning site-plan review, geotechnical review on hillsides, the PWSA tap and DOMI street permits are not included, so the real time to start is longer. How it adds up:
           </p>
           <ul>{m.score.permit.basis.map((b) => <li key={b}>{b}</li>)}</ul>
           <p className="small muted">Construction time is not estimated. Ask the City’s zoning and permit offices for current review times.</p>

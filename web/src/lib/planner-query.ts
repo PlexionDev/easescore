@@ -450,7 +450,9 @@ export function monthsRange(m: number | null): [number, number] | null {
   const hi = Math.max(lo + 1, Math.ceil(m * 1.25));
   return [lo, hi];
 }
-export const MONTHS_RANGE_NOTE = "Shown as a range (the estimate x0.75 to x1.25, rounded to whole months) to reflect the uncertainty in a single-point prediction.";
+/** What "months to permit" counts (the Ease Score estimate), shown wherever the number appears. */
+export const PERMIT_SCOPE_NOTE = "Building-permit review only (plus any zoning hearing the option needs); zoning review, site-plan, geotechnical review, PWSA and DOMI steps are not included.";
+export const MONTHS_RANGE_NOTE = `Shown as a range (the estimate x0.75 to x1.25, rounded to whole months) to reflect the uncertainty in a single-point prediction. ${PERMIT_SCOPE_NOTE}`;
 export const monthsRangeText = (m: number | null): string => {
   const r = monthsRange(m);
   return r ? `${r[0]}-${r[1]} months` : "—";

@@ -15,6 +15,7 @@
   ],
   "exclude": [
     "src/quickfit2",
-    "test/parcel-plan.test.ts"
+    "test/parcel-plan.test.ts",
+    "test/user-building.test.ts"
   ]
 }

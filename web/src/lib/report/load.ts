@@ -25,7 +25,7 @@ import { loadPane, type PaneLoad } from "@/lib/pane";
 import { loadRents } from "@/lib/rents";
 import { Timing } from "@/lib/timing";
 import { memo as memoCore, reportQueryKey, type Entry } from "./cache-core";
-import { pageQueryFromReport, pageStrategyFromReport, parcelPlan, type ParcelPlan } from "@/lib/parcel-plan";
+import { pageQueryFromReport, pageStrategyFromReport, parcelPlan, userBuildingPlan, type ParcelPlan } from "@/lib/parcel-plan";
 import { DEFAULT_CONTROLS, QF2_TYPES, qf2Data, solveFor } from "@/lib/qf2/core";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -296,6 +296,8 @@ export interface ReportModel {
   sitePlan: SitePlanSheet | null;
   /** The parcel page's plan for the same URL (lib/parcel-plan.ts): when set, `scheme` and `proForma` are the page's. */
   pagePlan: Pick<ParcelPlan, "scheme" | "stepping" | "selected" | "pf"> & { strategy: string } | null;
+  /** Zoning not loaded here: the study prices the building the user entered (ub_* keys); zoning never checked for it. */
+  userBuilding: easeEngine.UserBuilding | null;
   /** Rents by bedroom (RentCast ZIP market statistics from the cache — the report never calls RentCast; HUD SAFMR fallback). */
   rentsByBedroom: rentsEngine.RentsByBedroom | null;
   /** Where the parcel data came from: the precomputed pane row, or computed now (and stored for next time). */
@@ -510,7 +512,17 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
   } catch {
     v2PerType = null;
   }
-  try {
+  // Zoning not loaded: the building the user entered on the page (same ub_* keys, same pricing as the page's Pro forma).
+  const ubPlan = (() => {
+    try {
+      const psp = pageQueryFromReport(sp);
+      return userBuildingPlan({ P, sp: psp, overrides: { ...(str(sp, "tenure") ? { tenure: scenario.tenure } : {}), ...readCostOverrides(psp) } });
+    } catch {
+      return null;
+    }
+  })();
+  if (ubPlan?.pf) pagePlan = { strategy: ubPlan.strategy, scheme: null, stepping: null, selected: ubPlan.selected, pf: ubPlan.pf };
+  else try {
     const pageStrategy = pageStrategyFromReport(sp) ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
     if (pageStrategy) {
       const psp = pageQueryFromReport(sp);
@@ -628,7 +640,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     const verdictOf = (x: assumptions.ProFormaResult | null | undefined, rehab: boolean): easeEngine.PencilState =>
       !x ? (rehab ? "pricing" : "unknown") : x.plan.missing.length ? (rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown") : x.verdict ?? "unknown";
     options = easeEngine.rankOptions(raw, Object.fromEntries(raw.strategies.map((x) => {
-      const pf = pagePlan && pagePlan.strategy === x.strategy ? pagePlan.pf : pc.options.find((q) => q.strategy === x.strategy)?.pf;
+      const pf = pagePlan && pagePlan.strategy === x.strategy && !ubPlan?.pf ? pagePlan.pf : pc.options.find((q) => q.strategy === x.strategy)?.pf;
       const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
       return [x.strategy, pf ? verdictOf(pf, x.strategy === "rehab_existing") : fit === "no_fit" ? "none" : verdictOf(null, x.strategy === "rehab_existing")];
     })));
@@ -711,6 +723,7 @@ async function buildReport(parid: string, sp: SP): Promise<ReportModel | null> {
     sitePlan,
     pagePlan,
     rentsByBedroom,
+    userBuilding: ubPlan?.pf ? ubPlan.building : null,
     paneSource: loaded.source,
     options,
     precedent: P.precedent ?? null,

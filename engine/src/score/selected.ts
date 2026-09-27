@@ -37,7 +37,7 @@ export interface SelectedScheme {
   strategy: StrategyId;
   strategyLabel: string;
   /** Where the size comes from: the site-fit layout, the existing building, or nothing sized. */
-  source: "site_fit" | "existing_building" | "none";
+  source: "site_fit" | "existing_building" | "user_entered" | "none";
   /** QuickFit scheme id; the score's fit (StrategyResult.schemeId) names the same id. */
   schemeId: string | null;
   typologyLabel: string | null;
@@ -92,6 +92,8 @@ export interface SchemeLike {
   footprintSf?: number;
   stories?: number;
   typologyLabel?: string;
+  /** The building the user entered where zoning is not loaded (score/userbuilding.ts): never checked against zoning. */
+  userEntered?: boolean;
 }
 
 export interface SelectSchemeArgs {
@@ -171,6 +173,14 @@ export function selectScheme(a: SelectSchemeArgs): SelectedScheme {
     };
   }
   const finishedSf = Math.round((sch.netFloorAreaSf / sch.units) * nUnits);
+  if (sch.userEntered) {
+    return {
+      ...fromScheme, source: "user_entered", path: null, variancesNeeded: [], permissionCode: null, bindingConstraint: null, layout: null,
+      units: nUnits, finishedSf, grossFloorAreaSf: Math.round((sch.grossFloorAreaSf / sch.units) * nUnits), garageSf: 0, overridden: nUnits !== sch.units,
+      notes: ["Zoning not checked: this building was entered by you, not placed by a site-fit check."],
+      sizeBasis: `The building you entered: ${nUnits} home${nUnits === 1 ? "" : "s"} × ${Math.round(finishedSf / nUnits).toLocaleString("en-US")} sq ft finished${nUnits > 1 ? ` (${finishedSf.toLocaleString("en-US")} sq ft total)` : ""}; zoning not checked`,
+    };
+  }
   const notes = [...fromScheme.notes];
   if (nUnits !== sch.units) notes.push(`Home count set to ${nUnits} (the site-fit layout has ${sch.units}); each home keeps the layout's size.`);
   return {

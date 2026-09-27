@@ -280,6 +280,7 @@ export function DetailsContent({ result, selected, answers, pencilsNote }: { res
         <section>
           <h3 className="text-sm font-semibold text-slate-900">Time to a permit</h3>
           <p className="text-sm text-slate-800">About <b>{p.months} months</b>{p.upperMonths != null ? ` (up to ${p.upperMonths})` : ""} <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{p.estimate ? "Estimate" : "City permit records"}</span></p>
+          <p className="text-[11px] text-slate-600">Building-permit review only (plus any zoning hearing this option needs); zoning review, site-plan, geotech, PWSA and DOMI steps are not included.</p>
           {p.targetOnly && <p className="text-[11px] text-slate-500">Building-permit part: the City&apos;s review target for one round ({p.label ?? "City target, not measured"}). Each revision request adds time.</p>}
           {p.queuePending != null && <p className="text-[11px] text-slate-500">{p.queuePending} building permits waiting for City review{p.queueAsOf ? ` (as of ${p.queueAsOf})` : ""}.</p>}
           <ul className="mt-1 list-disc pl-4 text-xs text-slate-600">{p.basis.map((b) => <li key={b}>{b}</li>)}</ul>

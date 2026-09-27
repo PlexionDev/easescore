@@ -11,6 +11,10 @@ export { piecewise, bandFor } from "./curves";
 export { BAND_LABEL, BAND_CODES, PARTIAL, SCORE_CAPTION, bandLabel, relabelBands, zoningLoaded, partialHeadline, buildingUnscored, buildingHeadline, partialText, BUILDING_USE_RE, BUILDING_USE_EXCLUDE_RE, type PartialReason } from "./bands";
 export type * from "./types";
 export { selectScheme, type SelectedScheme, type SelectSchemeArgs, type ProgramOverrides, type UnitProgram, type SchemeLike } from "./selected";
+export {
+  USER_BUILDING_TYPES, USER_BUILDING_DEFAULT, USER_BUILDING_LIMITS, USER_BUILDING_KEYS, readUserBuilding, userBuildingStrategy, userBuildingText, userBuildingScheme,
+  municipalityName, zoningNotCheckedBanner, type UserBuilding, type UserBuildingType,
+} from "./userbuilding";
 export { rankOptions, optionZoningPath, isEvaluable, OPTION_NAME, LEAD_PENCILS, LEAD_SUBSIDY, type OptionRow, type PencilState, type ZoningPathKind } from "./options";
 export {
   streetPrecedent, contextualFront, contextualInputFt, matchesBlockPattern, buildToLine, quantile, median, spread,

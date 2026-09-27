@@ -263,7 +263,7 @@ export default function ProFormaLive({ parid, live, initial, strategyLabel }: { 
       </div>
       {p.units != null && p.finishedSf != null && (
         <p className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] text-slate-800">
-          <b>Layout:</b> {live.scheme ? "the QuickFit layout, " : ""}{p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
+          <b>Layout:</b> {live.scheme?.id ? "the QuickFit layout, " : ""}{p.units} home{p.units === 1 ? "" : "s"} × {Math.round(p.finishedSf / p.units).toLocaleString("en-US")} sq ft finished
           {p.units > 1 ? ` (${p.finishedSf.toLocaleString("en-US")} sq ft total)` : ""}. <span className="text-slate-500">{p.sizeBasis}.</span>
         </p>
       )}
