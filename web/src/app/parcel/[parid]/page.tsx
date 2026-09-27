@@ -159,6 +159,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const unscoredP = fetch(`${SB_URL}/rest/v1/planner_building_unscored?select=reason,use_desc&parid=eq.${encodeURIComponent(parid)}`, {
     headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
   }).then((r) => (r.ok ? r.json() : [])).then((x: { reason: string; use_desc: string | null }[]) => x[0] ?? null).catch(() => null);
+  // Privacy: the planning-priority badge is shown only for publicly owned land (owner_class = 'public');
+  // an error or timeout is treated the same as "not public" so a badge never shows without knowing.
+  const ownerClassP = fetch(`${SB_URL}/rest/v1/parcel_scores?select=owner_class&parid=eq.${encodeURIComponent(parid)}&limit=1`, {
+    headers: { apikey: SB_KEY }, cache: "no-store", signal: AbortSignal.timeout(2500),
+  }).then((r) => (r.ok ? r.json() : [])).then((x: { owner_class: string | null }[]) => x[0]?.owner_class ?? null).catch(() => null);
   // One retry for the map (a busy database can time a call out).
   const stage = Promise.all([T.time("rpc_parcel_map", parcelMap(parid).then((m) => m ?? parcelMap(parid))), quickfitP]).then(([mapData, qfInput]) => ({ mapData, qfInput }));
   stage.catch(() => undefined);
@@ -328,6 +333,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Zoning not loaded (outside the City, or no district): a partial screen, no numeric score.
   // No numeric score: zoning not loaded (outside the City, or no district), or the score treated a built-on lot as empty.
   const unscored = await unscoredP;
+  const ownerClass = await ownerClassP;
+  const badgePublic = ownerClass === "public";
   const useBuilt = score.buildingUnscored(f);
   const partialReason: score.PartialReason | null = !score.zoningLoaded(f) ? "zoning" : (unscored?.reason as score.PartialReason | undefined) ?? (useBuilt ? "use" : null);
   const partial = partialReason != null;
@@ -347,7 +354,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   // Existing building, from the County assessment.
   const hasBuilding = !!a?.year_built || Number(a?.fmv_building ?? 0) > 0 || partialReason === "use" || partialReason === "footprint";
   const buildingLine = hasBuilding
-    ? `${a?.use ? String(a.use).toLowerCase().replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
+    ? `${a?.use ? String(a.use).toLowerCase().replace(/retl\/apt'?s over/, "retail with apartments above").replace(/\bretl\b/g, "retail").replace(/\bapt'?s\b/g, "apartments").replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
     : "None on record (County assessment)";
   // The site layout thumbnail shows the selected option when it is a new build, else the best new build.
   const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
@@ -391,7 +398,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}</p>
+        <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}{hasBuilding && !isCity ? <span className="text-slate-600">. Rehab/reuse costs are not modeled outside the City of Pittsburgh.</span> : null}</p>
         {bestLine && <p className="mt-1 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
         {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
