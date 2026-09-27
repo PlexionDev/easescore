@@ -9,7 +9,7 @@ import type { ReportModel } from "@/lib/report/load";
 import { STRATEGY_LABEL } from "@/lib/report/load";
 import { CapitalStack, CompsScatter, LotPlan, PhaseSequence, SlopeBar, Tornado, TornadoPending } from "@/lib/report/charts";
 import { absorption, abatementScenario, sourcesUses } from "@/lib/report/extras";
-import { narrative } from "@easescore/engine";
+import { narrative, score as ease } from "@easescore/engine";
 import { approvalItems, dataGaps, longDate, money, nextSteps, num, pct, redFlags, reviewItems, sqft, titleCase, type Finding } from "@/lib/report/assess";
 import { NOT_RECORDED } from "@/lib/report/sources";
 import { DecisionBlock, TaxesAfterBlock, UnitSelloutBlock } from "./decision";
@@ -429,15 +429,15 @@ export function S1(x: Ctx) {
           {m.score.status === "ready" ? (
             <div className="v">
               {m.score.range ? `${m.score.range.min}–${m.score.range.max}` : m.score.score}
-              {m.score.band ? ` · ${m.score.band}` : ""}
+              {m.score.band ? ` · ${ease.bandLabel(m.score.band)}` : ""}
               {fn(x, "ease_score")}
             </div>
           ) : (
-            <div className="v pending">Pending</div>
+            <div className="v pending">{m.score.partial ? "Partial" : "Pending"}</div>
           )}
           <div className="small muted">
             {m.score.status === "ready"
-              ? [m.score.labels.join("; "), `How easy it is to get housing built here, 0–100 · config ${m.score.configVersion}`].filter(Boolean).join(" · ")
+              ? [m.score.labels.map(ease.relabelBands).join("; "), `Barriers to getting housing built here, 0–100 (higher = fewer barriers) · config ${m.score.configVersion}`, ease.SCORE_CAPTION].filter(Boolean).join(" · ")
               : m.score.reason}
           </div>
         </div>
@@ -824,7 +824,7 @@ function OptionsAndPrecedent({ x }: { x: Ctx }) {
                 <tr key={r.strategy}>
                   <td>{r.rank}</td>
                   <td>{r.name}{r.leadLabel ? <span className="small muted"> · {r.leadLabel}</span> : null}</td>
-                  <td>{r.applicable ? `${r.score != null ? r.score : r.range ? `${r.range[0]}–${r.range[1]}` : "—"}${r.band ? ` (${r.band})` : ""}` : "—"}</td>
+                  <td>{r.applicable && m.score.status === "ready" ? `${r.score != null ? r.score : r.range ? `${r.range[0]}–${r.range[1]}` : "—"}${r.band ? ` (${ease.bandLabel(r.band)})` : ""}` : m.score.status !== "ready" && m.score.partial ? "Partial" : "—"}</td>
                   <td>{r.zoning.text}</td>
                   <td>{r.applicable ? PENCIL_TEXT[r.pencils] ?? r.pencils : "—"}</td>
                 </tr>
@@ -2043,7 +2043,7 @@ export function AppD(x: Ctx) {
   if (s.status !== "ready") {
     return (
       <Sec flow id="appD" no="D" title="Ease Score breakdown">
-        <Callout tone="pending" title="Ease Score pending">
+        <Callout tone="pending" title={s.partial ? "Partial screen: no Ease Score" : "Ease Score pending"}>
           <p>{s.reason}</p>
         </Callout>
       </Sec>
@@ -2055,11 +2055,11 @@ export function AppD(x: Ctx) {
   return (
     <Sec flow id="appD" no="D" title="Ease Score breakdown">
       <p>
-        The Ease Score (0–100) measures how hard it is to get housing built on this lot: rules, ground, hazards, access and process. Money is not in it; that is the
+        The Ease Score (0–100) measures the barriers to getting housing built on this lot: rules, ground, hazards, access and process. It measures barriers to building, not whether it&apos;s a good investment. Money is not in it; that is the
         separate “Pencils?” result. Score for <b>{s.strategyLabel.toLowerCase()}</b>:{" "}
-        <b>{s.range ? `${s.range.min}–${s.range.max}` : s.score}{s.band ? ` (${s.band})` : ""}</b>
+        <b>{s.range ? `${s.range.min}–${s.range.max}` : s.score}{s.band ? ` (${ease.bandLabel(s.band)})` : ""}</b>
         {fn(x, "ease_score")}. Factors with evidence carry {pct(s.evidenceShare)} of the weight.
-        {s.labels.length ? ` Labels: ${s.labels.join("; ")}.` : ""} Scoring config {s.configVersion}.
+        {s.labels.length ? ` Labels: ${s.labels.map(ease.relabelBands).join("; ")}.` : ""} Scoring config {s.configVersion}.
       </p>
       <div className="tcap">Table {t}. Factors (score = weighted average of factors with evidence)</div>
       <table>
@@ -2081,7 +2081,7 @@ export function AppD(x: Ctx) {
         <thead><tr><th>Strategy</th><th className="num">Score</th><th>Band</th></tr></thead>
         <tbody>
           {s.others.map((o) => (
-            <tr key={o.label}><td>{o.label}</td><td className="num">{o.applicable ? (o.score ?? "—") : "n/a"}</td><td>{o.applicable ? (o.band ?? "—") : "Not applicable"}</td></tr>
+            <tr key={o.label}><td>{o.label}</td><td className="num">{o.applicable ? (o.score ?? "—") : "n/a"}</td><td>{o.applicable ? (o.band ? ease.bandLabel(o.band) : "—") : "Not applicable"}</td></tr>
           ))}
         </tbody>
       </table>

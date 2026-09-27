@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import { loadReport, loadReportHead, type ReportHead, type ReportModel } from "@/lib/report/load";
 import { buildSources } from "@/lib/report/sources";
 import { configVersionOf } from "@/lib/report/score";
+import { bandLabel } from "@easescore/engine/src/score/bands";
 import { num, titleCase } from "@/lib/report/assess";
 import {
   AppA, AppB, AppC, AppD, AppE, AppF, Contents, Cover, DISCLAIMER, REPORT_VERSION,
@@ -82,8 +83,8 @@ function FirstLook({ head }: { head: ReportHead }) {
       {head.summary.map((t, i) => <p key={i}>{t}</p>)}
       {head.best && (
         <p>
-          Easiest option by the Ease Score: <b>{head.best.label}</b>
-          {head.best.score != null ? `, ${head.best.score} (${head.best.band ?? "no band"})` : ""}.
+          Fewest barriers by the Ease Score: <b>{head.best.label}</b>
+          {head.best.score != null ? `, ${head.best.score} (${bandLabel(head.best.band)})` : ""}.
         </p>
       )}
       <p className="small muted" role="status">

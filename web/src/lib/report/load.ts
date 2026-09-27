@@ -412,7 +412,7 @@ export async function loadReportHead(parid: string, sp: SP): Promise<ReportHead 
     municipality: (f.context?.municipality ?? f.assessment?.municipality ?? null) as string | null,
     zoning: f.zoning?.code ?? null,
     lotAreaSf: (f.lot_area_sqft_gis as number | undefined) ?? f.assessment?.lot_area_sqft ?? null,
-    best: best ? { label: best.strategyLabel, score: best.score, band: best.band } : null,
+    best: best && easeEngine.zoningLoaded(f) ? { label: best.strategyLabel, score: best.score, band: best.band } : null,
     summary,
     paneSource: loaded.source,
   };

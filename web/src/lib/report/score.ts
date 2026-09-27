@@ -48,7 +48,7 @@ export interface UnlockView {
 }
 
 export type EaseScoreView =
-  | { status: "pending"; reason: string }
+  | { status: "pending"; reason: string; /** Zoning not loaded for the municipality: a partial screen, no numeric score. */ partial?: boolean }
   | {
       status: "ready";
       /** Point score; null only when the engine gives a range and no point value. */
@@ -101,6 +101,11 @@ type Extras = Parameters<typeof ease.scoreParcel>[1];
 
 /** The single wiring point between the score engine and the report. */
 export function loadEaseScore(input: EaseScoreInput): EaseScoreView {
+  // No numeric Ease Score where the municipality's zoning is not loaded (zoning is a quarter of the score).
+  if (!ease.zoningLoaded(input.facts)) {
+    const f = input.facts as unknown as { context?: { municipality?: string | null } | null; assessment?: { municipality?: string | null } | null };
+    return { status: "pending", partial: true, reason: `${ease.partialHeadline(f.context?.municipality ?? f.assessment?.municipality ?? null)}. No Ease Score: we have zoning rules for the City of Pittsburgh only. This study reports the known facts (lot, slope, hazards, existing building, market). ${ease.SCORE_CAPTION}` };
+  }
   let res: ReturnType<typeof ease.scoreParcel>;
   try {
     res = input.result ?? ease.scoreParcel(input.facts, {
