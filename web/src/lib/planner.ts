@@ -50,6 +50,9 @@ export const plannerPoints = (f: Filters, limit = MAP_LIMIT) => {
   const body = { p_filters: filtersToDb(f), p_limit: limit };
   return cached(`p:${JSON.stringify(body)}`, () => rpc<PlannerPoint[]>("planner_points", body));
 };
+/** Block faces for the map's block-conformity layer: [lon, lat, share nonconforming, buildings, top rule, street]. */
+export type BlockPoint = [number, number, number, number, string | null, string | null];
+export const plannerBlocks = () => cached("blocks", () => rpc<BlockPoint[]>("block_conformity_points", {}), 30 * 60_000);
 // Options change when a batch adds a municipality or district; keep them fresher.
 export const plannerOptions = () => cached("options", () => rpc<PlannerOptions>("planner_options", {}), 60_000);
 

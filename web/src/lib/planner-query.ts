@@ -35,6 +35,8 @@ export const STRATEGY_TEXT: Record<string, string> = {
 };
 export const BADGE_NOTE = "Default weights, awaiting planning input";
 export const PAGE_SIZE = 50;
+/** Block-conformity filter steps, percent of a block face's buildings that don't meet today's code. */
+export const BLOCK_NC = [50, 75];
 export const MAP_LIMIT = 12000;
 export const CITY = "PITTSBURGH";
 export const FT_PER_M = 3.28084;
@@ -188,6 +190,11 @@ export interface Filters {
   only?: string[];
   /** Specific parcels (compare tray, saved lists), max 25. */
   ids?: string[];
+  /**
+   * Block conformity (street precedent): lots on block faces with 3+ measured buildings where at least
+   * this percent of the buildings would not meet today's code (front/side setback, lot size, stories).
+   */
+  blockNc?: number;
 }
 export type Sort = "score" | "months" | "by_right_units" | "units_with_relief" | "lot" | "transit" | "address" | "neighborhood" | "zoning";
 export const SORTS: Sort[] = ["score", "months", "by_right_units", "units_with_relief", "lot", "transit", "address", "neighborhood", "zoning"];
@@ -234,6 +241,7 @@ export function parseFilters(q: URLSearchParams): Filters {
     hasBlocker: str(q.get("hasBlocker")),
     only: list(q.get("only")),
     ids,
+    blockNc: BLOCK_NC.includes(num(q.get("blockNc")) as number) ? num(q.get("blockNc")) : undefined,
   });
 }
 
@@ -281,6 +289,7 @@ export function filtersToDb(f: Filters): Record<string, unknown> {
   if (f.byRightMin != null) o.by_right_min = Math.round(f.byRightMin);
   if (f.hasBlocker) o.has_blocker = f.hasBlocker;
   if (f.only?.length) o.only_blocked_by = f.only;
+  if (f.blockNc != null) o.block_nonconform_min = f.blockNc / 100;
   return o;
 }
 
@@ -316,6 +325,7 @@ export function matchRow(r: PlannerRow, f: Filters): boolean {
   if (d.transit_max_m != null && !(r.transit_m != null && r.transit_m <= (d.transit_max_m as number))) return false;
   if (d.by_right_min != null && !(r.by_right_units != null && r.by_right_units >= (d.by_right_min as number))) return false;
   if (d.has_blocker != null && !effectiveBlockers(r).includes(d.has_blocker as string)) return false;
+  // block_nonconform_min is SQL-only: parcel_scores rows carry no block-face data (migration 131).
   if (Array.isArray(d.only_blocked_by)) {
     const allowed = d.only_blocked_by as string[];
     const eff = effectiveBlockers(r);
@@ -348,6 +358,7 @@ export function describeFilters(f: Filters): string[] {
   if (f.hasBlocker) out.push(`Blocked by: ${f.hasBlocker}`);
   if (f.only?.length) out.push(`Only blocked by: ${f.only.join(" or ")}`);
   if (f.ids?.length) out.push(`${f.ids.length} selected parcel${f.ids.length === 1 ? "" : "s"}`);
+  if (f.blockNc != null) out.push(`On blocks where at least ${f.blockNc}% of existing buildings don't meet today's code`);
   return out;
 }
 

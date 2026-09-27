@@ -9,6 +9,7 @@ import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
 import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
 import BestOptions from "./BestOptions";
+import StreetPrecedent from "./StreetPrecedent";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
 import ParcelThumb from "./ParcelThumb";
@@ -308,6 +309,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       </div>
       {/* Best options for this lot: the ranked list is the one option switcher */}
       {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} />}
+      {/* Street precedent: the block's pattern, §925.06 contextual setback, nearby ZBA outcomes */}
+      <StreetPrecedent parid={parid} precedent={P.precedent} result={easeResult} isCity={isCity} />
       {/* 2. Property image (streams in after the pane) */}
       <ParcelThumb stage={stage} date={asOf} />
       {/* 3. Fact row */}

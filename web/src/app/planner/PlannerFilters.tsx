@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckboxField, FilterRail, FilterSection, SeatButton } from "@/components/seats";
-import { BANDS, ONLY_BLOCKED_BY, OWNER_TYPES, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
+import { BANDS, BLOCK_NC, ONLY_BLOCKED_BY, OWNER_TYPES, type Band, type Filters, type PlannerOptions } from "@/lib/planner";
 
 const TRANSIT_FT = [500, 1000, 1500, 2640];
 
@@ -126,6 +126,17 @@ export default function PlannerFilters({ f, options, set, reset, counts }: {
           </select>
         </label>
         <p className="es-fsec-hint" style={{ marginTop: 4 }}>Frequent = a stop with frequent weekday-morning service (PRT GTFS).</p>
+      </FilterSection>
+
+      <FilterSection title="Street precedent" hint="Blocks whose existing buildings don't meet today's code">
+        <label className="es-field-label">
+          Block conformity
+          <select className="pl-multi" value={f.blockNc ?? ""} onChange={(e) => set({ blockNc: e.target.value ? Number(e.target.value) : undefined })}>
+            <option value="">Any block</option>
+            {BLOCK_NC.map((p) => <option key={p} value={p}>{p}%+ of buildings don&apos;t meet the code</option>)}
+          </select>
+        </label>
+        <p className="es-fsec-hint" style={{ marginTop: 4 }}>Measured from building footprints and lot lines (front and side setbacks, lot size, stories) on block faces with 3+ buildings. Where most of a block is nonconforming, the code, not the lot, is the obstacle.</p>
       </FilterSection>
 
       <FilterSection title="Only blocked by…" hint="Find lots held back by these rules and nothing else">

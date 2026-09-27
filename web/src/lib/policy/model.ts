@@ -4,11 +4,11 @@
 // value traces to a row, a stored input or a labeled assumption.
 
 import {
-  annualTax, ledger, normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD,
+  annualTax, ledger, normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, MATCH_BLOCK,
   type Abatement, type LedgerRow, type LeverState, type TaxBody, type Triple,
 } from "@easescore/engine/src/policy/index";
 
-export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, type LeverState, type Triple };
+export { normalize, OFF, parseKey, stateKey, activeLevers, LEVER_LABEL, TRANSIT_M, ADU_RULES, CONTEXTUAL_FRONT_FT, HEIGHT_ADD, MATCH_BLOCK, type LeverState, type Triple };
 
 export interface HoodRow { neighborhood: string; parcels: number; homes: number; newly: number; homes_pencil: number | null }
 
@@ -203,7 +203,7 @@ export interface GoalOption { key: string; levers: LeverState; changes: number; 
 function intensity(l: LeverState): number {
   const n = normalize(l);
   return (n.attached.on ? (n.attached.maxWidthFt - 25) / 25 : 0) + (n.minLot.on ? 1 - n.minLot.share : 0) + (n.parking === "none" ? 1 : n.parking === "transit" ? 0.5 : 0)
-    + (n.adu ? 0.5 : 0) + (n.contextual ? 0.5 : 0) + (n.height ? 0.5 : 0);
+    + (n.adu ? 0.5 : 0) + (n.contextual ? 0.5 : 0) + (n.height ? 0.5 : 0) + (n.matchBlock ? 0.5 : 0);
 }
 
 /**
@@ -237,6 +237,7 @@ export function leverSentence(l: LeverState): string {
   if (n.adu) parts.push(`one accessory dwelling unit (up to ${ADU_RULES.maxFloorAreaSf} sq ft) by right beside a detached single-family house (R1D, R1A, R2, R3, RM)`);
   if (n.contextual) parts.push(`front setback matching the neighbors by right (assumed ${CONTEXTUAL_FRONT_FT} ft; R1D, R1A, R2, R3, RM)`);
   if (n.height) parts.push(`one more story and ${HEIGHT_ADD.ft} ft more height (R1D, R1A, R2, R3, RM)`);
+  if (n.matchBlock) parts.push("new buildings that match their block's existing pattern approved administratively (R1D, R1A, R2, R3, RM)");
   return parts.length ? parts.join("; ") : "today's rules (no change)";
 }
 
@@ -251,9 +252,10 @@ export const LEVERS_CODE_LABEL: Record<string, string> = {
   adu: "ADU",
   contextual: "Contextual setback",
   height: "One more story",
+  matchBlock: "Match the block",
 };
 
-const SHORT: Record<string, string> = { attached: "attached", minLot: "lot size", parking: "parking", adu: "ADU", contextual: "contextual setback", height: "+1 story" };
+const SHORT: Record<string, string> = { attached: "attached", minLot: "lot size", parking: "parking", adu: "ADU", contextual: "contextual setback", height: "+1 story", matchBlock: "match the block" };
 /** Label for a combination of levers as policy_results.touched joins them ("minLot+adu"). */
 export function leverComboLabel(code: string): string {
   if (LEVERS_CODE_LABEL[code]) return LEVERS_CODE_LABEL[code]!;
@@ -264,7 +266,8 @@ export function leverComboLabel(code: string): string {
 /** How each of the later levers is applied, in plain words (Method tab, council packet, receipts). */
 export const LEVER_METHOD = {
   adu: `ADUs by right: lots in R1D, R1A, R2, R3 and RM with a detached single-family house (county use "single family"; rowhouses and townhouses excluded). Our zoning table has no ADU rules, so this scenario supplies them: one accessory dwelling up to ${ADU_RULES.maxFloorAreaSf} sq ft beside the house. Each eligible lot adds one home; the house stays and is not rescored. Low end: only lots where an area check says the smallest ADU (${ADU_RULES.minWidthFt} × ${ADU_RULES.minDepthFt} ft) fits behind the house with the district's side and rear yards and ${ADU_RULES.separationFt} ft from the house (lot area − house footprint − frontage × front setback). That is a proxy, not a drawn fit: the engine's lot-fit test has no priced ADU path yet. Pencil test: ${ADU_RULES.maxFloorAreaSf} sq ft at nearby new-construction prices per sq ft, with no land cost. Where another lever also adds homes on the same lot, the path with more homes counts (the ADU at a tie), never both.`,
-  contextual: `Contextual front setback: lots in R1D, R1A, R2, R3 and RM whose front setback is deeper than ${CONTEXTUAL_FRONT_FT} ft. We do not measure neighboring buildings; the engine's contextual-setback assumption (${CONTEXTUAL_FRONT_FT} ft, the same one every parcel page uses for §925.06) stands in for the neighbors' average and applies by right. Today's baseline already credits that setback where a lot needs it, so by-right gains are small; the lever mostly removes a step.`,
+  contextual: `Contextual front setback: lots in R1D, R1A, R2, R3 and RM whose front setback is deeper than ${CONTEXTUAL_FRONT_FT} ft. The citywide batch does not measure neighboring buildings; the engine's contextual-setback assumption (${CONTEXTUAL_FRONT_FT} ft, also used by the Planner scores) stands in for the neighbors' average and applies by right. Parcel pages now use the measured neighbors where the block face has them (Street precedent). Today's baseline already credits that setback where a lot needs it, so by-right gains are small; the lever mostly removes a step.`,
+  matchBlock: `Match the block: lots in R1D, R1A, R2, R3 and RM on a block face with ${MATCH_BLOCK.minBuildings}+ buildings measured from county footprints (street precedent). A new building that matches the block's prevailing pattern is approved administratively: front setback down to the block's median minus ${MATCH_BLOCK.frontToleranceFt} ft, side setback down to the block's median (never under ${MATCH_BLOCK.sideFloorFt} ft), minimum lot area down to ${Math.round(MATCH_BLOCK.lotAreaShare * 100)}% of the block's median lot. Tolerances are scenario settings, not code. The screen counts lots where the block is looser than the code on at least one of those rules; homes unlocked need the rescoring batch.`,
   height: `One more story: lots in R1D, R1A, R2, R3 and RM with a height limit get +${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft. The lot-fit test's building types top out at three stories (placeholder sizes), so where a district already allows three the lever cannot add homes in this model; the result is a floor.`,
 } as const;
 
@@ -274,5 +277,6 @@ export const LEVER_METHOD = {
  */
 export const NOT_COMPUTED_NOTE: Record<string, string> = {
   cs: "Not computed for this demo (expected ~0 extra homes by right because today's baseline already credits the contextual front setback wherever a lot needs it, so the lever mostly removes a step, not a limit).",
+  mb: "Not precomputed for this demo: homes unlocked need the rescoring batch (about 4 hours on the shared database).",
   h1: "Not computed for this demo (expected ~0 extra homes by right because the lot-fit test's building types top out at three stories and residential districts already allow three).",
 };

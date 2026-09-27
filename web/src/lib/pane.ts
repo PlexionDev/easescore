@@ -7,7 +7,7 @@ import "server-only";
 import { assumptions, score } from "@easescore/engine";
 import { easeInputs, parcelFactsChecked, permitTimes, rentComps, salesComps, zbaGrantRates } from "@/lib/data";
 import { newConstructionSalesNear, primeRate, singleFamilyComps, tapFeesPerHome } from "@/lib/proforma";
-import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, type PanePayload, type StoredPane } from "@/lib/pane-core";
+import { buildPane, fetchZbaCitywide, fromStored, PANE_VERSION, type PaneInputs, type PanePayload, type StoredPane } from "@/lib/pane-core";
 import type { Timing } from "@/lib/timing";
 import { terrainGridFor } from "@/lib/terrain-tiles";
 
@@ -55,11 +55,24 @@ async function ownerClass(parid: string): Promise<PanePayload["owner"]> {
   }
 }
 
+async function streetPrecedent(parid: string): Promise<PaneInputs["precedent"]> {
+  try {
+    const r = await fetch(`${URL}/rest/v1/rpc/parcel_street_precedent`, {
+      method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify({ p_parid: parid }),
+      cache: "no-store", signal: AbortSignal.timeout(4000),
+    });
+    return r.ok ? ((await r.json()) as PaneInputs["precedent"]) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Computes the pane live (no stored row): per-parcel database calls in parallel, then the engine. */
 async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: Timing): Promise<PaneLoad> {
   const factsR = T.time("rpc_parcel_facts", parcelFactsChecked(parid));
   const factsP = factsR.then((x) => x.facts);
   const salesP = T.time("rpc_sales_comps", salesComps(parid));
+  const precedentP = T.time("rpc_street_precedent", streetPrecedent(parid));
   const [fr, sales, rent, qf, ease, zba, permits, sfComps, prime, tapFees, newSales, details, zbaCity, owner] = await Promise.all([
     factsR, salesP, T.time("rpc_rent_comps", rentComps(parid)), T.time("rpc_quickfit_input", quickfit), T.time("rpc_ease_inputs", easeInputs(parid)),
     factsP.then((f) => T.time("rpc_zba", zbaGrantRates((f as { zoning?: { code?: string } } | null)?.zoning?.code))),
@@ -73,10 +86,11 @@ async function live(parid: string, asOf: string, quickfit: Promise<unknown>, T: 
     T.time("rest_owner_class", ownerClass(parid)),
   ]);
   if (!fr.facts) return { ok: false, error: fr.error };
+  const precedent = await precedentP;
   const terrain = await T.time("terrain_grid", terrainGridFor(qf as Parameters<typeof terrainGridFor>[0]));
   const payload = T.timeSync("score_and_comps", () => buildPane({
     parid, asOf, facts: fr.facts, quickfitInput: qf ?? null, easeInputs: (ease ?? null) as score.EaseInputsRpc | null,
-    zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details, terrain, owner,
+    zba: zba as PanePayload["zba"], zbaCitywide: zbaCity, permitTimes: permits, sales, rent, sfComps, prime, tapFees, newSales, compDetails: details, terrain, owner, precedent,
   }));
   return { ok: true, payload, source: "live" };
 }

@@ -59,6 +59,9 @@ export interface NearbyZbaCase {
 /** Shape of public.parcel_street_precedent(parid). */
 export interface PrecedentRpc {
   parid: string;
+  /** "face" = the centerline segment's side; "stretch" = same street and side within 400 ft (short or corner faces). */
+  scope?: "face" | "stretch";
+  streetName?: string | null;
   face: BlockFaceRow | null;
   lots: PrecedentLot[] | null;
   zba: NearbyZbaCase[] | null;
@@ -84,6 +87,8 @@ export interface ContextualFront {
   /** Build-to line set by at least 50% of the other primary structures, ft. */
   buildToFt: number | null;
   reason: string;
+  /** Short why, e.g. "the house next door sits 5.1 ft back" (empty when it does not apply). */
+  why: string;
   citation: string;
 }
 
@@ -91,6 +96,9 @@ export interface StreetPrecedent {
   parid: string;
   faceId: string;
   streetName: string | null;
+  scope: "face" | "stretch";
+  /** Lots in street order (for the strip chart): measured front setback when a building stands. */
+  lots: { parid: string; building: boolean; front: number | null }[];
   /** Lots on the face, and those with a measured primary building (the subject lot left out). */
   nLots: number;
   nBuildings: number;
@@ -147,7 +155,7 @@ const nums = (xs: (number | null | undefined)[]) => xs.filter((x): x is number =
 /** §925.06.B for one lot on its block face (see the header for the reading used). */
 export function contextualFront(parid: string, lots: PrecedentLot[], rules: PrecedentRules): ContextualFront {
   const districtFt = rules.min_front_setback_ft ?? null;
-  const base = { districtFt, adjacentFt: [] as number[], buildToFt: null as number | null, citation: CONTEXTUAL_CITATION };
+  const base = { districtFt, adjacentFt: [] as number[], buildToFt: null as number | null, citation: CONTEXTUAL_CITATION, why: "" };
   const no = (reason: string, extra: Partial<ContextualFront> = {}): ContextualFront => ({ ...base, ...extra, applies: false, ft: null, basis: null, reason });
   if (!rules.contextual_front_setback) return no("This district does not use contextual setbacks.");
   if ((rules.zoneCode ?? "").toUpperCase().startsWith("RIV")) return no("Contextual setbacks are not available in the riverfront (RIV) districts.");
@@ -171,7 +179,7 @@ export function contextualFront(parid: string, lots: PrecedentLot[], rules: Prec
   const why = best.basis === "adjacent"
     ? `the house next door sits ${r1(best.ft)} ft back`
     : `at least half of the ${others.length} buildings on this block sit ${r1(best.ft)} ft back or closer`;
-  return { ...base, ...extra, applies: true, ft, basis: best.basis,
+  return { ...base, ...extra, applies: true, ft, basis: best.basis, why,
     reason: `A new building may line up with its neighbors: ${why}, so the front setback can be ${ft} ft instead of ${districtFt} ft (by right; the applicant documents the neighbors).` };
 }
 
@@ -206,7 +214,9 @@ export function streetPrecedent(rpc: PrecedentRpc | null | undefined, rules: Pre
   return {
     parid: rpc.parid,
     faceId: rpc.face.face_id,
-    streetName: rpc.face.street_name,
+    streetName: rpc.streetName ?? rpc.face.street_name,
+    scope: rpc.scope ?? "face",
+    lots: [...lots].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)).map((l) => ({ parid: l.parid, building: l.building, front: l.front })),
     nLots: lots.length,
     nBuildings: n,
     front: front ? { ...front, median: r1(front.median), p25: r1(front.p25), p75: r1(front.p75) } : null,

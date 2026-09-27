@@ -15,7 +15,7 @@ function hash(v: unknown): string {
 }
 
 /** Changes when the score config, the cost config or this payload's shape changes; other rows are ignored. Bump "pane.N" when engine code changes what buildPane returns. */
-export const PANE_VERSION = `pane.8|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
+export const PANE_VERSION = `pane.9|score.${score.DEFAULT_CONFIG.version}.${hash(score.DEFAULT_CONFIG)}|${assumptions.COST_CONFIG.version}.${hash(assumptions.COST_CONFIG)}`;
 
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -44,6 +44,8 @@ export interface PaneInputs {
   terrain?: TerrainGrid | null;
   /** parcel_owner_class row (land pricing: public lots are priced by the agency). */
   owner?: { owner_class: string | null; agency_name: string | null } | null;
+  /** parcel_street_precedent(parid): the lot's block face and nearby Zoning Board cases (City only). */
+  precedent?: score.PrecedentRpc | null;
 }
 
 export interface PanePayload {
@@ -67,6 +69,8 @@ export interface PanePayload {
   rehabComps: assumptions.CompSet | null;
   /** Owner class (private, city, ura, county, hacp, other_public, nonprofit) and agency name. */
   owner: { owner_class: string | null; agency_name: string | null } | null;
+  /** Street precedent (block face pattern, §925.06.B contextual setback, nearby ZBA cases); null outside the City or with no street. */
+  precedent: score.StreetPrecedent | null;
 }
 
 /**
@@ -113,11 +117,22 @@ export function compArea(f: Json): string | null {
 export function buildPane(i: PaneInputs): PanePayload {
   const f = i.facts as ParcelFacts & Record<string, Json>;
   let result: score.EaseScoreResult | null = null;
+  const zr = (f.zoning as { code?: string; rules?: { min_front_setback_ft?: number | null; contextual_front_setback?: boolean | null } | null } | undefined);
+  let precedent: score.StreetPrecedent | null = null;
+  try {
+    precedent = score.isCityParcel(f) ? score.streetPrecedent(i.precedent ?? null, {
+      zoneCode: zr?.code ?? null, min_front_setback_ft: zr?.rules?.min_front_setback_ft ?? null, contextual_front_setback: zr?.rules?.contextual_front_setback ?? null,
+    }) : null;
+  } catch {
+    precedent = null;
+  }
   try {
     // Permit times and review targets are City of Pittsburgh data: only used for City parcels.
     result = score.scoreParcel(f, {
       quickfitInput: i.quickfitInput ?? null, easeInputs: i.easeInputs, zba: i.zba, zbaCitywide: i.zbaCitywide ?? null,
       permitTimes: score.isCityParcel(f) ? i.permitTimes : undefined, unlocks: true,
+      // Measured neighbors replace the 5 ft contextual-setback assumption when the lot has a block face.
+      ...(precedent ? { precedent } : {}),
     });
   } catch {
     result = null;
@@ -155,6 +170,7 @@ export function buildPane(i: PaneInputs): PanePayload {
     newComps,
     rehabComps,
     owner: i.owner ? { owner_class: i.owner.owner_class ?? null, agency_name: i.owner.agency_name ?? null } : null,
+    precedent,
   };
 }
 

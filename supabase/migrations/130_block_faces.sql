@@ -206,6 +206,7 @@ language plpgsql stable security definer
 set search_path = public, extensions
 as $$
 declare
+  pid  char(16) := p_parid;  -- parid columns are char(16): compare as char so the indexes are used
   me   parcel_block_face;
   part geometry;
   c0   geometry;
@@ -216,7 +217,7 @@ declare
   lots jsonb;
   zba  jsonb;
 begin
-  select * into me from parcel_block_face where parid = p_parid;
+  select * into me from parcel_block_face where parid = pid;
   if me.parid is null then return null; end if;
   select count(*) into n_other from parcel_block_face x where x.face_id = me.face_id and x.parid <> me.parid and x.has_building;
 
@@ -226,7 +227,7 @@ begin
     declare alt record;
     begin
       select q.id, q.name, q.id || ':' || q.side face_id,
-             (select count(*) from parcel_block_face x where x.face_id = q.id || ':' || q.side and x.parid <> p_parid and x.has_building) n
+             (select count(*) from parcel_block_face x where x.face_id = q.id || ':' || q.side and x.parid <> pid and x.has_building) n
         into alt
       from (
         select st.id, st.name,
@@ -238,7 +239,7 @@ begin
         join streets st on st.source = 'city' and coalesce(st.paper_or_vacated, false) = false
                        and st.street_type not in ('Alley', 'Private', 'Private Road') and ST_DWithin(st.geom, p.geom, 0.0004)
         cross join lateral (select ST_Transform(dd.geom, 2272) geom from ST_Dump(st.geom) dd) pt
-        where p.parid = p_parid and ST_Length(pt.geom) > 30 and ST_DWithin(pt.geom, g.g, me.street_gap_ft + 5)
+        where p.parid = pid and ST_Length(pt.geom) > 30 and ST_DWithin(pt.geom, g.g, me.street_gap_ft + 5)
       ) q
       order by 4 desc limit 1;
       if alt.n > n_other then
@@ -248,7 +249,7 @@ begin
   end if;
 
   if (n_other < 3 or switched) and me.street_name is not null then
-    select ST_Transform(p.centroid, 2272) into c0 from parcels p where p.parid = p_parid;
+    select ST_Transform(p.centroid, 2272) into c0 from parcels p where p.parid = pid;
     select pt.geom into part
     from streets st, lateral (select ST_Transform(d.geom, 2272) geom from ST_Dump(st.geom) d) pt
     where st.id = me.street_id order by ST_Distance(pt.geom, c0) limit 1;
@@ -257,7 +258,7 @@ begin
     with cand as (
       select x.*, ST_Transform(p.centroid, 2272) c
       from parcel_block_face x join parcels p on p.parid = x.parid
-      where (x.street_name = me.street_name or x.parid = p_parid)
+      where (x.street_name = me.street_name or x.parid = pid)
         and ST_DWithin(p.centroid, ST_Transform(c0, 4326), 0.002)
     ), sided as (
       select cand.*, ST_ClosestPoint(ST_MakeLine(ST_Translate(ST_StartPoint(part), -ux * 2000, -uy * 2000), ST_Translate(ST_EndPoint(part), ux * 2000, uy * 2000)), cand.c) cp
@@ -297,7 +298,7 @@ begin
                    and ST_DWithin(pc.centroid::geography, me_p.centroid::geography, 800)
     join zoning_cases c on c.parid = pc.parid
     join zoning_requests r on r.case_id = c.case_id
-    where me_p.parid = p_parid and c.decision_date >= current_date - interval '10 years'
+    where me_p.parid = pid and c.decision_date >= current_date - interval '10 years'
       and r.outcome is not null and r.relief_type in ('dimensional_variance', 'special_exception', 'use_variance')
     order by c.decision_date desc limit 12) q;
 

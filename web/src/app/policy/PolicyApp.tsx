@@ -13,7 +13,7 @@ import {
 } from "@/components/seats";
 import type { PolicyPoint, Who } from "@/lib/policy/data";
 import {
-  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, NOT_COMPUTED_NOTE, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
+  ADU_RULES, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, MATCH_BLOCK, NOT_COMPUTED_NOTE, activeLevers, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
   type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario,
 } from "@/lib/policy/model";
 import { FiscalTab, MethodTab, WhereTab, WhoTab } from "./PolicyTabs";
@@ -275,6 +275,10 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         <Switch label="One more story" checked={sc.levers.height} onChange={(v) => setLevers({ height: v })}
           hint={`+${HEIGHT_ADD.stories} story and +${HEIGHT_ADD.ft} ft on today's height limit in residential districts`} />
       </div>
+      <div className={`pol-lever${sc.levers.matchBlock ? " is-on" : ""}`}>
+        <Switch label="Match the block" checked={!!sc.levers.matchBlock} onChange={(v) => setLevers({ matchBlock: v })}
+          hint={`New buildings matching the block's measured pattern (front line within ${MATCH_BLOCK.frontToleranceFt} ft, side yards, lot size) approved administratively`} />
+      </div>
       <div className={`pol-lever${sc.abatement.on ? " is-on" : ""}`}>
         <Switch label="Tax abatement for new homes" checked={sc.abatement.on} onChange={(v) => setSc((s) => ({ ...s, abatement: { ...s.abatement, on: v } }))}
           hint="LERTA-style phase-in of the added value (illustrative terms). Changes the fiscal ledger only." />
@@ -315,7 +319,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
         ) : st.status === "missing" || st.status === "cancelled" || st.status === "failed" ? (
           <div className="pol-banner" role="status" aria-live="polite">
             {NOT_COMPUTED_NOTE[key]
-              ? <><strong>{NOT_COMPUTED_NOTE[key]}</strong> {key === "cs" ? LEVER_METHOD.contextual : key === "h1" ? LEVER_METHOD.height : ""}</>
+              ? <><strong>{NOT_COMPUTED_NOTE[key]}</strong> {key === "cs" ? LEVER_METHOD.contextual : key === "h1" ? LEVER_METHOD.height : key === "mb" ? <MatchBlockScreen /> : ""}</>
               : <strong>Not precomputed for this demo — try a preset.</strong>}
             {computedPresets.length ? (
               <span className="pol-presetlinks"> {donePresets.length ? "Computed" : "Precomputed scenarios"}: {computedPresets.map((p, i) => (
@@ -381,3 +385,26 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   );
 }
 
+
+type BlockScreen = { parcels: number; vacant: number; neighborhoods: number; by_rule: { front: number; side: number; lot_area: number }; top_vacant: { neighborhood: string; vacant: number }[] | null };
+
+/** "Match the block" screen: lots whose block is looser than the code (precomputed, migration 131). Not a rescoring. */
+function MatchBlockScreen() {
+  const [d, setD] = useState<BlockScreen | null>(null);
+  useEffect(() => {
+    fetch("/api/policy/block-screen").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null));
+  }, []);
+  const n = (x: number) => x.toLocaleString("en-US");
+  return (
+    <span className="pol-block-screen">
+      {LEVER_METHOD.matchBlock}
+      {d ? (
+        <span style={{ display: "block", marginTop: 6 }}>
+          <strong>Screen (eligibility, not homes):</strong> {n(d.parcels)} residential lots in {d.neighborhoods} neighborhoods sit on blocks looser than the code
+          ({n(d.by_rule.front)} on the front setback, {n(d.by_rule.side)} side, {n(d.by_rule.lot_area)} lot size); {n(d.vacant)} of them are vacant
+          {d.top_vacant?.length ? ` (most in ${d.top_vacant.slice(0, 3).map((t) => `${t.neighborhood} ${n(t.vacant)}`).join(", ")})` : ""}.
+        </span>
+      ) : null}
+    </span>
+  );
+}
