@@ -1,15 +1,13 @@
-// Ease Score pieces of the parcel pane (server components): the score with its band and the compact
-// strategy switcher, the seven factor bars with receipt sheets, the red and amber callouts, and the
+// Ease Score pieces of the parcel pane (server components): the score with its band for the
+// selected option (picked in BestOptions), the seven factor bars with receipt sheets, the red and amber callouts, and the
 // "Details" drawer content (four answers, time to a permit, planning badge, what would unlock it).
 
-import Link from "next/link";
 import { narrative, score } from "@easescore/engine";
 import FourAnswers from "./FourAnswers";
 import { SheetButton } from "./Drawers";
 
 type Result = score.EaseScoreResult;
 type Strategy = score.StrategyResult;
-type SP = Record<string, string | string[] | undefined>;
 
 const BAND_WORD: Record<string, string> = { Easy: "Easy to build", Moderate: "Moderate to build", Hard: "Hard to build", "Very hard": "Very hard to build" };
 const BAND_STYLE: Record<string, string> = {
@@ -30,7 +28,7 @@ function factorRule(id: score.FactorId): string {
     case "F1": {
       const p = cfg.f1.permission as Record<string, number>;
       const d = cfg.f1.dimensional;
-      return `Use permission points: by right ${p.P}, administrator exception ${p.A}, special exception ${p.S}, conditional use ${p.C}, not permitted ${p.N}. Multiplied by how the building fits: fits 1, contextual setback ${d.contextualSetback}, needs a variance ${d.varianceBase} + ${d.varianceRateWeight} × the past grant rate (default ${pctOf(cfg.f1.zba.defaultGrantRate)} when fewer than ${cfg.f1.zba.minCases} decided cases), nothing fits ${d.noFit}.`;
+      return `Use permission points: by right ${p.P}, administrator exception ${p.A}, special exception ${p.S}, conditional use ${p.C}, not allowed (would need a rezoning) ${p.N}. Multiplied by how the building fits: fits 1, contextual setback ${d.contextualSetback}, needs a variance ${d.varianceBase} + ${d.varianceRateWeight} × the past grant rate (default ${pctOf(cfg.f1.zba.defaultGrantRate)} when fewer than ${cfg.f1.zba.minCases} decided cases), nothing fits ${d.noFit}.`;
     }
     case "F2":
       return `Share of the lot steeper than 25% → points: ${(cfg.f2.steepSlopeCurve as number[][]).map(([x, y]) => `${x}% → ${y}`).join(", ")} (straight lines between). Multiplied by ${cfg.f2.envelopeFactor.tooSmall} when the buildable area is smaller than the smallest footprint for this building type.`;
@@ -103,19 +101,13 @@ function FactorBar({ f, band, reportHref }: { f: score.FactorResult; band: strin
   );
 }
 
-function strategyHref(sp: SP, parid: string, id: string) {
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "strategy") q.set(k, v);
-  q.set("strategy", id);
-  return `/parcel/${encodeURIComponent(parid)}?${q.toString()}`;
-}
-
-/** 4. Big number + band words; range and "Preliminary" when evidence is thin; compact strategy switcher. */
-export function ScoreBlock({ parid, result, selected, sp }: { parid: string; result: Result; selected: Strategy; sp: SP }) {
+/** 4. The selected option's big number + band words; range and "Preliminary" when evidence is thin. The option is picked in BestOptions. */
+export function ScoreBlock({ selected }: { selected: Strategy }) {
   const s = selected;
   const preliminary = s.labels.includes(score.PRELIMINARY);
   return (
     <section aria-label="Ease Score">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Selected: {score.OPTION_NAME[s.strategy]}</p>
       {s.applicable ? (
         <div className="flex items-end gap-3">
           <span className="text-5xl font-bold tabular-nums leading-none tracking-tight text-slate-900">{preliminary && s.range ? `${s.range[0]}–${s.range[1]}` : s.score ?? "—"}</span>
@@ -134,18 +126,6 @@ export function ScoreBlock({ parid, result, selected, sp }: { parid: string; res
           {s.cap.label}. <span className="text-amber-800">Hazards like these hold the score at {s.cap.band} or lower.</span>
         </p>
       )}
-      <nav aria-label="Housing strategy" className="mt-2 flex gap-1 overflow-x-auto pb-1">
-        {result.strategies.map((x) => {
-          const on = x.strategy === s.strategy;
-          return (
-            <Link key={x.strategy} href={strategyHref(sp, parid, x.strategy)} scroll={false} prefetch={false}
-              aria-current={on ? "true" : undefined} title={x.applicable ? undefined : x.notApplicableReason}
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${on ? "border-slate-900 bg-slate-900 text-white" : x.applicable ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400" : "border-slate-100 bg-slate-50 text-slate-600"}`}>
-              {x.strategyLabel} <span className={on ? "text-white/80" : "text-slate-600"}>{x.applicable ? x.score ?? "—" : "n/a"}</span>
-            </Link>
-          );
-        })}
-      </nav>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { loadPane } from "@/lib/pane";
 import { comparePlans, withSelected, type PlanComparison } from "@/lib/summary";
 import { titleCase } from "@/lib/report/assess";
 import { Callouts, DetailsContent, FactorBars, ScoreBlock } from "./EaseScorePanel";
+import BestOptions from "./BestOptions";
 import ProFormaPanel, { AssumptionsForm } from "./ProFormaPanel";
 import ParcelShell from "./ParcelShell";
 import ParcelThumb from "./ParcelThumb";
@@ -225,6 +226,28 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
     }
   }
 
+  // "Best options for this lot": the money signal per option from the same pro forma as the summary
+  // (the selected option's own, with the visitor's edits); ease comes from the score. Never blended.
+  const pencilOf = (id: score.StrategyId, x: assumptions.ProFormaResult | null | undefined): score.PencilState => {
+    const rehab = id === "rehab_existing";
+    if (!x) return rehab ? "pricing" : "unknown";
+    if (x.plan.missing.length) return rehab && x.plan.missing.some((t) => /rehab cost|cost per/i.test(t)) ? "pricing" : "unknown";
+    return x.verdict ?? "unknown";
+  };
+  const optionRows = easeResult
+    ? score.rankOptions(easeResult, Object.fromEntries(easeResult.strategies.map((x) => {
+        const o = plans?.options.find((q) => q.strategy === x.strategy);
+        const fit = (x.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string } | undefined)?.fitStatus;
+        return [x.strategy, o ? pencilOf(x.strategy, o.pf) : fit === "no_fit" ? "none" : pencilOf(x.strategy, null)];
+      })))
+    : [];
+  // A rental with no "thin" threshold has no verdict: show its yield on cost instead of "can't tell".
+  const pencilDetail: Partial<Record<score.StrategyId, string>> = {};
+  for (const o of plans?.options ?? []) {
+    const y = o.pf?.rent.yieldOnCost;
+    if (o.pf && !o.pf.plan.missing.length && o.pf.verdict == null && o.pf.plan.tenure === "rent" && y != null) pencilDetail[o.strategy] = `Rental: ${Math.round(y * 100)}% yield`;
+  }
+
   T.add("server_total", T.total(), `pane ${loaded.source}`);
   const a = f.assessment as (Record<string, any> & { address?: string; municipality?: string; year_built?: number | null; living_area_sqft?: number | null; lot_area_sqft?: number | null }) | undefined;
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
@@ -282,6 +305,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       <div className="flex items-center justify-between">
         <Link href="/#parcel-search" className="text-xs font-medium text-slate-500 hover:text-slate-800">← New search</Link>
       </div>
+      {/* Best options for this lot: the ranked list is the one option switcher */}
+      {optionRows.length > 0 && <BestOptions parid={parid} rows={optionRows} detail={pencilDetail} selected={selected?.strategy ?? null} sp={sp} />}
       {/* 2. Property image (streams in after the pane) */}
       <ParcelThumb stage={stage} date={asOf} />
       {/* 3. Fact row */}
@@ -297,7 +322,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       {/* 4-6. Score, factor bars, callouts */}
       {easeResult && selected ? (
         <>
-          <ScoreBlock parid={parid} result={easeResult} selected={selected} sp={sp} />
+          <ScoreBlock selected={selected} />
           <FactorBars selected={selected} reportHref={`${reportHtml}#appD`} />
           <Callouts selected={selected} />
         </>
