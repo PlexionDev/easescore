@@ -16,10 +16,8 @@ import SummaryText from "./SummaryText";
 import DownloadReport from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
 import { OpenDrawer } from "./Drawers";
-import {
-  GEN_TYPOLOGIES, controlsFromQuery, controlsFromScheme, financeFor, generate, metricsOf, plates, proFormaFacts, sameControls, typologyForStrategy,
-  type FinanceInputs, type GenControls, type GenInput, type GenTypology, type SteppingResult,
-} from "@/lib/quickfit-gen";
+import { GEN_TYPOLOGIES, metricsOf, type GenInput } from "@/lib/quickfit-gen";
+import { parcelPlan, planNeedsLot, reportQueryFor } from "@/lib/parcel-plan";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -187,53 +185,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const selected = easeResult
     ? easeResult.strategies.find((x) => x.strategy === defaultId) ?? easeResult.strategies[0] ?? null
     : null;
-  // One SelectedScheme for the selected option and its pro forma, through the same function the map's
-  // QuickFit 3D generator runs in the browser (lib/quickfit-gen.ts financeFor): the score's fit scheme, or
-  // the generator's scheme when the visitor changed the map controls (qf_* keys), plus the program edits
-  // (pf_*) and hillside stepping measured on the lidar grid under the footprint.
-  const isCity = score.isCityParcel(f);
-  const fin: FinanceInputs = {
-    facts: proFormaFacts(f as unknown as Record<string, unknown>), sfComps: sfComps as FinanceInputs["sfComps"], newComps: P.newComps, rehabComps: P.rehabComps,
-    rents: rent as FinanceInputs["rents"], prime, tapFees,
-    permitMonths: Object.fromEntries((easeResult?.strategies ?? []).map((x) => [x.strategy, x.predictedMonthsToPermit?.months ?? null])),
-    overrides,
-    results: Object.fromEntries((easeResult?.strategies ?? []).map((x) => [x.strategy, { schemeId: x.schemeId ?? null, f1: (x.factors.find((q) => q.id === "F1")?.inputs ?? null) as Record<string, unknown> | null }])),
-  };
-  const genTyp: GenTypology | null = typologyForStrategy(selected?.strategy);
-  const urlControls: GenControls | null = genTyp ? controlsFromQuery(sp, genTyp) : null;
-  // Map controls per building type: the URL's for the selected one, else the ones that reproduce its priced scheme.
-  const genDefaults = Object.fromEntries(GEN_TYPOLOGIES.map((t) => {
-    const sch = easeResult?.schemes?.[t.strategy] ?? null;
-    const sr = easeResult?.strategies.find((x) => x.strategy === t.strategy);
-    const f1 = sr?.factors.find((q) => q.id === "F1")?.inputs as { fitStatus?: string | null; varianceRules?: string[] } | undefined;
-    return [t.id, controlsFromScheme(t.id, sch, f1?.fitStatus ?? null, f1?.varianceRules ?? [])];
-  })) as Record<GenTypology, GenControls>;
-  let genScheme: import("@easescore/engine").quickfit.Scheme | null = selected ? easeResult?.schemes?.[selected.strategy] ?? null : null;
-  let genStepping: SteppingResult | null = null;
-  if (selected?.applicable && urlControls) {
-    // The visitor's map controls: rerun the generator here (needs the lot geometry, streamed otherwise).
-    const qfIn = await quickfitP.catch(() => null);
-    if (qfIn) {
-      const gi: GenInput = { qf: qfIn, zoneCode: f.zoning?.code ?? null, rulesRow: isCity ? ((f.zoning as { rules?: GenInput["rulesRow"] } | undefined)?.rules ?? null) : null, terrain: P.terrain };
-      const d = genDefaults[urlControls.typology];
-      const own = sameControls({ ...urlControls, stories: d.stories, unitWidthFt: d.unitWidthFt, parking: d.parking }, d) ? genScheme : null;
-      const g = T.timeSync("quickfit_generate", () => generate(gi, urlControls, own));
-      genScheme = g.scheme;
-      genStepping = g.stepping;
-    }
-  } else if (genScheme) genStepping = plates(genScheme.footprints, P.terrain).stepping;
-  let chosenScheme: score.SelectedScheme | null = null;
-  let pf: assumptions.ProFormaResult | null = null;
-  if (selected?.applicable) {
-    try {
-      const out = T.timeSync("proforma", () => financeFor(fin, selected.strategy, genScheme, genStepping));
-      chosenScheme = out.selected;
-      pf = out.pf;
-    } catch {
-      chosenScheme = null;
-      pf = null;
-    }
-  }
+  // One SelectedScheme for the selected option and its pro forma (lib/parcel-plan.ts, shared with the
+  // Feasibility Study): the score's fit scheme, or the QuickFit 3D generator's scheme when the visitor changed
+  // the map controls (qf_* keys), plus the program edits (pf_*) and hillside stepping on the lidar grid.
+  const qfIn = planNeedsLot(sp, selected?.strategy) ? await quickfitP.catch(() => null) : null;
+  const plan = T.timeSync("proforma", () => parcelPlan({ P, sp, overrides, strategy: selected?.strategy ?? null, qf: qfIn }));
+  const { fin, isCity, genDefaults, urlControls, genTyp } = plan;
+  const chosenScheme = plan.selected;
+  const pf = plan.pf;
   const pencilsNote = pf
     ? [
         pf.plan.sizeWarning,
@@ -273,13 +232,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const s = sales as any, r = rent as any;
 
   // Query for the full report: same keys, with the report's names for the building type and tenure.
-  const REPORT_STRATEGY: Record<string, string> = { new_sf: "single_family", duplex: "duplex", townhouse_row: "townhouse_row" };
-  const rq = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && v !== "" && k !== "strategy") rq.set(k, v);
-  const rs = selected ? REPORT_STRATEGY[selected.strategy] : undefined;
-  if (rs) rq.set("strategy", rs);
-  if (typeof sp.pf_tenure === "string" && (sp.pf_tenure === "sale" || sp.pf_tenure === "rent")) rq.set("tenure", sp.pf_tenure);
-  const reportQuery = rq.toString();
+  const reportQuery = reportQueryFor(sp, selected?.strategy ?? null);
   const pdfHref = `/api/report/${encodeURIComponent(parid)}?${reportQuery}${reportQuery ? "&" : ""}download=0`;
   const reportHtml = `/parcel/${encodeURIComponent(parid)}/report${reportQuery ? `?${reportQuery}` : ""}`;
 

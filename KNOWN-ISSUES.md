@@ -27,4 +27,3 @@
 - **On steep lots the 3D block can look offset from the lot line** in the tilted terrain view: the extrusion sits on one ground height while the lot line follows the lidar. The footprint is also drawn flat on the ground, and a test checks every corner is inside the lot.
 - **QuickFit 3D blocks are a screening massing, not a design.** Stair cores, garage bays, parking stalls and the 15% stepping threshold are placeholders; the solver still fits one rectangular building per lot. ADUs are drawn and sized but not priced (ADU zoning and costs are not modeled yet).
 - **On wooded hillsides the photoreal view can hide the blocks behind tree canopy.** They show through as a faint ghost; the 3D Terrain view shows the stepped building clearly.
-- **The Feasibility Study PDF does not include hillside stepping yet**; the parcel page's pro forma does.

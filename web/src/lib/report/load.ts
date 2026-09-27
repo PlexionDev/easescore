@@ -20,6 +20,9 @@ import { compArea } from "@/lib/pane-core";
 import { loadEaseScore, type EaseScoreView } from "./score";
 import { comparePlans, type PlanComparison } from "@/lib/summary";
 import { buildSitePlanSheet, type SitePlanSheet } from "./sitesheet";
+import { loadPane } from "@/lib/pane";
+import { Timing } from "@/lib/timing";
+import { pageQueryFromReport, pageStrategyFromReport, parcelPlan, type ParcelPlan } from "@/lib/parcel-plan";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -285,6 +288,8 @@ export interface ReportModel {
   abatement: { share: number; years: number; edited: boolean };
   /** Site plan sheet EA-101 (true-scale SVG); null when the lot outline is not available. */
   sitePlan: SitePlanSheet | null;
+  /** The parcel page's plan for the same URL (lib/parcel-plan.ts): when set, `scheme` and `proForma` are the page's. */
+  pagePlan: Pick<ParcelPlan, "scheme" | "stepping" | "selected" | "pf"> & { strategy: string } | null;
 }
 
 /** Policy what-ifs for "What would unlock it". Each relaxes one rule; values are hypotheticals, not proposals. */
@@ -374,7 +379,23 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     }
   }
 
-  const scheme = pickScheme(qf, scenario.strategy);
+  // The parcel page's plan for this URL (same pane, same scheme, same stepping and budget lines): the report
+  // studies that building whenever the page priced one; otherwise it falls back to its own pick.
+  const asOf0 = todayIso(sp);
+  let pagePlan: ReportModel["pagePlan"] = null;
+  try {
+    const pageStrategy = pageStrategyFromReport(sp) ?? (scenario.strategy === "best" ? TYPOLOGY_STRATEGY[pickScheme(qf, "best")?.typology ?? ""] ?? null : null);
+    const loaded = pageStrategy ? await loadPane(parid, asOf0, Promise.resolve(qfRaw), new Timing("report", parid)) : null;
+    if (loaded?.ok && pageStrategy) {
+      const psp = pageQueryFromReport(sp);
+      const ov = { ...(str(sp, "tenure") ? { tenure: scenario.tenure } : {}), ...readCostOverrides(psp) };
+      const pp = parcelPlan({ P: loaded.payload, sp: psp, overrides: ov, strategy: pageStrategy, qf: (qfRaw as never) ?? null });
+      if (pp.pf && pp.scheme) pagePlan = { strategy: pageStrategy, scheme: pp.scheme, stepping: pp.stepping, selected: pp.selected, pf: pp.pf };
+    }
+  } catch {
+    pagePlan = null;
+  }
+  const scheme = pagePlan ? pagePlan.scheme : pickScheme(qf, scenario.strategy);
   // When nothing is allowed, keep the closest scheme (fewest approvals, then most units) to explain why.
   const closest =
     !scheme && qf?.all.length
@@ -454,8 +475,9 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     tapFeesPerUnit: homeFees.length ? homeFees.reduce((t, x) => t + x.amount, 0) : null,
     overrides: { tenure: scenario.tenure, ...overrides },
   });
-  const proForma = assumptions.evaluateDevelopment(plan);
-  const sensitivity = assumptions.sensitivity(plan);
+  // The page's pro forma when it priced this option (identical budget lines, stepping and ranges).
+  const proForma = pagePlan?.pf ?? assumptions.evaluateDevelopment(plan);
+  const sensitivity = assumptions.sensitivity(proForma.plan);
 
   // Product-type comparison and the two-sentence summary: same engine run as the parcel page.
   let plans: PlanComparison | null = null;
@@ -544,5 +566,6 @@ export async function loadReport(parid: string, sp: SP): Promise<ReportModel | n
     affordable,
     abatement,
     sitePlan,
+    pagePlan,
   };
 }
