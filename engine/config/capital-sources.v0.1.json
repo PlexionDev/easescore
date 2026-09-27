@@ -1,0 +1,149 @@
+{
+  "version": "capital-sources.v0.1",
+  "effectiveDate": "2026-09-26",
+  "_note": "Typical ranges for affordable-housing capital sources, for planning conversations only. Every amount is 'typical, not an award'. Where no public source pins a number, the entry says 'Assumption, edit me'. Rules cite the program's governing law or regulation.",
+  "rentRule": {
+    "incomeShare": { "value": 0.3, "sourceLabel": "HUD / LIHTC 30% rent rule (IRC §42(g)(2); 24 CFR 92.252)" },
+    "personsPerBedroom": { "value": 1.5, "sourceLabel": "LIHTC imputed household size: 1.5 persons per bedroom, 1 for an efficiency (IRC §42(g)(2)(C))" },
+    "sixtyPctFactor": { "value": 1.2, "sourceLabel": "HUD Multifamily Tax Subsidy Project limits: 60% = 120% of the very-low (50%) limit" }
+  },
+  "utilityAllowance": {
+    "_note": "Placeholder tenant-paid utility allowance per month by bedrooms. Replace with the HACP / ACHA published utility allowance schedule for the building type.",
+    "byBedrooms": [110, 130, 160, 195, 230, 265, 300],
+    "sourceLabel": "Assumption, edit me"
+  },
+  "debt": {
+    "_note": "Permanent mortgage sized on the restricted rents.",
+    "rate": { "value": 0.065, "range": [0.06, 0.075], "sourceLabel": "Assumption, edit me" },
+    "amortYears": { "value": 35, "sourceLabel": "Assumption, edit me" },
+    "dscr": { "value": 1.2, "range": [1.15, 1.25], "sourceLabel": "Assumption, edit me" },
+    "opexPerUnitYear": { "value": 6500, "range": [5500, 7500], "sourceLabel": "Assumption, edit me", "sourceNote": "Operating cost per unit per year for small affordable rentals: management, maintenance, insurance, reserves, owner-paid common utilities." },
+    "vacancyShare": { "value": 0.05, "sourceLabel": "Cost assumptions config (operating.vacancyShare)" }
+  },
+  "sources": [
+    {
+      "id": "lihtc4",
+      "label": "LIHTC 4% equity",
+      "short": "LIHTC 4%",
+      "kind": "equity",
+      "what": "Federal housing tax credits sold to investors for equity. Non-competitive, but the project must be financed with tax-exempt private-activity bonds.",
+      "amount": {
+        "method": "credit",
+        "creditRate": 0.04,
+        "eligibleBasisShareOfCostExLand": [0.8, 0.88, 0.95],
+        "pricePerCredit": [0.8, 0.87, 0.92],
+        "basisBoostQctDda": 1.3,
+        "sourceLabel": "IRC §42 (4% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption, edit me"
+      },
+      "rules": { "maxAmiPct": 60, "practicalMinUnits": 40 },
+      "timing": "Bond volume cap through PHFA / the Pennsylvania Commonwealth Financing Authority; rolling, often 6–12 months to close.",
+      "governing": "IRC §42; PHFA Allocation Plan"
+    },
+    {
+      "id": "lihtc9",
+      "label": "LIHTC 9% equity",
+      "short": "LIHTC 9%",
+      "kind": "equity",
+      "what": "Competitive federal housing tax credits awarded by PHFA once a year.",
+      "amount": {
+        "method": "credit",
+        "creditRate": 0.09,
+        "eligibleBasisShareOfCostExLand": [0.8, 0.88, 0.95],
+        "pricePerCredit": [0.8, 0.87, 0.92],
+        "basisBoostQctDda": 1.3,
+        "sourceLabel": "IRC §42 (9% floor rate; 130% basis boost in a QCT or DDA). Basis share and credit price: Assumption, edit me"
+      },
+      "rules": { "maxAmiPct": 60, "competitiveMinUnits": 20 },
+      "timing": "One PHFA competitive round a year; awards typically announced 4–6 months after the application deadline.",
+      "governing": "IRC §42; PHFA Qualified Allocation Plan"
+    },
+    {
+      "id": "home",
+      "label": "HOME funds (URA / County)",
+      "short": "HOME",
+      "kind": "soft_loan",
+      "what": "Federal HOME Investment Partnerships money passed through the City (URA) or Allegheny County, usually as a deferred loan.",
+      "amount": { "method": "perUnit", "perUnit": [40000, 70000, 100000], "sourceLabel": "Assumption, edit me" },
+      "rules": { "maxAmiPct": 80, "highHomeRentAmiPct": 65 },
+      "timing": "Local funding rounds (URA and Allegheny County Economic Development), usually once or twice a year.",
+      "governing": "24 CFR Part 92"
+    },
+    {
+      "id": "cdbg",
+      "label": "CDBG",
+      "short": "CDBG",
+      "kind": "grant",
+      "what": "Community Development Block Grant. New housing construction is generally not an eligible use unless a Community-Based Development Organization carries it out; often used for acquisition, site work or infrastructure.",
+      "amount": { "method": "perUnit", "perUnit": [5000, 15000, 25000], "sourceLabel": "Assumption, edit me" },
+      "rules": { "maxAmiPct": 80 },
+      "timing": "Annual local action plan cycle.",
+      "governing": "24 CFR 570.207(b)(3), 570.204"
+    },
+    {
+      "id": "phare",
+      "label": "PHARE (PHFA)",
+      "short": "PHARE",
+      "kind": "grant",
+      "what": "Pennsylvania Housing Affordability and Rehabilitation Enhancement Fund, awarded by PHFA.",
+      "amount": { "method": "perProject", "perProject": [100000, 300000, 500000], "sourceLabel": "Assumption, edit me" },
+      "rules": { "maxAmiPct": 80 },
+      "timing": "One PHFA round a year; awards typically in the fall.",
+      "governing": "PA Act 105 of 2010"
+    },
+    {
+      "id": "hof",
+      "label": "Housing Opportunity Fund (URA)",
+      "short": "HOF",
+      "kind": "soft_loan",
+      "what": "City of Pittsburgh Housing Opportunity Fund, run by the URA; gap financing for rental and for-sale homes in the City.",
+      "amount": { "method": "perUnit", "perUnit": [25000, 50000, 75000], "sourceLabel": "Assumption, edit me" },
+      "rules": { "maxAmiPct": 80, "cityOnly": true },
+      "timing": "URA program rounds; check the current Notice of Funding Availability.",
+      "governing": "City of Pittsburgh Housing Opportunity Fund"
+    },
+    {
+      "id": "ahp",
+      "label": "FHLBank Pittsburgh AHP",
+      "short": "AHP",
+      "kind": "grant",
+      "what": "Affordable Housing Program grant through a member bank of the Federal Home Loan Bank of Pittsburgh.",
+      "amount": { "method": "perProject", "perProject": [150000, 400000, 750000], "sourceLabel": "Assumption, edit me" },
+      "rules": { "minShareAt50": 0.2 },
+      "timing": "One competitive round a year, applied for through a member bank.",
+      "governing": "12 CFR Part 1291"
+    },
+    {
+      "id": "lerta",
+      "label": "Tax abatement (LERTA-style)",
+      "short": "Abatement",
+      "kind": "abatement",
+      "what": "Property tax abatement on the new improvements. Lowers operating costs; shown here as the present value of taxes not paid.",
+      "amount": { "method": "abatement", "years": 10, "abatedShare": 1.0, "discountRate": 0.06, "sourceLabel": "PA Act 76 of 1977 (LERTA, up to 10 years); share and years: Assumption, edit me" },
+      "rules": {},
+      "timing": "Depends on whether the municipality, school district and County have adopted it for this area.",
+      "governing": "PA Act 76 of 1977 (LERTA)"
+    },
+    {
+      "id": "land",
+      "label": "Public land at a nominal price",
+      "short": "Land",
+      "kind": "writedown",
+      "what": "The City, URA or Land Bank sells the lots below market for affordable homes; the land line of the pro forma goes away.",
+      "amount": { "method": "land", "nominalPerLot": 1000, "sourceLabel": "Land value from the pro forma; nominal price per lot: Assumption, edit me" },
+      "rules": { "publicLandOnly": true },
+      "timing": "Agency board approval; often 3–9 months.",
+      "governing": "Pittsburgh Land Bank / URA / City disposition policy"
+    },
+    {
+      "id": "philanthropy",
+      "label": "Philanthropic grants",
+      "short": "Philanthropy",
+      "kind": "grant",
+      "what": "Foundation and corporate grants, program-related investments.",
+      "amount": { "method": "perProject", "perProject": [50000, 150000, 300000], "sourceLabel": "Assumption, edit me" },
+      "rules": {},
+      "timing": "Relationship-driven; varies by funder.",
+      "governing": null
+    }
+  ]
+}
