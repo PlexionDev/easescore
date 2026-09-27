@@ -1,0 +1,71 @@
+/* Long-form public pages (/methods, /limitations, /ai-use). Self-contained: it defines its own tokens
+   and layout classes so the header/footer (see Shell.tsx) can be swapped without touching these pages. */
+
+.doc {
+  --paper: #f6f7f5;
+  --white: #ffffff;
+  --ink: #14202b;
+  --slate: #56636f;
+  --rule: #d9deda;
+  --river: #0f6e74;
+  --flag: #b42318;
+  --review: #a86514;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.55;
+}
+.doc :where(h1, h2, h3, p) { margin: 0; }
+.doc :focus-visible { outline: 3px solid var(--river); outline-offset: 3px; border-radius: 2px; }
+
+.wrap { width: min(1200px, 100% - 48px); margin-inline: auto; }
+.pageHead { padding: 56px 0 40px; border-bottom: 1px solid var(--rule); }
+.pageHead h1 { font-size: clamp(34px, 4.6vw, 56px); line-height: 1.04; letter-spacing: -0.03em; font-weight: 620; max-width: 18ch; }
+.eyebrow { display: block; font-size: 15px; color: var(--slate); margin-bottom: 12px; }
+.fine { margin-top: 32px; font-size: 12.5px; color: var(--slate); }
+
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px; padding-top: 48px; align-items: start; }
+.toc { position: sticky; top: 24px; font-size: 14px; }
+.toc p { font-weight: 600; margin-bottom: 10px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.toc a { color: var(--slate); text-decoration: none; }
+.toc a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+.prose { max-width: 72ch; }
+.prose section { scroll-margin-top: 24px; }
+.prose section + section { margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--rule); }
+.prose h2 { font-size: clamp(24px, 2.6vw, 30px); letter-spacing: -0.02em; line-height: 1.15; font-weight: 620; }
+.prose h3 { font-size: 18px; font-weight: 620; margin-top: 28px; }
+.prose p { margin-top: 12px; }
+.prose ul, .prose ol { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 8px; }
+.prose a { color: var(--river); text-underline-offset: 3px; }
+.prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: #eaeeeb; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.muted { color: var(--slate); }
+.lede { margin-top: 16px; font-size: clamp(17px, 1.5vw, 19px); color: var(--slate); max-width: 60ch; }
+
+.tableWrap { margin-top: 18px; overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--white); }
+.table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.table caption { text-align: left; padding: 12px 16px 0; font-size: 13px; color: var(--slate); }
+.table th, .table td { text-align: left; vertical-align: top; padding: 10px 16px; border-top: 1px solid var(--rule); }
+.table thead th { border-top: 0; font-size: 13px; font-weight: 600; color: var(--slate); white-space: nowrap; }
+.table td.num, .table th.num { text-align: right; white-space: nowrap; }
+
+.note { margin-top: 18px; border-left: 3px solid var(--review); background: #fbf5ec; padding: 12px 14px; font-size: 15px; }
+.flag { margin-top: 18px; border-left: 3px solid var(--flag); background: #fbeeec; padding: 12px 14px; font-size: 15px; }
+.info { margin-top: 18px; border-left: 3px solid var(--river); background: #e9f2f1; padding: 12px 14px; font-size: 15px; }
+
+.steps { counter-reset: step; list-style: none !important; padding-left: 0 !important; }
+.steps li { counter-increment: step; position: relative; padding-left: 38px; }
+.steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; display: grid; place-items: center; }
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 32px; }
+  .toc { position: static; border-bottom: 1px solid var(--rule); padding-bottom: 20px; }
+  .toc ol { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .wrap { width: calc(100% - 32px); }
+  .pageHead { padding: 36px 0 32px; }
+  .toc ol { grid-template-columns: 1fr; }
+  .table th, .table td { padding: 9px 12px; }
+}
