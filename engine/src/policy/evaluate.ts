@@ -68,7 +68,11 @@ export interface ParcelOutcome {
   unitsDelta: number;
   pencils: Record<"low" | "likely" | "high", boolean> | null;
   saleValue: Triple | null;
-  /** Added assessed value at build-out when the scheme pencils in that scenario, dollars. */
+  /**
+   * Assessed value the change adds at build-out when the scheme pencils in that scenario, dollars: the
+   * scheme's value times (homes added / homes in the scheme) times the assessment ratio, less the
+   * existing building's assessed value when the lot had no by-right home before.
+   */
   avDelta: Triple;
 }
 
@@ -94,8 +98,12 @@ export function evaluateParcel(p: PolicyParcel, state: LeverState, baseline: Eas
     units: scheme.units, netSf: scheme.netFloorAreaSf, grossSf: scheme.grossFloorAreaSf,
     acquisition: p.assessed.total ?? 0, value: p.value,
   }, basis);
+  // Only the homes the change adds are credited to it: the scheme's value pro rata to the added homes.
+  // A lot that could not take a home by right before also loses its existing building's assessed value.
+  const share = scheme.units > 0 ? Math.min(1, unitsDelta / scheme.units) : 0;
+  const replaced = (before.units ?? 0) === 0 ? p.assessed.building ?? 0 : 0;
   const avDelta = {} as Triple;
   for (const s of SCENARIOS)
-    avDelta[s] = t.pencils[s] && p.assessmentRatio != null ? Math.round(assessedValueDelta(t.saleValue[s], p.assessmentRatio, p.assessed.building ?? 0)) : 0;
+    avDelta[s] = t.pencils[s] && p.assessmentRatio != null ? Math.round(assessedValueDelta(t.saleValue[s] * share, p.assessmentRatio, replaced)) : 0;
   return { touched: app.touched, before, after, unitsDelta, pencils: t.pencils, saleValue: t.saleValue, avDelta };
 }

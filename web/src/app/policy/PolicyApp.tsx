@@ -178,7 +178,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const rTax: Receipt[] = meta && fis ? [{
     label: "New tax revenue at build-out, per year", source: fis.rows.map((r) => `${r.body.name} ${r.body.mills} mills (${r.body.year})`).join("; "),
     url: fis.rows[0]?.body.sourceUrl, date: String(fis.rows[0]?.body.year ?? ""), kind: "data",
-    method: `For homes that pencil in each scenario: added assessed value = sale value × assessment ratio ${meta.ratio.p50} (median assessed value ÷ sale price of ${meta.ratio.n} recent new-construction sales in the City) − the assessed value of any building replaced. Revenue = added assessed value × mills ÷ 1,000, per taxing body.`,
+    method: `For homes that pencil in each scenario: added assessed value = the added homes’ share of the scheme’s sale value (homes added ÷ homes in the scheme) × assessment ratio ${meta.ratio.p50} (median assessed value ÷ sale price of ${meta.ratio.n} recent new-construction sales in the City) − the existing building’s assessed value on lots that had no by-right home before. Homes the current code already allows are not credited to the change. Revenue = added assessed value × mills ÷ 1,000, per taxing body.`,
     notes: "Assumes every home that pencils is built. Earned income, wage and other taxes are not counted.",
   }] : [];
 

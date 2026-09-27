@@ -1,7 +1,7 @@
 /* Policy Analyst seat. Scoped under .pol-* inside the seat kit's .es-seat. */
 .pol-main { display: flex; flex-direction: column; flex: none; }
 .es-seat:has(.pol-main) .es-seat-controls .es-select select { max-width: 190px; }
-@media (max-width: 1280px) { .es-seat:has(.pol-main) .es-seat-controls .es-select:first-child { display: none; } }
+@media (min-width: 900px) and (max-width: 1280px) { .es-seat:has(.pol-main) .es-seat-controls .es-select:first-child { display: none; } }
 .pol-banner { margin: 12px 16px 0; padding: 10px 12px; border: 1px solid #dce3df; border-left: 3px solid #156b54; border-radius: 6px; background: #f5f8f6; color: #111b1a; font-size: 13px; line-height: 1.45; }
 .pol-progress { display: block; height: 4px; margin-top: 8px; background: #dce3df; border-radius: 2px; overflow: hidden; }
 .pol-progress > span { display: block; height: 100%; background: #156b54; transition: width .4s ease; }

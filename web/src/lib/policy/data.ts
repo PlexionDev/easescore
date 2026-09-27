@@ -104,3 +104,10 @@ export interface Who {
   homes_below_city_median: number; homes_high_burden: number; homes_majority_renter: number; homes_displacement_flag: number; tracts: WhoTract[];
 }
 export const policyWho = (key: string) => rpc<Who>("policy_who", { p_key: key });
+
+/** Stored context for a finished state (written by the batch), else null. */
+export async function storedContext(key: string): Promise<{ places: Places | null; who: Who | null } | null> {
+  const rows = await get<{ status: string; places: Places | null; who: Who | null }[]>(`policy_states?select=status,places,who&key=eq.${encodeURIComponent(key)}`);
+  const r = rows?.[0];
+  return r && r.status === "done" && r.places && r.who ? { places: r.places, who: r.who } : null;
+}

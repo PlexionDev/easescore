@@ -24,7 +24,7 @@ import * as policy from "../engine/src/policy/index";
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 const ROOT = process.cwd();
 const CITY_WHERE = "a.municode ~ '^1(0[1-9]|[12][0-9]|3[0-2])$'";
-export const POLICY_VERSION = `policy.1|score.${score.DEFAULT_CONFIG.version}`;
+export const POLICY_VERSION = `policy.2|score.${score.DEFAULT_CONFIG.version}`;
 
 // ------------------------------------------------------------------------------ input assembly
 // Same rules as scripts/score_all.ts (pickFrontEdges, percentile, assemble); copied, not imported,
@@ -409,7 +409,9 @@ async function main() {
     if (!dry) for (const key of norm) {
       const s = await sql<Json[]>(`select public.policy_summary('${key.replace(/'/g, "")}') s`);
       const summary = { ...s[0]!.s, parcels_seen: stats.parcels, skipped: stats.timeouts, buckets: `${done} of ${to - from + 1}` };
-      await setState(key, { status: done === to - from + 1 ? "done" : "partial", summary, computed_at: new Date().toISOString(), done });
+      const k = key.replace(/'/g, "");
+      const ctx = await sql<Json[]>(`select public.policy_places('${k}') places, public.policy_who('${k}') who`).catch(() => [{ places: null, who: null }]);
+      await setState(key, { status: done === to - from + 1 ? "done" : "partial", summary, places: ctx[0]!.places, who: ctx[0]!.who, computed_at: new Date().toISOString(), done });
       console.log(`${key}: ${JSON.stringify({ homes: s[0]!.s.homes, parcels: s[0]!.s.parcels_gaining, newly: s[0]!.s.newly_buildable, pencil: s[0]!.s.homes_pencil })}`);
     }
   };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { formatRange, fmtMoney } from "@/components/seats/format";
-import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, type Outline, type PolicyPoint } from "@/lib/policy/data";
+import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
 import {
   concentration, fiscal, homesRange, leverSentence, LEVERS_CODE_LABEL, newlyRange, scenarioFromQuery, stateKey, TRANSIT_M,
 } from "@/lib/policy/model";
@@ -46,7 +46,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
   const key = stateKey(sc.levers);
   const name = typeof sp.name === "string" ? sp.name.slice(0, 80) : "";
   const date = typeof sp.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : new Date().toISOString().slice(0, 10);
-  const [meta, st, points, outline, places] = await Promise.all([policyMeta(), policyState(key), policyPoints(key), hoodOutlines(), policyPlaces(key)]);
+  const [meta, st, points, outline, places] = await Promise.all([policyMeta(), policyState(key), policyPoints(key), hoodOutlines(), storedContext(key).then((c) => c?.places ?? policyPlaces(key))]);
   const s = st.summary;
   const title = name || "Rule change";
   if (!s) {
@@ -96,8 +96,8 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
           </table>
         ) : <p>Millage rates are not loaded, so the ledger cannot be computed.</p>}
         <p className="fine">
-          New assessed value = sale value of homes that pencil × assessment ratio {meta?.ratio.p50} (median assessed value ÷ price of {meta?.ratio.n} recent
-          new-construction sales in the City) − the assessed value of any building replaced. Revenue = assessed value × mills ÷ 1,000.
+          New assessed value = value of the added homes that pencil × assessment ratio {meta?.ratio.p50} (median assessed value ÷ price of {meta?.ratio.n} recent
+          new-construction sales in the City), counting only the added homes’ share of each scheme’s value, less the existing building on lots that had no by-right home before. Revenue = assessed value × mills ÷ 1,000.
           Ranges: low = low-quartile prices with high costs; high = high-quartile prices with low costs.
           {fis?.abatement ? ` Abatement modeled: ${Math.round(fis.abatement.share * 100)}% of the tax on the added value for ${fis.abatement.years} years (illustrative LERTA-style terms, not a verified program).` : " No tax abatement is part of this scenario."}
           {" "}Only property tax is counted; wage, earned-income and transfer taxes are not.

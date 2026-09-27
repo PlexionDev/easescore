@@ -179,7 +179,7 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
       </div>
       <p className="pol-muted">
         Millage from the County Treasurer’s published rates ({fis.rows.map((r) => `${r.body.name} ${r.body.year}`).join(", ")}). New assessed value assumes every home that pencils
-        is built: sale value × assessment ratio {meta?.ratio.p50 ?? "—"} (median of {meta?.ratio.n ?? "—"} recent new-construction sales), less any building replaced.
+        is built, crediting only the added homes: their share of the scheme’s sale value × assessment ratio {meta?.ratio.p50 ?? "—"} (median of {meta?.ratio.n ?? "—"} recent new-construction sales), less the existing building on lots that had no by-right home before.
         {fis.abatement ? ` Abatement: ${Math.round(fis.abatement.share * 100)}% of the tax on the added value for ${fis.abatement.years} years (illustrative LERTA-style terms, not a verified program). Break-even is the year cumulative collected tax covers the forgone tax.` : ""}
         {" "}Range: {formatRange(fis.total, { format: "money" })} per year.
       </p>
