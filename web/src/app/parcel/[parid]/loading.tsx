@@ -1,10 +1,13 @@
 // Parcel page skeleton: streamed at once while the pane loads (a parcel that is not precomputed is
-// computed live, which can take a while when the database is busy).
+// computed live, which can take a while when the database is busy). The seat header shows at once, as on the page.
+import { SeatHeader } from "@/components/seats";
 
 
 export default async function Loading() {
   return (
-    <div className="fixed inset-0 overflow-hidden bg-slate-200" role="status" aria-live="polite">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-200">
+      <div className="es-noprint relative z-40 shrink-0"><SeatHeader seat="developer" heading={false} /></div>
+      <div className="relative min-h-0 flex-1" role="status" aria-live="polite">
       <aside className="absolute inset-x-0 bottom-0 z-30 h-[45vh] rounded-t-2xl border border-white/50 bg-white/90 p-5 shadow-2xl md:inset-x-auto md:bottom-4 md:left-4 md:top-4 md:h-auto md:w-[440px] md:rounded-2xl">
         <div className="h-7 w-2/3 animate-pulse rounded bg-slate-200 motion-reduce:animate-none" />
         <div className="mt-2 h-4 w-1/2 animate-pulse rounded bg-slate-200 motion-reduce:animate-none" />
@@ -14,6 +17,7 @@ export default async function Loading() {
         </div>
         <p className="mt-6 text-sm text-slate-600">Loading this parcel: score, costs and the 3D site plan…</p>
       </aside>
+      </div>
     </div>
   );
 }

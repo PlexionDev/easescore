@@ -86,8 +86,10 @@ function useStable<T>(v: T): T {
 
 const TILES_ORIGIN = (() => { const b = remoteTilesBase(); return b ? new URL(b).origin : null; })();
 
-export default function ParcelShell({ parid, pane, planExtras, drawers, stage, outline, center, gen, viewFacts }: {
+export default function ParcelShell({ parid, header, pane, planExtras, drawers, stage, outline, center, gen, viewFacts }: {
   parid: string;
+  /** The seat header (logo, the four seats, municipality), above the map; the map and pane fill the rest. */
+  header?: ReactNode;
   /** The pane, top to bottom (server-rendered). */
   pane: ReactNode;
   /** Assumptions and project questions, shown in "Change the plan" under the scheme summary. */
@@ -161,13 +163,24 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const [sheet, setSheet] = useState<Sheet>("half");
   const [dragH, setDragH] = useState<number | null>(null);
   const drag = useRef<{ y: number; h: number; moved: boolean } | null>(null);
+  // The map area below the seat header: the bottom sheet sizes from its height, and the drawers start below the
+  // header (--es-hdr).
+  const body = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
-    const upd = () => { setMobile(mq.matches); setVh(window.innerHeight); };
+    const upd = () => {
+      setMobile(mq.matches);
+      const el = body.current;
+      setVh(el?.clientHeight || window.innerHeight);
+      root.current?.style.setProperty("--es-hdr", `${Math.round(el?.getBoundingClientRect().top ?? 0)}px`);
+    };
     upd();
     mq.addEventListener("change", upd);
     window.addEventListener("resize", upd);
-    return () => { mq.removeEventListener("change", upd); window.removeEventListener("resize", upd); };
+    const ro = typeof ResizeObserver !== "undefined" && body.current ? new ResizeObserver(upd) : null;
+    if (ro && body.current) ro.observe(body.current);
+    return () => { mq.removeEventListener("change", upd); window.removeEventListener("resize", upd); ro?.disconnect(); };
   }, []);
   const sheetPx = (s: Sheet) => (s === "peek" ? PEEK_PX : Math.round(vh * SHEET_FRAC[s]));
   const sheetH = dragH ?? sheetPx(sheet);
@@ -325,7 +338,9 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
   const descBtn = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-slate-100">
+    <div ref={root} className="fixed inset-0 flex flex-col overflow-hidden bg-slate-100">
+      {header ? <div className="relative z-40 shrink-0">{header}</div> : null}
+      <div ref={body} className="relative min-h-0 flex-1">
       <section aria-label="Map and 3D view" className="absolute inset-0">
       {!loaded && mode !== "build" && !(mode === "photoreal" && HAS_KEY && early) && <StagePlaceholder outline={outline} />}
       {mode === "build" && !canSolve && (
@@ -388,13 +403,13 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
 
       <main
         aria-label="Parcel details"
-        className={`absolute inset-x-0 bottom-0 z-30 flex h-[45vh] flex-col overflow-hidden rounded-t-2xl border border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl md:inset-x-auto md:bottom-4 md:left-4 md:top-4 md:h-auto md:w-[440px] md:rounded-2xl md:bg-white/85 ${dragH == null ? "transition-[height] duration-300" : ""}`}
+        className={`absolute inset-x-0 bottom-0 z-30 flex h-[45vh] flex-col overflow-hidden rounded-t-2xl border border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl md:inset-x-auto md:bottom-3 md:left-4 md:top-3 md:h-auto md:w-[440px] md:rounded-2xl md:bg-white/85 ${dragH == null ? "transition-[height] duration-300" : ""}`}
         style={mobile ? { height: sheetH } : undefined}>
         <button type="button" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
           className="flex w-full touch-none justify-center pb-1 pt-2 md:hidden" aria-label={sheet === "full" ? "Collapse details" : "Expand details"}>
           <span className="h-1.5 w-10 rounded-full bg-slate-300" />
         </button>
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-1 md:pt-5">{pane}</div>
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-1 md:pb-3 md:pt-4">{pane}</div>
       </main>
       <DrawerHost drawers={[
         ...drawers.filter((d) => d.id === "pencils"),
@@ -408,6 +423,7 @@ export default function ParcelShell({ parid, pane, planExtras, drawers, stage, o
         </> },
         ...drawers.filter((d) => d.id !== "pencils"),
       ]} />
+      </div>
     </div>
   );
 }

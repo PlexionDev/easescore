@@ -99,7 +99,7 @@ export default function ParcelThumb({ stage, date, compact = false }: { stage: P
 
   return (
     <figure className="m-0 min-w-0">
-      <div className={`relative w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${compact ? "h-[132px]" : "h-40"}`}>
+      <div className={`relative w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${compact ? "h-[108px]" : "h-40"}`}>
         {img
           ? <img src={img} alt={"Illustrative 3D map (not a photo) of the lot outlined in yellow, with nearby buildings and terrain"} className="h-full w-full object-cover" />
           : <>

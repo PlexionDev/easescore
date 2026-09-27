@@ -3,8 +3,8 @@
 // Developer parcel pane (right rail): the quick view's one-screen layout in compact form, from the
 // precomputed parcel_scores row. Address or parcel ID (copy), photo (the quick view's PanePhoto),
 // red flags above the score, Ease Score + band + one sentence, four buildability tiles, the best option,
-// then Open QuickFit · Pencil calculator · Full report, which open the parcel's quick view where the
-// live pro forma and 3D run. A parcel with no precomputed row (outside the scored area) still opens,
+// then Pro forma · Feasibility study, which open the parcel's quick view where the live pro forma runs
+// (its layout is the map's QuickFit 3D tab). A parcel with no precomputed row (outside the scored area) still opens,
 // with its parcel ID, zoning and owner type and a link to score it live.
 
 import { useEffect, useMemo, useState } from "react";
@@ -133,13 +133,13 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
         </>
       ) : null}
       <div className="dv-actions">
-        {r?.band === "Partial" ? null : <Link className="es-btn es-btn-primary" href={`${href}#view=build`}>Open QuickFit</Link>}
         <Link className="es-btn" href={`${href}#drawer=pencils`}>Pro forma</Link>
         <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Feasibility study<span className="es-sr"> (opens in a new tab)</span></a>
       </div>
       <div className="dv-actions2">
         {r ? <SeatButton onClick={() => onPin(r)} disabled={!pinned && !canPin} title={!pinned && !canPin ? "My lots holds 10" : undefined}>{pinned ? "Remove from My lots" : "Pin to My lots"}</SeatButton> : null}
         <Link href={href} className="dv-link">Open the quick view</Link>
+        {r?.band === "Partial" ? null : <Link href={`${href}#view=build`} className="dv-link">QuickFit 3D tab</Link>}
       </div>
       {r ? <p className="dv-hint">Precomputed with score config v{r.config_version} on {r.computed_at.slice(0, 10)}. The quick view recomputes it live with receipts, the pro forma and the checklist.</p> : null}
       <p className="dv-hint">Decision support only: not legal, financial, zoning or engineering advice.</p>

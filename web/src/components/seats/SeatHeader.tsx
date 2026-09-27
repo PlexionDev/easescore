@@ -15,7 +15,7 @@ import "./seats.css";
  * The Developer link opens /developer with the focused parcel from the shared selection
  * (`setSelection({ focus })`) open in its pane, if there is one.
  */
-export default function SeatHeader({ seat, controls, actions, hrefs }: {
+export default function SeatHeader({ seat, controls, actions, hrefs, heading = true }: {
   /** Current seat. Defaults to the one matching the URL. */
   seat?: SeatId;
   /** Left-aligned page controls after the switcher, e.g. a <SeatSelect> geography picker. */
@@ -24,6 +24,8 @@ export default function SeatHeader({ seat, controls, actions, hrefs }: {
   actions?: ReactNode;
   /** Override a seat's link (rare; the defaults keep context through the shared selection). */
   hrefs?: Partial<Record<SeatId, string>>;
+  /** Render the screen-reader h1 (the seat's job). Off on pages that have their own h1 (parcel page, report). */
+  heading?: boolean;
 }) {
   const pathname = usePathname();
   const current = seat ?? seatFromPath(pathname);
@@ -36,7 +38,7 @@ export default function SeatHeader({ seat, controls, actions, hrefs }: {
         <img src="/brand/easescore-logo-horizontal.svg" alt="" aria-hidden="true" />
       </Link>
       {/* The page's one heading for screen readers: the seat's job ("Compare and rank sites"). */}
-      <h1 className="es-sr-only">{SEATS.find((s) => s.id === current)?.job ?? "EaseScore.AI"}</h1>
+      {heading ? <h1 className="es-sr-only">{SEATS.find((s) => s.id === current)?.job ?? "EaseScore.AI"}</h1> : null}
       <nav className="es-seat-switch" aria-label="Switch seat">
         {SEATS.map((s) => {
           const on = s.id === current;

@@ -291,3 +291,12 @@
 .es-slider-step button:hover:not(:disabled){border-color:var(--es-green)}
 .es-slider-step button:focus-visible{outline:2px solid var(--es-focus);outline-offset:2px}
 .es-slider-step button:disabled{opacity:.4;cursor:default}
+
+/* Screen-only seat chrome (the parcel page and Feasibility study header): never printed or in the PDF. */
+@media print{.es-noprint{display:none!important}}
+/* Parcel page / Feasibility study: on phones the municipality picker shares the logo row (the map needs the height). */
+@media (max-width:899.98px){
+  .es-seat-parcel .es-seat-controls{order:2;flex:0 1 auto;margin-left:auto;min-width:0}
+  .es-seat-parcel .es-seat-controls .es-select select{max-width:180px}
+}
+@media (min-width:900px){.es-seat-parcel .es-seat-brand img{height:52px}}

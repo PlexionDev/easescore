@@ -13,6 +13,8 @@ import {
   AppA, AppB, AppC, AppD, AppE, AppF, Contents, Cover, DISCLAIMER, REPORT_VERSION,
   S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, type Ctx,
 } from "./sections";
+import ParcelSeatHeader from "@/components/seats/ParcelSeatHeader";
+import { plannerOptions } from "@/lib/planner";
 import "./report.css";
 
 // Print-first Feasibility Study. Open it in a browser to read it; /api/report/[parid] renders it to PDF.
@@ -56,12 +58,17 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
   if (!head) notFound();
   const token = printToken();
   const print = !!token && (await headers()).get(PRINT_HEADER) === token;
+  // The seat header is for the screen only: never rendered for the PDF, and hidden when printed.
   return (
-    <main className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`}>
-      <Suspense fallback={<FirstLook head={head} />}>
-        <FullStudy parid={parid} model={model} print={print} />
-      </Suspense>
-    </main>
+    <>
+      {!print && <ParcelSeatHeader parid={head.parid} municipality={head.municipality} neighborhood={head.neighborhood}
+        municipalities={plannerOptions().then((o) => o.all_municipalities.map((m) => m.name), () => [])} />}
+      <main className={`rpt ${serif.variable} ${sans.variable} ${narrow.variable}`}>
+        <Suspense fallback={<FirstLook head={head} />}>
+          <FullStudy parid={parid} model={model} print={print} />
+        </Suspense>
+      </main>
+    </>
   );
 }
 

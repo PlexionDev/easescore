@@ -84,7 +84,7 @@ export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string
         const on = open === d.id;
         return (
           <div key={d.id} ref={on ? openRef : undefined} role="dialog" aria-modal={on} aria-label={d.title} aria-hidden={!on}
-            className={`fixed inset-0 z-50 ${on ? "flex" : "hidden"} flex-col overflow-hidden bg-white md:inset-auto md:bottom-4 md:left-[472px] md:top-4 md:w-[500px] md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl`}>
+            className={`fixed inset-0 z-50 ${on ? "flex" : "hidden"} flex-col overflow-hidden bg-white md:inset-auto md:bottom-4 md:left-[472px] md:top-[calc(var(--es-hdr,0px)+1rem)] md:w-[500px] md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl`}>
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <h2 className="text-base font-semibold text-slate-900">{d.title}</h2>
               <button ref={on ? closeRef : undefined} type="button" onClick={close} className="rounded-full px-2 py-1 text-sm text-slate-600 hover:bg-slate-100" aria-label={`Close ${d.title}`}>

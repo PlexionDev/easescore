@@ -37,7 +37,7 @@ export default function SiteThumb({ scheme, qf2, controls, label }: {
   if (!s || !geo || geo.localRing.length < 3) {
     return (
       <figure className="m-0 min-w-0">
-        <div className="grid h-[132px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white/60 p-2 text-center text-[11px] text-slate-600">
+        <div className="grid h-[108px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white/60 p-2 text-center text-[11px] text-slate-600">
           {!qf2 ? "No lot outline in our data, so no layout is drawn." : !qf2.rules ? "This municipality's zoning rules are not in our data (City of Pittsburgh only), so no layout is drawn." : "No layout fits this lot at code."}
         </div>
         <figcaption className="mt-0.5 truncate text-[10px] text-slate-600">Site layout</figcaption>
@@ -58,7 +58,7 @@ export default function SiteThumb({ scheme, qf2, controls, label }: {
   const sw = Math.max(W, H) / 160;
   return (
     <figure className="m-0 min-w-0">
-      <div className="h-[132px] overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="h-[108px] overflow-hidden rounded-xl border border-slate-200 bg-white">
         <svg viewBox={`0 0 ${W.toFixed(1)} ${H.toFixed(1)}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full" role="img"
           aria-label={`Site layout: the lot with setbacks (hatched), the buildable area (dashed green) and the footprint (dark). ${what}.`}>
           <defs>

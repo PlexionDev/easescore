@@ -77,7 +77,7 @@ export default function PanePhoto({ stage, date }: { stage: Promise<{ mapData: F
     const src = `https://maps.googleapis.com/maps/api/streetview?size=400x264&scale=2&pano=${encodeURIComponent(pano.pano)}&heading=${pano.heading.toFixed(0)}&pitch=4&fov=80&source=outdoor&key=${encodeURIComponent(KEY)}`;
     return (
       <figure className="m-0 min-w-0">
-        <div className="h-[132px] overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+        <div className="h-[108px] overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
           {/* eslint-disable-next-line @next/next/no-img-element -- loaded directly from Google, never through our servers */}
           <img src={src} alt="Google Street View photo of the street frontage of this lot" className="h-full w-full object-cover" referrerPolicy="strict-origin-when-cross-origin" onError={() => setImgFailed(true)} />
         </div>

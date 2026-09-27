@@ -20,11 +20,13 @@ import SummaryText from "./SummaryText";
 import RentReceipt from "./RentReceipt";
 import DownloadReport, { ReportLink } from "./report/DownloadReport";
 import { Timing } from "@/lib/timing";
-import { OpenDrawer, OpenView } from "./Drawers";
+import { OpenDrawer } from "./Drawers";
 import { metricsOf } from "@/lib/quickfit-gen";
 import { QF2_TYPES, typologyForStrategy } from "@/lib/qf2/core";
 import { parcelPlan, reportQueryFor, userBuildingPlan } from "@/lib/parcel-plan";
 import NoZoningProForma from "./NoZoningProForma";
+import { plannerOptions } from "@/lib/planner";
+import ParcelSeatHeader from "@/components/seats/ParcelSeatHeader";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -347,7 +349,6 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const buildingLine = hasBuilding
     ? `${a?.use ? String(a.use).toLowerCase().replace(/^./, (m) => m.toUpperCase()) : "Use not recorded"}${a?.year_built ? `, built ${a.year_built}` : ""}${a?.living_area_sqft ? `, ${Math.round(a.living_area_sqft).toLocaleString("en-US")} sq ft` : ""} (County assessment)`
     : "None on record (County assessment)";
-  const canSolve = !!(plan.qf2?.rules && plan.qf2.zoneCode);
   // The site layout thumbnail shows the selected option when it is a new build, else the best new build.
   const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
   const thumbLabel = thumbTyp ? score.OPTION_NAME[QF2_TYPES.find((t) => t.id === thumbTyp)!.strategy] : null;
@@ -355,19 +356,13 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   // One wrapper so the pane sets its own (tighter) rhythm: everything fits one 1440×900 screen.
   const pane = (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
       <header>
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
-          <Link href="/#parcel-search" className="mt-1 shrink-0 text-xs font-medium text-slate-600 hover:text-slate-900">← New search</Link>
-        </div>
+        <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
         <div className="mt-0.5"><CopyParcelId parid={parid} /></div>
-        <p className="mt-0.5 text-xs text-slate-600">{subline}</p>
-        <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-xs">
-          <Link href={`/developer?parcel=${encodeURIComponent(parid)}`} className="text-sm font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-950">Open in Developer workspace →</Link>
-          <Link href="/planner" className="text-slate-600 underline decoration-dotted underline-offset-2 hover:text-slate-900">Compare sites in the Planner</Link>
-        </p>
+        <p className="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-600"><span>{subline}</span>
+          <Link href="/#parcel-search" className="shrink-0 font-medium text-slate-600 hover:text-slate-900">← New search</Link></p>
       </header>
       {/* 2-3. Photo (Street View or our illustrative map) beside the site layout thumbnail */}
       <div className="grid grid-cols-2 gap-2">
@@ -401,9 +396,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
-      {/* 6. Three buttons */}
-      <div className={`grid gap-2 ${canSolve ? "grid-cols-3" : "grid-cols-2"}`}>
-        {canSolve && <OpenView view="build" className="rounded-lg bg-slate-900 px-2 py-2 text-sm font-semibold text-white hover:bg-slate-800">Open QuickFit</OpenView>}
+      {/* 6. Two buttons (the layout is the map's QuickFit 3D tab) */}
+      <div className="grid grid-cols-2 gap-2">
         <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pro forma</OpenDrawer>
         <ReportLink parid={parid} query={reportQuery} className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
       </div>
@@ -412,7 +406,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         <OpenDrawer id="process" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900">Process checklist</OpenDrawer>
         <DownloadReport parid={parid} query={reportQuery} label={"Download the PDF"} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
       </div>
-      <p className="text-[11px] leading-snug text-slate-600">Decision support only: not legal, financial, zoning or engineering advice. Confirm with the permitting office and a professional.</p>
+      <p className="text-[11px] leading-snug text-slate-600">Decision support only: not legal, financial, zoning or engineering advice.</p>
     </div>
   );
 
@@ -524,6 +518,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   return (
     <ParcelShell
+      header={<ParcelSeatHeader parid={parid} municipality={muniName} neighborhood={isCity ? (f.context?.neighborhood as string | undefined) ?? null : null}
+        municipalities={plannerOptions().then((o) => o.all_municipalities.map((m) => m.name), () => [])} />}
       pane={pane}
       planExtras={<>{(ubPlan?.pf ?? pf) ? <AssumptionsForm parid={parid} result={(ubPlan?.pf ?? pf)!} sp={sp} /> : null}{projectForm}</>}
       drawers={[
