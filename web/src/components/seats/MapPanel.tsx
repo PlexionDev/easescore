@@ -12,6 +12,7 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import { layers as pmLayers, namedFlavor, type Flavor } from "@protomaps/basemaps";
+import { tilesBase } from "@/lib/tiles";
 import "./seats.css";
 
 maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
@@ -83,7 +84,7 @@ export default function MapPanel({
 
   useEffect(() => {
     if (!el.current) return;
-    const origin = window.location.origin;
+    const tiles = tilesBase();
     if (!protocolAdded) {
       maplibregl.addProtocol("pmtiles", new Protocol().tile);
       protocolAdded = true;
@@ -94,8 +95,8 @@ export default function MapPanel({
       glyphs: "https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf",
       sprite: `https://protomaps.github.io/basemaps-assets/sprites/v4/${sprite}`,
       sources: {
-        protomaps: { type: "vector", url: `pmtiles://${origin}/tiles/basemap.pmtiles`, attribution: "© OpenStreetMap contributors · Protomaps" },
-        easescore: { type: "vector", url: `pmtiles://${origin}/tiles/easescore.pmtiles`, promoteId: { parcels: "parid" } },
+        protomaps: { type: "vector", url: `pmtiles://${tiles}/basemap.pmtiles`, attribution: "© OpenStreetMap contributors · Protomaps" },
+        easescore: { type: "vector", url: `pmtiles://${tiles}/easescore.pmtiles`, promoteId: { parcels: "parid" } },
       },
       layers: [
         ...(pmLayers("protomaps", flavorFor(basemap), { lang: "en" }) as maplibregl.LayerSpecification[]),

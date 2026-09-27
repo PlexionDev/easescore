@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
     // Cesium's splat decoder breaks the minified 3D chunk in production builds; the site never uses splats.
     resolveAlias: { "@spz-loader/core": "./src/lib/spz-loader-stub.ts" },
   },
+  // Map tiles (web/public/tiles, ~1.3 GB, gitignored) are static files or hosted on a bucket in production
+  // (NEXT_PUBLIC_TILES_BASE); never trace them into server functions (Vercel caps a function at 250 MB).
+  outputFileTracingExcludes: { "/*": ["public/tiles/**/*"], "/**": ["public/tiles/**/*"] },
   env: { NEXT_PUBLIC_CESIUM_BASE_URL: `/cesium/${CESIUM_VERSION}` },
   async headers() {
     return [{

@@ -7,6 +7,7 @@ import "server-only";
 
 import path from "node:path";
 import { existsSync } from "node:fs";
+import { remoteTilesBase } from "@/lib/tiles";
 
 export interface LonLatAffine {
   lat0: number;
@@ -30,7 +31,23 @@ export interface DemGrid {
 const Z = 16;
 const TILE = 512;
 const M_TO_FT = 3.280839895;
-const DIR = path.join(process.cwd(), "public", "tiles", "terrain", String(Z));
+// turbopackIgnore keeps the build from tracing all ~20k terrain tiles into the report functions.
+const DIR = path.join(/* turbopackIgnore: true */ process.cwd(), "public", "tiles", "terrain", String(Z));
+// In production the tiles are hosted (NEXT_PUBLIC_TILES_BASE); the server fetches the few it needs.
+const REMOTE = remoteTilesBase();
+
+async function readTile(key: string): Promise<Buffer | string | null> {
+  if (REMOTE) {
+    try {
+      const r = await fetch(`${REMOTE}/terrain/${Z}/${key}.webp`, { signal: AbortSignal.timeout(8000) });
+      return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
+    } catch {
+      return null;
+    }
+  }
+  const file = path.join(/* turbopackIgnore: true */ DIR, `${key}.webp`);
+  return existsSync(file) ? file : null;
+}
 
 type Tile = { w: number; h: number; ch: number; data: Uint8Array } | null;
 
@@ -39,7 +56,7 @@ export async function sampleDem(
   step: number,
   A: LonLatAffine,
 ): Promise<DemGrid | null> {
-  if (!existsSync(DIR)) return null;
+  if (!REMOTE && !existsSync(DIR)) return null;
   let sharp: (typeof import("sharp"))["default"];
   try {
     sharp = (await import("sharp")).default;
@@ -71,13 +88,13 @@ export async function sampleDem(
 
   const tiles = new Map<string, Tile>();
   for (const key of [...need].sort()) {
-    const file = path.join(DIR, `${key}.webp`);
-    if (!existsSync(file)) {
+    const src = await readTile(key);
+    if (!src) {
       tiles.set(key, null);
       continue;
     }
     try {
-      const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
+      const { data, info } = await sharp(src).raw().toBuffer({ resolveWithObject: true });
       tiles.set(key, { w: info.width, h: info.height, ch: info.channels, data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) });
     } catch {
       tiles.set(key, null);
