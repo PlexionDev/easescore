@@ -131,7 +131,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
             ))}
           </tbody>
         </table>
-        {hoods.length > 10 ? <p className="fine">Top 10 of {hoods.length} neighborhoods. The CSV export lists every affected parcel.</p> : null}
+        {hoods.length > 10 ? <p className="fine">Top 10 of {hoods.length} neighborhoods. The CSV export lists every parcel that gains homes.</p> : null}
       </section>
 
       {/* ------------------------------------------------------------ page 3: assumptions, sources, limits */}

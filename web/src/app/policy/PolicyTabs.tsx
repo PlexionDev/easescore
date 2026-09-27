@@ -47,7 +47,7 @@ export function WhereTab({ summary, flags, places, highlight }: { summary: Summa
             ))}
           </tbody>
         </table>
-        {rows.length > 40 ? <p className="pol-muted">Showing the 40 neighborhoods with the most new capacity of {rows.length}. The CSV export has every parcel.</p> : null}
+        {rows.length > 40 ? <p className="pol-muted">Showing the 40 neighborhoods with the most new capacity of {rows.length}. The CSV export lists every parcel that gains homes.</p> : null}
       </div>
       <h3 className="pol-h3">By council district</h3>
       {!flags.geo ? (
@@ -199,7 +199,7 @@ export function MethodTab({ meta, levers, summary }: { meta: PolicyMeta | null; 
         {levers.adu ? <li><strong>ADUs.</strong> {LEVER_METHOD.adu}</li> : null}
         {levers.contextual ? <li><strong>Front setback.</strong> {LEVER_METHOD.contextual}</li> : null}
         {levers.height ? <li><strong>Height.</strong> {LEVER_METHOD.height}</li> : null}
-        <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance.</li>
+        <li><strong>Capacity.</strong> For each eligible parcel the zoning rules are rewritten for the lever and the lot-fit test (QuickFit) runs again for single-family, duplex, 3–4 unit and townhouse-row options. Homes allowed by right = the most homes an option fits with the use permitted and no variance. The headline range: <em>low</em> = only homes that need no lot split (townhouse rows need a subdivision plan first); <em>likely</em> = every home the fit test finds; <em>high</em> = likely plus the lots the fit test could not finish in time, at the average gain per lot tested. When nearly every lot finished the test, likely and high round to the same number.</li>
         <li><strong>Pencil test.</strong> For parcels that gain homes, the by-right scheme is tested against nearby new-construction prices and the cost defaults, in a low, likely and high scenario.</li>
         <li><strong>Fiscal.</strong> Added assessed value × millage per taxing body, for homes that pencil.</li>
       </ol>

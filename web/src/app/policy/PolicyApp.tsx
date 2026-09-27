@@ -169,7 +169,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
   const rHomes: Receipt[] = [{
     label: "Additional homes allowed by right", source: "EaseScore.AI engine (QuickFit lot-fit test + Ease Score config v0.2) on City of Pittsburgh parcels",
     date: summary?.computed_at?.slice(0, 10) ?? "computing", kind: "data",
-    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. High end: adds lots the fit test could not finish in time, at the average gain per lot tested.",
+    method: "For each parcel a lever applies to, the zoning rules are rewritten for the lever and the lot-fit test is rerun. Homes allowed by right = the most homes any new-building option fits with the use permitted and no dimensional relief. The number is the sum of (after − before) over parcels that gain. Likely: every home the fit test finds. Low end: only homes that need no lot split (townhouse rows need a subdivision plan) and, for ADUs, only lots where the ADU footprint check passes. High end: adds lots the fit test could not finish in time, at the average gain per lot tested, so when nearly every lot finished, likely and high round to the same number.",
     notes: "Capacity is not production: it says what the rules would allow, not what will be built or when.",
   }, ...(sc.levers.adu ? [{
     label: "ADUs by right (scenario ADU rules)", source: "EaseScore.AI policy lever; county assessment use and building footprint; zoning table setbacks",
@@ -226,9 +226,12 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
             { id: "packet", label: "Council packet (3 pages)", format: "PDF", description: "Fiscal note, housing outcome with map, assumptions and sources",
               disabled: !summary || key === "base", disabledReason: "Turn on a lever first",
               onSelect: () => { download(`/api/policy/packet?${exportQ()}`); } },
-            { id: "csv", label: "Affected parcels", format: "CSV", description: "Every parcel a lever applies to, homes by right before and after",
+            { id: "csv", label: "Parcels that gain homes", format: "CSV", description: "Each parcel that gains homes by right: before and after, pencils, added assessed value",
               disabled: key === "base", disabledReason: "Turn on a lever first",
               onSelect: () => { download(`/api/policy/csv?${exportQ()}`); } },
+            { id: "csv-all", label: "Every parcel a lever applies to (full City)", format: "CSV", description: "Also the parcels that gain nothing; about 100,000 rows, takes about half a minute",
+              disabled: key === "base", disabledReason: "Turn on a lever first",
+              onSelect: () => { download(`/api/policy/csv?${exportQ()}&all=1`); } },
           ]} />
         </>
       }
