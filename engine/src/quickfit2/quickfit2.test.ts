@@ -56,7 +56,9 @@ describe("QuickFit v2 module suite (test/run.ts)", () => {
     const spy = vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => { lines.push(a.join(" ")); });
     try { await import("./test/run"); } finally { spy.mockRestore(); }
     expect(lines.filter((l) => l.includes("FAIL"))).toEqual([]);
-    expect(lines[lines.length - 1]).toContain("ALL CHECKS PASSED");
+    expect(lines.some((l) => l.includes("ALL CHECKS PASSED"))).toBe(true);
+    // Module 1.0.0 adds a regression check: setbacks that consume the whole lot must return quickly.
+    expect(lines.some((l) => l.includes("REGRESSION OK"))).toBe(true);
   });
 });
 

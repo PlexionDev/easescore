@@ -28,3 +28,8 @@ for (const f of FIXTURES) {
 const parks = solve(FIXTURES.find(f => f.input.parcelId === "T-PARKS")!.input, { typology: "three_four" });
 ok(parks.status === "not_allowed", "Parks multi-unit must be not_allowed");
 console.log(`\n${fails ? fails + " FAILED" : "ALL CHECKS PASSED"}`);
+// regression: setbacks that consume the whole lot must return "does_not_fit" quickly (no infinite loop)
+{ const tiny = { ...FIXTURES[0].input, parcelId: "T-NOROOM", zoning: { ...FIXTURES[0].input.zoning, setbacksFt: { front: 80, rear: 80, side: 30, streetSide: 30 } } };
+  const t0 = Date.now(); const r = solveAll(tiny); ok(Date.now() - t0 < 2000, "no-room lot solves fast"); ok(r.results.every(s => s.status === "does_not_fit" || s.status === "not_allowed"), "no-room lot: nothing fits");
+  console.log(`No-room lot: ${r.results.map(s => s.status).join(", ")} in ${Date.now() - t0} ms`); }
+console.log(fails ? `${fails} FAILED (incl. regression)` : "REGRESSION OK");

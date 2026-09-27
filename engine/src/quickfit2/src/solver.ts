@@ -26,6 +26,7 @@ function storiesAllowed(input: ParcelInput, t: UnitTemplate) {
 function searchRect(R: Raster, wMin: number, wMax: number, dMin: number, dMax: number, cap: number, fixedW?: number | null, fixedD?: number | null) {
   // footprint aligned to the frame; hug the front setback line, prefer centered on the buildable width
   const [xa, xb] = R.xRange; const cx = (xa + xb) / 2; const y0 = R.ymin;
+  if (!isFinite(y0) || !isFinite(xa) || !isFinite(xb)) return null; // setbacks leave no buildable area
   let best: { x: number; y: number; w: number; d: number } | null = null; let bestA = -1;
   const ws: number[] = []; if (fixedW) ws.push(Math.round(fixedW)); else for (let w = wMin; w <= wMax; w += (w >= 30 ? 2 : 1)) ws.push(w);
   const ds: number[] = []; if (fixedD) ds.push(Math.round(fixedD)); else for (let d = dMin; d <= dMax; d += 2) ds.push(d);
@@ -90,7 +91,7 @@ function candidateFor(typology: Typology, R: Raster, input: ParcelInput, t: Unit
     return { ...r, stories, units, plate, layout: `${perFloor} per floor` };
   }
   if (typology === "townhouse_row") {
-    const [xa, xb] = R.xRange; const maxW = xb - xa;
+    const [xa, xb] = R.xRange; if (!isFinite(xa) || !isFinite(xb)) return null; const maxW = xb - xa;
     const minRow = (input.zoning.parkingPerUnit.single_attached ?? 0) > 0 ? Math.max(t.rowUnitMin, 16) : t.rowUnitMin; const uws: number[] = fixedW ? [Math.round(fixedW)] : Array.from({ length: t.rowUnitMax - minRow + 1 }, (_, k) => t.rowUnitMax - k);
     for (let n = Math.floor(maxW / Math.min(...uws)); n >= 1; n--) for (const uw of uws.filter(u => n * u <= maxW).slice(0, 1).concat(uws.filter(u => n * u <= maxW).slice(1))) {
       if (n * uw > maxW) continue; const r = searchRect(R, n * uw, n * uw, 30, 50, 1e9, null, fixedD);
@@ -148,7 +149,7 @@ export function solve(input: ParcelInput, ctl: Controls): Scheme {
     else { const m = candidateFor("single_detached", R, input, t, Math.min(2, maxSt), { typology: "single_detached" }, lotSqft); if (!m) { const s = base("does_not_fit", "No room for a main house plus a backyard cottage."); return s; } aduMain = m; mainY1 = m.y + m.d; flags.push("No house on record; the cottage is placed behind a new single-family house."); }
     const cap = Math.min(t.aduMaxSqft, z.aduMaxSqft ?? t.aduMaxSqft) / stories;
     let best: Cand | null = null;
-    for (let w = 16; w <= 30; w++) for (let d = 16; d <= 30; d += 2) { if (w * d > cap) continue; for (let y = Math.ceil(mainY1 + t.aduSeparationFt); y < R.y0 + R.H; y++) { const [xa, xb] = R.xRange; for (let x = Math.floor(xa); x + w <= xb; x++) if (R.fits(x, y, w, d)) { if (!best || w * d > best.w * best.d) best = { x, y, w, d, stories, units: 1, plate: w * d, layout: "detached rear cottage" }; x = 1e9; y = 1e9; } } }
+    for (let w = 16; w <= 30; w++) for (let d = 16; d <= 30; d += 2) { if (w * d > cap) continue; for (let y = Math.ceil(mainY1 + t.aduSeparationFt); y < R.y0 + R.H; y++) { const [xa, xb] = R.xRange; if (!isFinite(xa)) break; for (let x = Math.floor(xa); x + w <= xb; x++) if (R.fits(x, y, w, d)) { if (!best || w * d > best.w * best.d) best = { x, y, w, d, stories, units: 1, plate: w * d, layout: "detached rear cottage" }; x = 1e9; y = 1e9; } } }
     cand = best;
   } else cand = candidateFor(typology, R, input, t, stories, ctl, lotSqft);
 
