@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  CSV_COLUMNS, policyKey, blockerSentence, csvLine, describeFilters, filtersToDb, filtersToQuery, matchRow, parseFilters,
+  CSV_COLUMNS, policyKey, blockerSentence, csvLine, describeFilters, effectiveBlockers, filtersToDb, filtersToQuery, matchRow, parseFilters,
   type Filters, type PlannerRow,
 } from "../../web/src/lib/planner-query";
 
@@ -91,6 +91,19 @@ describe("filters combine (matchRow mirrors planner_rows)", () => {
     expect(matchRow(row({ blockers: ["Setbacks", "Parking minimum"] }), f)).toBe(true);
     expect(matchRow(row({ blockers: ["Parking minimum", "Steep slope"] }), f)).toBe(false);
     expect(matchRow(row({ blockers: [] }), f)).toBe(false);
+  });
+  it("'Low market activity' counts for the blocker filters only when it is the top blocker", () => {
+    const secondary = row({ blockers: ["Minimum lot size", "Low market activity"], top_blocker: "Minimum lot size" });
+    const top = row({ blockers: ["Low market activity", "Setbacks"], top_blocker: "Low market activity" });
+    expect(effectiveBlockers(secondary)).toEqual(["Minimum lot size"]);
+    expect(effectiveBlockers(top)).toEqual(["Low market activity", "Setbacks"]);
+    expect(matchRow(secondary, { hasBlocker: "Low market activity" })).toBe(false);
+    expect(matchRow(top, { hasBlocker: "Low market activity" })).toBe(true);
+    // Secondary market activity does not keep a parcel out of "only blocked by".
+    expect(matchRow(secondary, { only: ["Minimum lot size"] })).toBe(true);
+    expect(matchRow(top, { only: ["Setbacks"] })).toBe(false);
+    // The parcel's own list is unchanged.
+    expect(secondary.blockers).toContain("Low market activity");
   });
   it("'blocked by' (summary bars) matches any parcel listing the blocker", () => {
     expect(matchRow(row({ blockers: ["Steep slope", "Setbacks"], top_blocker: "Steep slope" }), { hasBlocker: "Setbacks" })).toBe(true);

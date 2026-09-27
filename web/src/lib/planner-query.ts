@@ -284,6 +284,16 @@ export function filtersToDb(f: Filters): Record<string, unknown> {
   return o;
 }
 
+/**
+ * "Low market activity" costs two or more points on about 60% of parcels as a secondary item, so the
+ * planner's blocker bars and blocker filters count it only where it is the parcel's top blocker
+ * (migration 091). The parcel's own blocker list still shows it.
+ */
+export const SECONDARY_ONLY_BLOCKER = "Low market activity";
+/** The blockers the planner's bars and filters count for a row (mirror of migration 091). */
+export const effectiveBlockers = (r: Pick<PlannerRow, "blockers" | "top_blocker">): string[] =>
+  r.blockers.filter((b) => b !== SECONDARY_ONLY_BLOCKER || r.top_blocker === b);
+
 /** TypeScript mirror of planner_rows(): does this row pass the filters? */
 export function matchRow(r: PlannerRow, f: Filters): boolean {
   const d = filtersToDb(f);
@@ -305,10 +315,11 @@ export function matchRow(r: PlannerRow, f: Filters): boolean {
   if (d.exclude_steep && (r.steep_share ?? 0) >= 0.25) return false;
   if (d.transit_max_m != null && !(r.transit_m != null && r.transit_m <= (d.transit_max_m as number))) return false;
   if (d.by_right_min != null && !(r.by_right_units != null && r.by_right_units >= (d.by_right_min as number))) return false;
-  if (d.has_blocker != null && !r.blockers.includes(d.has_blocker as string)) return false;
+  if (d.has_blocker != null && !effectiveBlockers(r).includes(d.has_blocker as string)) return false;
   if (Array.isArray(d.only_blocked_by)) {
     const allowed = d.only_blocked_by as string[];
-    if (!r.blockers.length || !r.blockers.every((b) => allowed.includes(b))) return false;
+    const eff = effectiveBlockers(r);
+    if (!eff.length || !eff.every((b) => allowed.includes(b))) return false;
   }
   return true;
 }
