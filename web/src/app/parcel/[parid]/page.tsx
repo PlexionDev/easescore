@@ -173,7 +173,6 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const { facts, sales, rent, sfComps, prime, tapFees, zba } = P;
   const f = facts as unknown as ParcelFacts & Record<string, any>;
   const project = readProject(sp);
-  const results = evaluateRequirements(f, project);
 
   // Ease Score for every strategy, precomputed (or computed live above). null hides the score block, never the page.
   const easeResult: score.EaseScoreResult | null = P.score;
@@ -284,7 +283,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
 
   T.add("server_total", T.total(), `pane ${loaded.source}`);
   const a = f.assessment as (Record<string, any> & { address?: string; municipality?: string; year_built?: number | null; living_area_sqft?: number | null; lot_area_sqft?: number | null }) | undefined;
+  // Checklist on the Feasibility study's basis (lib/report/load.ts): a new build unless the visitor says
+  // otherwise, sized by the selected option's homes, so the pane and the report count the same list.
+  const checklistProject: ProjectAnswers = { ...project, type: project.type ?? "new_build", units: project.units ?? pf?.plan.units ?? undefined, tenure: pf?.plan.tenure };
+  const results = evaluateRequirements(f, checklistProject);
   const byPhase = PHASE_ORDER.map((ph) => [ph, results.filter((r) => r.phase === ph)] as const);
+  // County recorded lot area vs the mapped parcel outline: more than 25% apart is a survey question first.
+  const lotCounty = Number(f.assessment?.lot_area_sqft) || null, lotMapped = Number(f.lot_area_sqft_gis) || null;
+  const lotMismatch = lotCounty && lotMapped && Math.abs(lotCounty - lotMapped) / Math.max(lotCounty, lotMapped) > 0.25 ? { county: Math.round(lotCounty), mapped: Math.round(lotMapped) } : null;
   const counts = results.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
   const s = sales as any, r = rent as any;
 
@@ -389,6 +395,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         </div>
         <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}</p>
         {bestLine && <p className="mt-1 text-[13px] text-slate-800"><b>Best option:</b> {bestLine}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
+        {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
       {/* 6. Three buttons */}
@@ -439,6 +446,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const process = (
     <section>
       <p className="text-sm text-zinc-600">
+        {`Checklist for ${checklistProject.type === "new_build" ? "a new build" : String(checklistProject.type).replace("_", " ")}${checklistProject.units ? ` of ${checklistProject.units} home${checklistProject.units === 1 ? "" : "s"}` : ""} (same basis as the Feasibility study): `}
         {Object.entries(counts).map(([k, v]) => `${v} ${k.replace("_", " ").toLowerCase()}`).join(", ")}
       </p>
       {byPhase.map(([ph, items]) => items.length > 0 && (

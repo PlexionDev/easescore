@@ -403,7 +403,7 @@ export function S1(x: Ctx) {
               ))}
             </ol>
           ) : (
-            <p>No red flags or review items were found in our data. Data gaps are listed in Section 12.</p>
+            <p>No red flags or site review items were found in our data.{((n) => (n ? ` The process checklist still lists ${n} required step${n === 1 ? "" : "s"} (Section 5).` : ""))(m.requirements.filter((r) => r.status === "REQUIRED").length)} Data gaps are listed in Section 12.</p>
           )}
         </div>
         <div className="answer">

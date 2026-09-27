@@ -148,6 +148,15 @@ export function reviewItems(m: ReportModel, alreadyShown: string[] = []): Findin
       mitigation: "Check the violation record and demolition orders with the City.",
       sources: ["permits"],
     });
+  // County recorded lot area vs the mapped outline (same 25% rule as the parcel page).
+  const lotCounty = Number(f.assessment?.lot_area_sqft) || 0, lotMapped = Number(f.lot_area_sqft_gis) || 0;
+  if (lotCounty > 0 && lotMapped > 0 && Math.abs(lotCounty - lotMapped) / Math.max(lotCounty, lotMapped) > 0.25)
+    out.push({
+      title: "Lot size records disagree",
+      reason: `County ${Math.round(lotCounty).toLocaleString("en-US")} sq ft vs mapped ${Math.round(lotMapped).toLocaleString("en-US")} sq ft. Confirm with a survey before relying on the layout or the land price.`,
+      mitigation: "Order a boundary survey and a title search; the recorded deed controls.",
+      sources: ["assessment"],
+    });
   const slides = f.landslides_within_300ft ?? 0;
   // Same basis as "Describe this view": the share of the lot inside a mapped area, then the count nearby.
   const onLot = overlay(m, "landslide_recorded");
