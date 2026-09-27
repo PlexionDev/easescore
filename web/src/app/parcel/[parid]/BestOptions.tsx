@@ -82,7 +82,7 @@ export default function BestOptions({ parid, rows, detail, selected, sp, lang = 
                   <span className="sr-only">{on ? t("best.selectedSr") : t("best.showSr")}</span>
                 </Link>
               ) : (
-                <div className="px-2 py-1.5 opacity-70">{body}</div>
+                <div className="px-2 py-1.5 opacity-85">{body}</div>
               )}
             </li>
           );

@@ -36,8 +36,11 @@ export function DrawerHost({ drawers }: { drawers: { id: DrawerId; title: string
     window.addEventListener("hashchange", fromHash);
     return () => { window.removeEventListener(EVENT, onOpen); window.removeEventListener("hashchange", fromHash); };
   }, [ids]);
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) { opener.current?.focus?.(); opener.current = null; return; }
+    // Remember what had focus so closing the drawer returns there.
+    if (!opener.current && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) opener.current = document.activeElement;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
     window.addEventListener("keydown", onKey);
@@ -74,16 +77,20 @@ export function SheetButton({ label, title, children }: { label: string; title: 
   const [on, setOn] = useState(false);
   const id = useId();
   const t = useT();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wasOn = useRef(false);
   useEffect(() => {
-    if (!on) return;
+    // Closing returns focus to the button that opened the sheet (keyboard and screen-reader users keep their place).
+    if (!on) { if (wasOn.current) trigger.current?.focus(); wasOn.current = false; return; }
+    wasOn.current = true;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOn(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [on]);
   return (
     <>
-      <button type="button" aria-haspopup="dialog" aria-controls={id} onClick={() => setOn(true)}
-        className="text-[11px] font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-800">
+      <button ref={trigger} type="button" aria-haspopup="dialog" aria-controls={id} onClick={() => setOn(true)}
+        className="min-h-6 text-[11px] font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-800">
         {label}
       </button>
       {on && (
@@ -92,7 +99,7 @@ export function SheetButton({ label, title, children }: { label: string; title: 
             className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 text-[13px] leading-snug text-slate-700 shadow-2xl md:w-[420px] md:rounded-2xl">
             <div className="mb-2 flex items-start justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-              <button type="button" autoFocus onClick={() => setOn(false)} className="rounded-full px-2 text-sm text-slate-500 hover:bg-slate-100" aria-label={t("drawer.close")}>✕</button>
+              <button type="button" autoFocus onClick={() => setOn(false)} className="min-h-6 min-w-6 rounded-full px-2 text-sm text-slate-500 hover:bg-slate-100" aria-label={t("drawer.close")}>✕</button>
             </div>
             {children}
           </div>

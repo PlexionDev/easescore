@@ -90,7 +90,7 @@ function QualitySlider({ tierId, onTier }: { tierId: string; onTier: (id: string
         aria-valuetext={`${t.label}, $${t.costPerSf.value} per sq ft`} className="mt-1 w-full accent-slate-900" list="pf-quality-stops" />
       <div className="grid text-[10px] text-slate-500" style={{ gridTemplateColumns: `repeat(${tiers.length}, minmax(0, 1fr))` }}>
         {tiers.map((x, k) => (
-          <button key={x.id} type="button" onClick={() => onTier(x.id)} className={`leading-tight ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
+          <button key={x.id} type="button" aria-pressed={x.id === t.id} onClick={() => onTier(x.id)} className={`min-h-6 leading-tight ${k === 0 ? "text-left" : k === tiers.length - 1 ? "text-right" : "text-center"} ${x.id === t.id ? "font-semibold text-slate-900" : ""}`}>
             <span className="block">{x.label.replace(/ \(spec\)$/, "")}</span>
             <span className="hidden tabular-nums sm:block">${x.costPerSf.range[0]}–{x.costPerSf.range[1]}{x.id === "luxury" ? "+" : ""}</span>
           </button>
