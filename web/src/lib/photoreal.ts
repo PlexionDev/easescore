@@ -19,9 +19,13 @@ export const hasGoogleKey = () => GOOGLE_KEY.length > 0;
 let cesiumP: Promise<Cesium> | null = null;
 export function loadCesium(): Promise<Cesium> {
   if (!cesiumP) {
-    (window as unknown as { CESIUM_BASE_URL: string }).CESIUM_BASE_URL = "/cesium";
+    // Versioned path (see next.config.ts), served with immutable cache headers.
+    (window as unknown as { CESIUM_BASE_URL: string }).CESIUM_BASE_URL = process.env.NEXT_PUBLIC_CESIUM_BASE_URL ?? "/cesium";
     cesiumP = import("cesium").then((C) => {
       C.Ion.defaultAccessToken = ""; // never touch Cesium ion
+      // Cesium's stock Google credit loads its logo from Cesium ion's CDN; use Google's own hosted logo instead.
+      (C.GoogleMaps as unknown as { getDefaultCredit: () => CesiumNS.Credit }).getDefaultCredit = () => new C.Credit(
+        '<img alt="Google" src="https://maps.gstatic.com/mapfiles/api-3/images/google_white5_hdpi.png" style="height:20px;width:auto;vertical-align:-6px">', true);
       return C;
     });
     cesiumP.catch(() => { cesiumP = null; });
@@ -40,7 +44,17 @@ export type Shared = {
   tileset: Promise<CesiumNS.Cesium3DTileset>;
   /** Tiles that failed after the root loaded (network or quota); the root failure rejects `tileset`. */
   failedTiles: number;
+  /** A view is still streaming in: keep load-time detail. Starts true; cleared by the tileset's first full load.
+   *  Consumers set it again while a new place loads. Call `refreshQuality` after changing it or `steady`. */
+  loading: boolean;
+  /** Treat the camera as at rest even while it moves (the slow presentation orbit). */
+  steady: boolean;
+  refreshQuality: () => void;
 };
+
+// Detail while the camera moves or tiles first stream in, and at rest. Google tiles look right at SSE 8;
+// 16 loads roughly a quarter of the tiles, so it is used only when nobody is looking closely.
+const SSE_MOVING = 16, SSE_REST = 8, IDLE_MS = 600, MOVING_DPR_CAP = 1.5;
 
 let sharedP: Promise<Shared> | null = null;
 let owner: symbol | null = null;
@@ -80,6 +94,9 @@ async function create(): Promise<Shared> {
       baseLayer: false, baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
       navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false, infoBox: false,
       selectionIndicator: false, vrButton: false, creditContainer: credits, msaaSamples: 4, shadows: false,
+      projectionPicker: false, navigationInstructionsInitiallyVisible: false, scene3DOnly: true,
+      useDefaultRenderLoop: false, // started by acquire(); nothing renders while the viewer is detached
+      // Off: the canvas is sized from window.devicePixelRatio x resolutionScale, so scale 1 is true full DPR.
       useBrowserRecommendedResolution: false,
       // Needed so "Capture view" can read the canvas after the frame is composited.
       contextOptions: { webgl: { preserveDrawingBuffer: true } },
@@ -95,8 +112,6 @@ async function create(): Promise<Shared> {
   // and use no ion services, so hide it. Google's logo and data credits stay visible.
   const logo = credits.querySelector<HTMLElement>(".cesium-credit-logoContainer");
   if (logo) logo.style.display = "none";
-  // With useBrowserRecommendedResolution off, scale 1 already renders at full devicePixelRatio.
-  viewer.resolutionScale = 1;
   const s = viewer.scene;
   s.globe.show = false; // Google tiles cover the ground; no base imagery, no ion
   if (s.skyAtmosphere) s.skyAtmosphere.show = true;
@@ -104,14 +119,40 @@ async function create(): Promise<Shared> {
   s.primitives.destroyPrimitives = false;
   if (process.env.NODE_ENV === "development") (window as unknown as { __cesium: unknown }).__cesium = viewer;
 
-  const shared: Shared = { C, viewer, root, credits, tileset: Promise.resolve(null as never), failedTiles: 0 };
+  const shared: Shared = {
+    C, viewer, root, credits, tileset: Promise.resolve(null as never), failedTiles: 0, loading: true, steady: false, refreshQuality: () => {},
+  };
+
+  // Load fast, finish sharp: SSE 16 and at most 1.5x pixel density while tiles first stream in or the camera
+  // moves; SSE 8 at full devicePixelRatio once the first view has loaded and the camera has been still ~600 ms.
+  let idle = true, timer: ReturnType<typeof setTimeout> | undefined;
+  let tsRef: CesiumNS.Cesium3DTileset | null = null;
+  const apply = () => {
+    const rest = !shared.loading && (idle || shared.steady);
+    const dpr = window.devicePixelRatio || 1;
+    const scale = rest ? 1 : Math.min(dpr, MOVING_DPR_CAP) / dpr;
+    if (tsRef) tsRef.maximumScreenSpaceError = rest ? SSE_REST : SSE_MOVING;
+    if (viewer.resolutionScale !== scale) viewer.resolutionScale = scale;
+  };
+  shared.refreshQuality = apply;
+  // moveEnd already fires after Cesium's own quiet period (scene.cameraEventWaitTime); wait out the rest.
+  const quietMs = Math.max(0, IDLE_MS - ((s as unknown as { cameraEventWaitTime?: number }).cameraEventWaitTime ?? 500));
+  viewer.camera.moveStart.addEventListener(() => { clearTimeout(timer); idle = false; apply(); });
+  viewer.camera.moveEnd.addEventListener(() => { clearTimeout(timer); timer = setTimeout(() => { idle = true; apply(); }, quietMs); });
+  apply();
+
   shared.tileset = C.createGooglePhotorealistic3DTileset(
     // No geocoder is attached to this viewer, so there is nothing non-Google to mix with the tiles.
     { key: GOOGLE_KEY, onlyUsingWithGoogleGeocoder: true },
-    { maximumScreenSpaceError: 8, showCreditsOnScreen: true },
+    {
+      maximumScreenSpaceError: SSE_MOVING, showCreditsOnScreen: true,
+      dynamicScreenSpaceError: true, foveatedScreenSpaceError: true, preloadFlightDestinations: true,
+    },
   ).then((ts) => {
     // Having a listener also stops Cesium from logging failed tile URLs (which include the key).
     ts.tileFailed.addEventListener(() => { shared.failedTiles++; });
+    tsRef = ts;
+    ts.initialTilesLoaded.addEventListener(() => { shared.loading = false; apply(); });
     s.primitives.add(ts);
     return ts;
   }, (e) => { throw tileErrorOf(e); });
@@ -119,13 +160,19 @@ async function create(): Promise<Shared> {
   return shared;
 }
 
-/** Borrow the shared viewer and mount it into `host`. Resolves after any previous owner is detached. */
-export async function acquire(host: HTMLElement, me: symbol): Promise<Shared> {
+/** Start Cesium, the viewer and the tileset's root request now (detached, nothing drawn) so `acquire` finds them
+ *  ready. Created once per page session; React StrictMode's double mount and later navigations reuse it. */
+export function warm(): Promise<Shared> {
   if (!sharedP) {
     sharedP = create();
     sharedP.catch(() => { sharedP = null; });
   }
-  const sh = await sharedP;
+  return sharedP;
+}
+
+/** Borrow the shared viewer and mount it into `host`. Resolves after any previous owner is detached. */
+export async function acquire(host: HTMLElement, me: symbol): Promise<Shared> {
+  const sh = await warm();
   owner = me;
   host.appendChild(sh.root);
   sh.viewer.useDefaultRenderLoop = true;
