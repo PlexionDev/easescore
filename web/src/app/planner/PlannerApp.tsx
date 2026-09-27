@@ -171,7 +171,7 @@ export default function PlannerApp({ options, initial, initialFilters, initialSo
     const names = [...new Set([CITY, ...(options?.all_municipalities ?? []).map((m) => m.name)])];
     return names.map((n) => ({ value: n, label: `${n === CITY ? "City of Pittsburgh" : titleCase(n)}${scored.has(n) ? "" : " (not scored yet)"}` }));
   }, [options]);
-  const muniScored = !filters.muni || (options?.municipalities ?? []).includes(filters.muni);
+  const muniScored = !filters.muni || (options?.municipalities ?? []).includes(filters.muni) || total > 0;
 
   const header = (
     <SeatHeader

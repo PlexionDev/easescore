@@ -21,7 +21,7 @@ const COLS: Col[] = [
     cell: (r) => (
       <span className="pl-score">
         <b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />
-        {r.preliminary && r.range_lo != null ? <span className="pl-muted" title="Preliminary: missing factors at 0 and at 100">{r.range_lo}-{r.range_hi}</span> : null}
+        {r.range_lo != null ? <span className="pl-muted" title={`${r.preliminary ? "Preliminary. " : ""}Some data is missing: the score could be ${r.range_lo} (missing factors at 0) to ${r.range_hi} (at 100)`}>{r.range_lo}-{r.range_hi}</span> : null}
         {r.red_flag_count ? <span className="pl-flag" title={r.red_flags.map((f) => f.title).join("; ")}>Blocked</span> : null}
       </span>
     ),

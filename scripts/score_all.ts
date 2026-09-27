@@ -2,7 +2,7 @@
 //
 // Run: scripts/score_all.sh [--scope city|county] [--buckets 200] [--from 0] [--to 199]
 //                           [--workers N] [--sql-concurrency 4] [--budget-ms 8000] [--dry] [--verify 20]
-//                           [--hoods "A,B"] [--skip-hoods "A,B"] [--pause-ms 0]
+//                           [--hoods "A,B"] [--skip-hoods "A,B"] [--munis "A,B"] [--pause-ms 0]
 //
 // How it works: parcels are split into hash buckets (abs(hashtext(parid)) % buckets) so each bulk
 // query stays under the 2-minute statement limit. scripts/score_all.sql pulls the score inputs for
@@ -200,9 +200,12 @@ export function plannerRow(facts: Json, res: score.EaseScoreResult, computedAt: 
   // Same ordering as the engine's best pick (no red flags, score, evidence, strategy order), limited to new
   // housing. Options whose zoning could not be checked (ADU rules are not transcribed yet) rank only when no
   // option has a zoning answer: a missing factor is left out of the average and would otherwise float them up.
+
   const housing = res.strategies.filter((s) => NEW_HOUSING.includes(s.strategy));
+  // Outside the City no option has a zoning answer; ADU still ranks last there (its own rules are unknown everywhere).
   const zoned = housing.filter((s) => s.factors.some((f) => f.id === "F1" && f.subscore != null));
-  const bestId = score.pickBest(zoned.length ? zoned : housing, cfg.strategies);
+  const notAdu = housing.filter((s) => s.strategy !== "adu" && s.applicable && s.score != null);
+  const bestId = score.pickBest(zoned.length ? zoned : notAdu.length ? notAdu : housing, cfg.strategies);
   const best = res.strategies.find((s) => s.strategy === bestId) ?? null;
   const rehab = res.strategies.find((s) => s.strategy === "rehab_existing" && s.applicable && s.score != null) ?? null;
   const flags = best?.redFlags ?? res.strategies.find((s) => s.applicable)?.redFlags ?? [];
@@ -476,7 +479,9 @@ async function main() {
   const hoodSql = (v: string) => `exists (select 1 from public.parcel_context c where c.parid = p.parid and c.neighborhood in (${hoodList(v)}))`;
   const where = [scope === "city" ? CITY_WHERE : `not (${CITY_WHERE})`,
     ...(arg("hoods", "") ? [hoodSql(arg("hoods", ""))] : []),
-    ...(arg("skip-hoods", "") ? [`not ${hoodSql(arg("skip-hoods", ""))}`] : [])].join(" and ");
+    ...(arg("skip-hoods", "") ? [`not ${hoodSql(arg("skip-hoods", ""))}`] : []),
+    // --munis "WILKINSBURG,MILLVALE": only these municipalities (use with --scope county).
+    ...(arg("munis", "") ? [`exists (select 1 from public.parcel_context c where c.parid = p.parid and c.muni_name in (${hoodList(arg("munis", ""))}))`] : [])].join(" and ");
   const t0 = Date.now();
   const shared = await loadShared();
   console.log(`shared inputs loaded in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${Object.keys(shared.rules).length} rule rows, ${Object.keys(shared.zba).length} districts, sample city ${shared.sample.city.length} / county ${shared.sample.county.length}`);

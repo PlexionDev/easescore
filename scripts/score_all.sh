@@ -4,7 +4,7 @@
 #                             [--sql-concurrency 4] [--dry] [--verify 20] [--hoods "A,B"] [--skip-hoods "A,B"]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-out="${TMPDIR:-/tmp}/easescore-score-all.mjs"
+out="${TMPDIR:-/tmp}/easescore-score-all-$$.mjs"  # one bundle per run: workers respawned mid-run load this file
 engine/node_modules/.bin/esbuild scripts/score_all.ts --bundle --platform=node --format=esm --target=node20 \
   --log-level=warning --outfile="$out"
 exec node "$out" "$@"

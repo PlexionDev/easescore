@@ -21,9 +21,9 @@ async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T> {
 // Short in-memory cache: scores change only when the batch reruns, and the broadest queries take ~1 s.
 const CACHE_MS = 5 * 60_000;
 const cache = new Map<string, { at: number; value: Promise<unknown> }>();
-function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+function cached<T>(key: string, load: () => Promise<T>, ttl = CACHE_MS): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value as Promise<T>;
+  if (hit && Date.now() - hit.at < ttl) return hit.value as Promise<T>;
   const value = load();
   cache.set(key, { at: Date.now(), value });
   value.catch(() => cache.delete(key));
@@ -39,5 +39,6 @@ export const plannerPoints = (f: Filters, limit = MAP_LIMIT) => {
   const body = { p_filters: filtersToDb(f), p_limit: limit };
   return cached(`p:${JSON.stringify(body)}`, () => rpc<PlannerPoint[]>("planner_points", body));
 };
-export const plannerOptions = () => cached("options", () => rpc<PlannerOptions>("planner_options", {}));
+// Options change when a batch adds a municipality or district; keep them fresher.
+export const plannerOptions = () => cached("options", () => rpc<PlannerOptions>("planner_options", {}), 60_000);
 

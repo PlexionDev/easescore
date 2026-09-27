@@ -32,11 +32,11 @@ export default function PlannerSummary({ s, f, set, loading }: {
   if (!s) return <EmptyState tone="error" title="Results could not load">Try again in a moment. The filters still work.</EmptyState>;
   if (!s.total) return <EmptyState tone="empty" title="No parcels match these filters">Remove a filter on the left to widen the search.</EmptyState>;
   const bands = [...BANDS, "No score"].map((b) => ({ b, n: s.bands[b] ?? 0 })).filter((x) => x.n > 0);
-  const top = s.blockers[0];
+  // The most common blocker that a rule change can relax (slope and hazards are not rules).
+  const top = s.blockers.find((b) => BLOCKER_LEVER[b.blocker]);
   const lever = top ? BLOCKER_LEVER[top.blocker] : undefined;
-  const policyHref = lever
-    ? `/policy?${new URLSearchParams({ lever: lever.lever, ...(f.hoods?.length === 1 ? { neighborhood: f.hoods[0]! } : {}), ...(f.muni ? { municipality: f.muni } : {}) }).toString()}`
-    : null;
+  // The Policy seat reads the lever from ?s= and the geography from the shared seat selection.
+  const policyHref = lever ? `/policy?s=${lever.key}` : null;
   const pl = s.public_land;
   return (
     <div className="pl-sum" aria-busy={loading || undefined}>
@@ -70,7 +70,8 @@ export default function PlannerSummary({ s, f, set, loading }: {
           {s.no_blocker ? <p className="pl-hint" style={{ marginTop: 6 }}>{s.no_blocker.toLocaleString("en-US")} parcels have no blocker costing a full point.</p> : null}
         </div>
         {policyHref && lever ? (
-          <p style={{ marginTop: 8 }}><Link className="pl-link" href={policyHref}>Test changing the {lever.label} rule →</Link></p>
+          <p style={{ marginTop: 8 }}><Link className="pl-link" href={policyHref}>Test changing the {lever.label} rule →</Link>
+            <span className="pl-hint" style={{ display: "block" }}>{top!.blocker}: {Math.round((100 * top!.n) / s.total)}% of these parcels.</span></p>
         ) : null}
       </section>
 

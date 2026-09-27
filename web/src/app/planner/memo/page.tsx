@@ -28,7 +28,8 @@ function ParcelPage({ r, rank }: { r: PlannerRow; rank: number }) {
       <div className="grid">
         <div>
           <p className="big">{r.score ?? "—"} <span style={{ fontSize: "12pt", fontWeight: 600 }}>{r.band ?? "No score"}</span></p>
-          {r.preliminary && r.range_lo != null ? <p>Preliminary: missing factors put it between {r.range_lo} and {r.range_hi}.</p> : null}
+          {r.range_lo != null ? <p>{r.preliminary ? "Preliminary: m" : "M"}issing data puts it between {r.range_lo} and {r.range_hi}.</p> : null}
+          {!r.zoning ? <p>Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded; confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
           <p>Best option that adds homes: {r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}.</p>
           <p>Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "no building on the lot"}.</p>
         </div>

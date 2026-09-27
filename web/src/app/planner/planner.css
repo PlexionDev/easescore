@@ -113,11 +113,12 @@
 .pl-fbar i b{display:block;height:100%;border-radius:3px}
 
 /* Dialog (badge settings, saved lists) */
-.pl-dialog{width:min(520px,calc(100vw - 32px));padding:0;border:1px solid var(--es-line);border-radius:12px;box-shadow:var(--es-shadow-lg)}
+.pl-dialog{position:fixed;inset:0;margin:auto;height:fit-content;width:min(520px,calc(100vw - 32px));padding:0;border:1px solid var(--es-line);border-radius:12px;box-shadow:var(--es-shadow-lg)}
 .pl-dialog::backdrop{background:#111b1a59}
 .pl-dialog-inner{padding:16px 18px;display:flex;flex-direction:column;gap:12px;max-height:80dvh;overflow:auto}
 .pl-dialog h2{font-size:16px;font-weight:700}
 .pl-dialog .pl-hint{font-size:12px;color:var(--es-muted)}
+.pl-dialog input[type=file]{display:block;margin-top:6px;font-size:12px}
 .pl-dialog input[type=text]{min-height:34px;padding:6px 10px;border:1px solid var(--es-line);border-radius:7px;width:100%}
 .pl-list{display:flex;flex-direction:column;gap:6px}
 .pl-list-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--es-line);border-radius:8px}

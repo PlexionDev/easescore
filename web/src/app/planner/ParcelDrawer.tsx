@@ -35,8 +35,9 @@ export default function ParcelDrawer({ row, onClose, pinned, onPin, badge }: {
           <div className="pl-drawer-body">
             <div className="pl-bigscore">
               <b>{r.score ?? "—"}</b><BandPill band={r.band} score={r.score} />
-              {r.preliminary && r.range_lo != null ? <span className="pl-hint">Preliminary: {r.range_lo} to {r.range_hi}</span> : null}
+              {r.range_lo != null ? <span className="pl-hint">{r.preliminary ? "Preliminary: " : "Range with missing data: "}{r.range_lo} to {r.range_hi}</span> : null}
             </div>
+            {!r.zoning ? <p className="pl-callout amber">Zoning rules for {titleCase(r.municipality) || "this municipality"} are not loaded, so the zoning factor is left out and the score is shown as a range. Confirm zoning with {titleCase(r.municipality) || "the municipality"}.</p> : null}
             <p className="pl-hint" style={{ marginTop: -10 }}>Best option that adds homes: {r.best_strategy ? STRATEGY_TEXT[r.best_strategy] ?? r.best_strategy : "none scored"}. Rehab of the existing building: {r.rehab_score != null ? `${r.rehab_score} (${r.rehab_band})` : "no building"}.</p>
             {r.red_flags.map((f) => <p key={f.id} className="pl-callout red"><strong>Blocked unless resolved:</strong> {f.title}</p>)}
             {r.cap_label ? <p className="pl-callout amber">{r.cap_label}</p> : null}

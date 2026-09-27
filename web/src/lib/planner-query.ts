@@ -56,16 +56,19 @@ export const ONLY_BLOCKED_BY = [
   "Special exception required", "Steep slope", "Small buildable area", "Lot too small for the building",
 ];
 
-/** Which policy lever relaxes a blocker (Policy seat, /policy?lever=). Absent when no lever applies. */
-export const BLOCKER_LEVER: Record<string, { lever: string; label: string } | undefined> = {
-  "Minimum lot size": { lever: "min_lot_size", label: "minimum lot size" },
-  "Lot area per unit": { lever: "min_lot_size", label: "lot area per unit" },
-  "Lot too small for the building": { lever: "min_lot_size", label: "minimum lot size" },
-  "Parking minimum": { lever: "parking", label: "parking minimum" },
-  "Setbacks": { lever: "setbacks", label: "setback" },
-  "Use not permitted": { lever: "attached_by_right", label: "use" },
-  "Special exception required": { lever: "attached_by_right", label: "use" },
-  "Conditional use required": { lever: "attached_by_right", label: "use" },
+/**
+ * Which Policy-seat lever relaxes a blocker, as the Policy seat's state key (/policy?s=<key>; see
+ * engine/src/policy/levers.ts): m0 = no minimum lot size, pn = no parking minimum, a35 = attached homes
+ * by right on lots up to 35 ft wide. Setbacks and slope have no lever yet, so they get no link.
+ */
+export const BLOCKER_LEVER: Record<string, { key: string; label: string } | undefined> = {
+  "Minimum lot size": { key: "m0", label: "minimum lot size" },
+  "Lot area per unit": { key: "m0", label: "lot area per unit" },
+  "Lot too small for the building": { key: "m0", label: "minimum lot size" },
+  "Parking minimum": { key: "pn", label: "parking minimum" },
+  "Use not permitted": { key: "a35", label: "attached-housing" },
+  "Special exception required": { key: "a35", label: "attached-housing" },
+  "Conditional use required": { key: "a35", label: "attached-housing" },
 };
 
 export interface PlannerRow {
