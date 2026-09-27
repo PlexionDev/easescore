@@ -149,10 +149,12 @@ export function reviewItems(m: ReportModel, alreadyShown: string[] = []): Findin
       sources: ["permits"],
     });
   const slides = f.landslides_within_300ft ?? 0;
-  if (slides > 0)
+  // Same basis as "Describe this view": the share of the lot inside a mapped area, then the count nearby.
+  const onLot = overlay(m, "landslide_recorded");
+  if (slides > 0 || onLot)
     out.push({
-      title: "Mapped slope-movement areas nearby",
-      reason: `${slides} slope-movement area${slides > 1 ? "s" : ""} from the 1982 inventory within 300 ft of the lot (a historic map, not a record of recent landslides).`,
+      title: onLot ? "Lot in a mapped slope-movement area" : "Mapped slope-movement areas nearby",
+      reason: `${onLot ? `${Math.round(onLot.share * 100)}% of the lot is in a slope-movement area on the 1982 landslide inventory; ` : ""}${slides} slope-movement area${slides === 1 ? "" : "s"} from that inventory within 300 ft of the lot (a historic map, not a record of recent landslides).`,
       mitigation: "Share the slope-movement map with the geotechnical engineer.",
       sources: ["landslide_inventory"],
     });
@@ -206,7 +208,8 @@ export function dataGaps(m: ReportModel): Gap[] {
   g.push({ what: "City review times", effect: "The timeline shows the order of steps but not their length.", mitigation: "Ask the City's zoning and permit offices for current review times." });
   if (!f.zoning?.code) g.push({ what: "Zoning outside the City of Pittsburgh", effect: "Allowed uses and dimensional rules are unknown here.", mitigation: `Confirm zoning with ${titleCase(f.assessment?.municipality) || "the municipality"}.` });
   if (!m.sales || m.sales.status !== "ok" || m.sales.sufficient === false) g.push({ what: "Enough comparable sales", effect: "There is no market reference value.", mitigation: "Ask a local appraiser or agent for comps." });
-  if (m.sales?.comparable_use === "vacant land") g.push({ what: "New-home sale comps for this lot", effect: "The lot is vacant, so comps are vacant-land sales. There is no market reference for the value of a finished home.", mitigation: "Ask a local agent or appraiser for recent new-construction sales nearby." });
+  const vc = m.proForma?.plan.valueComps as { status?: string; sufficient?: boolean } | null | undefined;
+  if (m.sales?.comparable_use === "vacant land" && m.proForma?.plan.strategy !== "rehab_existing" && !(vc && vc.status === "ok" && vc.sufficient !== false)) g.push({ what: "New-home sale comps for this lot", effect: "The lot is vacant and too few recent new-construction sales qualify, so there is no market reference for the value of a finished home (the Section 6 comps are vacant-land sales).", mitigation: "Ask a local agent or appraiser for recent new-construction sales nearby." });
   g.push({ what: "Listing-level rent comps", effect: "Rents rely on a ZIP-level index and HUD Fair Market Rents only.", mitigation: "Survey current listings nearby." });
   g.push({ what: "Absorption and lease-up data", effect: "Months to sell or lease up are editable assumptions (Section 6), supported only by counts of nearby sales, not a market study.", mitigation: "Ask local brokers how long similar homes took to sell or lease." });
   if (!m.tapFees.length) g.push({ what: "Water and sewer fees for this area", effect: "Tap and connection fees are unknown.", mitigation: "Call the local water and sewer authority." });

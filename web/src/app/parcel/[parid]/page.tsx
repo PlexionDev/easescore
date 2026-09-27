@@ -528,7 +528,7 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       viewFacts={{
         address, parid, zoning: f.zoning?.code ?? null, lotSf,
         slopeMeanPct: slope?.mean_pct != null ? Number(slope.mean_pct) : null, over25Share: over25 != null ? Number(over25) : null,
-        overlays: ((f.overlays ?? []) as { layer: string; share: number }[]).filter((o) => o.share > 0).map((o) => ({ label: overlayLabel(o.layer), share: o.share })),
+        overlays: ((f.overlays ?? []) as { layer: string; share: number }[]).filter((o) => o.share > 0).map((o) => ({ label: o.layer === "landslide_recorded" && typeof f.landslides_within_300ft === "number" ? `${overlayLabel(o.layer)}; ${f.landslides_within_300ft} mapped area${f.landslides_within_300ft === 1 ? "" : "s"} within 300 ft of the lot` : overlayLabel(o.layer), share: o.share })),
         floodwayShare: f.flood_evidence?.floodway_share ?? null, floodZoneShare: f.flood_evidence?.sfha_share ?? f.flood_1pct_share ?? null,
       }}
       gen={{

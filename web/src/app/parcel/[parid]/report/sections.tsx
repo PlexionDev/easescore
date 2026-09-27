@@ -689,7 +689,7 @@ export function S3(x: Ctx) {
         <tbody>
           <tr>
             <td>Landslide-prone (City overlay)</td>
-            <td>{slide ? `${pct(slide.share)} of the lot` : "Not in the overlay"}{fn(x, "landslide_prone")}{typeof f.landslides_within_300ft === "number" ? `. Mapped slope-movement areas (1982 inventory) within 300 ft: ${f.landslides_within_300ft}` : ""}{typeof f.landslides_within_300ft === "number" ? fn(x, "landslide_inventory") : null}</td>
+            <td>{slide ? `${pct(slide.share)} of the lot` : "Not in the overlay"}{fn(x, "landslide_prone")}{((rec) => (rec ? `. ${pct(rec.share)} of the lot is in a mapped slope-movement area (1982 inventory)` : ""))((f.overlays ?? []).find((o: { layer: string; share: number }) => o.layer === "landslide_recorded" && o.share > 0))}{typeof f.landslides_within_300ft === "number" ? `. Mapped slope-movement areas (1982 inventory) within 300 ft: ${f.landslides_within_300ft}` : ""}{typeof f.landslides_within_300ft === "number" ? fn(x, "landslide_inventory") : null}</td>
           </tr>
           <tr>
             <td>Undermined / mines</td>
@@ -1140,7 +1140,7 @@ export function S6(x: Ctx) {
               <>
                 We found <b>{num(s.count)}</b> {s.comparable_use} sales within {num(s.radius_mi, 2)} mile{s.radius_mi === 1 ? "" : "s"} from {s.date_range?.from} to {s.date_range?.to}. Median sale price{" "}
                 <b>{money(s.median_price)}</b>; median <b>{money(s.median_price_per_sqft, land ? 2 : 0)}</b> per sq ft of {land ? "lot" : "living area"}{fn(x, "sales")}.
-                {land ? " Because this lot is vacant, the comps are vacant-land sales: they price the land, not a finished home." : ""}
+                {land ? ((vc) => ` Because this lot is vacant, these comps are vacant-land sales: a reference for the land only, not for a finished home.${vc && vc.status === "ok" && vc.sufficient !== false && vc.count ? ` The finished home's value comes from ${num(vc.count)} new-construction sales (median ${money(vc.median_price_per_sqft)} per sq ft of living area; Section 9).` : ""}${m.proForma?.plan.sources.land.kind === "user" ? " The land price in the budget is your number." : " The land price in the budget is estimated separately (Section 7); for public land it follows agency sale prices, not this median."}`)(m.proForma?.plan.valueComps as { status?: string; sufficient?: boolean; count?: number; median_price_per_sqft?: number | null } | null | undefined) : ""}
               </>
             ) : (
               <b>Insufficient comps: {s.count} valid sales found{s.note ? ` (${s.note})` : ""}. No market reference value is given.</b>
