@@ -20,6 +20,11 @@ const GAPS: { what: string; detail: string; vintage: string }[] = [
     vintage: "—",
   },
   {
+    what: "Some vacant lots are recorded as built-on",
+    detail: "Parcels the county records as built-on are shown as Partial and excluded from rankings; in a spot-check of 20, 2 were actually vacant, so some vacant lots are missed.",
+    vintage: "County assessment; spot-check 2026-09-27",
+  },
+  {
     what: "Water service areas are approximate",
     detail: "Many boundaries are old. “Outside” can mean the map is out of date: some built-out suburbs show as outside. Parcels within 100 m of a boundary are marked unknown.",
     vintage: "PA DEP boundary edits 2003–2024",

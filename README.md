@@ -162,7 +162,7 @@ cd web && npx tsc --noEmit -p .
 
 ## Limitations
 
-Zoning covers the City of Pittsburgh only, sewer service is unknown everywhere, permit times are City targets rather than measured times, and costs are editable assumptions, not bids. The Nonprofit funding gap and the Policy pencil test are screening estimates, not an underwriting or a bond analysis, and Policy's capacity numbers are how many homes a rule change would allow, not how many would get built. The full list is on the [Limitations page](https://easescore.ai/limitations) and in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+Zoning covers the City of Pittsburgh only, sewer service is unknown everywhere, permit times are City targets rather than measured times, and costs are editable assumptions, not bids. The Nonprofit funding gap and the Policy pencil test are screening estimates, not an underwriting or a bond analysis, and Policy's capacity numbers are how many homes a rule change would allow, not how many would get built. Parcels the county records as built-on are shown as Partial and excluded from rankings; in a spot-check of 20, 2 were actually vacant, so some vacant lots are missed. The full list is on the [Limitations page](https://easescore.ai/limitations) and in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 
 ## Roadmap
 
