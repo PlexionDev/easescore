@@ -134,7 +134,10 @@ export async function generateMetadata({ params }: PageProps<"/parcel/[parid]">)
   } catch {
     address = null;
   }
-  return { title: `${address ? `${address} · ` : ""}${`Parcel ${parid}`} — EaseScore.AI` };
+  return {
+    title: `${address ? `${address} · ` : ""}${`Parcel ${parid}`} — EaseScore.AI`,
+    description: `What it takes to build on ${address ? `${address} (parcel ${parid})` : `parcel ${parid}`} in Allegheny County: Ease Score, zoning, terrain, hazards and a pro forma, with a source behind every number.`,
+  };
 }
 
 /** Resolves to null after `ms` (the caller then shows the retry state). */
