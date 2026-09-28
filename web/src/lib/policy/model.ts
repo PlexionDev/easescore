@@ -124,18 +124,35 @@ export function newlyRange(s: Summary): Triple {
 
 // ---------------------------------------------------------------------------------- fiscal
 
-const BODY_ID: Record<string, TaxBody["id"]> = { county: "county", municipality: "municipality", school_district: "school" };
-const BODY_NAME: Record<string, string> = { county: "Allegheny County", municipality: "City of Pittsburgh", school_district: "Pittsburgh Public Schools" };
+// City of Pittsburgh 2026 rates from the cost model (engine/config/cost-assumptions.v0.2.json, propertyTax.cityMills),
+// the same rates the parcel pages use. The Treasurer rows in policy_meta predate the 2026 parks/library/school
+// update, so they only gate whether millage is loaded; the rates shown and multiplied are these.
+const CITY_MILLS = costs.propertyTax.cityMills;
+const CITY_PARTS: Record<string, { id: TaxBody["id"]; name: string }> = {
+  "Allegheny County": { id: "county", name: "Allegheny County" },
+  City: { id: "municipality", name: "City of Pittsburgh" },
+  parks: { id: "municipality", name: "City of Pittsburgh parks" },
+  library: { id: "municipality", name: "City of Pittsburgh library" },
+  "Pittsburgh Public Schools": { id: "school", name: "Pittsburgh Public Schools" },
+};
+const ORDER = ["county", "municipality", "school"];
+const CITY_BODIES: TaxBody[] = CITY_MILLS.sourceLabel.replace(/^2026 millage: /, "").split(" + ").flatMap((x) => {
+  const mm = /^(.*) ([\d.]+)$/.exec(x);
+  const part = mm ? CITY_PARTS[mm[1]!] : undefined;
+  return part ? [{ id: part.id, name: part.name, mills: Number(mm![2]), year: 2026, sourceUrl: `${CITY_MILLS.sourceLabel} (${CITY_MILLS.sourceNote})` }] : [];
+}).sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
+const PPS_MILLS = CITY_BODIES.find((b) => b.id === "school")?.mills ?? null;
 
-/** The three taxing bodies for a City parcel, latest year per body. Empty when millage is not loaded. */
+/** Mills for display: at least two decimals (0.50, 6.43, 10.457). */
+export const fmtMills = (m: number) => { const r = Math.round(m * 1000) / 1000; return r.toFixed(Math.max(2, (String(r).split(".")[1] ?? "").length)); };
+
+/** The City's 2026 taxing bodies (County, City, parks, library, schools). Empty when millage is not loaded. */
 export function taxBodies(meta: PolicyMeta | null): TaxBody[] {
-  const out: TaxBody[] = [];
-  for (const t of ["county", "municipality", "school_district"]) {
-    const r = (meta?.millage ?? []).filter((m) => m.jurisdiction_type === t).sort((a, b) => b.year - a.year)[0];
-    if (r) out.push({ id: BODY_ID[t]!, name: BODY_NAME[t]!, mills: Number(r.mills), year: r.year, sourceUrl: r.source_url });
-  }
-  return out;
+  return meta?.millage?.length ? CITY_BODIES : [];
 }
+
+/** Rates list for Method / sources text: the 2026 City rates and where they come from. */
+export const cityMillsSource = () => `${CITY_BODIES.map((b) => `${b.name} ${fmtMills(b.mills)}`).join("; ")} (2026; total ${fmtMills(CITY_MILLS.value)}; ${CITY_MILLS.sourceNote})`;
 
 export interface Fiscal {
   rows: LedgerRow[];
@@ -146,7 +163,7 @@ export interface Fiscal {
   /** Tax the lots that gain homes pay today on their current assessed value (per year, all bodies). */
   doingNothing: number;
   totalMills: number;
-  /** What totalMills adds up, e.g. "Allegheny County 6.43 + City of Pittsburgh 9.67 + Pittsburgh Public Schools 10.25". */
+  /** What totalMills adds up, e.g. "Allegheny County 6.43 + City of Pittsburgh 9.67 + ... + Pittsburgh Public Schools 10.457". */
   millsParts: string;
   abatement: Abatement | null;
 }
@@ -172,7 +189,9 @@ export function fiscal(s: Summary, meta: PolicyMeta | null, abate: Scenario["aba
   const general = bodies.filter((b) => b.id !== "school");
   const schoolRows: { body: TaxBody; av: Triple }[] = places?.by_school?.length
     ? places.by_school.filter((x, i) => x.mills != null && (i === 0 || Number(x.high) > 0)).map((x) => ({
-        body: { id: "school" as const, name: SCHOOL_NAME[x.school_key ?? ""] ?? `${titleCase(x.name)} School District`, mills: Number(x.mills), year: x.year ?? 0, sourceUrl: x.source_url ?? "" },
+        body: { id: "school" as const, name: SCHOOL_NAME[x.school_key ?? ""] ?? `${titleCase(x.name)} School District`, ...(x.school_key === "PITTSBURGH" && PPS_MILLS != null
+          ? { mills: PPS_MILLS, year: 2026, sourceUrl: CITY_BODIES.find((b) => b.id === "school")!.sourceUrl }
+          : { mills: Number(x.mills), year: x.year ?? 0, sourceUrl: x.source_url ?? "" }) },
         av: { low: Number(x.low), likely: Number(x.likely), high: Number(x.high) },
       }))
     : bodies.filter((b) => b.id === "school").map((b) => ({ body: b, av: s.av_delta }));
@@ -184,12 +203,7 @@ export function fiscal(s: Summary, meta: PolicyMeta | null, abate: Scenario["aba
   const mainSchool = schoolRows[0]?.body.mills ?? bodies.find((b) => b.id === "school")?.mills ?? 0;
   const totalMills = general.reduce((t, b) => t + b.mills, 0) + mainSchool;
   const mainSchoolName = schoolRows[0]?.body.name ?? bodies.find((b) => b.id === "school")?.name;
-  const cityMills = costs.propertyTax.cityMills.value;
-  // Revenue here uses the Treasurer rows as loaded; say so when they predate the City's 2026 total.
-  const staleNote = Math.abs(totalMills - cityMills) > 0.005
-    ? `; computed at ${Math.round(totalMills * 1000) / 1000} mills (before the 2026 parks/library/school update; the City's 2026 total is ${cityMills})`
-    : "";
-  const millsParts = [...general.map((b) => `${b.name} ${b.mills}`), ...(mainSchoolName ? [`${mainSchoolName} ${mainSchool}`] : [])].join(" + ") + staleNote;
+  const millsParts = [...general.map((b) => `${b.name} ${fmtMills(b.mills)}`), ...(mainSchoolName ? [`${mainSchoolName} ${fmtMills(mainSchool)}`] : [])].join(" + ");
   return {
     rows, av, total: sum((r) => r.revenue), abatementTotal: sum((r) => r.abatementPerYear),
     doingNothing: annualTax(s.av_before_gaining, totalMills), totalMills, millsParts, abatement: ab,

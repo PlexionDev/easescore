@@ -14,7 +14,7 @@ import {
 import type { PolicyPoint, Who } from "@/lib/policy/data";
 import {
   ADU_RULES, ATTACHED_ALONE_NOTE, CONTEXTUAL_FRONT_FT, DEFAULT_ABATEMENT, HEIGHT_ADD, LEVER_METHOD, MATCH_BLOCK, NOT_COMPUTED_NOTE, PARKING_NOTE, activeLevers, earlierRunNote, fullRunSize, parseKey as parseLevers, fiscal, goalSeek, homesRange, leverSentence, newlyRange, normalize, scenarioToQuery, stateKey,
-  type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario,
+  type LeverState, type Places, type PolicyMeta, type PolicyState, type Scenario, fmtMills,
 } from "@/lib/policy/model";
 import { FiscalTab, MethodTab, WhereTab, WhoTab } from "./PolicyTabs";
 import GoalSeek from "./GoalSeek";
@@ -213,7 +213,7 @@ export default function PolicyApp({ initial, initialState, meta, states, flags }
     notes: `${meta.rule} Parcels with no nearby new-construction sales use the City-wide quartiles (${meta.citywide.n} sales).`,
   }] : [];
   const rTax: Receipt[] = meta && fis ? [{
-    label: "New tax revenue at build-out, per year", source: fis.rows.map((r) => `${r.body.name} ${r.body.mills} mills (${r.body.year})`).join("; "),
+    label: "New tax revenue at build-out, per year", source: fis.rows.map((r) => `${r.body.name} ${fmtMills(r.body.mills)} mills (${r.body.year})`).join("; "),
     url: fis.rows[0]?.body.sourceUrl, date: String(fis.rows[0]?.body.year ?? ""), kind: "data",
     method: `For homes that pencil in each scenario: added assessed value = the added homes’ share of the scheme’s sale value (homes added ÷ homes in the scheme) × assessment ratio ${meta.ratio.p50} (median assessed value ÷ sale price of ${meta.ratio.n} recent new-construction sales in the City) − the existing building’s assessed value on lots that had no by-right home before. Homes the current code already allows are not credited to the change. Revenue = added assessed value × mills ÷ 1,000, per taxing body.`,
     notes: "Assumes every home that pencils is built. Earned income, wage and other taxes are not counted.",

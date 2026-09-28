@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { formatRange, fmtMoney } from "@/components/seats/format";
 import { hoodOutlines, policyMeta, policyPlaces, policyPoints, policyState, policyStates, storedContext, type Outline, type PolicyPoint } from "@/lib/policy/data";
 import {
-  ATTACHED_ALONE_NOTE, activeLevers, concentration, earlierRunNote, fiscal, fullRunSize, homesRange, leverSentence, leverComboLabel, LEVER_METHOD, newlyRange, PARKING_NOTE, scenarioFromQuery, stateKey, TRANSIT_M,
+  ATTACHED_ALONE_NOTE, activeLevers, concentration, earlierRunNote, fiscal, fullRunSize, homesRange, leverSentence, leverComboLabel, LEVER_METHOD, newlyRange, PARKING_NOTE, scenarioFromQuery, stateKey, TRANSIT_M, fmtMills, cityMillsSource,
 } from "@/lib/policy/model";
 import "./packet.css";
 
@@ -97,12 +97,12 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
             <tbody>
               {fis.rows.map((r, i) => (
                 <tr key={`${r.body.id}-${r.body.name}`}>
-                  <td>{r.body.name}</td><td className="n">{r.body.mills} ({r.body.year})</td><td className="n">{fr(fis.av[i] ?? s.av_delta, true)}</td>
+                  <td>{r.body.name}</td><td className="n">{fmtMills(r.body.mills)} ({r.body.year})</td><td className="n">{fr(fis.av[i] ?? s.av_delta, true)}</td>
                   <td className="n">{fr(r.revenue, true)}</td><td className="n">{fis.abatement ? fr(r.abatementPerYear, true) : "none"}</td>
                   <td className="n">{fis.abatement ? (r.breakEvenYear ? `year ${r.breakEvenYear}` : "—") : "n/a"}</td>
                 </tr>
               ))}
-              <tr className="tot"><td>All bodies</td><td className="n">{Math.round(fis.totalMills * 100) / 100} ({fis.millsParts})</td><td className="n">{fr(s.av_delta, true)}</td><td className="n">{fr(fis.total, true)}</td><td className="n">{fis.abatement ? fr(fis.abatementTotal, true) : "none"}</td><td /></tr>
+              <tr className="tot"><td>All bodies</td><td className="n">{fmtMills(fis.totalMills)} ({fis.millsParts})</td><td className="n">{fr(s.av_delta, true)}</td><td className="n">{fr(fis.total, true)}</td><td className="n">{fis.abatement ? fr(fis.abatementTotal, true) : "none"}</td><td /></tr>
               <tr><td>Doing nothing</td><td className="n" colSpan={2}>lots keep today’s assessed value</td><td className="n">$0 new</td><td className="n" colSpan={2}>{fmtMoney(fis.doingNothing)}/yr paid today on these lots</td></tr>
             </tbody>
           </table>
@@ -172,7 +172,7 @@ export default async function PacketPage({ searchParams }: { searchParams: Promi
             <tr><td>Zoning districts and rules</td><td>City of Pittsburgh zoning map; Pittsburgh Zoning Code (transcribed)</td><td>2026</td></tr>
             <tr><td>New-construction sales</td><td>Allegheny County valid sales ({meta?.citywide.n ?? "—"} City sales)</td><td>{meta ? `${meta.sales_window.earliest} to ${meta.sales_window.latest}` : "—"}</td></tr>
             <tr><td>Construction and soft costs</td><td>EaseScore.AI cost assumptions v0.1 (Pittsburgh builder published ranges; labeled assumptions)</td><td>2026</td></tr>
-            <tr><td>Millage</td><td>Allegheny County Treasurer published millage listings ({(meta?.millage ?? []).map((m) => `${m.name.replace(/^PITTSBURGH$/, "Pittsburgh Public Schools")} ${m.mills}`).join("; ")})</td><td>{meta?.millage?.[0]?.year ?? "—"}</td></tr>
+            <tr><td>Millage</td><td>City of Pittsburgh 2026 rates, the same as the parcel pages ({cityMillsSource()})</td><td>2026</td></tr>
             <tr><td>Frequent transit</td><td>Pittsburgh Regional Transit GTFS (weekday 7–9 am)</td><td>current feed</td></tr>
             <tr><td>Results</td><td>EaseScore.AI policy batch ({st.config_version ?? meta?.policy_version}{s.parcels_seen ? `; ${s.parcels_seen.toLocaleString()} parcels fit-tested` : ""}{earlier ? "; earlier partial run" : ""})</td><td>{s.computed_at?.slice(0, 10) ?? "—"}</td></tr>
           </tbody>

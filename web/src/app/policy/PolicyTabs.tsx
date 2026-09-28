@@ -5,7 +5,7 @@
 
 import { EmptyState, RangeValue, ReceiptButton, formatRange, fmtMoney } from "@/components/seats";
 import {
-  concentration, leverSentence, LEVER_METHOD, PARKING_NOTE, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary,
+  concentration, leverSentence, LEVER_METHOD, PARKING_NOTE, TRANSIT_M, type Fiscal, type LeverState, type Places, type PolicyMeta, type Summary, fmtMills, cityMillsSource,
 } from "@/lib/policy/model";
 import type { Who } from "@/lib/policy/data";
 import type { DataFlags } from "./PolicyApp";
@@ -163,7 +163,7 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
             {fis.rows.map((r, i) => (
               <tr key={`${r.body.id}-${r.body.name}`}>
                 <th scope="row">{r.body.name}</th>
-                <td className="num">{r.body.mills} mills ({r.body.year})</td>
+                <td className="num">{fmtMills(r.body.mills)} mills ({r.body.year})</td>
                 <td className="num">{money(fis.av[i] ?? summary.av_delta)}</td>
                 <td className="num">{money(r.revenue)}</td>
                 <td className="num">{fis.abatement ? <>{money(r.abatementPerYear)}<span className="pol-muted"> for {fis.abatement.years} yr</span></> : "none"}</td>
@@ -172,7 +172,7 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
             ))}
             <tr className="pol-total">
               <th scope="row">All bodies</th>
-              <td className="num">{Math.round(fis.totalMills * 100) / 100} mills<span className="pol-muted"> ({fis.millsParts})</span></td>
+              <td className="num">{fmtMills(fis.totalMills)} mills<span className="pol-muted"> ({fis.millsParts})</span></td>
               <td className="num">{money(summary.av_delta)}</td>
               <td className="num">{money(fis.total)}</td>
               <td className="num">{fis.abatement ? money(fis.abatementTotal) : "none"}</td>
@@ -184,15 +184,15 @@ export function FiscalTab({ summary, fis, meta }: { summary: Summary; fis: Fisca
               <td className="num">$0 new · {fmtMoney(fis.doingNothing)}/yr paid today</td>
               <td className="num" colSpan={2}><ReceiptButton receipt={{
                 label: "Cost of doing nothing", value: `${fmtMoney(fis.doingNothing)} per year`, kind: "data",
-                source: "Allegheny County assessments (county assessed value) and the millage above", date: String(fis.rows[0]?.body.year ?? ""),
-                method: `Today’s assessed value of the parcels that gain homes (${fmtMoney(summary.av_before_gaining)}) × ${Math.round(fis.totalMills * 100) / 100} mills ÷ 1,000. Without the change these lots add no new value; vacant land yields little.`,
+                source: "Allegheny County assessments (county assessed value) and the 2026 City millage above", date: String(fis.rows[0]?.body.year ?? ""),
+                method: `Today’s assessed value of the parcels that gain homes (${fmtMoney(summary.av_before_gaining)}) × ${fmtMills(fis.totalMills)} mills ÷ 1,000. Without the change these lots add no new value; vacant land yields little.`,
               }} /></td>
             </tr>
           </tbody>
         </table>
       </div>
       <p className="pol-muted">
-        Millage from the County Treasurer’s published rates ({fis.rows.map((r) => `${r.body.name} ${r.body.year}`).join(", ")}). New assessed value assumes every home that pencils
+        Millage: the City of Pittsburgh’s 2026 rates, the same as the parcel pages ({cityMillsSource()}). New assessed value assumes every home that pencils
         is built, crediting only the added homes: their share of the scheme’s sale value × assessment ratio {meta?.ratio.p50 ?? "—"} (median of {meta?.ratio.n ?? "—"} recent new-construction sales), less the existing building on lots that had no by-right home before.
         {fis.abatement ? ` Abatement: ${Math.round(fis.abatement.share * 100)}% of the tax on the added value for ${fis.abatement.years} years (illustrative LERTA-style terms, not a verified program). Break-even is the year cumulative collected tax covers the forgone tax.` : ""}
         {" "}Range: {formatRange(fis.total, { format: "money", each: true, likely: true })} per year.
@@ -231,7 +231,7 @@ export function MethodTab({ meta, levers, summary, earlier = null }: { meta: Pol
       <h3>Data dates</h3>
       <ul>
         <li>New-construction sales: {meta ? `${meta.sales_window.earliest} to ${meta.sales_window.latest} (${meta.citywide.n} City sales)` : "not loaded"}.</li>
-        <li>Millage: {meta?.millage?.length ? meta.millage.map((m) => `${m.name} ${m.mills} (${m.year})`).join("; ") : "not loaded"}.</li>
+        <li>Millage: {meta?.millage?.length ? cityMillsSource() : "not loaded"}.</li>
         <li>Results computed: {summary?.computed_at?.slice(0, 16).replace("T", " ") ?? "in progress"} UTC · {meta?.policy_version ?? ""}{summary?.parcels_seen ? ` · ${summary.parcels_seen.toLocaleString()} parcels fit-tested (${summary.buckets ?? ""})` : ""}.</li>
         {earlier ? <li><strong>Run note.</strong> {earlier}</li> : null}
       </ul>
