@@ -7,6 +7,7 @@
 // (its layout is the map's QuickFit 3D tab). A parcel with no precomputed row (outside the scored area) still opens,
 // with its parcel ID, zoning and owner type and a link to score it live.
 
+import { todayET } from "@/lib/date";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BandPill, SeatButton } from "@/components/seats";
@@ -80,7 +81,7 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
     return () => { live = false; };
   }, [parid, state]);
   const stage = useMemo(() => (parid ? mapStage(parid) : null), [parid]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayET();
 
   if (!parid) {
     return (

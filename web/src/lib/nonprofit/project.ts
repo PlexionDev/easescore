@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import "server-only";
 
 // Development cost for a scattered-site project: the same pro forma as the parcel page, run once per
@@ -235,7 +236,7 @@ async function lotInfoRead(lots: string[]): Promise<Map<string, LotInfo>> {
 
 /** Cost of `perLot` homes on each lot, summed; plus the project context the eligibility rules read. */
 export async function projectCost(lots: string[], perLot: number, bedrooms: number): Promise<ProjectCost> {
-  const asOf = new Date().toISOString().slice(0, 10);
+  const asOf = todayET();
   const [costs, mills, info, rate] = await Promise.all([
     Promise.all(lots.map((p) => lotCostCached(p, perLot, bedrooms, asOf))),
     lotMills(lots),

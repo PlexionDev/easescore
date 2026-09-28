@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { NextRequest } from "next/server";
 import { CSV_COLUMNS, csvLine, filtersToQuery, parseDir, parseFilters, parseSort, plannerOptions, plannerQuery, sourcesCsv } from "@/lib/planner";
 
@@ -7,7 +8,7 @@ const CHUNK = 5000;
 // GET /api/planner/export?kind=sources                      CSV of sources and data dates
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayET();
   if (q.get("kind") === "sources") {
     const o = await plannerOptions().catch(() => null);
     return new Response(sourcesCsv(o?.data_dates ?? {}, o?.config_versions ?? [], o?.computed_at ?? null), {

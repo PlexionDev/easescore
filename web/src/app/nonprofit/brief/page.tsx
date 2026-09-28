@@ -2,6 +2,7 @@
 // Rendered to PDF by /api/nonprofit/brief through the shared Chromium pipeline (lib/report/pdf.ts).
 // Same state (query string) and the same engine calls as the /nonprofit page.
 
+import { todayET } from "@/lib/date";
 import type { Metadata } from "next";
 import * as affordable from "@easescore/engine/src/affordable";
 import { need as loadNeed, lotsDetail } from "@/lib/nonprofit/data";
@@ -47,7 +48,7 @@ export default async function BriefPage({ searchParams }: PageProps<"/nonprofit/
   const sp = await searchParams;
   const q = new URLSearchParams(Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])));
   const s = parseState(q);
-  const date = typeof sp.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : new Date().toISOString().slice(0, 10);
+  const date = typeof sp.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayET();
   const [need, lots, cost] = await Promise.all([loadNeed(s.hood), lotsDetail(s.lots), s.lots.length ? projectCost(s.lots, s.perLot, s.bedrooms) : Promise.resolve(null)]);
   const area = need.area;
   const hood = area?.hood ?? s.hood;

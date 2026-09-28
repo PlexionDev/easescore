@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -177,7 +178,7 @@ const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
 export default async function ParcelPage({ params, searchParams }: PageProps<"/parcel/[parid]">) {
   const { parid } = await params;
   const sp = await searchParams;
-  const asOf = new Date().toISOString().slice(0, 10);
+  const asOf = todayET();
   const T = new Timing("parcel", parid);
   // Map data and lot geometry stream to the browser after the pane (never awaited here).
   const quickfitP = quickfitInput(parid);

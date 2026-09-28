@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { NextRequest } from "next/server";
 import { leverSentence, parseKey, stateKey } from "@/lib/policy/model";
 import { policyRows } from "@/lib/policy/data";
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   } catch {
     return new Response("Could not read the policy results; please try again in a moment.", { status: 503 });
   }
-  const date = new Date().toISOString().slice(0, 10);
+  const date = todayET();
   const head = ["parcel_id", "neighborhood", "zoning", "levers_that_apply", "homes_by_right_before", "homes_by_right_after", "homes_added",
     "building_type_after", "pencils_low", "pencils_likely", "pencils_high", "added_assessed_value_likely_usd"];
   const lines = [

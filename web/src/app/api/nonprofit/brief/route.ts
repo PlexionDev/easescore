@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { NextRequest } from "next/server";
 import { renderReportPdf } from "@/lib/report/pdf";
 import { parseState, stateToQuery } from "@/lib/nonprofit/types";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   const s = parseState(req.nextUrl.searchParams);
   const q = stateToQuery(s);
   q.delete("step");
-  const date = new Date().toISOString().slice(0, 10);
+  const date = todayET();
   q.set("date", date);
   const url = `${req.nextUrl.origin}/nonprofit/brief?${q.toString()}`;
   try {

@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { NextRequest } from "next/server";
 import { renderReportPdf } from "@/lib/report/pdf";
 import { filtersToQuery, parseDir, parseFilters, parseSort } from "@/lib/planner";
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
   page.set("dir", parseDir(q.get("dir"), sort));
   if (shortlist.length) page.set("shortlist", shortlist.join(","));
   if (q.get("pinned") === "1") page.set("pinned", "1");
-  const date = new Date().toISOString().slice(0, 10);
+  const date = todayET();
   page.set("date", date);
   try {
     const pdf = await renderReportPdf({ url: `${req.nextUrl.origin}/planner/memo?${page.toString()}`, title: "EaseScore.AI staff memo: candidate housing sites", generatedDate: date });

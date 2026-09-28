@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import "server-only";
 
 // Loads and computes everything the Feasibility Study shows. Pure computation after the fetches:
@@ -328,7 +329,7 @@ function pickScheme(qf: quickfit.QuickFitResult | null, strategy: Strategy): qui
 export function todayIso(sp: SP): string {
   const d = str(sp, "date");
   if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-  return new Date().toISOString().slice(0, 10);
+  return todayET();
 }
 
 // ---------------------------------------------------------------------------------------------

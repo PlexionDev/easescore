@@ -1,3 +1,4 @@
+import { todayET } from "@/lib/date";
 import type { Metadata } from "next";
 import { bandLabel, SCORE_CAPTION } from "@easescore/engine/src/score/bands";
 import localFont from "next/font/local";
@@ -83,7 +84,7 @@ export default async function MemoPage({ searchParams }: PageProps<"/planner/mem
   const sort = parseSort(q.get("sort"));
   const dir = parseDir(q.get("dir"), sort);
   const shortlist = (q.get("shortlist") ?? "").split(",").map((x) => x.trim().toUpperCase()).filter((x) => /^[0-9A-Z]{16}$/.test(x)).slice(0, 25);
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : new Date().toISOString().slice(0, 10);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : todayET();
   const [sum, picked, options] = await Promise.all([
     plannerQuery(f, sort, dir, 10, 0),
     shortlist.length ? plannerQuery({ ids: shortlist }, "score", "desc", 25, 0) : Promise.resolve(null),
