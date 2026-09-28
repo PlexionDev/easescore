@@ -1,6 +1,7 @@
 import { Fragment, Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { notModeledNote } from "@/lib/report/not-modeled";
 import { headers } from "next/headers";
 import { PRINT_HEADER, printToken } from "@/lib/report/pdf-cache";
 import localFont from "next/font/local";
@@ -54,6 +55,8 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/p
   // The full model starts now (it shares the pane read with the first look below).
   const model = loadReport(parid, sp);
   model.catch(() => undefined);
+  const noStudy = await notModeledNote(parid);
+  if (noStudy) return <main className="mx-auto max-w-xl p-6 text-sm text-slate-800"><h1 className="text-lg font-semibold">No feasibility study for this parcel</h1><p className="mt-2">{noStudy}</p></main>;
   const head = await loadReportHead(parid, sp);
   if (!head) notFound();
   const token = printToken();

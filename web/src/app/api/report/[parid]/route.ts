@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { renderReportPdf } from "@/lib/report/pdf";
 import { getCachedPdf, pdfCacheKey, putCachedPdf } from "@/lib/report/pdf-cache";
 import { loadReportHead, todayIso } from "@/lib/report/load";
+import { notModeledNote } from "@/lib/report/not-modeled";
 import { REPORT_VERSION } from "@/app/parcel/[parid]/report/sections";
 
 // GET  /api/report/<parid>?<same query as the report page>  -> PDF download
@@ -21,6 +22,8 @@ const MAX_IMAGE_CHARS = 8_000_000;
 
 async function respond(req: NextRequest, parid: string, query: URLSearchParams, images?: Record<string, string>) {
   if (!PARID.test(parid)) return new Response("Invalid parcel id", { status: 400 });
+  const noStudy = await notModeledNote(parid);
+  if (noStudy) return new Response(`No feasibility study for this parcel. ${noStudy}`, { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   const q = new URLSearchParams(query);
   q.delete("download");
   for (const s of SLOTS) {

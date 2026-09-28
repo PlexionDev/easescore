@@ -399,6 +399,9 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   if (answers && lotReview) answers = { ...answers, pencils: { ...answers.pencils, text: `${lotReview.startsWith(score.LOT_REVIEW) ? "" : `${score.LOT_REVIEW}: `}${lotReview}. ${answers.pencils.text}` } };
   const partialReason: score.PartialReason | null = otherLand ? "not_housing" : !score.zoningLoaded(f) ? "zoning" : (unscored?.reason as score.PartialReason | undefined) ?? (useBuilt ? "use" : null) ?? lotReason;
   const partial = partialReason != null;
+  // Existing building or unverifiable lot: no Pro forma, Feasibility study or PDF (the no-zoning user-building Pro forma stays).
+  const notModeled = partialReason === "use" || partialReason === "footprint" || partialReason === "not_lot" ? "an existing major building stands on this lot"
+    : partialReason === "no_outline" || partialReason === "lot_mismatch" || partialReason === "large_site" || partialReason === "not_housing" ? (lotReview ?? score.partialText(partialReason)).replace(/^./, (m) => m.toLowerCase()) : null;
   const muniName = (f.context?.municipality ?? a?.municipality ?? null) as string | null;
   const partialLine = partial ? score.partialText(partialReason, { municipality: muniName, use: partialReason === "not_housing" ? otherLand : unscored?.use_desc ?? useBuilt ?? (a?.use as string | undefined) ?? null }) : null;
   const best = partial ? null : optionRows.find((r) => r.evaluable) ?? null;
@@ -468,14 +471,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
       {/* 6. Two buttons (the layout is the map's QuickFit 3D tab) */}
-      <div className="grid grid-cols-2 gap-2">
+      {notModeled ? <p className="rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-[13px] leading-snug text-slate-800"><b>Not modeled:</b> {notModeled}. EaseScore screens vacant and underused lots for new homes.</p> : <div className="grid grid-cols-2 gap-2">
         <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pro forma</OpenDrawer>
         <ReportLink parid={parid} query={reportQuery} className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
-      </div>
+      </div>}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
         <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>
         <OpenDrawer id="process" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900">Process checklist</OpenDrawer>
-        <DownloadReport parid={parid} query={reportQuery} label={"Download the PDF"} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />
+        {!notModeled && <DownloadReport parid={parid} query={reportQuery} label={"Download the PDF"} hint={null} variant="secondary" className="ml-auto [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs" />}
       </div>
       <p className="text-[11px] leading-snug text-slate-600">Decision support only: not legal, financial, zoning or engineering advice.</p>
     </div>
@@ -594,14 +597,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       pane={pane}
       planExtras={<>{(ubPlan?.pf ?? pf) ? <AssumptionsForm parid={parid} result={(ubPlan?.pf ?? pf)!} sp={sp} /> : null}{projectForm}</>}
       drawers={[
-        { id: "pencils", title: "Pro forma", content: ubPlan ? <NoZoningProForma parid={parid} sp={sp} plan={ubPlan} municipality={muniName} overrides={overrides} /> : pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} review={lotReview} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
-        { id: "process", title: "Process checklist", content: process },
-        { id: "details", title: "Score details", content: details },
-        { id: "options", title: "Best options and street precedent", content: <>
+        { id: "pencils" as const, title: "Pro forma", content: ubPlan ? <NoZoningProForma parid={parid} sp={sp} plan={ubPlan} municipality={muniName} overrides={overrides} /> : pf && selected ? <ProFormaPanel parid={parid} result={pf} strategyLabel={selected.strategyLabel} sp={sp} overrides={overrides} review={lotReview} live={{ fin: plan.fin, strategy: selected.strategy, scheme: plan.scheme, stepping: plan.stepping }} /> : <p className="text-sm text-slate-600">No cost and value estimate for this option yet.{pencilsNote ? ` ${pencilsNote}` : ""}</p> },
+        { id: "process" as const, title: "Process checklist", content: process },
+        { id: "details" as const, title: "Score details", content: details },
+        { id: "options" as const, title: "Best options and street precedent", content: <>
           {optionRows.length > 0 ? <BestOptions parid={parid} rows={lotReview ? optionRows.map((r) => (r.pencils === "yes" || r.pencils === "thin" || r.pencils === "no" ? { ...r, pencils: "unknown" as const } : r)) : optionRows} detail={lotReview ? {} : pencilDetail} selected={selected?.strategy ?? null} sp={sp} partial={partial} note={isHighDensityZone(f.zoning?.code) ? HIGH_DENSITY_NOTE : null} /> : <p className="text-sm text-slate-600">No options were scored for this lot.</p>}
           <StreetPrecedent parid={parid} precedent={P.precedent} zbaNearby={P.zbaNearby ?? null} result={easeResult} isCity={isCity} />
         </> },
-      ]}
+      ].filter((d) => !notModeled || d.id !== "pencils")}
       parid={parid} stage={stage} outline={P.outline} center={centerOf(f)}
       viewFacts={{
         address, parid, zoning: f.zoning?.code ?? null, lotSf,

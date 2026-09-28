@@ -144,10 +144,19 @@ export default function DeveloperPane({ parid, known, pinned, canPin, onPin, onC
           {r.note ? <p className="pl-callout amber">{r.note}</p> : null}
         </>
       ) : null}
-      <div className="dv-actions">
-        <Link className="es-btn" href={`${href}#drawer=pencils`}>Pro forma</Link>
-        <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Feasibility study<span className="es-sr"> (opens in a new tab)</span></a>
-      </div>
+      {(() => {
+        // Existing building or unverifiable lot: no Pro forma or Feasibility study (the parcel page shows the same note).
+        const pr = (r as { partial_reason?: string | null } | null)?.partial_reason ?? null;
+        const note = otherLand?.id === parid && otherLand.reason ? partialText("not_housing", { use: otherLand.reason }).replace(/^./, (m) => m.toLowerCase())
+          : pr === "use" || pr === "footprint" || pr === "not_lot" ? "an existing major building stands on this lot"
+          : pr === "no_outline" || pr === "lot_mismatch" || pr === "large_site" || pr === "not_housing" ? partialText(pr).replace(/^./, (m) => m.toLowerCase()) : null;
+        return note ? <p className="pl-callout">Not modeled: {note}. EaseScore screens vacant and underused lots for new homes.</p> : (
+          <div className="dv-actions">
+            <Link className="es-btn" href={`${href}#drawer=pencils`}>Pro forma</Link>
+            <a className="es-btn" href={`${href}/report`} target="_blank" rel="noopener">Feasibility study<span className="es-sr"> (opens in a new tab)</span></a>
+          </div>
+        );
+      })()}
       <div className="dv-actions2">
         {r ? <SeatButton onClick={() => onPin(r)} disabled={!pinned && !canPin} title={!pinned && !canPin ? "My lots holds 10" : undefined}>{pinned ? "Remove from My lots" : "Pin to My lots"}</SeatButton> : null}
         <Link href={href} className="dv-link">Open the quick view</Link>
