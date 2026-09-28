@@ -4,7 +4,7 @@ EaseScore.AI shows what it takes to build housing on a lot in Allegheny County, 
 
 Built for the AI for Housing Hackathon 2026, Track 1 (Allegheny County parcels). Live site: https://easescore.ai
 
-Demo video: [link to be added]
+Demo video: https://youtu.be/aFHZCRhTD44
 
 Details on the site: [Data and methods](https://easescore.ai/methods) · [Limitations](https://easescore.ai/limitations) · [AI tools used](https://easescore.ai/ai-use) · [Accessibility](https://easescore.ai/accessibility)
 
