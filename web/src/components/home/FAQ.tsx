@@ -16,7 +16,7 @@ const TEXT: Record<string, string> = {
   "faq.q7": "What if the City disagrees with EaseScore?",
   "faq.a7": "The City’s decision always governs. Zoning results cite the section of the code they rely on, so staff and applicants can see what was applied. EaseScore is decision support only, not legal, zoning or financial advice.",
   "faq.q8": "What does AI do here, and what doesn’t it do?",
-  "faq.a8": "AI (Claude) helps find a parcel from a plain question and rewords the short summary from results the code already calculated. It never calculates a score, cost, rent, tax or return. A validator checks every number in an AI-written sentence against the calculation; if one doesn’t match, the standard sentence is shown instead.",
+  "faq.a8": "AI (Claude) only rewords the plain-language answers and the short summary from results the code already calculated; search, scoring and every number are ordinary code. It never calculates a score, cost, rent, tax or return. A validator checks every number in an AI-written sentence against the calculation; if one doesn’t match, the standard sentence is shown instead.",
   "faq.q9": "Who could this hurt, and what does it get wrong?",
   "faq.a9": "It could be misused to target owners in financial trouble, so private owners’ names are never shown and tax-delinquency status is shown only for publicly owned land. Estimates can be wrong, so they come as ranges with sources and are not advice.",
 };
