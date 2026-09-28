@@ -1,19 +1,27 @@
 
 // English text for the keyed lookups below.
 const TEXT: Record<string, string> = {
-  "faq.q1": "How is the score calculated?",
-  "faq.a1": "Seven factors are scored from 0 to 100 and weighted: zoning, terrain, hazards, access, approvals, the lot itself and nearby market activity. Bands: few, some, significant or major barriers. The score measures barriers to building, not whether it’s a good investment; money is kept separate, in the “does it pencil” result and a market-strength signal. The weights are published on the data and methods page; the example card above uses illustrative values.",
-  "faq.q2": "Does it cover the whole county?",
-  "faq.a2": "Parcels, terrain, hazards and sales cover all of Allegheny County. Detailed zoning rules are loaded for the City of Pittsburgh first. Elsewhere there is no numeric score: a partial screen shows the known facts (lot, slope, hazards, existing building, market). Confirm zoning with the municipality.",
-  "faq.q3": "What does AI do here?",
-  "faq.a3": "It helps find a parcel from a plain question and writes the short summary from the calculated results. It never calculates a score, a cost or a return.",
-  "faq.q4": "Is this legal, zoning or financial advice?",
-  "faq.a4": "No. It is a starting point for a decision. Confirm zoning with the permitting office, costs with local bids and financing with your lender.",
-  "faq.q5": "What happens to what I type?",
-  "faq.a5": "Searches are used only to find the parcel and are not tied to an account. There is no account or sign-in.",
+  "faq.q1": "What is EaseScore?",
+  "faq.a1": "A free tool that shows what it takes to build housing on a lot in Allegheny County. Type an address or parcel ID and you get the lot’s zoning, slope, hazards, approvals and an estimated budget in one place, with a source behind every number. There is no account or sign-in.",
+  "faq.q2": "What does the Ease Score measure?",
+  "faq.a2": "How many barriers stand between a lot and new housing: zoning, terrain, hazards, access, approvals, the lot itself and nearby market activity. It reads Few, Some, Significant or Major barriers. It measures barriers to building, not whether it’s a good investment; money is kept separate, in the pro forma.",
+  "faq.q3": "What happens when data is missing?",
+  "faq.a3": "EaseScore says so instead of guessing. Missing values stay missing, never filled with a zero or a favorable assumption. Zoning rules are loaded for the City of Pittsburgh only; elsewhere, and where the building on a lot can’t be verified, the lot shows a Partial screen with no score and only the facts we have.",
+  "faq.q4": "Where does the data come from, and how current is it?",
+  "faq.a4": "Public records: Allegheny County parcels, assessments and sales; City of Pittsburgh zoning, permits and hazard maps; USGS elevation data; FEMA flood maps; Pennsylvania DEP mine and environmental records; HUD rents and income limits; Census data; and ZIP-level asking rents from RentCast, with HUD Fair Market Rents as the fallback. Receipts and reports show each source and its date.",
+  "faq.q5": "Where do construction costs come from?",
+  "faq.a5": "Published Pittsburgh builder price ranges by build quality, with the builder’s fee removed using NAHB’s 2024 cost survey, so the figure is the cost to build. The default is Standard infill at $190 per square foot. The construction loan uses the latest bank prime rate in our data plus 1.0 point. Every line shows its source and can be edited.",
+  "faq.q6": "Why do so many lots not pencil?",
+  "faq.a6": "In many Pittsburgh neighborhoods, building a new home costs more than new homes sell for. That is the market, not a bug. A lot pencils when the estimate meets the 15% target margin (editable), and a margin from zero up to the target is a thin margin. Where a lot doesn’t pencil, EaseScore shows how large the gap is.",
+  "faq.q7": "What if the City disagrees with EaseScore?",
+  "faq.a7": "The City’s decision always governs. Zoning results cite the section of the code they rely on, so staff and applicants can see what was applied. EaseScore is decision support only, not legal, zoning or financial advice.",
+  "faq.q8": "What does AI do here, and what doesn’t it do?",
+  "faq.a8": "AI (Claude) helps find a parcel from a plain question and rewords the short summary from results the code already calculated. It never calculates a score, cost, rent, tax or return. A validator checks every number in an AI-written sentence against the calculation; if one doesn’t match, the standard sentence is shown instead.",
+  "faq.q9": "Who could this hurt, and what does it get wrong?",
+  "faq.a9": "It could be misused to target owners in financial trouble, so private owners’ names are never shown and tax-delinquency status is shown only for publicly owned land. Estimates can be wrong, so they come as ranges with sources and are not advice.",
 };
 
-const FAQS = [1, 2, 3, 4, 5] as const;
+const FAQS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 export default async function FAQ() {
   return (
@@ -25,11 +33,14 @@ export default async function FAQ() {
         </div>
         <div className="faqs">
           {FAQS.map((n) => (
-            <details key={n}><summary>{TEXT[`faq.q${n}`]}</summary><p>{TEXT[`faq.a${n}`]}</p></details>
+            <details key={n}>
+              <summary>{TEXT[`faq.q${n}`]}</summary>
+              <p>
+                {TEXT[`faq.a${n}`]}
+                {n === 9 && <> <a href="/limitations#who-it-helps">Read the limitations</a>.</>}
+              </p>
+            </details>
           ))}
-          <p style={{ fontSize: ".875rem", marginTop: 18 }}>
-            {"Who this helps, who it could hurt, and what it gets wrong:"} <a href="/limitations#who-it-helps">read the limitations</a>.
-          </p>
         </div>
       </div>
     </section>
