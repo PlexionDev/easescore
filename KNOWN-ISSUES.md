@@ -62,3 +62,5 @@
 - **The process checklist has no City Site Plan Review item.** It is required on Hillside lots and on LNC lots of 2,400 sq ft or more; confirm with City Planning.
 - **Existing-building wording can differ between the pane and the study** where the assessment records a building use but no building footprint is mapped.
 - Some large public and institutional sites have no building value in County records. EaseScore marks them Partial when building footprints cover the lot, but a few may still appear; they're not housing sites.
+- **Planning badge points can differ between the Planner (stored) and the parcel page (live)** for the same public parcel, because the lists use overnight scores.
+- **A one-home townhouse layout can read "allowed by right" where the townhouse row itself would need a lot split**; confirm lot-split requirements with City Planning.
