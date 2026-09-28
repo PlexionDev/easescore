@@ -179,6 +179,8 @@ None of the following exists in the submitted product.
 - **Not built: a lot finder for tax-delinquent public land.**
 - **Not built: measured permit times** from the City's permitting system.
 - **Not built: rental verdicts** with a local cap rate and hold period.
+- **Not built: an institutional-use classifier** (convention centers, campuses, stadiums and similar sites recorded without building value).
+- **Not built: size-matched land pricing** (land comps matched to the lot's size and shape).
 
 ## Run it locally
 

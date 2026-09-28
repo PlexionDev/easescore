@@ -61,3 +61,4 @@
 - **Very tight lots can show "no building fits."** The site-fit solver's minimum building depth is 24 ft, so a lot with about 23.6 ft of buildable depth after setbacks reads as not fitting.
 - **The process checklist has no City Site Plan Review item.** It is required on Hillside lots and on LNC lots of 2,400 sq ft or more; confirm with City Planning.
 - **Existing-building wording can differ between the pane and the study** where the assessment records a building use but no building footprint is mapped.
+- Some large public and institutional sites have no building value in County records. EaseScore marks them Partial when building footprints cover the lot, but a few may still appear; they're not housing sites.
