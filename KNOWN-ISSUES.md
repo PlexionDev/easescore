@@ -49,6 +49,7 @@
 - **Months to a permit are published review targets, not measured times.**
 - **No lot finder for tax-delinquent public land** (acquisition-path search).
 - **Some non-housing public land may still rank.** Streets, alleys, parks, plazas and right-of-way strips are excluded by county codes, zoning and lot shape; traffic islands, corner remnants and land under structures can slip through.
+- **Retired rail parcels are excluded as utility land; some may be buildable and would need individual review.**
 - **Some built-on parcels are hidden and some vacant lots are missed.** Parcels the county records as built-on show as Partial; in a spot-check of 20, 2 were actually vacant.
 - **Sale values can hinge on a handful of comps.** Two lots a block apart can draw different new-construction sale sets (e.g. 7 sales at a $300/sq ft median vs 12 at $255), which moves the margin a lot.
 - **Search:** there is no search by municipality name ("Mt Lebanon" alone matches a street), intersections are not matched, and a house number that doesn't exist on a direction-prefixed street can fall back to the same number on a similarly named street elsewhere.

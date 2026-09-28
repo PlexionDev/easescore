@@ -9,12 +9,14 @@ export const metadata: Metadata = {
 };
 
 const DEV_TOOLS: [string, string, string][] = [
-  ["Claude Code (Anthropic)", "Claude Opus 5.5 and Claude Sonnet 5", "Pair programming, planning, code generation, review passes, and research notes."],
+  ["Claude Code (Anthropic)", "Claude Opus 5.5 and Claude Sonnet 5", "Anthropic's coding agent, including multi-agent workflows. It wrote most of the code, tests, SQL migrations and docs, and ran QA and audit passes, under the team's direction. Also planning and research notes."],
   ["oh-my-claudecode", "Claude Code plugin", "Coordinates several Claude Code agents working on separate tasks."],
   ["Claude Code (Anthropic)", "Claude Opus 5.5", "Drafted a Spanish translation of the interface and summary during the hackathon. It was removed before submission: the site is English only."],
   ["ChatGPT (OpenAI)", "\u2014", "Homepage design and layout (HTML/CSS), later ported into the app."],
   ["ChatGPT image generation (OpenAI)", "\u2014", "Homepage images. They are AI-generated regional imagery: not photos of any lot or parcel, and not copyrighted photography."],
   ["ChatGPT image generation (OpenAI) + Claude", "\u2014", "Logo concept generated with ChatGPT (image generation), then redrawn as vector geometry by Claude."],
+  ["OpenArt", "—", "Animations in the demo video."],
+  ["ElevenLabs", "—", "Text-to-speech narration of the demo video, read from the team's script."],
 ];
 
 const TOC: [string, string][] = [
@@ -33,7 +35,7 @@ export default function AiUsePage() {
           <span className={d.eyebrow}>AI tools used</span>
           <h1 id="page-title">Where AI is used, and where it is not</h1>
           <p className={d.lede}>
-            AI helped write the code, design the homepage and make its images, and it polishes some sentences on the page. It never calculates a score, a cost, a value or a return.
+            AI wrote most of the code under the team&apos;s direction, designed the homepage, made its images, animated and narrated the demo video, and it polishes some sentences on the page. It never calculates a score, a cost, a value or a return.
           </p>
         </div>
       </section>
@@ -52,7 +54,8 @@ export default function AiUsePage() {
           <section id="summary" aria-labelledby="summary-h">
             <h2 id="summary-h">In short</h2>
             <ul>
-              <li><strong>To build it:</strong> Claude Code, Anthropic&apos;s coding assistant. ChatGPT designed the homepage layout.</li>
+              <li><strong>To build it:</strong> Claude Code, Anthropic&apos;s coding agent, wrote most of the code, tests, database migrations and docs under the team&apos;s direction. ChatGPT designed the homepage layout.</li>
+              <li><strong>Demo video:</strong> animations made with OpenArt; narration is ElevenLabs text-to-speech read from the team&apos;s script.</li>
               <li><strong>Images:</strong> homepage images were made with ChatGPT&apos;s image generation. They show the region in general, not any real lot, and are not photographs.</li>
               <li><strong>In the product:</strong> the Claude API (model <code>claude-sonnet-5</code>) rewords plain-English sentences that the engine has already written from computed results.</li>
               <li><strong>Language:</strong> the site is in English only. A Spanish translation drafted with AI during the hackathon was removed before submission.</li>
