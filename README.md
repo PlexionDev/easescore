@@ -223,7 +223,7 @@ cd web && npx tsc --noEmit -p .
 
 ## License
 
-TODO (owner): choose a license for the code before the repo is published. Data keeps its publishers' licenses (see the table above); PA DEP water service areas and Google tiles carry use restrictions.
+No open-source license has been chosen for the code yet, so all rights are reserved for now. Data keeps its publishers' licenses (see the table above); PA DEP water service areas and Google tiles carry use restrictions.
 
 ## Credits
 
