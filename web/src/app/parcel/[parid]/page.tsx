@@ -28,6 +28,7 @@ import { parcelPlan, reportQueryFor, userBuildingPlan } from "@/lib/parcel-plan"
 import NoZoningProForma from "./NoZoningProForma";
 import { HIGH_DENSITY_NOTE, isHighDensityZone, plannerOptions } from "@/lib/planner";
 import ParcelSeatHeader from "@/components/seats/ParcelSeatHeader";
+import { READYPERMIT_LABEL, READYPERMIT_LINE, permitAddress, permitProject, readyPermitHref } from "@/lib/readypermit";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -428,6 +429,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
   const thumbTyp = genTyp ?? typologyForStrategy(optionRows.find((r) => r.applicable && typologyForStrategy(r.strategy))?.strategy ?? null);
   const thumbLabel = thumbTyp ? score.OPTION_NAME[QF2_TYPES.find((t) => t.id === thumbTyp)!.strategy] : null;
   const detailsHint = selected ? `${selected.factors.length} factors and receipts` : "receipts";
+  // ReadyPermit link (off unless configured): City parcels with zoning loaded, a full screen, and a supported
+  // project the user chose (Process checklist project type or smaller work; see lib/readypermit.ts).
+  const permitHref = !partial && !notModeled
+    ? readyPermitHref({
+      parid, address: permitAddress(rawAddr), isCity: score.zoningLoaded(f),
+      project: permitProject({ type: typeof sp.type === "string" ? sp.type : null, minorWork: typeof sp.minor_work === "string" ? sp.minor_work : null, strategy: selected?.applicable ? selected.strategy : null }),
+    })
+    : null;
 
   // One wrapper so the pane sets its own (tighter) rhythm: everything fits one 1440×900 screen.
   const pane = (
@@ -472,9 +481,11 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
       {/* 6. Two buttons (the layout is the map's QuickFit 3D tab) */}
-      {notModeled ? <p className="rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-[13px] leading-snug text-slate-800"><b>Not modeled:</b> {notModeled}. EaseScore screens vacant and underused lots for new homes.</p> : <div className="grid grid-cols-2 gap-2">
-        <OpenDrawer id="pencils" className="rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Pro forma</OpenDrawer>
-        <ReportLink parid={parid} query={reportQuery} className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-2 py-2 text-sm font-semibold text-slate-900 hover:border-slate-600">Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
+      {notModeled ? <p className="rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-[13px] leading-snug text-slate-800"><b>Not modeled:</b> {notModeled}. EaseScore screens vacant and underused lots for new homes.</p> : <div className={permitHref ? "grid grid-cols-3 gap-x-2 gap-y-0.5" : "grid grid-cols-2 gap-2"}>
+        <OpenDrawer id="pencils" className={`rounded-lg border border-slate-400 bg-white font-semibold text-slate-900 hover:border-slate-600 ${permitHref ? "px-1.5 py-0.5 text-[13px] leading-[1.15]" : "px-2 py-2 text-sm"}`}>Pro forma</OpenDrawer>
+        <ReportLink parid={parid} query={reportQuery} className={`inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white font-semibold text-slate-900 hover:border-slate-600 ${permitHref ? "px-1.5 py-0.5 text-center text-[13px] leading-[1.15]" : "px-2 py-2 text-sm"}`}>Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
+        {permitHref && <a href={permitHref} target="_blank" rel="noopener noreferrer" aria-describedby="readypermit-line" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-1.5 py-0.5 text-center text-[13px] font-semibold leading-[1.15] text-slate-900 hover:border-slate-600">{READYPERMIT_LABEL}<span className="sr-only"> (opens in a new tab)</span></a>}
+        {permitHref && <p id="readypermit-line" className="col-span-3 text-[11px] leading-tight text-slate-600">{READYPERMIT_LINE}</p>}
       </div>}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
         <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>
