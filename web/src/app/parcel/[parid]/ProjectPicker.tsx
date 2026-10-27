@@ -33,7 +33,7 @@ export default function ProjectPicker({ value }: { value: PickedProject }) {
       <label htmlFor="project-picker">Planning work on an existing home?</label>
       <select id="project-picker" value={picked} aria-busy={pending} onChange={(e) => choose(e.target.value as PickedProject)}
         className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-xs text-slate-900">
-        <option value="">No</option>
+        <option value="">Neither</option>
         <option value="addition">An addition</option>
         <option value="deck">A deck</option>
       </select>
