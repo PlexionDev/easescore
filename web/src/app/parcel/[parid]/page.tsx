@@ -28,7 +28,8 @@ import { parcelPlan, reportQueryFor, userBuildingPlan } from "@/lib/parcel-plan"
 import NoZoningProForma from "./NoZoningProForma";
 import { HIGH_DENSITY_NOTE, isHighDensityZone, plannerOptions } from "@/lib/planner";
 import ParcelSeatHeader from "@/components/seats/ParcelSeatHeader";
-import { READYPERMIT_LABEL, READYPERMIT_LINE, permitAddress, permitProject, readyPermitHref } from "@/lib/readypermit";
+import { READYPERMIT_LABEL, READYPERMIT_LINE, READYPERMIT_SHORT_LINE, READYPERMIT_URL, permitAddress, permitProject, readyPermitHref } from "@/lib/readypermit";
+import ProjectPicker from "./ProjectPicker";
 
 const STATUS_STYLE: Record<string, string> = {
   REQUIRED: "bg-red-100 text-red-800",
@@ -437,10 +438,14 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
       project: permitProject({ type: typeof sp.type === "string" ? sp.type : null, minorWork: typeof sp.minor_work === "string" ? sp.minor_work : null, strategy: selected?.applicable ? selected.strategy : null }),
     })
     : null;
+  // Existing-home picker (same conditions as the link minus the chosen project) and, once an addition or deck
+  // is chosen, one line for that project in place of the new-construction best option.
+  const showPicker = !!READYPERMIT_URL && !partial && !notModeled && score.zoningLoaded(f);
+  const picked = !showPicker ? null : sp.type === "addition" ? "addition" as const : sp.minor_work === "deck" ? "deck" as const : null;
 
   // One wrapper so the pane sets its own (tighter) rhythm: everything fits one 1440×900 screen.
   const pane = (
-    <div className="space-y-2.5">
+    <div className={showPicker ? "space-y-2" : "space-y-2.5"}>
       {/* 1. Address, parcel ID (copy), neighborhood and zoning */}
       <header>
         <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900">{address}</h1>
@@ -476,7 +481,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
           ))}
         </div>
         <p className="mt-1.5 text-[13px] text-slate-800"><b>Existing building:</b> {buildingLine}</p>
-        {bestLine && <p className="mt-1 text-[13px] text-slate-800" title={best && ["yes", "thin", "no"].includes(best.pencils) ? "Pencils: meets the target profit margin at default assumptions" : undefined}><b>Best option:</b> {bestLine}{best && ["yes", "thin", "no"].includes(best.pencils) ? <span className="sr-only"> (pencils means it meets the target profit margin at default assumptions)</span> : null}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
+        {picked ? <p className="mt-1 text-[13px] text-slate-800"><b>Your project:</b> {picked === "addition" ? "an addition to the existing home" : "a deck"}. The new-construction options are in <OpenDrawer id="options" className="underline decoration-dotted underline-offset-2 hover:text-slate-900">Highest and best use</OpenDrawer>.</p>
+          : bestLine && <p className="mt-1 text-[13px] text-slate-800" title={best && ["yes", "thin", "no"].includes(best.pencils) ? "Pencils: meets the target profit margin at default assumptions" : undefined}><b>Best option:</b> {bestLine}{best && ["yes", "thin", "no"].includes(best.pencils) ? <span className="sr-only"> (pencils means it meets the target profit margin at default assumptions)</span> : null}{best && selected && best.strategy !== selected.strategy ? <span className="text-slate-600">{` (showing ${selected.strategyLabel.toLowerCase()})`}</span> : null}</p>}
         {lotMismatch && <p className="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-950"><b>Review required: lot size records disagree</b> (County {lotMismatch.county.toLocaleString("en-US")} sq ft vs mapped {lotMismatch.mapped.toLocaleString("en-US")} sq ft). Confirm with a survey; the layout uses the mapped outline.</p>}
         {selected && selected.reviewCallouts.length > 0 && <div className="mt-1.5"><Callouts selected={selected} kinds="review" max={2} compact /></div>}
       </section>
@@ -485,7 +491,8 @@ export default async function ParcelPage({ params, searchParams }: PageProps<"/p
         <OpenDrawer id="pencils" className={`rounded-lg border border-slate-400 bg-white font-semibold text-slate-900 hover:border-slate-600 ${permitHref ? "px-1.5 py-0.5 text-[13px] leading-[1.15]" : "px-2 py-2 text-sm"}`}>Pro forma</OpenDrawer>
         <ReportLink parid={parid} query={reportQuery} className={`inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white font-semibold text-slate-900 hover:border-slate-600 ${permitHref ? "px-1.5 py-0.5 text-center text-[13px] leading-[1.15]" : "px-2 py-2 text-sm"}`}>Feasibility study<span className="sr-only"> (opens in a new tab)</span></ReportLink>
         {permitHref && <a href={permitHref} target="_blank" rel="noopener noreferrer" aria-describedby="readypermit-line" className="inline-flex items-center justify-center rounded-lg border border-slate-400 bg-white px-1.5 py-0.5 text-center text-[13px] font-semibold leading-[1.15] text-slate-900 hover:border-slate-600">{READYPERMIT_LABEL}<span className="sr-only"> (opens in a new tab)</span></a>}
-        {permitHref && <p id="readypermit-line" className="col-span-3 text-[11px] leading-tight text-slate-600">{READYPERMIT_LINE}</p>}
+        {permitHref && <p id="readypermit-line" title={READYPERMIT_LINE} className="col-span-3 text-[11px] leading-tight text-slate-600"><span aria-hidden="true">{READYPERMIT_SHORT_LINE}</span><span className="sr-only">{READYPERMIT_LINE}</span></p>}
+        {showPicker && <div className={permitHref ? "col-span-3" : "col-span-2"}><ProjectPicker value={picked ?? ""} /></div>}
       </div>}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
         <OpenDrawer id="details" className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-slate-900" label={`Score details: ${detailsHint}`}>Score details</OpenDrawer>

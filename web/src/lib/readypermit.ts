@@ -40,6 +40,8 @@ export function permitProject(o: { type?: string | null; minorWork?: string | nu
 
 export const READYPERMIT_LABEL = "Get permit-ready with ReadyPermit";
 export const READYPERMIT_LINE = "ReadyPermit walks you through the permits you need and builds a ready-to-submit application.";
+/** Visible under the button so the parcel pane fits one screen; the full line is its title and screen-reader text. */
+export const READYPERMIT_SHORT_LINE = "Walks you through permits and builds a ready-to-submit application.";
 
 /**
  * The County street address in title case; a lot with no house number (or "0") gives the street alone;
