@@ -199,8 +199,6 @@ ACS_COMMON = [
     "B19013_001E", "B19013_001M", "B25064_001E", "B25064_001M",
     "B25070_001E", "B25070_007E", "B25070_008E", "B25070_009E", "B25070_010E", "B25070_011E",
     "B11005_001E", "B11005_002E",
-    "B03002_001E", "B03002_003E", "B03002_004E", "B03002_005E", "B03002_006E",
-    "B03002_007E", "B03002_008E", "B03002_009E", "B03002_012E",
 ]
 
 
@@ -237,7 +235,6 @@ def _acs_row(d, level):
         pov_t = "C17002"
     kids = _int(d["B11005_002E"])
     kids_u = _int(d["B11005_001E"])
-    others = [_int(d[f"B03002_00{i}E"]) for i in ("5", "7", "8")]
     out = {
         "geoid": geoid, "name": d["NAME"], "vintage": ACS_VINTAGE, "acs_year": ACS_YEAR,
         "population": _int(d["B01003_001E"]), "households": hh,
@@ -248,10 +245,6 @@ def _acs_row(d, level):
         "rent_burden_30_pct": _pct(b30n, denom), "rent_burden_50_pct": _pct(b50n, denom),
         "poverty_universe": pov_u, "poverty_n": pov_n, "poverty_pct": _pct(pov_n, pov_u), "poverty_table": pov_t,
         "hh_with_children": kids, "hh_with_children_pct": _pct(kids, kids_u),
-        "pop_race_universe": _int(d["B03002_001E"]), "nh_white": _int(d["B03002_003E"]),
-        "nh_black": _int(d["B03002_004E"]), "nh_asian": _int(d["B03002_006E"]),
-        "nh_other": sum(v for v in others if v is not None) if any(v is not None for v in others) else None,
-        "nh_two_or_more": _int(d["B03002_009E"]), "hispanic": _int(d["B03002_012E"]),
     }
     if level == "bg":
         out["tract_geoid"] = geoid[:11]
@@ -264,12 +257,12 @@ def acs(con=None):
     time.sleep(2)
     bg = [_acs_row(d, "bg") for d in _acs_get("bg", ["C17002_001E", "C17002_002E", "C17002_003E"])]
     slow_upload("acs_bg", bg, "geoid", batch=250)
-    source("acs5_2024", name="American Community Survey 5-year estimates (tables B01003, B03002, B11005, "
+    source("acs5_2024", name="American Community Survey 5-year estimates (tables B01003, B11005, "
                             "B17001, C17002, B19013, B25003, B25064, B25070)",
            publisher="U.S. Census Bureau (Census Data API)", url=f"https://api.census.gov/data/{ACS_YEAR}/acs/acs5",
            vintage=ACS_VINTAGE + " (released Dec 2025; 2021-2025 not yet published on 2026-09-26)",
            license="Public domain (U.S. Government work)", tables=["acs_tract", "acs_bg"],
-           notes="B03002 race/ethnicity is equity context only and never feeds a parcel score. "
+           notes="No race or ethnicity tables are requested or stored. "
                  "Block groups use C17002 for poverty (B17001 is tract-only).")
 
 
