@@ -1,5 +1,7 @@
 # EaseScore.AI
 
+> This repository is the AI for Housing Hackathon 2026 submission and stays public per the event rules. EaseScore's ongoing development continues privately; the live product is at easescore.ai.
+
 EaseScore.AI shows what it takes to build housing on a lot in Allegheny County, Pennsylvania. Search an address or parcel ID and it returns a Development Ease Score (0 to 100) that measures the barriers to building, the problems that could stop or slow a project, what the zoning allows, a test fit of a building on the lot, a budget with a "does it pencil?" answer, and a downloadable feasibility study. It has four workspaces ("seats") — Municipal Planner, Developer, Nonprofit/CDC and Policy Analyst — plus a quick check on the homepage. Every number traces to a public record or to a labeled, editable assumption. It is decision support, not legal, financial, zoning or engineering advice.
 
 Built for the AI for Housing Hackathon 2026, Track 1 (Allegheny County parcels). Live site: https://easescore.ai
